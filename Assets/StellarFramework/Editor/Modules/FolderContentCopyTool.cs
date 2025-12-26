@@ -148,21 +148,54 @@ namespace StellarFramework.Editor
                 foreach (var folder in _selectedFolders)
                 {
                     index++;
+                    // 更新进度条，告知用户当前扫描的文件夹
                     EditorUtility.DisplayProgressBar("复制脚本内容", $"扫描: {folder}", (float)index / _selectedFolders.Count);
 
+                    // 获取文件夹下所有文件
                     var files = Directory.GetFiles(folder, "*.*", SearchOption.AllDirectories);
+
                     for (int i = 0; i < files.Length; i++)
                     {
-                        var f = files[i];
-                        string ext = Path.GetExtension(f).ToLowerInvariant();
+                        // filePathForRead 用于读取文件内容，保持原始路径（可能是绝对路径），确保 File.ReadAllText 不会报错
+                        var filePathForRead = files[i];
+
+                        // 1. 扩展名检查
+                        // 性能注意：Path.GetExtension 处理速度很快，放在最前面过滤可以减少不必要的后续逻辑
+                        string ext = Path.GetExtension(filePathForRead).ToLowerInvariant();
                         if (!exts.Contains(ext)) continue;
 
-                        string content = File.ReadAllText(f);
+                        // 2. 路径处理（核心修改）
+                        // filePathForDisplay 用于 StringBuilder 的输出展示
+                        string filePathForDisplay = filePathForRead;
+
+                        // 统一将反斜杠转为正斜杠，Unity开发习惯统一使用 '/'
+                        filePathForDisplay = filePathForDisplay.Replace("\\", "/");
+
+                        // 查找 "Assets/" 关键词的位置
+                        // 注意：这里假设你的项目结构是标准的 Unity 结构
+                        int assetIndex = filePathForDisplay.IndexOf("Assets/");
+
+                        if (assetIndex >= 0)
+                        {
+                            // 截取从 "Assets/" 开始的路径字符串
+                            // 例如：D:/Projects/MyGame/Assets/Scripts/Player.cs -> Assets/Scripts/Player.cs
+                            filePathForDisplay = filePathForDisplay.Substring(assetIndex);
+                        }
+
+                        // Debug调试：打印路径处理前后的对比，方便确认截取逻辑是否正确
+                        // 如果文件数量成千上万，建议调试完成后注释掉这行，避免Editor控制台刷屏
+                        UnityEngine.Debug.Log($"[路径处理] 原始: {filePathForRead} \n -> 截取后: {filePathForDisplay}");
+
+                        // 3. 读取文件内容
+                        string content = File.ReadAllText(filePathForRead);
+
+                        // 4. 拼接内容到 StringBuilder
                         sb.AppendLine("=================================================");
-                        sb.AppendLine(f);
+                        sb.AppendLine(filePathForDisplay); // 这里使用截取后的短路径
                         sb.AppendLine("-------------------------------------------------");
                         sb.AppendLine(content);
                         sb.AppendLine();
+
                         fileCount++;
                     }
                 }
