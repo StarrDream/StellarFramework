@@ -229,7 +229,7 @@ namespace StellarFramework.Event
 
         #endregion
 
-        public static void Clear<T>() where T : Enum
+        public static void UnRegister<T>() where T : Enum
         {
             EventBox<T>.EventTable.Clear();
             EventBox<T>.TokenPool.Clear();

@@ -65,6 +65,12 @@ namespace StellarFramework.Editor
             // Raycaster
             root.AddComponent<GraphicRaycaster>();
 
+            // 创建EventSystem
+            GameObject eventSystem = new GameObject("EventSystem");
+            eventSystem.transform.SetParent(root.transform, false);
+            eventSystem.AddComponent<UnityEngine.EventSystems.EventSystem>();
+            eventSystem.AddComponent<UnityEngine.EventSystems.StandaloneInputModule>();
+            
             // 创建层级节点
             CreateLayerNode(root, UIPanelBase.PanelLayer.Bottom);
             CreateLayerNode(root, UIPanelBase.PanelLayer.Middle);
