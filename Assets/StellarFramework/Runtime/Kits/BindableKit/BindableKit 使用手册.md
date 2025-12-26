@@ -40,9 +40,9 @@ class ObserverNode {
 ### 3.1 基础属性 (BindableProperty)
 适用于：血量、金币、等级、名称、开关状态等单值数据。
 
-**Model 层定义：**
+**AbstractModel 层定义：**
 ```csharp
-public class PlayerModel : IModel
+public class PlayerModel : AbstractModel
 {
     // 定义一个初始值为 100 的属性
     public BindableProperty<int> HP = new BindableProperty<int>(100);
@@ -51,9 +51,9 @@ public class PlayerModel : IModel
 }
 ```
 
-**View 层监听：**
+**StellarView 层监听：**
 ```csharp
-public class PlayerUI : MonoBehaviour, IController
+public class PlayerUI : StellarView
 {
     public Text hpText;
 
@@ -77,9 +77,9 @@ public class PlayerUI : MonoBehaviour, IController
 }
 ```
 
-**System 层修改：**
+**AbstractService 层修改：**
 ```csharp
-public class DamageSystem : ISystem
+public class DamageSystem : AbstractService
 {
     public void ApplyDamage(int damage)
     {

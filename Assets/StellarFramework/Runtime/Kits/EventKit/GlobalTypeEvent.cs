@@ -59,7 +59,7 @@ namespace StellarFramework.Event
         /// <summary>
         /// 清空某类事件的所有监听 (慎用，通常用于重置游戏)
         /// </summary>
-        public static void Clear<T>() where T : ITypeEvent
+        public static void UnRegister<T>() where T : ITypeEvent
         {
             EventBox<T>.Subscribers = null;
             EventBox<T>.ClearPool();

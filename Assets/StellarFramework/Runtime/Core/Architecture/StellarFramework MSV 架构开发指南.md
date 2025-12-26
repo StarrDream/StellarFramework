@@ -1,56 +1,37 @@
 ﻿# StellarFramework MSV 架构开发指南
 
-> **版本**: Pure (纯净版)  
-> **核心理念**: 零依赖、强类型、高性能、逻辑与表现分离
+**版本**: v2.1 (Multi-Architecture Support)  
+**核心理念**: 关注点分离 (Separation of Concerns) - 数据、逻辑、表现解耦。
 
 ---
 
-## 1. 为什么这么设计？(Design Philosophy)
+## 1. 架构概览 (Overview)
 
-在 Unity 开发中，随着项目规模扩大，代码往往会变成“面条代码”：逻辑写在 UI 里，数据散落在各个脚本中，修改一个功能导致三个功能报错。
+本架构采用 **Model-Service-View (MSV)** 设计模式。
 
-**StellarFramework MSV** 旨在解决以下痛点：
+### 核心分层
+1.  **Model (数据层)**
+    *   **职责**：仅存储运行时数据。
+    *   **规则**：不可引用 View，不可包含复杂业务逻辑。
+2.  **Service (服务层)**
+    *   **职责**：处理业务逻辑（计算、网络、存档），修改 Model。
+    *   **规则**：不可直接引用 View。
+3.  **View (表现层)**
+    *   **职责**：显示数据，接收用户输入。
+    *   **规则**：不可直接修改 Model，必须调用 Service 处理逻辑。
 
-1.  **解决耦合**：强制将 **数据 (Model)**、**逻辑 (Service)**、**表现 (View)** 分离。
-2.  **解决混乱**：提供统一的入口 (Architecture) 管理所有模块，不再需要 `FindObjectOfType` 或到处写单例。
-3.  **解决性能**：核心容器基于 `Dictionary<Type, object>`，查找复杂度为 O(1)，无装箱拆箱，无反射开销（仅在注册时使用一次类型推断）。
-4.  **保持纯粹**：这是一个**无依赖**的架构。它不强制你使用特定的事件系统（如 UniRx），也不强制你继承特定的基类（Service 是纯 C# 类）。
-
----
-
-## 2. 核心概念 (Core Concepts)
-
-架构由四个核心部分组成：
-
-### M - Model (数据层)
-*   **职责**：只存储数据。
-*   **特征**：不包含复杂逻辑，**绝对不能引用 View**。
-*   **生命周期**：随架构启动而初始化，随架构销毁而销毁。
-
-### S - Service (逻辑层)
-*   **职责**：处理业务逻辑（计算、网络请求、存档）。
-*   **特征**：修改 Model，通知 View（通过事件或轮询），**不直接引用 View**。
-*   **扩展**：如果是纯逻辑，继承 `AbstractService`；如果需要 Unity 生命周期（如 Update），建议内部挂载一个隐藏的 GameObject。
-
-### V - View (表现层)
-*   **职责**：显示数据、接收用户输入。
-*   **特征**：继承自 `StellarView` (MonoBehaviour)。
-*   **规则**：**只做表现，不做逻辑**。点击按钮后，调用 Service 处理，然后等待数据变化刷新 UI。
-
-### Architecture (架构容器)
-*   **职责**：IOC 容器，负责维护 Model 和 Service 的实例，管理初始化顺序。
+### 数据流向
+> **View** (用户操作) -> 调用 **Service** -> 修改 **Model** -> 发送通知 -> **View** (刷新界面)
 
 ---
 
-## 3. 快速上手 (Getting Started)
+## 2. 快速上手 (Quick Start)
 
 ### 第一步：定义架构入口
-创建一个类继承 `Architecture<T>`，并在 `InitModules` 中注册模块。
+创建一个类继承 `Architecture<T>`。
 
 ```csharp
-// GameApp.cs
-using StellarFramework;
-
+// GameApp.cs (全局架构)
 public class GameApp : Architecture<GameApp>
 {
     protected override void InitModules()
@@ -61,224 +42,175 @@ public class GameApp : Architecture<GameApp>
 }
 ```
 
-### 第二步：定义 Model
+### 第二步：定义 Model & Service
 ```csharp
-// PlayerModel.cs
 public class PlayerModel : AbstractModel
 {
-    public int HP { get; set; } = 100;
+    public BindableProperty<int> HP = new BindableProperty<int>(100);
 }
-```
 
-### 第三步：定义 Service
-```csharp
-// PlayerService.cs
 public class PlayerService : AbstractService
 {
-    public void Heal(int amount)
+    public void Heal()
     {
         var model = GetModel<PlayerModel>();
-        model.HP += amount;
-        // 可以在这里发送事件通知 View
+        model.HP.Value += 10;
     }
 }
 ```
 
-### 第四步：定义 View
+### 第三步：定义 View
+继承 `StellarView` 并重写 `Architecture` 属性，指定该 View 属于哪个架构。
+
 ```csharp
-// PlayerView.cs
 public class PlayerView : StellarView
 {
-    protected override void OnBind()
+    // [关键] 指定此 View 归属于 GameApp
+    public override IArchitecture Architecture => GameApp.Interface;
+
+    public override void OnBind()
     {
-        // 获取模块，绑定事件
-        var model = GameApp.Interface.GetModel<PlayerModel>();
-        Debug.Log($"当前血量: {model.HP}");
+        var model = this.GetModel<PlayerModel>();
+        model.HP.Register(OnHpChanged).UnRegisterWhenGameObjectDestroyed(gameObject);
     }
 
-    protected override void OnUnbind()
-    {
-        // 清理事件
-    }
-    
     public void OnClickHeal()
     {
-        GameApp.Interface.GetService<PlayerService>().Heal(10);
+        this.GetService<PlayerService>().Heal();
     }
+
+    private void OnHpChanged(int hp) { /* Update UI */ }
+    public override void OnUnbind() { }
 }
 ```
 
-### 第五步：启动架构
-在游戏入口脚本（挂在场景物体上）调用 Init。
+---
+
+## 3. 核心机制 (Core Mechanics)
+
+### 3.1 为什么引入 `IView` 接口？
+C# 不支持多重继承。如果你的脚本必须继承 `Button`、`ScrollRect` 或第三方插件的类，就无法继承 `StellarView`。
+**解决方案**：实现 `IView` 接口，并使用框架提供的扩展方法 `this.GetModel<T>()`。
 
 ```csharp
-// GameEntry.cs
-void Awake()
+public class MyButton : Button, IView
 {
-    GameApp.Interface.Init();
+    public IArchitecture Architecture => GameApp.Interface; // 指定架构
+
+    protected override void Start() { base.Start(); OnBind(); }
+    protected override void OnDestroy() { OnUnbind(); base.OnDestroy(); }
+
+    public void OnBind() { /* ... */ }
+    public void OnUnbind() { /* ... */ }
 }
+```
+
+### 3.2 为什么 View 不能直接改 Model？
+如果 View 直接 `model.HP = 0`，业务逻辑就散落在 UI 代码里了。当需要在扣血时增加“无敌判断”或“播放音效”时，你需要去修改每一个相关的 UI 脚本。
+**正确做法**：View 调用 `Service.TakeDamage()`，所有逻辑在 Service 中收口。
+
+---
+
+## 4. 多架构管理 (Multi-Architecture Strategy)
+
+在复杂项目中，通常需要多个架构并存。例如：**全局架构**（一直存在）和 **战斗架构**（随场景销毁）。
+
+### 4.1 定义多个架构
+```csharp
+// 1. 全局架构 (存放用户信息、设置、网络连接)
+public class GlobalApp : Architecture<GlobalApp> { ... }
+
+// 2. 战斗架构 (存放怪物列表、技能状态、战斗结算)
+public class BattleApp : Architecture<BattleApp> { ... }
+```
+
+### 4.2 生命周期管理
+*   **GlobalApp**：在游戏启动时 (`GameEntry.Awake`) 初始化，永不销毁。
+*   **BattleApp**：在进入战斗场景时初始化，退出战斗场景时销毁。
+
+```csharp
+// BattleEntry.cs (挂在战斗场景的物体上)
+public class BattleEntry : MonoBehaviour
+{
+    void Awake()
+    {
+        // 初始化战斗架构
+        BattleApp.Interface.Init();
+    }
+
+    void OnDestroy()
+    {
+        // [重要] 退出场景时销毁架构，释放内部所有 Model 和 Service
+        BattleApp.Interface.Dispose();
+    }
+}
+```
+
+### 4.3 View 的归属
+View 必须明确自己属于哪个架构。
+
+```csharp
+// 血条 UI (属于战斗架构)
+public class HealthBar : StellarView {
+    public override IArchitecture Architecture => BattleApp.Interface;
+    // ... GetModel<BattleModel>()
+}
+
+// 设置弹窗 (属于全局架构)
+public class SettingsWindow : StellarView {
+    public override IArchitecture Architecture => GlobalApp.Interface;
+    // ... GetModel<SettingsModel>()
+}
+```
+
+### 4.4 跨架构通信 (Cross-Architecture)
+如果战斗中的 Service 需要读取全局的用户数据，怎么办？
+
+**方案 A：直接访问 (推荐)**
+Service 是纯 C# 类，可以直接访问其他架构的静态 Interface。
+```csharp
+// BattleService.cs
+public void OnGameWin()
+{
+    // 1. 处理战斗数据
+    var battleModel = GetModel<BattleModel>();
+    
+    // 2. [跨架构] 获取全局 UserService 增加经验值
+    GlobalApp.Interface.GetService<UserService>().AddExp(100);
+}
+```
+
+**方案 B：事件解耦**
+使用 `EventKit` 发送全局事件。
+```csharp
+// BattleService.cs
+GlobalEnumEvent.Broadcast(GlobalEvents.AddExp, 100);
 ```
 
 ---
 
-## 4. 进阶案例：不同的交互模式
+## 5. 常见坑点 (Pitfalls)
 
-由于架构是纯粹的，你可以选择不同的方式来实现 **Model -> View** 的通信。
+### Q1: 忘记初始化架构
+**现象**：View 在 `Start` 中报错 `NullReferenceException`。
+**原因**：View 的 `Start` 执行得比架构的 `Init` 早。
+**解决**：
+1.  确保 `GameEntry` / `BattleEntry` 的 Script Execution Order 排在最前。
+2.  或者在 View 中判空（不推荐，治标不治本）。
 
-### 案例 A：使用原生 C# 事件 (推荐，标准做法)
-*   **优点**：性能最好，无依赖。
-*   **缺点**：需要手动注销事件。
+### Q2: 忘记 Dispose 场景架构
+**现象**：重新进入战斗场景时，数据还是上一次战斗的残余数据。
+**原因**：`BattleApp` 是静态单例，如果不调用 `Dispose()`，内部的 Model 不会被销毁，数据会一直保留。
+**解决**：务必在场景卸载或 Entry 销毁时调用 `Dispose()`。
 
-```csharp
-// Model
-public class ScoreModel : AbstractModel {
-    public event Action<int> OnScoreChanged;
-    private int _score;
-    public int Score {
-        get => _score;
-        set {
-            if (_score != value) {
-                _score = value;
-                OnScoreChanged?.Invoke(_score); // 推送消息
-            }
-        }
-    }
-}
+### Q3: 循环依赖
+*   Service 可以调用其他 Service。
+*   Service 可以获取 Model。
+*   **Model 不应该获取 Service**（Model 只是数据容器）。
+*   **Service 不应该获取 View**（逻辑不应依赖 UI）。
 
-// View
-public class ScoreView : StellarView {
-    private ScoreModel _model;
-    
-    protected override void OnBind() {
-        _model = GameApp.Interface.GetModel<ScoreModel>();
-        _model.OnScoreChanged += UpdateUI; // 订阅
-        UpdateUI(_model.Score);
-    }
-    
-    protected override void OnUnbind() {
-        _model.OnScoreChanged -= UpdateUI; // !必须注销!
-    }
-    
-    private void UpdateUI(int score) { /* 更新 UI */ }
-}
-```
-
-### 案例 B：引入 BindableKit (极简响应式)
-如果你有 `BindableKit` (StellarFramework 的扩展包)，代码会更简洁。
-
-*   **优点**：代码少，支持自动注销。
-*   **缺点**：引入了额外的类。
-
-```csharp
-// Model
-public class ScoreModel : AbstractModel {
-    // 使用 BindableProperty
-    public BindableProperty<int> Score = new BindableProperty<int>(0);
-}
-
-// View
-public class ScoreView : StellarView {
-    protected override void OnBind() {
-        var model = GameApp.Interface.GetModel<ScoreModel>();
-        
-        // 链式调用，自动管理生命周期
-        model.Score.RegisterWithInitValue(score => {
-            scoreText.text = score.ToString();
-        }).UnRegisterWhenGameObjectDestroyed(gameObject);
-    }
-    
-    protected override void OnUnbind() { 
-        // 不需要写任何代码，自动注销
-    }
-}
-```
-
-### 案例 C：轮询模式 (无事件)
-适用于高频变化或极其简单的逻辑。
-
-```csharp
-// View
-void Update() {
-    // 每帧主动去拉取数据，不依赖通知
-    if (_model.Score != _lastScore) {
-        _lastScore = _model.Score;
-        UpdateUI();
-    }
-}
-```
-
----
-
-## 5. 常见问题与坑点 (FAQ & Pitfalls)
-
-### Q1: Service 太多怎么办？如何拓展？
-如果 `GameApp.cs` 里注册了 50 个 Service，文件会很大。
-
-**解决方案 1：使用 partial class (分部类)**
-```csharp
-// GameApp.cs
-public partial class GameApp : Architecture<GameApp> { ... }
-
-// GameApp.Modules.cs
-public partial class GameApp {
-    protected override void InitModules() {
-        RegisterSystemModules();
-        RegisterBattleModules();
-    }
-    private void RegisterSystemModules() { ... }
-}
-```
-
-**解决方案 2：多架构拆分**
-不要把所有东西都塞进 `GameApp`。
-*   `GlobalApp` (全局单例)：存用户信息、设置、网络连接。
-*   `BattleApp` (场景级)：存战斗数据、怪物列表。
-*   进入战斗场景 `BattleApp.Init()`，退出场景 `BattleApp.Dispose()`。
-
-### Q2: Service 如何使用 Unity 的 Update 或 Coroutine？
-**坑点**：不要让 Service 继承 MonoBehaviour。
-**正解**：在 Service `Init()` 时，动态创建一个 GameObject 挂载辅助脚本。
-
-```csharp
-public class TimerService : AbstractService {
-    private MonoBehaviour _runner;
-    public override void Init() {
-        var go = new GameObject("TimerRunner");
-        GameObject.DontDestroyOnLoad(go);
-        _runner = go.AddComponent<ServiceRunner>(); // 一个空的 Mono
-    }
-    public void StartTimer() {
-        _runner.StartCoroutine(CountDown());
-    }
-}
-```
-
-### Q3: 为什么我的 View 报空指针？
-**检查**：
-1.  是否在 `Awake` 里调用了 `GameApp.Interface.Init()`？
-2.  View 的 `Start` 可能比架构 `Init` 执行得早。建议在 Unity 的 Script Execution Order 中设置 `GameEntry` 最先执行。
-
-### Q4: 内存泄漏的根源？
-**最大坑点**：在 `OnBind` 里 `+=` 了事件，但忘记在 `OnUnbind` 里 `-=`。
-**后果**：View 被销毁了，但 Model 还持有 View 的引用，导致报错 `MissingReferenceException` 并且内存不释放。
-
----
-
-## 6. 底层原理 (Under the Hood)
-
-1.  **单例容器**：`Architecture<T>` 维护了两个 `Dictionary<Type, object>`。
-2.  **依赖注入 (Service Locator)**：
-    *   当你调用 `GetModel<T>()` 时，架构直接通过 `typeof(T)` 哈希查找字典，速度极快。
-3.  **生命周期钩子**：
-    *   `StellarView` 利用 Unity 的 `Start` 自动调用 `Bind`。
-    *   `StellarView` 利用 Unity 的 `OnDestroy` 自动调用 `Unbind`。
-
----
-
-## 7. 总结
-
-StellarFramework MSV 不是一个限制你写法的框架，而是一个**管理依赖的容器**。
-
-*   它告诉你：**数据放 Model，逻辑放 Service，界面放 View**。
-*   它帮你：**管理它们的创建、获取和销毁**。
-*   剩下的：**由你自由发挥**。
+### Q4: 模块划分不清
+不要把所有东西都塞进 `GlobalApp`。
+*   **GlobalApp**: 账号、背包、好友、聊天、设置。
+*   **BattleApp**: 敌人、子弹、技能、伤害计算。
+*   **HomeApp**: 主城交互、建筑升级。

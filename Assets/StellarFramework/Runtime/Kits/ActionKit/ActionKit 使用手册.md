@@ -1,143 +1,242 @@
-﻿# ActionKit 使用手册
+﻿# ActionKit 核心使用手册
 
-## 1. 设计理念 (Why)
-在商业游戏开发中，异步逻辑（Asynchronous Logic）和 补间动画（Tweening）是两大核心需求。
-*   **传统痛点**：
-    *   `Coroutine`：写法嵌套过深，难以维护，且开启协程 (`StartCoroutine`) 会产生 GC。
-    *   `DOTween`：功能强大但体积庞大，闭源导致难以深度定制，且泛型扩展不够灵活。
-    *   `UniTask`：虽然解决了异步问题，但缺乏一套直观的、类似 DOTween 的“链式动作序列”封装。
-
-**ActionKit 的特性：**
-*   **链式编程 (Fluent API)**：`Sequence().Delay().MoveTo().Callback()`，逻辑一目了然，代码即文档。
-*   **轻量高性能**：底层完全基于 `UniTask` 驱动，**0 GC Update**。
-*   **生命周期安全**：核心类 `UniActionChain` 自动绑定 GameObject 的 `CancellationToken`。当物体销毁时，所有未完成的延时、动画会自动取消，**彻底根绝空引用异常 (MissingReferenceException)**。
-*   **对象池化**：链条对象实现了 `IPoolable`，使用完自动回收。在弹幕游戏等高频场景下，性能表现优异。
+**版本**: v2.0 (UniTask Powered)  
+**定位**: 基于 UniTask 的轻量级、高性能、链式动作序列库。
 
 ---
 
-## 2. 核心架构 (Under the hood)
+## 1. 设计理念 (Design Philosophy)
 
-### 2.1 模块划分
-*   **MonoKit**：负责流程控制。提供 `Sequence` (序列), `Delay` (延时), `Parallel` (并行), `Until` (条件等待) 等逻辑节点。
-*   **TweenKit**：负责数值插值。提供 `MoveTo`, `ScaleTo`, `FadeTo`, `ValueTo` 等动画节点。本质上是 `UniActionChain` 的扩展方法。
+ActionKit 旨在解决 Unity 开发中异步逻辑碎片化和补间动画 GC 高的问题。
 
-### 2.2 运行机制
-1.  **申请**：调用 `MonoKit.Sequence(target)` 时，从 `PoolKit` 申请一个 `UniActionChain` 实例。
-2.  **构建**：调用 `.Delay()`, `.MoveTo()` 等方法，实际上是向链条内部的 `List<Func<CancellationToken, UniTask>>` 添加任务委托。
-3.  **执行**：调用 `.Start()` 后，链条开始遍历任务列表，使用 `await` 逐个执行。
-4.  **回收**：当所有任务完成、或发生异常、或被取消时，链条自动重置数据并回收到对象池。
+*   **零 GC (Zero GC)**: 运行时无内存分配，底层基于 UniTask 和对象池。
+*   **链式编程 (Fluent API)**: `Sequence().Delay().Move().Start()`，逻辑线性化。
+*   **安全生命周期**: 自动绑定 GameObject 的 `OnDestroy`，彻底解决 `MissingReferenceException`。
+*   **模块化**:
+    *   **MonoKit**: 负责流程控制 (延时、循环、条件、并行)。
+    *   **TweenKit**: 负责数值插值 (移动、旋转、缩放、渐变)。
 
 ---
 
-## 3. 使用指南 (How)
+## 2. 快速开始 (Quick Start)
 
-### 3.1 基础序列 (Sequence)
-最常用的功能，按顺序执行一系列动作。
+### 基础序列
+所有动作必须以 `MonoKit.Sequence(gameObject)` 开头，以 `.Start()` 结尾。
 
 ```csharp
-// 场景：怪物死亡流程 -> 变红 -> 震动 -> 缩小 -> 销毁
-MonoKit.Sequence(gameObject) // 1. 传入 gameObject 绑定生命周期 (必填)
-    .ColorTo(renderer, Color.red, 0.2f)                // 2. 变红
-    .RotateTo(transform, new Vector3(0, 360, 0), 0.5f) // 3. 旋转一圈
-    .ScaleTo(transform, Vector3.zero, 0.3f)            // 4. 缩小消失
-    .Callback(() => {                                  // 5. 回调逻辑
-        AudioKit.PlaySound("MonsterDie");
-        EffectManager.Play("Explosion", transform.position);
-    })
-    .Callback(() => Destroy(gameObject))               // 6. 销毁物体
-    .Start();                                          // 7. 启动！(切记)
+// 示例：物体生成 -> 变大 -> 停留 -> 消失
+MonoKit.Sequence(gameObject)
+    .ScaleTo(transform, Vector3.one, 0.5f, Ease.OutBack) // 弹性变大
+    .Delay(1.0f)                                         // 停留 1秒
+    .ScaleTo(transform, Vector3.zero, 0.2f)              // 缩小
+    .Callback(() => Destroy(gameObject))                 // 销毁
+    .Start();                                            // [重要] 启动执行
 ```
 
-### 3.2 并行执行 (Parallel)
-同时播放多个动画或逻辑，等待所有任务完成后，继续执行后续步骤。
+---
+
+## 3. MonoKit：流程控制 (Flow Control)
+
+MonoKit 提供了对时间、帧、条件和循环的控制能力。
+
+### 3.1 时间与帧 (Time & Frame)
+
+```csharp
+MonoKit.Sequence(this)
+    .Delay(1.5f)           // 等待 1.5 秒
+    .DelayFrame(1)         // 等待 1 帧 (yield return null)
+    .DelayFrame(5)         // 等待 5 帧
+    .Callback(() => Debug.Log("Done"))
+    .Start();
+```
+
+### 3.2 条件等待 (Conditions)
+
+用于等待某个特定条件满足后，再执行下一步。
+
+```csharp
+// 示例：等待玩家按下空格键，或者敌人死亡
+MonoKit.Sequence(this)
+    .Until(() => Input.GetKeyDown(KeyCode.Space)) // 阻塞直到返回 true
+    .Callback(() => Debug.Log("Space Pressed!"))
+    .Start();
+
+// 示例：While 循环 (当条件满足时一直执行)
+MonoKit.Sequence(this)
+    .While(() => player.IsAlive, (chain) => 
+    {
+        // 只要玩家活着，每秒回血一次
+        chain.Delay(1.0f)
+             .Callback(() => player.Heal(5));
+    })
+    .Start();
+```
+
+### 3.3 循环与重复 (Loop & Repeat)
+
+```csharp
+// 重复固定次数
+MonoKit.Sequence(this)
+    .Repeat(3, (chain) => 
+    {
+        // 这里的逻辑会执行 3 次
+        chain.ScaleTo(tf, Vector3.one * 1.2f, 0.2f)
+             .ScaleTo(tf, Vector3.one, 0.2f);
+    })
+    .Start();
+
+// 无限循环 (Forever)
+MonoKit.Sequence(this)
+    .Forever((chain) => 
+    {
+        // 自身旋转，永不停歇，直到 GameObject 销毁
+        chain.RotateTo(tf, new Vector3(0, 0, 360), 2.0f)
+             .Callback(() => tf.rotation = Quaternion.identity);
+    })
+    .Start();
+```
+
+### 3.4 并行执行 (Parallel)
+
+同时执行多个动作，等待所有动作完成后，继续后续链条。
+
+> **注意**: 在 Parallel 内部必须调用 `.Await()` 而不是 `.Start()`。
 
 ```csharp
 MonoKit.Sequence(gameObject)
     .Parallel(
-        // 任务A：移动 (注意：必须调用 .Await() 将动作转为 UniTask)
-        (token) => MonoKit.Sequence(gameObject).MoveTo(tf, targetPos, 1f).Await(),
-        
-        // 任务B：UI 渐变
-        (token) => MonoKit.Sequence(gameObject).FadeTo(canvasGroup, 0f, 1f).Await(),
-        
-        // 任务C：纯逻辑 (直接返回 UniTask)
-        (token) => { 
-            Debug.Log("开始并行计算..."); 
-            return UniTask.Delay(500, cancellationToken: token); 
-        }
+        // 任务A：移动
+        t => MonoKit.Sequence(gameObject).MoveTo(tf, targetPos, 1f).Await(),
+        // 任务B：变色
+        t => MonoKit.Sequence(gameObject).ColorTo(img, Color.red, 1f).Await(),
+        // 任务C：自定义异步逻辑
+        async t => await UniTask.Delay(500, cancellationToken: t)
     )
-    .Callback(() => Debug.Log("所有并行任务已完成，继续后续逻辑"))
+    .Callback(() => Debug.Log("所有并行任务完成"))
     .Start();
 ```
 
-### 3.3 UI 动画 (忽略 TimeScale)
-做弹窗、暂停菜单动画时，必须忽略 `Time.timeScale`，否则游戏暂停时动画也会卡住。
+---
+
+## 4. TweenKit：动画插值 (Animation)
+
+TweenKit 是 `UniActionChain` 的扩展方法，支持多种组件的插值动画。
+
+### 4.1 Transform 变换
+
+| 方法名 | 描述 | 参数示例 |
+| :--- | :--- | :--- |
+| `MoveTo` | 世界坐标移动 | `transform, new Vector3(10,0,0), 1f` |
+| `LocalMoveTo` | 本地坐标移动 | `transform, new Vector3(10,0,0), 1f` |
+| `RotateTo` | 欧拉角旋转 | `transform, new Vector3(0,90,0), 0.5f` |
+| `LocalRotateTo` | 本地欧拉角旋转 | `transform, new Vector3(0,90,0), 0.5f` |
+| `ScaleTo` | 缩放 | `transform, Vector3.one * 2, 0.3f` |
+| `LookAt` | 旋转朝向目标 | `transform, targetPosition, 0.5f` |
+
+### 4.2 UI & 图形 (uGUI / Sprite)
+
+| 方法名 | 支持组件 | 描述 |
+| :--- | :--- | :--- |
+| `FadeTo` | CanvasGroup, Image, Text, SpriteRenderer | 透明度 Alpha 变化 (0~1) |
+| `ColorTo` | Image, Text, SpriteRenderer, Graphic | 颜色变化 |
+| `FillAmountTo` | Image | 填充进度变化 (0~1) |
 
 ```csharp
+// UI 进场动画示例
 MonoKit.Sequence(gameObject)
-    .SetUpdate(true) // <--- 开启忽略 TimeScale (使用 unscaledTime)
-    .FadeTo(canvasGroup, 1f, 0.3f)
-    .ScaleTo(panelRect, Vector3.one, 0.3f, Ease.OutBack) // 使用弹性曲线
+    .SetUpdate(true) // 忽略 TimeScale (UI常用)
+    .FadeTo(canvasGroup, 1f, 0.5f)
+    .LocalMoveTo(rectTransform, Vector3.zero, 0.5f, Ease.OutBack)
     .Start();
 ```
 
-### 3.4 数值驱动 (ValueTo)
-常用于金币增长、血条变化、经验条滚动等效果。
+### 4.3 通用数值驱动 (ValueTo)
+
+万能插值方法，用于驱动任何自定义属性（如金币跳动、Shader参数、音量）。
 
 ```csharp
-// 场景：金币数字从 0 滚动到 1000
+// 示例：音量渐隐
 MonoKit.Sequence(gameObject)
-    .ValueTo(0, 1000, 1.5f, (val) => 
+    .ValueTo(1.0f, 0.0f, 2.0f, (val) => 
     {
-        // 每帧回调，val 是当前插值
-        coinText.text = $"Coins: {(int)val}";
-    }, Ease.OutExpo)
+        audioSource.volume = val;
+    }, Ease.Linear)
+    .Start();
+```
+
+### 4.4 缓动函数 (Ease)
+
+所有 `To` 方法的最后一个参数通常是 `Ease` 类型。
+*   `Ease.Linear`: 线性（匀速）
+*   `Ease.InSine / OutSine / InOutSine`: 平滑正弦
+*   `Ease.InQuad / OutQuad`: 二次加速/减速
+*   `Ease.OutBack`: 超过终点再弹回（弹性效果，UI 常用）
+*   `Ease.OutBounce`: 像球落地一样弹跳
+
+---
+
+## 5. 高级功能 (Advanced)
+
+### 5.1 手动取消 (Cancellation)
+
+虽然 ActionKit 会自动随 GameObject 销毁而取消，但有时你需要手动打断动画（例如：玩家在攻击前摇时被打断）。
+
+```csharp
+// 1. 保存引用
+var action = MonoKit.Sequence(gameObject)
+    .Delay(5.0f)
+    .Callback(() => Debug.Log("Attack!"));
+    
+action.Start();
+
+// 2. 在需要的时候取消
+// action.Cancel(); // 取消当前链条，不再执行后续步骤
+```
+
+### 5.2 忽略时间缩放 (Unscaled Time)
+
+游戏暂停 (`Time.timeScale = 0`) 时，UI 动画通常需要继续播放。
+
+```csharp
+MonoKit.Sequence(gameObject)
+    .SetUpdate(true) // true = 使用 UnscaledTime
+    .ScaleTo(tf, Vector3.one, 0.5f)
     .Start();
 ```
 
 ---
 
-## 4. 常见坑点与解决方案 (Troubleshooting)
+## 6. 常见问题 (Troubleshooting)
 
-### Q1: 动画代码写了，但是没反应？
-*   **原因 A**：忘记调用 `.Start()`。ActionKit 的设计是“构建-执行”分离的，不调用 Start 只是构建了数据。
-*   **原因 B**：`gameObject` 在动画开始前就被销毁或隐藏了。
-*   **原因 C**：`Time.timeScale` 为 0，且没有调用 `.SetUpdate(true)`。
+1.  **忘记写 `.Start()`**
+    *   现象：代码运行了但画面没反应。
+    *   原因：ActionKit 是构建者模式，`Start()` 才是触发器。
 
-### Q2: `Parallel` 里的动画瞬间完成了，没有等待？
-*   **错误写法**：
-    ```csharp
-    .Parallel((t) => MonoKit.Sequence(go).MoveTo(...).Start()) // ❌ 错误
-    ```
-    `.Start()` 是 "Fire-and-Forget"（发后即忘）的方法，它返回 `void`。`Parallel` 收到 `void` 后认为任务立即完成了。
-*   **正确写法**：
-    ```csharp
-    .Parallel((t) => MonoKit.Sequence(go).MoveTo(...).Await()) // ✅ 正确
-    ```
-    `.Await()` 返回 `UniTask`，`Parallel` 会等待这个 Task 完成。
+2.  **Parallel 中使用了 `.Start()`**
+    *   现象：并行任务瞬间结束，没有等待动画播完。
+    *   解决：在 `Parallel` 内部必须使用 `.Await()` 返回 Task。
 
-### Q3: 报错 `MissingReferenceException`？
-*   虽然 ActionKit 会自动取消任务，但如果你在 `.Callback(() => ...)` 中引用了**其他**已经销毁的物体，依然会报错。
-*   **建议**：在 Callback 中操作外部对象时，最好判空 `if (otherObj != null)`。
+3.  **空引用异常**
+    *   虽然 ActionKit 处理了自身的生命周期，但在 `.Callback(() => obj.name)` 中，如果 `obj` 是外部变量且已被销毁，C# 依然会报错。请在 Callback 中做好判空保护。
 
 ---
 
-## 5. 扩展指南 (Extension)
-如果你需要支持新的组件（比如 `TextMeshPro` 的颜色渐变），可以编写扩展方法：
+## 7. 扩展指南 (Extension)
+
+如果需要支持 TextMeshPro 或自定义 Shader 属性，可以编写扩展方法：
 
 ```csharp
-public static class MyTweenExtensions
+public static class ActionKitExtensions
 {
-    public static UniActionChain ColorTo(this UniActionChain chain, TextMeshProUGUI target, Color endColor, float duration)
+    // 扩展：打字机效果
+    public static UniActionChain Typewriter(this UniActionChain chain, Text textComp, string content, float duration)
     {
-        // 向链条添加一个自定义任务
         chain.AppendTask(async (token) => 
         {
-            if (target == null) return;
-            // 复用 TweenKit 核心插值器
-            await TweenKit.To(target.color, endColor, duration, (c) => 
+            await TweenKit.To(0, content.Length, duration, (val) => 
             {
-                if (target != null) target.color = c;
+                int count = Mathf.FloorToInt(val);
+                textComp.text = content.Substring(0, count);
             }, Ease.Linear, token, chain.IsIgnoreTimeScale);
         });
         return chain;

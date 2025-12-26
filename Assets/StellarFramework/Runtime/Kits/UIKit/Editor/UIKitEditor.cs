@@ -31,7 +31,7 @@ namespace StellarFramework.Editor
         public static void CreateUIRootPrefab()
         {
             // 目录：Assets/Resources/UIPanel
-            string folderPath = "Assets/Resources/UIPanel";
+            string folderPath = "Assets/StellarFramework/Resources/UIPanel";
             if (!Directory.Exists(folderPath))
             {
                 Directory.CreateDirectory(folderPath);
