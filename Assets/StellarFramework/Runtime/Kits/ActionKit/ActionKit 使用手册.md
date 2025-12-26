@@ -1,6 +1,6 @@
 ﻿# ActionKit 核心使用手册
 
-**版本**: v2.0 (UniTask Powered)  
+**版本**: v3.3 (Enhanced Control)  
 **定位**: 基于 UniTask 的轻量级、高性能、链式动作序列库。
 
 ---
@@ -12,9 +12,7 @@ ActionKit 旨在解决 Unity 开发中异步逻辑碎片化和补间动画 GC �
 *   **零 GC (Zero GC)**: 运行时无内存分配，底层基于 UniTask 和对象池。
 *   **链式编程 (Fluent API)**: `Sequence().Delay().Move().Start()`，逻辑线性化。
 *   **安全生命周期**: 自动绑定 GameObject 的 `OnDestroy`，彻底解决 `MissingReferenceException`。
-*   **模块化**:
-    *   **MonoKit**: 负责流程控制 (延时、循环、条件、并行)。
-    *   **TweenKit**: 负责数值插值 (移动、旋转、缩放、渐变)。
+*   **可控性**: 支持手动 `Cancel` 取消执行，支持链式保存引用。
 
 ---
 
@@ -45,7 +43,6 @@ MonoKit 提供了对时间、帧、条件和循环的控制能力。
 MonoKit.Sequence(this)
     .Delay(1.5f)           // 等待 1.5 秒
     .DelayFrame(1)         // 等待 1 帧 (yield return null)
-    .DelayFrame(5)         // 等待 5 帧
     .Callback(() => Debug.Log("Done"))
     .Start();
 ```
@@ -55,48 +52,14 @@ MonoKit.Sequence(this)
 用于等待某个特定条件满足后，再执行下一步。
 
 ```csharp
-// 示例：等待玩家按下空格键，或者敌人死亡
+// 示例：等待玩家按下空格键
 MonoKit.Sequence(this)
     .Until(() => Input.GetKeyDown(KeyCode.Space)) // 阻塞直到返回 true
     .Callback(() => Debug.Log("Space Pressed!"))
     .Start();
-
-// 示例：While 循环 (当条件满足时一直执行)
-MonoKit.Sequence(this)
-    .While(() => player.IsAlive, (chain) => 
-    {
-        // 只要玩家活着，每秒回血一次
-        chain.Delay(1.0f)
-             .Callback(() => player.Heal(5));
-    })
-    .Start();
 ```
 
-### 3.3 循环与重复 (Loop & Repeat)
-
-```csharp
-// 重复固定次数
-MonoKit.Sequence(this)
-    .Repeat(3, (chain) => 
-    {
-        // 这里的逻辑会执行 3 次
-        chain.ScaleTo(tf, Vector3.one * 1.2f, 0.2f)
-             .ScaleTo(tf, Vector3.one, 0.2f);
-    })
-    .Start();
-
-// 无限循环 (Forever)
-MonoKit.Sequence(this)
-    .Forever((chain) => 
-    {
-        // 自身旋转，永不停歇，直到 GameObject 销毁
-        chain.RotateTo(tf, new Vector3(0, 0, 360), 2.0f)
-             .Callback(() => tf.rotation = Quaternion.identity);
-    })
-    .Start();
-```
-
-### 3.4 并行执行 (Parallel)
+### 3.3 并行执行 (Parallel)
 
 同时执行多个动作，等待所有动作完成后，继续后续链条。
 
@@ -122,24 +85,21 @@ MonoKit.Sequence(gameObject)
 
 TweenKit 是 `UniActionChain` 的扩展方法，支持多种组件的插值动画。
 
-### 4.1 Transform 变换
+### 4.1 常用变换
 
 | 方法名 | 描述 | 参数示例 |
 | :--- | :--- | :--- |
-| `MoveTo` | 世界坐标移动 | `transform, new Vector3(10,0,0), 1f` |
-| `LocalMoveTo` | 本地坐标移动 | `transform, new Vector3(10,0,0), 1f` |
+| `MoveTo` | 世界坐标移动 | `transform, targetPos, 1f` |
+| `LocalMoveTo` | 本地坐标移动 | `transform, targetPos, 1f` |
 | `RotateTo` | 欧拉角旋转 | `transform, new Vector3(0,90,0), 0.5f` |
-| `LocalRotateTo` | 本地欧拉角旋转 | `transform, new Vector3(0,90,0), 0.5f` |
 | `ScaleTo` | 缩放 | `transform, Vector3.one * 2, 0.3f` |
-| `LookAt` | 旋转朝向目标 | `transform, targetPosition, 0.5f` |
 
 ### 4.2 UI & 图形 (uGUI / Sprite)
 
 | 方法名 | 支持组件 | 描述 |
 | :--- | :--- | :--- |
-| `FadeTo` | CanvasGroup, Image, Text, SpriteRenderer | 透明度 Alpha 变化 (0~1) |
-| `ColorTo` | Image, Text, SpriteRenderer, Graphic | 颜色变化 |
-| `FillAmountTo` | Image | 填充进度变化 (0~1) |
+| `FadeTo` | CanvasGroup, Image, Text, Graphic | 透明度 Alpha 变化 (0~1) |
+| `ColorTo` | Image, Text, Graphic | 颜色变化 |
 
 ```csharp
 // UI 进场动画示例
@@ -164,36 +124,49 @@ MonoKit.Sequence(gameObject)
     .Start();
 ```
 
-### 4.4 缓动函数 (Ease)
-
-所有 `To` 方法的最后一个参数通常是 `Ease` 类型。
-*   `Ease.Linear`: 线性（匀速）
-*   `Ease.InSine / OutSine / InOutSine`: 平滑正弦
-*   `Ease.InQuad / OutQuad`: 二次加速/减速
-*   `Ease.OutBack`: 超过终点再弹回（弹性效果，UI 常用）
-*   `Ease.OutBounce`: 像球落地一样弹跳
-
 ---
 
-## 5. 高级功能 (Advanced)
+## 5. 控制与生命周期 (Control & Lifecycle)
 
-### 5.1 手动取消 (Cancellation)
+### 5.1 手动取消 (Manual Cancel)
 
-虽然 ActionKit 会自动随 GameObject 销毁而取消，但有时你需要手动打断动画（例如：玩家在攻击前摇时被打断）。
+`Start()` 方法现在返回 `UniActionChain` 实例本身。你可以保存这个引用，并在需要时调用 `Cancel()`。
+
+**标准写法：**
 
 ```csharp
-// 1. 保存引用
-var action = MonoKit.Sequence(gameObject)
-    .Delay(5.0f)
-    .Callback(() => Debug.Log("Attack!"));
-    
-action.Start();
+public class SkillSystem : MonoBehaviour
+{
+    private UniActionChain _currentAction;
 
-// 2. 在需要的时候取消
-// action.Cancel(); // 取消当前链条，不再执行后续步骤
+    public void CastSkill()
+    {
+        // 1. 务必先取消上一次动作（防止快速点击导致逻辑重叠）
+        _currentAction?.Cancel();
+
+        // 2. 创建新序列并保存引用
+        _currentAction = MonoKit.Sequence(gameObject)
+            .Delay(0.5f)
+            .Callback(() => Debug.Log("Fire!"))
+            .Start(); // Start 返回实例
+    }
+
+    public void Stop()
+    {
+        // 3. 手动打断
+        _currentAction?.Cancel();
+    }
+}
 ```
 
-### 5.2 忽略时间缩放 (Unscaled Time)
+### 5.2 重新播放 (Replay)
+
+**重要原则**：**不能**对已经 Cancel 或执行完毕的 `UniActionChain` 再次调用 `Start()`。
+
+*   **原因**：ActionKit 基于对象池。当动作结束或取消时，该对象会被立即回收并重置。
+*   **做法**：如果需要重新播放，必须**重新构建**序列（参考 5.1 的写法，每次都调用 `MonoKit.Sequence`）。
+
+### 5.3 忽略时间缩放 (Unscaled Time)
 
 游戏暂停 (`Time.timeScale = 0`) 时，UI 动画通常需要继续播放。
 
@@ -203,6 +176,12 @@ MonoKit.Sequence(gameObject)
     .ScaleTo(tf, Vector3.one, 0.5f)
     .Start();
 ```
+
+### 5.4 自动销毁绑定
+
+`MonoKit.Sequence(gameObject)` 传入的 `gameObject` 是绑定的生命周期对象。
+*   如果该 GameObject 被销毁，动画序列会自动停止并回收。
+*   不需要在 `OnDestroy` 中手动写 `Cancel`。
 
 ---
 
@@ -216,8 +195,9 @@ MonoKit.Sequence(gameObject)
     *   现象：并行任务瞬间结束，没有等待动画播完。
     *   解决：在 `Parallel` 内部必须使用 `.Await()` 返回 Task。
 
-3.  **空引用异常**
-    *   虽然 ActionKit 处理了自身的生命周期，但在 `.Callback(() => obj.name)` 中，如果 `obj` 是外部变量且已被销毁，C# 依然会报错。请在 Callback 中做好判空保护。
+3.  **报错 "Object is already recycled" 或空引用**
+    *   原因：你尝试复用了一个已经执行完毕或被取消的 `UniActionChain` 变量。
+    *   解决：每次播放动画时，请重新调用 `MonoKit.Sequence(...)` 创建新的链条。
 
 ---
 

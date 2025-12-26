@@ -26,13 +26,15 @@ namespace StellarFramework
         InOutBounce
     }
 
+    /// <summary>
+    /// 补间动画工具核心
+    /// </summary>
     public static class TweenKit
     {
         #region 核心插值器
 
         public static async UniTask To(float start, float end, float duration, Action<float> onUpdate, Ease ease, CancellationToken token, bool ignoreTimeScale)
         {
-            // 防止除以零错误
             if (duration <= 0f)
             {
                 onUpdate?.Invoke(end);
@@ -46,7 +48,6 @@ namespace StellarFramework
             {
                 if (token.IsCancellationRequested) return;
 
-                // 支持忽略 TimeScale
                 float dt = ignoreTimeScale ? Time.unscaledDeltaTime : Time.deltaTime;
                 time += dt;
 
@@ -55,7 +56,6 @@ namespace StellarFramework
 
                 onUpdate?.Invoke(Mathf.LerpUnclamped(start, end, value));
 
-                // 使用正确的 Timing
                 await UniTask.NextFrame(PlayerLoopTiming.Update, token);
             }
 
@@ -153,6 +153,9 @@ namespace StellarFramework
         #endregion
     }
 
+    /// <summary>
+    /// 针对 UniActionChain 的扩展方法
+    /// </summary>
     public static class TweenExtensions
     {
         #region Transform

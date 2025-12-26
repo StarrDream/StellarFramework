@@ -111,7 +111,30 @@ namespace StellarFramework
             }
         }
 
+        public static void ClearAndDestroy(this List<GameObject> list)
+        {
+            var items = list.ToArray();
+            list.Clear();
+            foreach (var item in items)
+            {
+                if (item != null) Object.Destroy(item.gameObject);
+            }
+        }
+
         public static void RemoveRangeAndDestroy<T>(this List<T> list, int index, int count) where T : Component
+        {
+            if (index < 0 || index >= list.Count) return;
+            var endIndex = Mathf.Min(index + count, list.Count);
+            for (var i = index; i < endIndex; i++)
+            {
+                var item = list[i];
+                if (item != null) item.gameObject.SafeDestroy();
+            }
+
+            list.RemoveRange(index, count);
+        }
+
+        public static void RemoveRangeAndDestroy<T>(this List<GameObject> list, int index, int count)
         {
             if (index < 0 || index >= list.Count) return;
             var endIndex = Mathf.Min(index + count, list.Count);
