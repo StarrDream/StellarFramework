@@ -15,7 +15,7 @@ Unity 传统的 C# 事件 (`event Action`) 或 `UnityEvent` 存在耦合度高�
 
 ## 2. 核心架构 (Under the hood)
 
-### 2.1 泛型静态类黑魔法
+### 2.1 泛型静态类
 代码中定义了 `private static class EventBox<T>`。
 当你调用 `GlobalEnumEvent.Register<GameEvent>(...)` 时，编译器会生成一个名为 `EventBox<GameEvent>` 的类。
 当你调用 `GlobalEnumEvent.Register<UIEvent>(...)` 时，编译器会生成另一个名为 `EventBox<UIEvent>` 的类。

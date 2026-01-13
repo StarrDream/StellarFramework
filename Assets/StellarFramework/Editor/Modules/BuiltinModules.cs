@@ -535,6 +535,17 @@ namespace StellarFramework.Editor.Modules
             if (PrimaryButton("打开窗口", GUILayout.Height(34))) DictionarySerializerWindow.ShowWindow();
         }
     }
+    [StellarTool("列表序列化 (增强)", "框架核心", 0)]
+    public class ListSerializerWindowHubModule : ToolModule
+    {
+        public override string Icon => "d_ScriptableObject Icon";
+        public override string Description => "打开 ListSerializerWindow。";
+
+        public override void OnGUI()
+        {
+            if (PrimaryButton("打开窗口", GUILayout.Height(34))) ListSerializerWindow.ShowWindow();
+        }
+    }
 
     [StellarTool("脚本内容复制", "框架核心", 1)]
     public class FolderCopyHubModule : ToolModule

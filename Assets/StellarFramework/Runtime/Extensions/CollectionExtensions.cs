@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.Reflection;
 using System.Text;
 using Newtonsoft.Json;
 using UnityEngine;
@@ -34,13 +36,102 @@ namespace StellarFramework
 
         public static string LogList<T>(this List<T> list)
         {
-            if (list == null || list.Count == 0) return "[]";
-            var sb = new StringBuilder();
-            sb.Append("[");
-            for (var i = 0; i < list.Count; i++)
+            // 容错检查：空列表直接返回
+            if (list == null)
             {
-                sb.Append(list[i]);
-                if (i < list.Count - 1) sb.Append(", ");
+                Debug.LogError("LogListDetail: 传入的列表为 null");
+                return "null";
+            }
+
+            // 性能警告：仅在Debug模式或非高频逻辑中使用
+            // 反射操作非常耗时，不要在 Update 中调用
+
+            var sb = new StringBuilder();
+            var visited = new HashSet<object>(); // 防止循环引用导致死循环
+            const int MAX_DEPTH = 5; // 最大递归深度，防止堆栈溢出
+
+            sb.Append("[\n");
+
+            // === 本地函数：递归获取单个对象的详细字符串 ===
+            string GetValueString(object obj, int depth)
+            {
+                if (obj == null) return "null";
+
+                // 深度限制保护
+                if (depth > MAX_DEPTH) return "...(深度限制)...";
+
+                var type = obj.GetType();
+
+                // 1. 基础类型、字符串、枚举直接返回，不进行反射
+                if (type.IsPrimitive || obj is string || type.IsEnum || type == typeof(decimal))
+                    return obj.ToString();
+
+                // 2. Unity原生类型 (Vector3, Transform等) 直接使用其自带的ToString
+                // 否则会反射出大量无用的内部数据
+                if (type.Namespace != null && (type.Namespace.StartsWith("UnityEngine") || type.Namespace.StartsWith("System")))
+                    return obj.ToString();
+
+                // 3. 循环引用检测 (比如 A 引用 B, B 又引用 A)
+                if (visited.Contains(obj)) return "(循环引用)";
+                visited.Add(obj);
+
+                // 4. 处理嵌套集合 (List 里面套 List)
+                if (obj is IEnumerable enumerable)
+                {
+                    var sbSub = new StringBuilder("[");
+                    foreach (var item in enumerable)
+                    {
+                        sbSub.Append(GetValueString(item, depth + 1)).Append(", ");
+                    }
+
+                    if (sbSub.Length > 1) sbSub.Length -= 2; // 移除末尾逗号
+                    sbSub.Append("]");
+                    visited.Remove(obj); // 回溯
+                    return sbSub.ToString();
+                }
+
+                // 5. 自定义类：反射获取字段
+                var sbObj = new StringBuilder();
+                sbObj.Append(type.Name).Append(" { ");
+
+                // 获取所有实例字段 (Public 和 Private)
+                var fields = type.GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+                bool hasContent = false;
+
+                foreach (var field in fields)
+                {
+                    // 过滤掉编译器生成的 backing field (比如属性自动生成的字段)
+                    if (field.Name.Contains("<")) continue;
+
+                    if (hasContent) sbObj.Append(", ");
+
+                    // 递归获取字段值
+                    var val = field.GetValue(obj);
+                    sbObj.Append(field.Name).Append(": ").Append(GetValueString(val, depth + 1));
+                    hasContent = true;
+                }
+
+                sbObj.Append(" }");
+                visited.Remove(obj); // 回溯：退出当前对象后，允许其他分支再次访问该对象
+                return sbObj.ToString();
+            }
+            // === 本地函数结束 ===
+
+            // 主循环遍历列表
+            int count = 0;
+            foreach (var item in list)
+            {
+                sb.Append("\t"); // 缩进
+                sb.Append(GetValueString(item, 1));
+                sb.Append(",\n");
+                count++;
+            }
+
+            // 移除最后一个逗号和换行
+            if (count > 0)
+            {
+                sb.Length -= 2;
+                sb.AppendLine();
             }
 
             sb.Append("]");
