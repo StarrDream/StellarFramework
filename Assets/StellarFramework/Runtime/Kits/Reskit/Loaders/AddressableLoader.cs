@@ -1,5 +1,7 @@
 ﻿using UnityEngine;
 using Cysharp.Threading.Tasks;
+using System;
+using Object = UnityEngine.Object;
 #if UNITY_ADDRESSABLES
 using UnityEngine.AddressableAssets;
 using UnityEngine.ResourceManagement.AsyncOperations;
@@ -13,44 +15,72 @@ namespace StellarFramework.Res
 
         protected override ResData LoadRealSync(string path)
         {
-            LogKit.LogError($"[AddressableLoader] Addressables 不支持同步加载: {path}");
+#if UNITY_ADDRESSABLES
+            // 使用无泛型 Handle 避免装箱类型不匹配
+            AsyncOperationHandle handle = default;
+            try
+            {
+                // 注意：这里先用泛型加载，然后转为无泛型 Handle
+                var genericHandle = Addressables.LoadAssetAsync<Object>(path);
+                var result = genericHandle.WaitForCompletion();
+                handle = genericHandle; // 隐式转换
+
+                if (handle.Status == AsyncOperationStatus.Succeeded)
+                {
+                    return new ResData
+                    {
+                        Path = path,
+                        Asset = result,
+                        Type = ResLoaderType.Addressable,
+                        Data = handle // 存入的是 struct AsyncOperationHandle
+                    };
+                }
+                else
+                {
+                    LogKit.LogError($"[AddressableLoader] 同步加载失败: {path} | Status: {handle.Status}");
+                    if (handle.IsValid()) Addressables.Release(handle);
+                }
+            }
+            catch (Exception e)
+            {
+                LogKit.LogWarning($"[AddressableLoader] 同步加载异常: {path}\n{e.Message}");
+                if (handle.IsValid()) Addressables.Release(handle);
+            }
+#else
+            LogKit.LogError("[AddressableLoader] 请先安装 Addressables 包并定义 UNITY_ADDRESSABLES 宏");
+#endif
             return null;
         }
 
         protected override async UniTask<ResData> LoadRealAsync(string path)
         {
 #if UNITY_ADDRESSABLES
-            AsyncOperationHandle<Object> handle = default;
+            AsyncOperationHandle handle = default;
             try 
             {
-                // 1. 创建 Handle (不自动释放)
-                handle = Addressables.LoadAssetAsync<Object>(path);
-                
-                // 2. 等待完成
-                await handle.Task;
-                
+                var genericHandle = Addressables.LoadAssetAsync<Object>(path);
+                await genericHandle.Task;
+                handle = genericHandle;
+
                 if (handle.Status == AsyncOperationStatus.Succeeded)
                 {
-                    // 3. 封装数据，关键：保存 Handle
                     return new ResData
                     {
                         Path = path,
-                        Asset = handle.Result,
+                        Asset = genericHandle.Result,
                         Type = ResLoaderType.Addressable,
-                        Data = handle // <--- 存入 Handle
+                        Data = handle // 存入的是 struct AsyncOperationHandle
                     };
                 }
                 else
                 {
-                    LogKit.LogError($"[AddressableLoader] 加载失败: {path} | Status: {handle.Status}");
-                    // 失败时释放 Handle
+                    LogKit.LogError($"[AddressableLoader] 异步加载失败: {path} | Status: {handle.Status}");
                     if (handle.IsValid()) Addressables.Release(handle);
                 }
             }
-            catch (System.Exception e)
+            catch (Exception e)
             {
-                LogKit.LogError($"[AddressableLoader] 异常: {path}\n{e}");
-                //  发生异常时必须释放 Handle，防止内存泄漏
+                LogKit.LogWarning($"[AddressableLoader] 异步加载异常: {path}\n{e.Message}");
                 if (handle.IsValid()) Addressables.Release(handle);
             }
 #endif

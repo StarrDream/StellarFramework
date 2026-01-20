@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
+using StellarFramework.Res.AB;
 #if UNITY_ADDRESSABLES
 using UnityEngine.AddressableAssets;
 using UnityEngine.ResourceManagement.AsyncOperations;
@@ -9,32 +10,22 @@ using UnityEngine.ResourceManagement.AsyncOperations;
 
 namespace StellarFramework.Res
 {
-    /// <summary>
-    /// [Internal] 资源管理器核心
-    /// 职责：缓存管理、引用计数、并发加载控制 (Task Deduplication)
-    /// </summary>
     internal static class ResMgr
     {
-        // 全局已加载缓存
         private static readonly Dictionary<string, ResData> _sharedCache = new Dictionary<string, ResData>();
-
-        // 正在加载中的任务 (用于并发去重)
         private static readonly Dictionary<string, UniTask<ResData>> _loadingTasks = new Dictionary<string, UniTask<ResData>>();
 
-        //  生成带类型的唯一 Key (Type://Path)，解决同名资源冲突
         public static string GetCacheKey(string path, ResLoaderType type)
         {
-            return $"{type}://{path}";
+            return $"{type}:{path}";
         }
 
-        /// <summary>
-        /// 核心加载入口 (支持并发去重)
-        /// </summary>
+        // 核心异步加载逻辑（含任务去重）
         public static async UniTask<ResData> LoadSharedAsync(string path, ResLoaderType type, Func<UniTask<ResData>> loadFunc)
         {
             string key = GetCacheKey(path, type);
 
-            // 1. 查缓存 (一级缓存)
+            // 1. 检查缓存
             if (_sharedCache.TryGetValue(key, out var cachedData))
             {
                 if (cachedData.Asset != null)
@@ -43,62 +34,48 @@ namespace StellarFramework.Res
                     return cachedData;
                 }
 
-                // 缓存已失效（对象被销毁），移除脏数据
                 _sharedCache.Remove(key);
             }
 
-            // 2. 查加载任务 (二级缓存 - 并发去重)
+            // 2. 检查是否有正在进行的任务 (并发去重)
             if (_loadingTasks.TryGetValue(key, out var existingTask))
             {
-                // 等待正在进行的加载任务完成
                 var res = await existingTask;
                 if (res != null && res.Asset != null)
                 {
-                    // 任务完成后，引用计数+1 (因为是新的请求者)
                     res.RefCount++;
                     return res;
                 }
 
-                // 如果之前的任务失败了，移除任务记录，允许重新尝试
                 _loadingTasks.Remove(key);
             }
 
             // 3. 发起新任务
-            // 使用 lazy task 确保异常捕获和字典清理
             var newTask = LoadInternalAsync(key, loadFunc);
             _loadingTasks[key] = newTask;
 
             try
             {
-                var result = await newTask;
-                return result;
+                return await newTask;
             }
             finally
             {
-                // 无论成功失败，移除加载中标记
-                if (_loadingTasks.ContainsKey(key))
-                {
-                    _loadingTasks.Remove(key);
-                }
+                if (_loadingTasks.ContainsKey(key)) _loadingTasks.Remove(key);
             }
         }
 
         private static async UniTask<ResData> LoadInternalAsync(string key, Func<UniTask<ResData>> loadFunc)
         {
-            // 执行具体的加载逻辑 (由 Loader 提供)
             var data = await loadFunc.Invoke();
-
             if (data != null && data.Asset != null)
             {
-                // 加载成功，加入缓存
                 if (!_sharedCache.ContainsKey(key))
                 {
-                    data.RefCount = 1; // 初始引用
+                    data.RefCount = 1;
                     _sharedCache.Add(key, data);
                 }
                 else
                 {
-                    // 极低概率：在 await 期间缓存被其他同步方式写入了
                     _sharedCache[key].RefCount++;
                     data = _sharedCache[key];
                 }
@@ -109,9 +86,7 @@ namespace StellarFramework.Res
             return null;
         }
 
-        /// <summary>
-        /// 同步添加 (仅用于 Resources.Load)
-        /// </summary>
+        // 同步加载结果的缓存录入
         public static void AddSync(ResData data)
         {
             if (data == null) return;
@@ -140,6 +115,29 @@ namespace StellarFramework.Res
             return null;
         }
 
+        // 检查是否有正在进行的异步任务 (防死锁用)
+        public static bool IsLoadingAsync(string path, ResLoaderType type)
+        {
+            string key = GetCacheKey(path, type);
+            return _loadingTasks.ContainsKey(key);
+        }
+
+        // 尝试获取已完成但未回调的异步任务结果 (防死锁用)
+        public static ResData TryGetPendingResultSync(string path, ResLoaderType type)
+        {
+            string key = GetCacheKey(path, type);
+            if (_loadingTasks.TryGetValue(key, out var task))
+            {
+                if (task.Status == UniTaskStatus.Succeeded)
+                {
+                    var res = task.GetAwaiter().GetResult();
+                    if (res != null) return res;
+                }
+            }
+
+            return null;
+        }
+
         public static void AddRef(string path, ResLoaderType type)
         {
             string key = GetCacheKey(path, type);
@@ -157,10 +155,18 @@ namespace StellarFramework.Res
             data.RefCount--;
             if (data.RefCount <= 0)
             {
-                // 引用归零，执行卸载
                 _sharedCache.Remove(key);
                 RealUnload(data);
             }
+        }
+
+        // [新增] 强力内存清理接口
+        // 建议在场景切换或内存警告时调用
+        public static void GarbageCollect()
+        {
+            LogKit.LogWarning("[ResMgr] 触发强力 GC (GC.Collect + UnloadUnusedAssets)...");
+            GC.Collect();
+            Resources.UnloadUnusedAssets();
         }
 
         private static void RealUnload(ResData data)
@@ -170,7 +176,9 @@ namespace StellarFramework.Res
             switch (data.Type)
             {
                 case ResLoaderType.Resources:
-                    if (!(data.Asset is GameObject))
+                    // Resources.UnloadAsset 只能卸载非 GameObject 资源 (如 Texture, Mesh)
+                    // GameObject 类型的资源必须等待 Resources.UnloadUnusedAssets() 才能真正释放
+                    if (!(data.Asset is GameObject) && !(data.Asset is Component))
                     {
                         Resources.UnloadAsset(data.Asset);
                     }
@@ -179,22 +187,22 @@ namespace StellarFramework.Res
 
                 case ResLoaderType.Addressable:
 #if UNITY_ADDRESSABLES
-                    // 生产级优先使用 Handle 释放，避免歧义
-                    if (data.Data != null)
+                    // [修复] 统一使用 AsyncOperationHandle (非泛型) 进行判断和释放
+                    // AddressableLoader 中已确保 Data 字段存储的是非泛型 Handle
+                    if (data.Data is AsyncOperationHandle handle)
                     {
-                        // 这是一个 struct，拆箱
-                        var handle = (AsyncOperationHandle)data.Data;
-                        if (handle.IsValid())
-                        {
-                            Addressables.Release(handle);
-                        }
+                        if (handle.IsValid()) Addressables.Release(handle);
                     }
                     else
                     {
-                        // 兜底：如果没有 Handle，才尝试用 Object 释放
+                        // 兜底保护：如果数据异常，尝试直接释放 Asset
                         Addressables.Release(data.Asset);
                     }
 #endif
+                    break;
+
+                case ResLoaderType.AssetBundle:
+                    AssetBundleManager.Instance.UnloadAsset(data.Path);
                     break;
             }
         }

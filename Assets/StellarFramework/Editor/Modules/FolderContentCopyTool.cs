@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.IO;
 using System.Text;
+using System.Text.RegularExpressions;
 using UnityEditor;
 using UnityEngine;
 
@@ -8,11 +9,10 @@ namespace StellarFramework.Editor
 {
     public class FolderContentCopyTool : EditorWindow
     {
-        // 仅保留 Hub 调用入口，不再挂菜单
         public static void ShowWindow()
         {
-            var wnd = GetWindow<FolderContentCopyTool>("Folder Content Copy");
-            wnd.minSize = new Vector2(760, 520);
+            var wnd = GetWindow<FolderContentCopyTool>("Copy Code Tool");
+            wnd.minSize = new Vector2(600, 650);
             wnd.Show();
         }
 
@@ -20,92 +20,150 @@ namespace StellarFramework.Editor
         private Vector2 _scroll;
         private readonly List<string> _subFolders = new List<string>(128);
         private readonly HashSet<string> _selectedFolders = new HashSet<string>();
+
+        // 文件类型过滤
         private bool _includeCs = true;
         private bool _includeShader = true;
-        private bool _includeTxt = true;
-        private bool _includeJson = true;
-        private bool _includeAsmdef = true;
+        private bool _includeTxt = false;
+        private bool _includeJson = false;
+        private bool _includeAsmdef = false;
         private bool _includeMeta = false;
+
+        // 优化选项
+        private bool _optimizeForAI = true; // 基础压缩（去空行）
+        private bool _removeComments = false; // 移除注释（大幅减少）
+        private bool _removeIndentation = false; // 移除缩进（代码变平，大幅减少）
 
         private void OnGUI()
         {
+            DrawHeader();
+            DrawFilters();
+            DrawFolderList();
+            DrawActionButtons();
+        }
+
+        private void DrawHeader()
+        {
             EditorGUILayout.Space(8);
-            EditorGUILayout.LabelField("根目录（物理路径）", EditorStyles.boldLabel);
+            EditorGUILayout.LabelField("根目录设置", EditorStyles.boldLabel);
 
             using (new GUILayout.HorizontalScope())
             {
-                _rootFolder = EditorGUILayout.TextField(_rootFolder);
-                if (GUILayout.Button("选择", GUILayout.Width(80)))
+                string displayPath = string.IsNullOrEmpty(_rootFolder) ? "未选择..." : _rootFolder;
+                EditorGUILayout.TextField(displayPath, EditorStyles.textField);
+
+                if (GUILayout.Button("选择目录", GUILayout.Width(80)))
                 {
                     var path = EditorUtility.OpenFolderPanel("选择根目录", _rootFolder, "");
                     if (!string.IsNullOrEmpty(path))
                     {
                         _rootFolder = path;
                         RefreshSubFolders();
-                        Debug.Log($"[FolderContentCopyTool] 选择根目录: {_rootFolder}");
                     }
                 }
 
-                if (GUILayout.Button("刷新", GUILayout.Width(80)))
+                if (GUILayout.Button("刷新", GUILayout.Width(60)))
                 {
                     RefreshSubFolders();
-                    Debug.Log("[FolderContentCopyTool] 刷新子目录列表");
                 }
             }
+        }
 
+        private void DrawFilters()
+        {
             EditorGUILayout.Space(6);
-            EditorGUILayout.LabelField("包含后缀", EditorStyles.boldLabel);
+            EditorGUILayout.LabelField("输出配置", EditorStyles.boldLabel);
+
             using (new GUILayout.VerticalScope(EditorStyles.helpBox))
             {
+                GUILayout.Label("文件类型:", EditorStyles.miniLabel);
                 using (new GUILayout.HorizontalScope())
                 {
-                    _includeCs = EditorGUILayout.ToggleLeft(".cs", _includeCs, GUILayout.Width(80));
+                    _includeCs = EditorGUILayout.ToggleLeft(".cs", _includeCs, GUILayout.Width(60));
+                    _includeShader = EditorGUILayout.ToggleLeft("Shader", _includeShader, GUILayout.Width(70));
+                    _includeJson = EditorGUILayout.ToggleLeft(".json", _includeJson, GUILayout.Width(60));
                     _includeAsmdef = EditorGUILayout.ToggleLeft(".asmdef", _includeAsmdef, GUILayout.Width(80));
-                    _includeShader = EditorGUILayout.ToggleLeft(".shader/.cginc", _includeShader, GUILayout.Width(130));
-                    _includeJson = EditorGUILayout.ToggleLeft(".json", _includeJson, GUILayout.Width(80));
-                    _includeTxt = EditorGUILayout.ToggleLeft(".txt/.md", _includeTxt, GUILayout.Width(100));
-                    _includeMeta = EditorGUILayout.ToggleLeft(".meta", _includeMeta, GUILayout.Width(80));
+                    _includeTxt = EditorGUILayout.ToggleLeft("Txt/Md", _includeTxt, GUILayout.Width(70));
+                    _includeMeta = EditorGUILayout.ToggleLeft(".meta", _includeMeta, GUILayout.Width(60));
+                }
+
+                GUILayout.Space(5);
+                GUILayout.Label("压缩策略 (Token 优化):", EditorStyles.boldLabel);
+
+                _optimizeForAI = EditorGUILayout.ToggleLeft("基础压缩 (合并空行 + Markdown格式)", _optimizeForAI);
+
+                if (_optimizeForAI)
+                {
+                    using (new GUILayout.HorizontalScope())
+                    {
+                        GUILayout.Space(20);
+                        _removeComments = EditorGUILayout.ToggleLeft("移除注释 (//...)", _removeComments, GUILayout.Width(140));
+                        _removeIndentation = EditorGUILayout.ToggleLeft("移除缩进 (扁平化)", _removeIndentation, GUILayout.Width(140));
+                    }
+
+                    string tips = "当前策略预估效果：\n";
+                    if (!_removeComments && !_removeIndentation) tips += "• 保留原始格式，仅去除多余空行。";
+                    if (_removeComments) tips += "• 移除所有注释，节省约 20% Token。\n";
+                    if (_removeIndentation) tips += "• 移除行首空格，节省约 15% Token (AI仍可阅读)。";
+
+                    EditorGUILayout.HelpBox(tips, MessageType.Info);
                 }
             }
+        }
 
+        private void DrawFolderList()
+        {
             EditorGUILayout.Space(6);
-            EditorGUILayout.LabelField("子目录选择（一级目录）", EditorStyles.boldLabel);
+            EditorGUILayout.LabelField($"子目录列表 ({_selectedFolders.Count}/{_subFolders.Count})", EditorStyles.boldLabel);
 
-            _scroll = EditorGUILayout.BeginScrollView(_scroll);
+            _scroll = EditorGUILayout.BeginScrollView(_scroll, EditorStyles.helpBox);
+
+            if (_subFolders.Count == 0)
+            {
+                EditorGUILayout.LabelField("无子目录或未选择根目录", EditorStyles.centeredGreyMiniLabel);
+            }
+
             for (int i = 0; i < _subFolders.Count; i++)
             {
-                string folder = _subFolders[i];
-                bool selected = _selectedFolders.Contains(folder);
+                string fullPath = _subFolders[i];
+                string folderName = Path.GetFileName(fullPath);
+                bool selected = _selectedFolders.Contains(fullPath);
 
-                bool newSelected = EditorGUILayout.ToggleLeft(folder, selected);
-                if (newSelected != selected)
+                using (new GUILayout.HorizontalScope())
                 {
-                    if (newSelected) _selectedFolders.Add(folder);
-                    else _selectedFolders.Remove(folder);
+                    bool newSelected = EditorGUILayout.ToggleLeft(new GUIContent(folderName, fullPath), selected);
+                    if (newSelected != selected)
+                    {
+                        if (newSelected) _selectedFolders.Add(fullPath);
+                        else _selectedFolders.Remove(fullPath);
+                    }
                 }
             }
 
             EditorGUILayout.EndScrollView();
+        }
 
+        private void DrawActionButtons()
+        {
             EditorGUILayout.Space(8);
             using (new GUILayout.HorizontalScope())
             {
                 if (GUILayout.Button("全选", GUILayout.Height(30)))
                 {
-                    _selectedFolders.Clear();
-                    for (int i = 0; i < _subFolders.Count; i++)
-                        _selectedFolders.Add(_subFolders[i]);
-                    Debug.Log("[FolderContentCopyTool] 全选子目录");
+                    _selectedFolders.UnionWith(_subFolders);
                 }
 
-                if (GUILayout.Button("全不选", GUILayout.Height(30)))
+                if (GUILayout.Button("清空", GUILayout.Height(30)))
                 {
                     _selectedFolders.Clear();
-                    Debug.Log("[FolderContentCopyTool] 取消所有选择");
                 }
 
                 GUI.enabled = _selectedFolders.Count > 0 && Directory.Exists(_rootFolder);
-                if (GUILayout.Button("复制选中目录内容到剪贴板", GUILayout.Height(30)))
+
+                string btnLabel = "复制到剪贴板";
+                if (_optimizeForAI) btnLabel += " (已压缩)";
+
+                if (GUILayout.Button(btnLabel, GUILayout.Height(30)))
                 {
                     CopySelectedFoldersToClipboard();
                 }
@@ -119,95 +177,143 @@ namespace StellarFramework.Editor
             _subFolders.Clear();
             _selectedFolders.Clear();
 
-            if (!Directory.Exists(_rootFolder))
-            {
-                Debug.LogError($"[FolderContentCopyTool] 根目录不存在: {_rootFolder}");
-                return;
-            }
+            if (!Directory.Exists(_rootFolder)) return;
 
             var dirs = Directory.GetDirectories(_rootFolder);
-            for (int i = 0; i < dirs.Length; i++)
-            {
-                _subFolders.Add(dirs[i]);
-            }
-
+            _subFolders.AddRange(dirs);
             _subFolders.Sort();
-            Debug.Log($"[FolderContentCopyTool] 子目录数量: {_subFolders.Count}");
         }
 
         private void CopySelectedFoldersToClipboard()
         {
+            if (!EditorUtility.DisplayDialog("准备复制", "请确认所有代码文件已在 IDE (VS/Rider) 中保存。\n未保存的修改无法被读取。", "已保存，继续", "取消"))
+            {
+                return;
+            }
+
+            AssetDatabase.SaveAssets();
             var exts = BuildExtensions();
 
-            StringBuilder sb = new StringBuilder(1024 * 256);
+            StringBuilder sb = new StringBuilder(1024 * 1024 * 2);
             int fileCount = 0;
 
             try
             {
-                int index = 0;
+                int folderIndex = 0;
                 foreach (var folder in _selectedFolders)
                 {
-                    index++;
-                    // 更新进度条，告知用户当前扫描的文件夹
-                    EditorUtility.DisplayProgressBar("复制脚本内容", $"扫描: {folder}", (float)index / _selectedFolders.Count);
+                    folderIndex++;
+                    EditorUtility.DisplayProgressBar("处理中", $"扫描目录: {Path.GetFileName(folder)}", (float)folderIndex / _selectedFolders.Count);
 
-                    // 获取文件夹下所有文件
                     var files = Directory.GetFiles(folder, "*.*", SearchOption.AllDirectories);
 
-                    for (int i = 0; i < files.Length; i++)
+                    foreach (var filePath in files)
                     {
-                        // filePathForRead 用于读取文件内容，保持原始路径（可能是绝对路径），确保 File.ReadAllText 不会报错
-                        var filePathForRead = files[i];
-
-                        // 1. 扩展名检查
-                        // 性能注意：Path.GetExtension 处理速度很快，放在最前面过滤可以减少不必要的后续逻辑
-                        string ext = Path.GetExtension(filePathForRead).ToLowerInvariant();
+                        string ext = Path.GetExtension(filePath).ToLowerInvariant();
                         if (!exts.Contains(ext)) continue;
 
-                        // 2. 路径处理（核心修改）
-                        // filePathForDisplay 用于 StringBuilder 的输出展示
-                        string filePathForDisplay = filePathForRead;
-
-                        // 统一将反斜杠转为正斜杠，Unity开发习惯统一使用 '/'
-                        filePathForDisplay = filePathForDisplay.Replace("\\", "/");
-
-                        // 查找 "Assets/" 关键词的位置
-                        // 注意：这里假设你的项目结构是标准的 Unity 结构
-                        int assetIndex = filePathForDisplay.IndexOf("Assets/");
-
-                        if (assetIndex >= 0)
+                        FileInfo fi = new FileInfo(filePath);
+                        if (fi.Length > 500 * 1024)
                         {
-                            // 截取从 "Assets/" 开始的路径字符串
-                            // 例如：D:/Projects/MyGame/Assets/Scripts/Player.cs -> Assets/Scripts/Player.cs
-                            filePathForDisplay = filePathForDisplay.Substring(assetIndex);
+                            Debug.LogWarning($"[CopyTool] 跳过大文件 (>500KB): {filePath}");
+                            continue;
                         }
 
-                        // Debug调试：打印路径处理前后的对比，方便确认截取逻辑是否正确
-                        // 如果文件数量成千上万，建议调试完成后注释掉这行，避免Editor控制台刷屏
-                        UnityEngine.Debug.Log($"[路径处理] 原始: {filePathForRead} \n -> 截取后: {filePathForDisplay}");
+                        string content = File.ReadAllText(filePath, Encoding.UTF8);
 
-                        // 3. 读取文件内容
-                        string content = File.ReadAllText(filePathForRead);
+                        string relativePath = filePath.Replace("\\", "/");
+                        int assetIdx = relativePath.IndexOf("Assets/");
+                        if (assetIdx >= 0) relativePath = relativePath.Substring(assetIdx);
 
-                        // 4. 拼接内容到 StringBuilder
-                        sb.AppendLine("=================================================");
-                        sb.AppendLine(filePathForDisplay); // 这里使用截取后的短路径
-                        sb.AppendLine("-------------------------------------------------");
-                        sb.AppendLine(content);
-                        sb.AppendLine();
+                        AppendFileContent(sb, relativePath, content);
 
                         fileCount++;
                     }
                 }
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogError($"[CopyTool] 错误: {e.Message}");
             }
             finally
             {
                 EditorUtility.ClearProgressBar();
             }
 
-            EditorGUIUtility.systemCopyBuffer = sb.ToString();
-            Debug.Log($"[FolderContentCopyTool] 复制完成：{fileCount} 个文件，已写入剪贴板");
-            ShowNotification(new GUIContent($"已复制 {fileCount} 个文件"));
+            if (sb.Length > 0)
+            {
+                EditorGUIUtility.systemCopyBuffer = sb.ToString();
+
+                int totalLength = sb.Length;
+                int estimatedTokens = totalLength / 4;
+
+                Debug.Log($"--------------------------------------------------");
+                Debug.Log($"[FolderContentCopyTool] 复制成功！");
+                Debug.Log($"📄 文件数量: {fileCount}");
+                Debug.Log($"📏 字符总长: {totalLength:N0}");
+                Debug.Log($"🤖 预估Tokens: ~{estimatedTokens:N0}");
+                if (_optimizeForAI)
+                {
+                    string details = "";
+                    if (_removeComments) details += "[无注释] ";
+                    if (_removeIndentation) details += "[无缩进] ";
+                    Debug.Log($"⚡ 压缩模式: {details}");
+                }
+
+                Debug.Log($"--------------------------------------------------");
+
+                ShowNotification(new GUIContent($"复制成功: {totalLength} 字符"));
+            }
+            else
+            {
+                ShowNotification(new GUIContent("未找到文件"));
+            }
+        }
+
+        private void AppendFileContent(StringBuilder sb, string path, string content)
+        {
+            if (_optimizeForAI)
+            {
+                // 1. 移除注释 (如果开启)
+                if (_removeComments)
+                {
+                    // 移除块注释 /* ... */
+                    content = Regex.Replace(content, @"/\*[\s\S]*?\*/", "");
+                    // 移除行注释 // ...
+                    content = Regex.Replace(content, @"//.*", "");
+                }
+
+                // 2. 移除缩进 (如果开启)
+                if (_removeIndentation)
+                {
+                    // 移除每一行开头的空白字符
+                    content = Regex.Replace(content, @"(?m)^\s+", "");
+                }
+
+                // 3. 基础压缩：合并多余空行
+                // 将所有连续的换行符替换为单个换行符，并移除空行
+                content = Regex.Replace(content, @"(\r\n|\n){2,}", "\n");
+
+                // 4. 移除行首尾空白
+                if (_removeIndentation)
+                {
+                    // 如果已经去除了缩进，这里的 Trim 会更激进
+                    content = content.Trim();
+                }
+
+                sb.AppendLine($"\n`{path}`:");
+                sb.AppendLine("```csharp");
+                sb.AppendLine(content);
+                sb.AppendLine("```");
+            }
+            else
+            {
+                sb.AppendLine("=================================================");
+                sb.AppendLine($"FILE: {path}");
+                sb.AppendLine("-------------------------------------------------");
+                sb.AppendLine(content);
+                sb.AppendLine();
+            }
         }
 
         private HashSet<string> BuildExtensions()
@@ -217,11 +323,11 @@ namespace StellarFramework.Editor
             if (_includeAsmdef) set.Add(".asmdef");
             if (_includeJson) set.Add(".json");
             if (_includeMeta) set.Add(".meta");
-
             if (_includeTxt)
             {
                 set.Add(".txt");
                 set.Add(".md");
+                set.Add(".xml");
             }
 
             if (_includeShader)
@@ -229,6 +335,7 @@ namespace StellarFramework.Editor
                 set.Add(".shader");
                 set.Add(".cginc");
                 set.Add(".hlsl");
+                set.Add(".glsl");
             }
 
             return set;

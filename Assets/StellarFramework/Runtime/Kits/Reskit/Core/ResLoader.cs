@@ -8,10 +8,7 @@ namespace StellarFramework.Res
 {
     public abstract class ResLoader : IResLoader, Pool.IPoolable
     {
-        //  使用 HashSet 优化查找性能 O(N) -> O(1)
         private readonly HashSet<string> _loadedRecord = new HashSet<string>();
-
-        // 版本号机制：防止异步任务在 ReleaseAll 之后回来污染数据
         private int _loaderVersion = 0;
 
         public abstract ResLoaderType LoaderType { get; }
@@ -20,7 +17,21 @@ namespace StellarFramework.Res
 
         public T Load<T>(string path) where T : Object
         {
-            // 1. 优先查缓存
+            if (string.IsNullOrEmpty(path)) return null;
+
+            // 1. 检查是否本 Loader 已加载
+            if (_loadedRecord.Contains(path))
+            {
+                var cachedData = ResMgr.GetCache(path, LoaderType);
+                if (cachedData != null && cachedData.Asset != null)
+                {
+                    return cachedData.Asset as T;
+                }
+
+                _loadedRecord.Remove(path);
+            }
+
+            // 2. 检查全局缓存
             var cache = ResMgr.GetCache(path, LoaderType);
             if (cache != null)
             {
@@ -29,7 +40,26 @@ namespace StellarFramework.Res
                 return cache.Asset as T;
             }
 
-            // 2. 同步加载新资源
+            // 3. [并发保护] 检查是否有正在进行的异步任务
+            if (ResMgr.IsLoadingAsync(path, LoaderType))
+            {
+                // 3.1 尝试捡漏：如果异步任务刚好完成了
+                var pendingRes = ResMgr.TryGetPendingResultSync(path, LoaderType);
+                if (pendingRes != null && pendingRes.Asset != null)
+                {
+                    ResMgr.AddSync(pendingRes); // 增加引用计数
+                    _loadedRecord.Add(path);
+                    return pendingRes.Asset as T;
+                }
+
+                // 3.2 无法挽回：异步任务正在运行且未完成
+                LogKit.LogError($"[ResLoader] 同步加载失败: 资源 '{path}' 正在后台异步加载中。\n" +
+                                "原因: Unity 禁止对同一资源同时进行 AssetBundle 异步和同步加载。\n" +
+                                "解决: 请确保逻辑统一（全异步），或在调用同步加载前 await 异步任务。");
+                return null;
+            }
+
+            // 4. 执行真实同步加载
             var data = LoadRealSync(path);
             if (data != null && data.Asset != null)
             {
@@ -45,29 +75,38 @@ namespace StellarFramework.Res
 
         public async UniTask<T> LoadAsync<T>(string path) where T : Object
         {
-            // 记录当前版本号
-            int currentVersion = _loaderVersion;
+            if (string.IsNullOrEmpty(path)) return null;
 
-            // 异步加载  传入 LoaderType 生成唯一 Key
-            var data = await ResMgr.LoadSharedAsync(path, LoaderType, () => LoadRealAsync(path));
-
-            // 竞态条件检查
-            // 如果 await 期间调用了 ReleaseAll/Recycle，版本号会变化
-            if (currentVersion != _loaderVersion)
+            if (_loadedRecord.Contains(path))
             {
-                // 此时 Loader 已经重置，这个迟到的资源不应该被记录
-                // 并且因为 ResMgr.LoadSharedAsync 内部已经 +1 了引用计数，我们需要手动 -1 抵消掉
-                if (data != null)
+                var cachedData = ResMgr.GetCache(path, LoaderType);
+                if (cachedData != null && cachedData.Asset != null)
                 {
-                    ResMgr.RemoveRef(path, LoaderType);
-                    LogKit.LogWarning($"[ResLoader] 丢弃过期的异步加载结果: {path}");
+                    return cachedData.Asset as T;
                 }
 
+                _loadedRecord.Remove(path);
+            }
+
+            int currentVersion = _loaderVersion;
+            var data = await ResMgr.LoadSharedAsync(path, LoaderType, () => LoadRealAsync(path));
+
+            // 版本检查：防止加载期间 Loader 被回收
+            if (currentVersion != _loaderVersion)
+            {
+                if (data != null) ResMgr.RemoveRef(path, LoaderType);
                 return null;
             }
 
             if (data != null && data.Asset != null)
             {
+                // [并发修复] 再次检查是否已记录，防止并发调用导致重复 AddRef
+                if (_loadedRecord.Contains(path))
+                {
+                    ResMgr.RemoveRef(path, LoaderType);
+                    return data.Asset as T;
+                }
+
                 _loadedRecord.Add(path);
                 return data.Asset as T;
             }
@@ -102,37 +141,31 @@ namespace StellarFramework.Res
             }
         }
 
-        // 卸载单个资源
         public void Unload(string path)
         {
             if (string.IsNullOrEmpty(path)) return;
-
-            // 检查记录中是否有该资源
             if (_loadedRecord.Contains(path))
             {
                 _loadedRecord.Remove(path);
-                ResMgr.RemoveRef(path, LoaderType); // 引用计数 -1
+                ResMgr.RemoveRef(path, LoaderType);
             }
         }
 
         public void ReleaseAll()
         {
-            // 释放所有持有的资源
             foreach (var path in _loadedRecord)
             {
                 ResMgr.RemoveRef(path, LoaderType);
             }
 
             _loadedRecord.Clear();
-
-            // 版本号递增，立即使所有在途的异步任务失效
             _loaderVersion++;
         }
 
         public virtual void OnAllocated()
         {
             _loadedRecord.Clear();
-            _loaderVersion++; // 分配时也更新版本号，双重保险
+            _loaderVersion++;
         }
 
         public virtual void OnRecycled() => ReleaseAll();
