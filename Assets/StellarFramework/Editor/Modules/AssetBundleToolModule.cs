@@ -214,10 +214,16 @@ namespace StellarFramework.Editor
             _hasUnappliedChanges = true;
 
             bool isDir = Directory.Exists(path);
-            string defaultName = path.Replace("Assets/", "").Replace("/", "_").ToLower();
+            string defaultName = path.Replace("Assets/", "")
+                .Replace("/", "_")
+                .Replace(" ", "_") // 新增这一行
+                .ToLower();
+
             if (!isDir)
             {
-                defaultName = Path.GetFileNameWithoutExtension(path).ToLower();
+                defaultName = Path.GetFileNameWithoutExtension(path)
+                    .Replace(" ", "_") // 这里也要加
+                    .ToLower();
             }
 
             _rules.Add(new BundleRule

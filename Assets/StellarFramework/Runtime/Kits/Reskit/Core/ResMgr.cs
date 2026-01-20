@@ -202,7 +202,7 @@ namespace StellarFramework.Res
                     break;
 
                 case ResLoaderType.AssetBundle:
-                    AssetBundleManager.Instance.UnloadAsset(data.Path);
+                    AssetBundleManager.Instance?.UnloadAsset(data.Path);
                     break;
             }
         }

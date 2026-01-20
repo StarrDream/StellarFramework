@@ -45,9 +45,8 @@ namespace StellarFramework.UI
             _currentLoaderType = loaderType;
             InitResLoader(loaderType);
 
-            // 统一使用 ResLoader 加载 UIRoot，实现真正的加载器解耦
-            string rootPath = GetUIAssetPath(UI_ROOT_NAME, true);
-            GameObject rootPrefab = _resLoader.Load<GameObject>(rootPath);
+            // UIRoot 只能用Resources加载 这个只是个一些空对象直接用即可
+            GameObject rootPrefab = Resources.Load<GameObject>(RELATIVE_ROOT_PATH);
 
             SetupUIRoot(rootPrefab);
 
@@ -62,8 +61,8 @@ namespace StellarFramework.UI
             _currentLoaderType = loaderType;
             InitResLoader(loaderType);
 
-            string rootPath = GetUIAssetPath(UI_ROOT_NAME, true);
-            GameObject rootPrefab = await _resLoader.LoadAsync<GameObject>(rootPath);
+            // UIRoot 只能用Resources加载 这个只是个一些空对象直接用即可
+            GameObject rootPrefab = Resources.Load<GameObject>(RELATIVE_ROOT_PATH);
 
             SetupUIRoot(rootPrefab);
 

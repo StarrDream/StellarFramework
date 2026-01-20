@@ -3,27 +3,24 @@ using System.Collections.Generic;
 using System.IO;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
+using UnityEngine.Networking;
 
 namespace StellarFramework.Res.AB
 {
     public class AssetBundleManager : Singleton<AssetBundleManager>
     {
         private const string SHADER_BUNDLE_NAME = "shaders";
+
         private AssetBundleManifest _manifest;
         private Dictionary<string, string> _assetPathToBundleMap;
 
-        // 资源缓存
+        // 缓存
         private readonly Dictionary<string, AssetBundle> _loadedBundles = new Dictionary<string, AssetBundle>();
-
-        // 引用计数
         private readonly Dictionary<string, int> _bundleRefCounts = new Dictionary<string, int>();
-
-        // 依赖缓存
         private readonly Dictionary<string, string[]> _dependenciesCache = new Dictionary<string, string[]>();
-
-        // 异步任务去重
         private readonly Dictionary<string, UniTask<AssetBundle>> _loadingBundles = new Dictionary<string, UniTask<AssetBundle>>();
 
+        // 路径处理：WebGL下 StreamingAssetsPath 是 URL，不需要额外处理，但 LoadFromFile 需要本地路径
         private string BasePath => Application.streamingAssetsPath + "/AssetBundles";
 
         private string PlatformName
@@ -38,6 +35,9 @@ namespace StellarFramework.Res.AB
             }
         }
 
+        /// <summary>
+        /// 同步初始化 (注意：WebGL 平台下此方法不会加载 Manifest 和 Shader，必须调用 InitAsync)
+        /// </summary>
         public override void OnSingletonInit()
         {
             _assetPathToBundleMap = AssetMap.GetMap();
@@ -47,9 +47,27 @@ namespace StellarFramework.Res.AB
                 _assetPathToBundleMap = new Dictionary<string, string>();
             }
 
+#if UNITY_WEBGL && !UNITY_EDITOR
+            LogKit.LogWarning("[AssetBundleManager] WebGL 环境检测：跳过同步初始化。请务必在游戏启动时调用 'await AssetBundleManager.Instance.InitAsync();'");
+#else
             LoadManifestSync();
             LoadGlobalShadersSync();
+#endif
         }
+
+        /// <summary>
+        /// 异步初始化 (WebGL 必用，其他平台推荐使用)
+        /// </summary>
+        public async UniTask InitAsync()
+        {
+            if (_assetPathToBundleMap == null) OnSingletonInit();
+
+            await LoadManifestAsync();
+            await LoadGlobalShadersAsync();
+            LogKit.Log("[AssetBundleManager] 异步初始化完成");
+        }
+
+        #region Internal Loaders (Manifest & Shaders)
 
         private void LoadManifestSync()
         {
@@ -60,6 +78,7 @@ namespace StellarFramework.Res.AB
             AssetBundle bundle = AssetBundle.LoadFromFile(manifestPath);
             if (bundle == null)
             {
+                // 尝试加载备用路径
                 string altPath = $"{BasePath}/{platform}/AssetBundleManifest";
                 bundle = AssetBundle.LoadFromFile(altPath);
             }
@@ -75,17 +94,49 @@ namespace StellarFramework.Res.AB
             }
         }
 
+        private async UniTask LoadManifestAsync()
+        {
+            if (_manifest != null) return;
+            string platform = PlatformName;
+            string manifestPath = $"{BasePath}/{platform}/{platform}";
+
+            AssetBundle bundle = await LoadBundlePlatformSafeAsync(manifestPath);
+
+            if (bundle != null)
+            {
+                _manifest = bundle.LoadAsset<AssetBundleManifest>("AssetBundleManifest");
+                bundle.Unload(false);
+            }
+            else
+            {
+                LogKit.LogError($"[AssetBundleManager] Manifest 异步加载失败: {manifestPath}");
+            }
+        }
+
         private void LoadGlobalShadersSync()
         {
             if (_loadedBundles.ContainsKey(SHADER_BUNDLE_NAME)) return;
             string path = $"{BasePath}/{PlatformName}/{SHADER_BUNDLE_NAME}";
 
-            // 优化：真机环境减少 IO Check，直接尝试加载
 #if UNITY_EDITOR
             if (!File.Exists(path)) return;
 #endif
-
             var bundle = AssetBundle.LoadFromFile(path);
+            ProcessShaderBundle(bundle);
+        }
+
+        private async UniTask LoadGlobalShadersAsync()
+        {
+            if (_loadedBundles.ContainsKey(SHADER_BUNDLE_NAME)) return;
+            string path = $"{BasePath}/{PlatformName}/{SHADER_BUNDLE_NAME}";
+
+            // WebGL 无法使用 File.Exists 预检查，直接尝试加载
+            var bundle = await LoadBundlePlatformSafeAsync(path);
+            ProcessShaderBundle(bundle);
+        }
+
+        private void ProcessShaderBundle(AssetBundle bundle)
+        {
             if (bundle != null)
             {
                 bundle.LoadAllAssets();
@@ -95,25 +146,33 @@ namespace StellarFramework.Res.AB
                     if (!svc.isWarmedUp) svc.WarmUp();
                 }
 
-                _loadedBundles.Add(SHADER_BUNDLE_NAME, bundle);
-                _bundleRefCounts.Add(SHADER_BUNDLE_NAME, int.MaxValue); // 永不卸载
-                LogKit.Log($"[AssetBundleManager] Shader 预热完成");
+                if (!_loadedBundles.ContainsKey(SHADER_BUNDLE_NAME))
+                {
+                    _loadedBundles.Add(SHADER_BUNDLE_NAME, bundle);
+                    _bundleRefCounts.Add(SHADER_BUNDLE_NAME, int.MaxValue); // 永不卸载
+                    LogKit.Log($"[AssetBundleManager] Shader 预热完成");
+                }
             }
         }
+
+        #endregion
 
         #region API - Sync Load
 
         public UnityEngine.Object LoadAssetSync(string assetPath)
         {
+#if UNITY_WEBGL && !UNITY_EDITOR
+            LogKit.LogError($"[AssetBundleManager] WebGL 不支持同步加载资源: {assetPath}。请改用 LoadAssetAsync。");
+            return null;
+#else
             if (string.IsNullOrEmpty(assetPath)) return null;
+
             if (!_assetPathToBundleMap.TryGetValue(assetPath, out string bundleName))
             {
                 LogKit.LogError($"[AssetBundleManager] 未注册资源: {assetPath}");
                 return null;
             }
 
-            // [Fix] 移除 visited 参数，允许菱形依赖正确计数
-            // 信任 Unity BuildPipeline 保证无环依赖
             LoadBundleRecursiveSync(bundleName);
 
             if (_loadedBundles.TryGetValue(bundleName, out var bundle))
@@ -124,35 +183,32 @@ namespace StellarFramework.Res.AB
             }
 
             return null;
+#endif
         }
 
         private void LoadBundleRecursiveSync(string bundleName)
         {
-            // 1. 先处理依赖 (深度优先)
             var deps = GetCachedDependencies(bundleName);
             if (deps != null)
             {
                 foreach (var dep in deps)
                 {
-                    // 递归调用，确保每个路径的依赖都被计数
                     LoadBundleRecursiveSync(dep);
                 }
             }
 
-            // 2. 加载主包
             LoadBundleSyncInternal(bundleName);
         }
 
         private void LoadBundleSyncInternal(string bundleName)
         {
-            // 情况 A: 已经加载过 -> 引用计数 +1
             if (_loadedBundles.ContainsKey(bundleName))
             {
                 IncreaseRefCount(bundleName);
                 return;
             }
 
-            // 情况 B: 正在异步加载 -> 死锁保护
+            // 检查异步冲突
             if (_loadingBundles.TryGetValue(bundleName, out var task))
             {
                 if (task.Status == UniTaskStatus.Succeeded)
@@ -178,7 +234,6 @@ namespace StellarFramework.Res.AB
                 return;
             }
 
-            // 情况 C: 首次加载
             string lowerBundleName = bundleName.ToLowerInvariant();
             string path = $"{BasePath}/{PlatformName}/{lowerBundleName}";
 
@@ -209,13 +264,13 @@ namespace StellarFramework.Res.AB
         public async UniTask<UnityEngine.Object> LoadAssetAsync(string assetPath)
         {
             if (string.IsNullOrEmpty(assetPath)) return null;
+
             if (!_assetPathToBundleMap.TryGetValue(assetPath, out string bundleName))
             {
                 LogKit.LogError($"[AssetBundleManager] 未注册资源: {assetPath}");
                 return null;
             }
 
-            // [Fix] 移除 visited 参数
             await LoadBundleRecursiveAsync(bundleName);
 
             if (_loadedBundles.TryGetValue(bundleName, out var bundle))
@@ -231,38 +286,34 @@ namespace StellarFramework.Res.AB
 
         private async UniTask LoadBundleRecursiveAsync(string bundleName)
         {
-            // 1. 并行加载所有依赖
             var deps = GetCachedDependencies(bundleName);
             if (deps != null && deps.Length > 0)
             {
                 var tasks = new List<UniTask>(deps.Length);
                 foreach (var dep in deps)
                 {
-                    // 递归调用
                     tasks.Add(LoadBundleRecursiveAsync(dep));
                 }
 
                 await UniTask.WhenAll(tasks);
             }
 
-            // 2. 加载主包
             await LoadBundleAsyncInternal(bundleName);
         }
 
         private async UniTask LoadBundleAsyncInternal(string bundleName)
         {
+            // 1. 检查缓存
             if (_loadedBundles.ContainsKey(bundleName))
             {
                 IncreaseRefCount(bundleName);
                 return;
             }
 
-            // 任务去重：如果已经在加载，直接 await 那个任务
+            // 2. 检查是否正在加载中 (去重)
             if (_loadingBundles.TryGetValue(bundleName, out var loadingTask))
             {
                 await loadingTask;
-                // 任务完成后，再次检查并增加引用计数
-                // 必须增加，因为当前请求也需要持有引用
                 if (_loadedBundles.ContainsKey(bundleName))
                 {
                     IncreaseRefCount(bundleName);
@@ -274,7 +325,9 @@ namespace StellarFramework.Res.AB
             string lowerBundleName = bundleName.ToLowerInvariant();
             string path = $"{BasePath}/{PlatformName}/{lowerBundleName}";
 
-            var newTask = AssetBundle.LoadFromFileAsync(path).ToUniTask().Preserve();
+            // 3. 核心修复：根据平台选择加载方式
+            var newTask = LoadBundlePlatformSafeAsync(path).Preserve();
+
             _loadingBundles[bundleName] = newTask;
 
             AssetBundle bundle = null;
@@ -291,6 +344,7 @@ namespace StellarFramework.Res.AB
                 _loadingBundles.Remove(bundleName);
             }
 
+            // 4. 缓存处理
             if (bundle != null)
             {
                 if (!_loadedBundles.ContainsKey(bundleName))
@@ -310,6 +364,30 @@ namespace StellarFramework.Res.AB
             }
         }
 
+        /// <summary>
+        /// 平台安全的 Bundle 加载器
+        /// </summary>
+        private async UniTask<AssetBundle> LoadBundlePlatformSafeAsync(string pathOrUrl)
+        {
+#if UNITY_WEBGL && !UNITY_EDITOR
+            // WebGL 必须使用 UnityWebRequest
+            using (UnityWebRequest uwr = UnityWebRequestAssetBundle.GetAssetBundle(pathOrUrl))
+            {
+                await uwr.SendWebRequest();
+
+                if (uwr.result != UnityWebRequest.Result.Success)
+                {
+                    LogKit.LogError($"[AssetBundleManager] WebGL 网络加载失败: {pathOrUrl}\n{uwr.error}");
+                    return null;
+                }
+                return DownloadHandlerAssetBundle.GetContent(uwr);
+            }
+#else
+            // 其他平台 (PC/Android/iOS) 使用 LoadFromFileAsync 性能更高
+            return await AssetBundle.LoadFromFileAsync(pathOrUrl);
+#endif
+        }
+
         #endregion
 
         #region Unload Logic (Recursive)
@@ -319,16 +397,12 @@ namespace StellarFramework.Res.AB
             if (string.IsNullOrEmpty(assetPath)) return;
             if (!_assetPathToBundleMap.TryGetValue(assetPath, out string bundleName)) return;
 
-            // [Fix] 移除 visited，确保菱形依赖能被正确减计数
             UnloadBundleRecursive(bundleName);
         }
 
         private void UnloadBundleRecursive(string bundleName)
         {
-            // 1. 卸载自身
             UnloadBundleSingle(bundleName);
-
-            // 2. 递归卸载依赖
             var deps = GetCachedDependencies(bundleName);
             if (deps != null)
             {
@@ -346,12 +420,11 @@ namespace StellarFramework.Res.AB
             if (_bundleRefCounts.ContainsKey(bundleName))
             {
                 _bundleRefCounts[bundleName]--;
-
                 if (_bundleRefCounts[bundleName] <= 0)
                 {
                     if (_loadedBundles.TryGetValue(bundleName, out var bundle))
                     {
-                        bundle.Unload(false); // 彻底卸载，包括从该 Bundle 加载出的 Asset
+                        bundle.Unload(false); // true 会卸载已加载的对象，这里用 false 配合引用计数
                         _loadedBundles.Remove(bundleName);
                     }
 
@@ -377,6 +450,7 @@ namespace StellarFramework.Res.AB
         {
             if (_dependenciesCache.TryGetValue(bundleName, out var deps)) return deps;
             if (_manifest == null) return null;
+
             deps = _manifest.GetAllDependencies(bundleName);
             _dependenciesCache[bundleName] = deps;
             return deps;

@@ -195,3 +195,14 @@ async UniTaskVoid OnClickAsync()
 除了 Unity 事件回调（如 Start, Update, ButtonClick），**严禁**使用 `async void`。
 *   **请使用**：`async UniTaskVoid` (无等待发后即忘) 或 `async UniTask` (可等待)。
 *   **原因**：`async void` 发生的异常无法被 try-catch 捕获，会导致程序崩溃且难以定位。
+### TODO:
+    
+StellarFramework 待补齐的功能
+*   P0（严重缺失）
+* ❌ Command 系统（参考 QFramework 实现）
+* ❌ UI 栈管理（自动隐藏/恢复）
+* ❌ AudioKit 分组（Music/SFX/Voice/UI）
+*   P1（重要缺失）
+* ⚠️ FSM 状态传参
+* ⚠️ ActionKit 暂停/恢复
+* ⚠️ UI 遮罩系统
