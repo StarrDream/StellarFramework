@@ -520,6 +520,17 @@ namespace StellarFramework.Editor.Modules
         }
     }
 
+    [StellarTool("Mesh 合并碰撞体生成工具", "生产力", 0)]
+    public class CombinedMeshColliderHubModule : ToolModule
+    {
+        public override string Icon => "d_ScriptableObject Icon";
+        public override string Description => "打开 Mesh 合并碰撞体生成工具。";
+
+        public override void OnGUI()
+        {
+            if (PrimaryButton("打开窗口", GUILayout.Height(34))) CombinedMeshColliderWindow.ShowWindow();
+        }
+    }
     // =========================================================
     // 框架核心组
     // =========================================================
@@ -535,6 +546,7 @@ namespace StellarFramework.Editor.Modules
             if (PrimaryButton("打开窗口", GUILayout.Height(34))) DictionarySerializerWindow.ShowWindow();
         }
     }
+
     [StellarTool("列表序列化 (增强)", "框架核心", 0)]
     public class ListSerializerWindowHubModule : ToolModule
     {
