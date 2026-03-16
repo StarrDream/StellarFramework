@@ -53,7 +53,7 @@ namespace StellarFramework.UI
             _currentLoaderType = loaderType;
             InitResLoader(loaderType);
 
-            GameObject rootPrefab = Resources.Load<GameObject>(RELATIVE_ROOT_PATH);
+            GameObject rootPrefab = await Resources.LoadAsync<GameObject>(RELATIVE_ROOT_PATH) as GameObject;
             SetupUIRoot(rootPrefab);
             _isInitialized = true;
             LogKit.Log($"[UIKit] 异步初始化完成. Mode: {loaderType}");
