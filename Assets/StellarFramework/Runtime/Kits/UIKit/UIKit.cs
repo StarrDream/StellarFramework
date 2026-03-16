@@ -198,6 +198,52 @@ namespace StellarFramework.UI
             }
         }
 
+        /// <summary>
+        /// 常规关闭所有面板 (会触发 OnClose 动画，并遵循 DestroyOnClose 设定)
+        /// </summary>
+        public static void CloseAllPanels()
+        {
+            if (Instance == null) return;
+
+            // 必须拷贝一份 Key 列表，防止在 ClosePanelInternal 中修改字典导致遍历异常
+            var keys = new List<Type>(Instance._panelCache.Keys);
+            foreach (var type in keys)
+            {
+                Instance.ClosePanelInternal(type);
+            }
+        }
+
+        /// <summary>
+        /// 强制销毁所有面板 (无视 DestroyOnClose，直接销毁 GameObject 并卸载资源)
+        /// 适用于场景切换或账号登出
+        /// </summary>
+        public static void DestroyAllPanels()
+        {
+            if (Instance == null) return;
+
+            foreach (var kvp in Instance._panelCache)
+            {
+                var type = kvp.Key;
+                var panel = kvp.Value;
+
+                if (panel != null && panel.gameObject != null)
+                {
+                    Destroy(panel.gameObject);
+                }
+
+                if (Instance._panelPaths.TryGetValue(type, out string path))
+                {
+                    Instance._resLoader.Unload(path);
+                }
+            }
+
+            Instance._panelCache.Clear();
+            Instance._panelPaths.Clear();
+            Instance._loadingPanels.Clear();
+
+            LogKit.Log("[UIKit] 已强制销毁所有 UI 面板并清理缓存。");
+        }
+
         #endregion
 
         #region 内部逻辑 (Async)
