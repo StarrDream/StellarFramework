@@ -17,14 +17,18 @@ namespace StellarFramework
         [Conditional("ENABLE_LOG")]
         public static void Log(object msg)
         {
-            //  直接调用，避免 $"..." 产生的 GC
             Debug.Log(msg);
+        }
+
+        [Conditional("ENABLE_LOG")]
+        public static void Log(object script, object msg)
+        {
+            Debug.Log($"脚本{script} : {msg}");
         }
 
         [Conditional("ENABLE_LOG")]
         public static void LogFormat(string format, params object[] args)
         {
-            //  使用原生 Format，性能优于 C# 字符串插值
             Debug.LogFormat(format, args);
         }
 
@@ -35,9 +39,21 @@ namespace StellarFramework
         }
 
         [Conditional("ENABLE_LOG")]
+        public static void LogWarning(object script, object msg)
+        {
+            Debug.LogWarning($"脚本{script} : {msg}");
+        }
+
+        [Conditional("ENABLE_LOG")]
         public static void LogError(object msg)
         {
             Debug.LogError(msg);
+        }
+
+        [Conditional("ENABLE_LOG")]
+        public static void LogError(object script, object msg)
+        {
+            Debug.LogError($"脚本{script} : {msg}");
         }
 
         [Conditional("ENABLE_LOG")]

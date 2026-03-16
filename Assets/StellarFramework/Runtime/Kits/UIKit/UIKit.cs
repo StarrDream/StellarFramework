@@ -5,7 +5,7 @@ using Cysharp.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.UI;
 using StellarFramework.Res;
-using StellarFramework.Res.AB; // 引入 AB 命名空间
+using StellarFramework.Res.AB;
 
 namespace StellarFramework.UI
 {
@@ -14,10 +14,8 @@ namespace StellarFramework.UI
     {
         // 基础配置
         private const string UI_ROOT_NAME = "UIRoot";
-        private const string RELATIVE_ROOT_PATH = "UIPanel/UIRoot"; // Resources 相对路径
-        private const string RELATIVE_PANEL_PREFIX = "UIPanel/"; // Resources 相对路径前缀
-
-        // AB 模式下的完整路径前缀 (基于你的 AB 工具生成规则: Assets/Resources/...)
+        private const string RELATIVE_ROOT_PATH = "UIPanel/UIRoot";
+        private const string RELATIVE_PANEL_PREFIX = "UIPanel/";
         private const string AB_ROOT_PATH = "Assets/Resources/UIPanel/UIRoot.prefab";
         private const string AB_PANEL_PREFIX = "Assets/Resources/UIPanel/";
 
@@ -33,7 +31,6 @@ namespace StellarFramework.UI
         private readonly Dictionary<Type, UIPanelBase> _panelCache = new Dictionary<Type, UIPanelBase>();
         private readonly Dictionary<Type, string> _panelPaths = new Dictionary<Type, string>();
         private readonly HashSet<Type> _loadingPanels = new HashSet<Type>();
-
         private CancellationTokenSource _destroyCts = new CancellationTokenSource();
 
         #region 初始化流程
@@ -41,15 +38,11 @@ namespace StellarFramework.UI
         public void Init(ResLoaderType loaderType = ResLoaderType.Resources)
         {
             if (_isInitialized) return;
-
             _currentLoaderType = loaderType;
             InitResLoader(loaderType);
 
-            // UIRoot 只能用Resources加载 这个只是个一些空对象直接用即可
             GameObject rootPrefab = Resources.Load<GameObject>(RELATIVE_ROOT_PATH);
-
             SetupUIRoot(rootPrefab);
-
             _isInitialized = true;
             LogKit.Log($"[UIKit] 同步初始化完成. Mode: {loaderType}");
         }
@@ -57,15 +50,11 @@ namespace StellarFramework.UI
         public async UniTask InitAsync(ResLoaderType loaderType = ResLoaderType.Resources)
         {
             if (_isInitialized) return;
-
             _currentLoaderType = loaderType;
             InitResLoader(loaderType);
 
-            // UIRoot 只能用Resources加载 这个只是个一些空对象直接用即可
             GameObject rootPrefab = Resources.Load<GameObject>(RELATIVE_ROOT_PATH);
-
             SetupUIRoot(rootPrefab);
-
             _isInitialized = true;
             LogKit.Log($"[UIKit] 异步初始化完成. Mode: {loaderType}");
         }
@@ -78,7 +67,6 @@ namespace StellarFramework.UI
                     _resLoader = ResKit.Allocate<ResourceLoader>();
                     break;
                 case ResLoaderType.AssetBundle:
-                    // 确保 AB 管理器已初始化
                     if (AssetBundleManager.Instance == null)
                     {
                         LogKit.LogWarning("[UIKit] 检测到 AssetBundleManager 未初始化，正在自动初始化...");
@@ -99,30 +87,20 @@ namespace StellarFramework.UI
 
         #endregion
 
-        #region 内部逻辑：路径适配 (核心优化)
+        #region 内部逻辑：路径适配
 
-        /// <summary>
-        /// 根据当前的加载器模式，将逻辑名称转换为实际加载路径
-        /// </summary>
-        /// <param name="assetName">资源名 (如 LoginPanel)</param>
-        /// <param name="isRoot">是否是 UIRoot</param>
         private string GetUIAssetPath(string assetName, bool isRoot = false)
         {
-            // 1. Resources 模式：使用相对路径，无后缀
             if (_currentLoaderType == ResLoaderType.Resources)
             {
                 return isRoot ? RELATIVE_ROOT_PATH : $"{RELATIVE_PANEL_PREFIX}{assetName}";
             }
 
-            // 2. AssetBundle 模式：使用完整路径，带后缀 (适配你的 AB 工具生成规则)
             if (_currentLoaderType == ResLoaderType.AssetBundle)
             {
                 return isRoot ? AB_ROOT_PATH : $"{AB_PANEL_PREFIX}{assetName}.prefab";
             }
 
-            // 3. Addressable 模式：
-            // 默认假设 Address Name 设置为了短路径 (如 "UIPanel/LoginPanel")
-            // 如果你的 Address Name 是完整路径，请修改此处逻辑
             return isRoot ? RELATIVE_ROOT_PATH : $"{RELATIVE_PANEL_PREFIX}{assetName}";
         }
 
@@ -142,13 +120,10 @@ namespace StellarFramework.UI
 
             RootCanvas = rootGo.GetComponent<Canvas>();
             RootScaler = rootGo.GetComponent<CanvasScaler>();
-
-            // 尝试获取 Camera，通常 UIRoot 会自带一个 UICamera
             UICamera = rootGo.GetComponentInChildren<Camera>();
 
             DontDestroyOnLoad(rootGo);
 
-            // 初始化层级
             foreach (UIPanelBase.PanelLayer layer in Enum.GetValues(typeof(UIPanelBase.PanelLayer)))
             {
                 string layerName = layer.ToString();
@@ -208,6 +183,21 @@ namespace StellarFramework.UI
             return null;
         }
 
+        /// <summary>
+        /// 仅刷新已打开的面板数据，不改变其激活状态或触发入场动画
+        /// </summary>
+        public static void RefreshPanel<T>(object uiData = null) where T : UIPanelBase
+        {
+            if (Instance == null) return;
+            if (Instance._panelCache.TryGetValue(typeof(T), out var panel))
+            {
+                if (panel.gameObject.activeSelf)
+                {
+                    panel.RefreshData(uiData);
+                }
+            }
+        }
+
         #endregion
 
         #region 内部逻辑 (Async)
@@ -222,7 +212,6 @@ namespace StellarFramework.UI
 
             Type type = typeof(T);
 
-            // 防止同一帧重复加载
             if (_loadingPanels.Contains(type))
             {
                 await UniTask.WaitUntil(() => !_loadingPanels.Contains(type), cancellationToken: _destroyCts.Token);
@@ -241,7 +230,6 @@ namespace StellarFramework.UI
                 try
                 {
                     string panelName = type.Name;
-                    // 使用路径适配器获取真实路径
                     string path = GetUIAssetPath(panelName);
 
                     var prefab = await _resLoader.LoadAsync<GameObject>(path).AttachExternalCancellation(_destroyCts.Token);
@@ -250,6 +238,7 @@ namespace StellarFramework.UI
                         _panelPaths[type] = path;
                         var go = Instantiate(prefab);
                         panel = go.GetComponent<T>();
+
                         if (panel == null)
                         {
                             LogKit.LogError($"[UIKit] Prefab {panelName} 缺少脚本组件！");
@@ -288,7 +277,16 @@ namespace StellarFramework.UI
 
             if (panel != null && openAfterLoad)
             {
-                await panel.OnOpen(uiData);
+                // 如果面板已经处于激活状态，仅置顶并刷新数据，防止重复执行入场动画
+                if (panel.gameObject.activeSelf)
+                {
+                    panel.transform.SetAsLastSibling();
+                    panel.RefreshData(uiData);
+                }
+                else
+                {
+                    await panel.OnOpen(uiData);
+                }
             }
 
             return panel;
@@ -344,26 +342,37 @@ namespace StellarFramework.UI
             }
 
             Type type = typeof(T);
+
             if (_panelCache.TryGetValue(type, out var cachedPanel))
             {
                 var p = cachedPanel as T;
                 if (openAfterLoad && p != null)
                 {
-                    p.OnOpen(uiData).Forget();
+                    // 核心修改：同步加载分支同样处理状态判定
+                    if (p.gameObject.activeSelf)
+                    {
+                        p.transform.SetAsLastSibling();
+                        p.RefreshData(uiData);
+                    }
+                    else
+                    {
+                        p.OnOpen(uiData).Forget();
+                    }
                 }
 
                 return p;
             }
 
             string panelName = type.Name;
-            string path = GetUIAssetPath(panelName); // 使用路径适配
-
+            string path = GetUIAssetPath(panelName);
             GameObject prefab = _resLoader.Load<GameObject>(path);
+
             if (prefab != null)
             {
                 _panelPaths[type] = path;
                 var go = Instantiate(prefab);
                 T panel = go.GetComponent<T>();
+
                 if (panel == null)
                 {
                     LogKit.LogError($"[UIKit] Prefab {panelName} 缺少脚本组件！");
