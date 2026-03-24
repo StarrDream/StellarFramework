@@ -1,88 +1,87 @@
 ﻿# PoolKit 使用手册
 
-## 1. 设计理念 (Why)
-在游戏开发中，频繁的 `Instantiate` 和 `Destroy` 是造成 GC 峰值和帧率卡顿的主要原因之一。
-**PoolKit 的特性：**
-*   **极简 API**：`Allocate` (申请) 和 `Recycle` (回收)，符合直觉。
-*   **LIFO 策略**：内部使用 `Stack` 存储。最近回收的对象最可能还在 CPU 缓存中，立即拿出来用性能最高。
-*   **双模式**：支持纯 C# 对象和 GameObject。
+## 1. 架构理念 (Architecture)
+`PoolKit` 采用底层统一、上层分治的设计心智：
+*   **底层唯一数据结构**：`FactoryObjectPool<T>` 是框架内唯一的池化容器，通过生命周期委托（`factoryMethod`, `allocateMethod`, `recycleMethod`, `destroyMethod`）实现与具体对象类型的彻底解耦。
+*   **全局门面 (Facade)**：`PoolKit` 静态类作为纯 C# 对象的全局调度中心，内部利用泛型静态类特性实现 **O(1) 无锁无字典的极速存取**。
 
 ---
 
-## 2. 使用指南 (How)
+## 2. 使用指南 (How To Use)
 
-### 2.1 纯 C# 对象池 (SimpleObjectPool)
-适用于：网络消息包、临时数据结构、事件参数对象。
+### 2.1 纯 C# 对象池 (网络消息、事件参数)
+**适用场景**：高频创建与销毁的纯数据结构。
+**规范约束**：强烈建议实现 `IPoolable` 接口，以便在出入池时自动清理脏数据。
 
-**定义类：**
+**定义数据类：**
 ```csharp
-// 实现 IPoolable 接口（可选，但推荐）
-public class MyMsg : IPoolable
+public class DamageEventData : IPoolable
 {
-    public int Id;
-    
-    // 相当于构造函数/Awake
+    public int TargetId;
+    public float DamageValue;
+
     public void OnAllocated() 
     {
-        Id = 0;
+        TargetId = 0;
+        DamageValue = 0f;
     }
-    
-    // 相当于 Dispose/OnDestroy
+
     public void OnRecycled() 
     {
-        Id = 0;
+        TargetId = 0;
     }
 }
 ```
 
-**使用：**
+**业务调用（极简 API）：**
 ```csharp
-// 1. 申请
-MyMsg msg = PoolKit.Allocate<MyMsg>();
-msg.Id = 100;
+// 1. 申请 (O(1) 极速命中静态池)
+DamageEventData evt = PoolKit.Allocate<DamageEventData>();
+evt.TargetId = 1001;
+evt.DamageValue = 99.5f;
 
-// ... 使用完毕 ...
+// 2. 派发事件...
+EventKit.Dispatch(evt);
 
-// 2. 回收
-PoolKit.Recycle(msg);
+// 3. 回收 (谁申请，谁回收)
+PoolKit.Recycle(evt);
 ```
 
-### 2.2 Unity 组件/物体池 (FactoryObjectPool)
-虽然 `PoolKit` 提供了基础支持，但在处理 GameObject 时，通常建议配合 `FactoryObjectPool` 在 Manager 内部使用。
+### 2.2 Unity 游戏物体池 (子弹、特效、UI)
+**适用场景**：依赖 `Instantiate` 和 `Destroy` 的引擎级表现对象。
+**规范约束**：严禁将 GameObject 直接塞入 `PoolKit` 门面。必须在对应的业务 Manager 内部实例化 `FactoryObjectPool<T>` 并注入生命周期委托。
 
-**示例（在管理器内部）：**
+**在 Manager 中管理：**
 ```csharp
-private FactoryObjectPool<Bullet> _bulletPool;
+public class BulletManager : MonoBehaviour
+{
+    public Bullet BulletPrefab;
+    private FactoryObjectPool<Bullet> _pool;
 
-void Start() {
-    _bulletPool = new FactoryObjectPool<Bullet>(
-        factoryMethod: () => Instantiate(bulletPrefab),
-        resetMethod: (b) => { 
-            b.gameObject.SetActive(false); 
-            b.transform.position = Vector3.zero; 
-        },
-        destroyMethod: (b) => Destroy(b.gameObject)
-    );
-}
+    void Start() 
+    {
+        _pool = new FactoryObjectPool<Bullet>(
+            factoryMethod: () => Instantiate(BulletPrefab),
+            allocateMethod: b => b.gameObject.SetActive(true),
+            recycleMethod: b => 
+            { 
+                b.gameObject.SetActive(false); 
+                b.transform.position = Vector3.zero; 
+            },
+            destroyMethod: b => { if (b != null) Destroy(b.gameObject); }
+        );
+    }
 
-public void Fire() {
-    var bullet = _bulletPool.Allocate();
-    bullet.gameObject.SetActive(true);
-}
-
-public void ReturnBullet(Bullet b) {
-    _bulletPool.Recycle(b);
+    public void Fire() 
+    {
+        Bullet b = _pool.Allocate();
+        // 初始化子弹逻辑...
+    }
 }
 ```
 
 ---
 
-## 3. 常见坑点 (Pitfalls)
-
-### Q1: 对象状态不正确（脏数据）
-*   **原因**：回收时没有重置数据。
-*   **解决**：务必在 `OnRecycled` 或 `resetMethod` 中将对象的所有字段恢复到初始状态（清空 List，重置 bool 等）。
-
-### Q2: 引用了已回收的对象
-*   **原因**：`Recycle(msg)` 后，逻辑层还持有 `msg` 的引用并继续修改它。
-*   **解决**：这是对象池最危险的 Bug。回收后请立即将变量设为 `null`，或者严格遵守“谁申请谁负责”的原则。
+## 3. 防御性编程与常见坑点 (Pitfalls)
+1.  **脏数据残留**：纯 C# 对象若不实现 `IPoolable.OnRecycled` 清理内部的 `List` 或引用类型字段，极易导致内存泄漏或逻辑串线。
+2.  **游离引用（悬垂指针）**：调用 `Recycle` 后，原变量依然指向该内存地址。若后续逻辑继续修改该变量，将直接污染池内备用对象。**规范：回收后立即将变量置为 null，或严格限制变量的作用域。**

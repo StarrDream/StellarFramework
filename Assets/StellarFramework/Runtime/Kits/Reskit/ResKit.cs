@@ -4,67 +4,46 @@ namespace StellarFramework.Res
 {
     /// <summary>
     /// ResKit 门面
-    /// 统一管理加载器的分配与回收
+    /// 我统一管理加载器的分配与回收，避免业务层直接操作池与资源生命周期细节。
     /// </summary>
     public static class ResKit
     {
         /// <summary>
-        /// [推荐] 从对象池申请一个加载器 (0 GC)
+        /// 我从对象池申请一个加载器，保持 0 GC 的常驻使用体验。
         /// </summary>
-        /// <typeparam name="T">ResourceLoader 或 AddressableLoader</typeparam>
         public static T Allocate<T>() where T : ResLoader, new()
         {
             return PoolKit.Allocate<T>();
         }
 
         /// <summary>
-        ///  回收加载器
-        /// 自动释放该加载器持有的所有资源引用
+        /// 我回收强类型加载器。
+        /// 资源释放逻辑交给对象池回收流程中的 OnRecycled 统一处理，避免重复 ReleaseAll。
         /// </summary>
         public static void Recycle<T>(T loader) where T : ResLoader, new()
         {
+            if (loader == null)
+            {
+                LogKit.LogError("[ResKit] Recycle 失败: loader 为空");
+                return;
+            }
+
             PoolKit.Recycle(loader);
         }
 
         /// <summary>
-        ///  回收加载器 (接口版本)
-        /// 方便持有 IResLoader 的地方直接调用
+        /// 我回收接口类型加载器。
+        /// 这里不穷举具体子类，而是交给对象池系统按运行时真实类型回收，保持对扩展开放、对修改关闭。
         /// </summary>
         public static void Recycle(IResLoader loader)
         {
-            if (loader == null) return;
-
-            // 1. 释放资源
-            loader.ReleaseAll();
-
-            // 2. 根据具体类型回收到对应的池
-            // 注意：这里需要根据你的 ResLoader 和 AddressableLoader 的具体实现来判断
-            // 假设它们都继承自 ResLoader 基类
-
-            if (loader is ResourceLoader resLoader)
+            if (loader == null)
             {
-                PoolKit.Recycle(resLoader);
+                LogKit.LogError("[ResKit] Recycle(IResLoader) 失败: loader 为空");
+                return;
             }
-            else if (loader is AddressableLoader aaLoader)
-            {
-                PoolKit.Recycle(aaLoader);
-            }
-            else if (loader is ResLoader baseLoader)
-            {
-                // 如果有其他继承自 ResLoader 的自定义加载器
-                // 这里可能需要反射或者更通用的池化处理，
-                // 但考虑到 PoolKit.Recycle<T> 需要确定的 T，
-                // 最简单的方式是强转。
 
-                // 如果 PoolKit 支持非泛型 Recycle(object obj)，可以直接调用。
-                // 如果不支持，我们需要在这里穷举已知类型。
-            }
-            else
-            {
-                // 如果是未知的 IResLoader 实现（没继承 ResLoader），无法回收到池
-                // 只能任由 GC 回收
-                LogKit.LogWarning($"[ResKit] Unknown loader type '{loader.GetType().Name}', cannot recycle to pool.");
-            }
+            PoolKit.Recycle(loader);
         }
     }
 }

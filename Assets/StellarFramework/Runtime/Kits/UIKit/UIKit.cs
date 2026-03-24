@@ -4,472 +4,692 @@ using System.Threading;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.UI;
-using StellarFramework.Res;
-using StellarFramework.Res.AB;
 
 namespace StellarFramework.UI
 {
     [Singleton("Managers/UIKit", SingletonLifeCycle.Global, false)]
     public class UIKit : MonoSingleton<UIKit>
     {
-        // 基础配置
         private const string UI_ROOT_NAME = "UIRoot";
-        private const string RELATIVE_ROOT_PATH = "UIPanel/UIRoot";
-        private const string RELATIVE_PANEL_PREFIX = "UIPanel/";
-        private const string AB_ROOT_PATH = "Assets/Resources/UIPanel/UIRoot.prefab";
-        private const string AB_PANEL_PREFIX = "Assets/Resources/UIPanel/";
 
-        private IResLoader _resLoader;
-        private ResLoaderType _currentLoaderType;
+        private IUILoadStrategy _loadStrategy;
         private bool _isInitialized;
 
         public Canvas RootCanvas { get; private set; }
         public CanvasScaler RootScaler { get; private set; }
         public Camera UICamera { get; private set; }
 
-        private readonly Dictionary<UIPanelBase.PanelLayer, Transform> _layers = new Dictionary<UIPanelBase.PanelLayer, Transform>();
-        private readonly Dictionary<Type, UIPanelBase> _panelCache = new Dictionary<Type, UIPanelBase>();
-        private readonly Dictionary<Type, string> _panelPaths = new Dictionary<Type, string>();
-        private readonly HashSet<Type> _loadingPanels = new HashSet<Type>();
+        private readonly Dictionary<UIPanelBase.PanelLayer, Transform> _layers =
+            new Dictionary<UIPanelBase.PanelLayer, Transform>();
+
+        private readonly Dictionary<Type, UIPanelBase> _panelCache =
+            new Dictionary<Type, UIPanelBase>();
+
+        private readonly Dictionary<Type, string> _panelNames =
+            new Dictionary<Type, string>();
+
+        private readonly Dictionary<Type, UniTask<UIPanelBase>> _panelLoadingTasks =
+            new Dictionary<Type, UniTask<UIPanelBase>>();
+
         private CancellationTokenSource _destroyCts = new CancellationTokenSource();
 
-        #region 初始化流程
+        #region 配置与初始化
 
-        public void Init(ResLoaderType loaderType = ResLoaderType.Resources)
+        /// <summary>
+        /// 我允许在初始化前注入自定义 UI 加载策略。
+        /// 初始化后切换策略会破坏已缓存面板与资源引用边界，所以这里直接阻断。
+        /// </summary>
+        public void Configure(IUILoadStrategy loadStrategy)
         {
-            if (_isInitialized) return;
-            _currentLoaderType = loaderType;
-            InitResLoader(loaderType);
-
-            GameObject rootPrefab = Resources.Load<GameObject>(RELATIVE_ROOT_PATH);
-            SetupUIRoot(rootPrefab);
-            _isInitialized = true;
-            LogKit.Log($"[UIKit] 同步初始化完成. Mode: {loaderType}");
-        }
-
-        public async UniTask InitAsync(ResLoaderType loaderType = ResLoaderType.Resources)
-        {
-            if (_isInitialized) return;
-            _currentLoaderType = loaderType;
-            InitResLoader(loaderType);
-
-            GameObject rootPrefab = await Resources.LoadAsync<GameObject>(RELATIVE_ROOT_PATH) as GameObject;
-            SetupUIRoot(rootPrefab);
-            _isInitialized = true;
-            LogKit.Log($"[UIKit] 异步初始化完成. Mode: {loaderType}");
-        }
-
-        private void InitResLoader(ResLoaderType loaderType)
-        {
-            switch (loaderType)
+            if (_isInitialized)
             {
-                case ResLoaderType.Resources:
-                    _resLoader = ResKit.Allocate<ResourceLoader>();
-                    break;
-                case ResLoaderType.AssetBundle:
-                    if (AssetBundleManager.Instance == null)
-                    {
-                        LogKit.LogWarning("[UIKit] 检测到 AssetBundleManager 未初始化，正在自动初始化...");
-                        AssetBundleManager.Instance.OnSingletonInit();
-                    }
-
-                    _resLoader = ResKit.Allocate<AssetBundleLoader>();
-                    break;
-                case ResLoaderType.Addressable:
-                    _resLoader = ResKit.Allocate<AddressableLoader>();
-                    break;
-                default:
-                    LogKit.LogError($"[UIKit] 未知的加载器类型: {loaderType}，回退到 Resources");
-                    _resLoader = ResKit.Allocate<ResourceLoader>();
-                    break;
-            }
-        }
-
-        #endregion
-
-        #region 内部逻辑：路径适配
-
-        private string GetUIAssetPath(string assetName, bool isRoot = false)
-        {
-            if (_currentLoaderType == ResLoaderType.Resources)
-            {
-                return isRoot ? RELATIVE_ROOT_PATH : $"{RELATIVE_PANEL_PREFIX}{assetName}";
-            }
-
-            if (_currentLoaderType == ResLoaderType.AssetBundle)
-            {
-                return isRoot ? AB_ROOT_PATH : $"{AB_PANEL_PREFIX}{assetName}.prefab";
-            }
-
-            return isRoot ? RELATIVE_ROOT_PATH : $"{RELATIVE_PANEL_PREFIX}{assetName}";
-        }
-
-        #endregion
-
-        private void SetupUIRoot(GameObject rootPrefab)
-        {
-            if (rootPrefab == null)
-            {
-                LogKit.LogError($"[UIKit] 致命错误: 无法加载 UIRoot！请检查 Resources/UIPanel/UIRoot 是否存在，或是否已打入 AB 包。");
+                Debug.LogError(
+                    $"[UIKit] Configure 失败: UIKit 已初始化，当前策略={_loadStrategy?.GetType().Name ?? "null"}，新策略={loadStrategy?.GetType().Name ?? "null"}");
                 return;
             }
 
+            if (loadStrategy == null)
+            {
+                Debug.LogError("[UIKit] Configure 失败: 传入的加载策略为空");
+                return;
+            }
+
+            _loadStrategy = loadStrategy;
+        }
+
+        public void Init()
+        {
+            if (_isInitialized)
+            {
+                return;
+            }
+
+            EnsureDefaultStrategy();
+            if (_loadStrategy == null)
+            {
+                Debug.LogError("[UIKit] Init 失败: 加载策略为空");
+                return;
+            }
+
+            GameObject rootPrefab = _loadStrategy.LoadUIRoot();
+            if (rootPrefab == null)
+            {
+                Debug.LogError($"[UIKit] Init 失败: UIRoot 加载为空，策略={_loadStrategy.GetType().Name}");
+                return;
+            }
+
+            if (!SetupUIRoot(rootPrefab))
+            {
+                Debug.LogError(
+                    $"[UIKit] Init 失败: UIRoot 结构非法，策略={_loadStrategy.GetType().Name}，Prefab={rootPrefab.name}");
+                return;
+            }
+
+            _isInitialized = true;
+            LogKit.Log($"[UIKit] 同步初始化完成，策略={_loadStrategy.GetType().Name}");
+        }
+
+        public async UniTask InitAsync()
+        {
+            if (_isInitialized)
+            {
+                return;
+            }
+
+            EnsureDefaultStrategy();
+            if (_loadStrategy == null)
+            {
+                Debug.LogError("[UIKit] InitAsync 失败: 加载策略为空");
+                return;
+            }
+
+            GameObject rootPrefab = await _loadStrategy.LoadUIRootAsync();
+            if (rootPrefab == null)
+            {
+                Debug.LogError($"[UIKit] InitAsync 失败: UIRoot 加载为空，策略={_loadStrategy.GetType().Name}");
+                return;
+            }
+
+            if (!SetupUIRoot(rootPrefab))
+            {
+                Debug.LogError(
+                    $"[UIKit] InitAsync 失败: UIRoot 结构非法，策略={_loadStrategy.GetType().Name}，Prefab={rootPrefab.name}");
+                return;
+            }
+
+            _isInitialized = true;
+            LogKit.Log($"[UIKit] 异步初始化完成，策略={_loadStrategy.GetType().Name}");
+        }
+
+        private void EnsureDefaultStrategy()
+        {
+            if (_loadStrategy != null)
+            {
+                return;
+            }
+
+            _loadStrategy = new ResKitUILoadStrategy();
+        }
+
+        private bool SetupUIRoot(GameObject rootPrefab)
+        {
+            if (rootPrefab == null)
+            {
+                Debug.LogError("[UIKit] SetupUIRoot 失败: rootPrefab 为空");
+                return false;
+            }
+
+            if (RootCanvas != null)
+            {
+                Debug.LogError(
+                    $"[UIKit] SetupUIRoot 失败: 已存在 UIRoot，当前 Canvas 物体名={RootCanvas.gameObject.name}，新 Prefab={rootPrefab.name}");
+                return false;
+            }
+
             GameObject rootGo = Instantiate(rootPrefab);
-            rootGo.name = "UIRoot";
-            rootGo.transform.SetParent(transform);
+            rootGo.name = UI_ROOT_NAME;
 
-            RootCanvas = rootGo.GetComponent<Canvas>();
-            RootScaler = rootGo.GetComponent<CanvasScaler>();
-            UICamera = rootGo.GetComponentInChildren<Camera>();
+            Canvas rootCanvas = rootGo.GetComponent<Canvas>();
+            CanvasScaler rootScaler = rootGo.GetComponent<CanvasScaler>();
+            Camera uiCamera = rootGo.GetComponentInChildren<Camera>(true);
 
-            DontDestroyOnLoad(rootGo);
+            if (rootCanvas == null)
+            {
+                Debug.LogError(
+                    $"[UIKit] SetupUIRoot 失败: UIRoot 缺少 Canvas，物体名={rootGo.name}，Prefab={rootPrefab.name}");
+                Destroy(rootGo);
+                return false;
+            }
 
+            var newLayers = new Dictionary<UIPanelBase.PanelLayer, Transform>();
             foreach (UIPanelBase.PanelLayer layer in Enum.GetValues(typeof(UIPanelBase.PanelLayer)))
             {
                 string layerName = layer.ToString();
                 Transform layerTrans = rootGo.transform.Find(layerName);
                 if (layerTrans == null)
                 {
-                    var go = new GameObject(layerName);
-                    layerTrans = go.AddComponent<RectTransform>().transform;
-                    layerTrans.SetParent(rootGo.transform, false);
-                    var rt = (RectTransform)layerTrans;
-                    rt.FillParent();
+                    Debug.LogError(
+                        $"[UIKit] SetupUIRoot 失败: UIRoot 缺少层级节点，物体名={rootGo.name}，缺失层={layerName}，Prefab={rootPrefab.name}");
+                    Destroy(rootGo);
+                    return false;
                 }
 
-                layerTrans.SetSiblingIndex((int)layer);
-                _layers[layer] = layerTrans;
+                newLayers[layer] = layerTrans;
             }
+
+            rootGo.transform.SetParent(null, false);
+            DontDestroyOnLoad(rootGo);
+
+            RootCanvas = rootCanvas;
+            RootScaler = rootScaler;
+            UICamera = uiCamera;
+
+            _layers.Clear();
+            foreach (var pair in newLayers)
+            {
+                _layers[pair.Key] = pair.Value;
+            }
+
+            return true;
         }
 
         public void SetResolution(Vector2 resolution, float matchWidthOrHeight)
         {
-            if (RootScaler == null) return;
+            if (RootScaler == null)
+            {
+                Debug.LogError(
+                    $"[UIKit] SetResolution 失败: RootScaler 为空，Resolution={resolution}，Match={matchWidthOrHeight}");
+                return;
+            }
+
             RootScaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             RootScaler.referenceResolution = resolution;
             RootScaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
             RootScaler.matchWidthOrHeight = matchWidthOrHeight;
         }
 
-        #region 公开函数 (Async)
+        #endregion
 
-        public static async UniTask<T> PreloadPanelAsync<T>(object uiData = null) where T : UIPanelBase
+        #region 静态公开 API - 打开
+
+        public static TPanel OpenPanel<TPanel>(UIPanelDataBase data = null) where TPanel : UIPanelBase
         {
-            return await Instance.LoadPanelInternal<T>(uiData, false);
+            return Instance.OpenPanelInternalSync<TPanel>(data);
         }
 
-        public static async UniTask<T> OpenPanelAsync<T>(object uiData = null) where T : UIPanelBase
+        public static async UniTask<TPanel> OpenPanelAsync<TPanel>(UIPanelDataBase data = null)
+            where TPanel : UIPanelBase
         {
-            return await Instance.LoadPanelInternal<T>(uiData, true);
+            return await Instance.OpenPanelInternalAsync<TPanel>(data);
         }
 
-        public static void ClosePanel<T>() where T : UIPanelBase
+        #endregion
+
+        #region 静态公开 API - 预加载
+
+        public static TPanel PreloadPanel<TPanel>() where TPanel : UIPanelBase
         {
-            if (Instance == null) return;
-            Instance.ClosePanelInternal(typeof(T));
+            return Instance.GetOrLoadPanelInternalSync<TPanel>();
         }
 
-        public static void ClosePanel(Type type)
+        public static async UniTask<TPanel> PreloadPanelAsync<TPanel>() where TPanel : UIPanelBase
         {
-            if (Instance == null) return;
-            Instance.ClosePanelInternal(type);
+            return await Instance.GetOrLoadPanelInternalAsync<TPanel>();
         }
 
-        public static T GetPanel<T>() where T : UIPanelBase
+        #endregion
+
+        #region 静态公开 API - 获取
+
+        public static TPanel GetPanel<TPanel>() where TPanel : UIPanelBase
         {
-            if (Instance == null) return null;
-            if (Instance._panelCache.TryGetValue(typeof(T), out var panel))
-                return panel as T;
+            if (Instance == null)
+            {
+                Debug.LogError($"[UIKit] GetPanel 失败: UIKit 实例为空，Panel={typeof(TPanel).Name}");
+                return null;
+            }
+
+            if (Instance._panelCache.TryGetValue(typeof(TPanel), out var panel))
+            {
+                return panel as TPanel;
+            }
+
             return null;
         }
 
-        /// <summary>
-        /// 仅刷新已打开的面板数据，不改变其激活状态或触发入场动画
-        /// </summary>
-        public static void RefreshPanel<T>(object uiData = null) where T : UIPanelBase
+        public static TPanel GetOrLoadPanel<TPanel>() where TPanel : UIPanelBase
         {
-            if (Instance == null) return;
-            if (Instance._panelCache.TryGetValue(typeof(T), out var panel))
-            {
-                if (panel.gameObject.activeSelf)
-                {
-                    panel.RefreshData(uiData);
-                }
-            }
+            return Instance.GetOrLoadPanelInternalSync<TPanel>();
         }
 
-        /// <summary>
-        /// 常规关闭所有面板 (会触发 OnClose 动画，并遵循 DestroyOnClose 设定)
-        /// </summary>
+        public static async UniTask<TPanel> GetOrLoadPanelAsync<TPanel>() where TPanel : UIPanelBase
+        {
+            return await Instance.GetOrLoadPanelInternalAsync<TPanel>();
+        }
+
+        #endregion
+
+        #region 静态公开 API - 刷新
+
+        public static void RefreshPanel<TPanel>(UIPanelDataBase data) where TPanel : UIPanelBase
+        {
+            if (Instance == null)
+            {
+                Debug.LogError($"[UIKit] RefreshPanel 失败: UIKit 实例为空，Panel={typeof(TPanel).Name}");
+                return;
+            }
+
+            Instance.RefreshPanelInternal(typeof(TPanel), data);
+        }
+
+        #endregion
+
+        #region 静态公开 API - 关闭
+
+        public static void ClosePanel<TPanel>() where TPanel : UIPanelBase
+        {
+            if (Instance == null)
+            {
+                Debug.LogError($"[UIKit] ClosePanel 失败: UIKit 实例为空，Panel={typeof(TPanel).Name}");
+                return;
+            }
+
+            Instance.ClosePanelInternal(typeof(TPanel));
+        }
+
+        public static void ClosePanel(Type panelType)
+        {
+            if (Instance == null)
+            {
+                Debug.LogError($"[UIKit] ClosePanel(Type) 失败: UIKit 实例为空，PanelType={panelType?.Name ?? "null"}");
+                return;
+            }
+
+            Instance.ClosePanelInternal(panelType);
+        }
+
         public static void CloseAllPanels()
         {
-            if (Instance == null) return;
-
-            // 必须拷贝一份 Key 列表，防止在 ClosePanelInternal 中修改字典导致遍历异常
-            var keys = new List<Type>(Instance._panelCache.Keys);
-            foreach (var type in keys)
+            if (Instance == null)
             {
-                Instance.ClosePanelInternal(type);
+                Debug.LogError("[UIKit] CloseAllPanels 失败: UIKit 实例为空");
+                return;
+            }
+
+            var keys = new List<Type>(Instance._panelCache.Keys);
+            for (int i = 0; i < keys.Count; i++)
+            {
+                Instance.ClosePanelInternal(keys[i]);
             }
         }
 
-        /// <summary>
-        /// 强制销毁所有面板 (无视 DestroyOnClose，直接销毁 GameObject 并卸载资源)
-        /// 适用于场景切换或账号登出
-        /// </summary>
         public static void DestroyAllPanels()
         {
-            if (Instance == null) return;
-
-            foreach (var kvp in Instance._panelCache)
+            if (Instance == null)
             {
-                var type = kvp.Key;
-                var panel = kvp.Value;
+                Debug.LogError("[UIKit] DestroyAllPanels 失败: UIKit 实例为空");
+                return;
+            }
 
-                if (panel != null && panel.gameObject != null)
+            var keys = new List<Type>(Instance._panelCache.Keys);
+            for (int i = 0; i < keys.Count; i++)
+            {
+                Type panelType = keys[i];
+                if (!Instance._panelCache.TryGetValue(panelType, out var panel) || panel == null)
                 {
-                    Destroy(panel.gameObject);
+                    continue;
                 }
 
-                if (Instance._panelPaths.TryGetValue(type, out string path))
+                if (panel.gameObject.activeSelf)
                 {
-                    Instance._resLoader.Unload(path);
+                    panel.OnClose();
+                    panel.CanvasGroup.interactable = false;
+                    panel.CanvasGroup.blocksRaycasts = false;
+                    panel.gameObject.SetActive(false);
+                }
+
+                if (Instance._panelNames.TryGetValue(panelType, out string panelName))
+                {
+                    Instance._loadStrategy?.UnloadPanelPrefab(panelName);
+                }
+
+                if (panel.gameObject != null)
+                {
+                    Destroy(panel.gameObject);
                 }
             }
 
             Instance._panelCache.Clear();
-            Instance._panelPaths.Clear();
-            Instance._loadingPanels.Clear();
+            Instance._panelNames.Clear();
+            Instance._panelLoadingTasks.Clear();
 
-            LogKit.Log("[UIKit] 已强制销毁所有 UI 面板并清理缓存。");
+            LogKit.Log("[UIKit] 已强制销毁所有面板并清理缓存");
         }
 
         #endregion
 
-        #region 内部逻辑 (Async)
+        #region 内部逻辑 - 获取或加载
 
-        private async UniTask<T> LoadPanelInternal<T>(object uiData, bool openAfterLoad) where T : UIPanelBase
+        private TPanel GetOrLoadPanelInternalSync<TPanel>() where TPanel : UIPanelBase
         {
-            if (!_isInitialized)
+            if (!EnsureReadyForSync(typeof(TPanel), "GetOrLoadPanel"))
             {
-                LogKit.LogError("[UIKit] 未初始化，请先调用 UIKit.Instance.Init()");
                 return null;
             }
 
-            Type type = typeof(T);
-
-            if (_loadingPanels.Contains(type))
+            if (_panelCache.TryGetValue(typeof(TPanel), out var cachedPanel))
             {
-                await UniTask.WaitUntil(() => !_loadingPanels.Contains(type), cancellationToken: _destroyCts.Token);
-                if (_panelCache.TryGetValue(type, out var p)) return p as T;
+                return cachedPanel as TPanel;
             }
 
-            T panel = null;
-            if (_panelCache.TryGetValue(type, out var cachedPanel))
+            return CreatePanelSync<TPanel>();
+        }
+
+        private async UniTask<TPanel> GetOrLoadPanelInternalAsync<TPanel>() where TPanel : UIPanelBase
+        {
+            if (!EnsureReadyForAsync(typeof(TPanel), "GetOrLoadPanelAsync"))
             {
-                panel = cachedPanel as T;
+                return null;
             }
 
+            Type panelType = typeof(TPanel);
+            if (_panelCache.TryGetValue(panelType, out var cachedPanel))
+            {
+                return cachedPanel as TPanel;
+            }
+
+            if (_panelLoadingTasks.TryGetValue(panelType, out var loadingTask))
+            {
+                UIPanelBase existingLoadingPanel = await loadingTask;
+                return existingLoadingPanel as TPanel;
+            }
+
+            UniTask<UIPanelBase> newTask = CreatePanelAsyncInternal<TPanel>().Preserve();
+            _panelLoadingTasks[panelType] = newTask;
+
+            UIPanelBase createdPanel = null;
+            try
+            {
+                createdPanel = await newTask;
+            }
+            finally
+            {
+                _panelLoadingTasks.Remove(panelType);
+            }
+
+            return createdPanel as TPanel;
+        }
+
+        #endregion
+
+        #region 内部逻辑 - 打开
+
+        private TPanel OpenPanelInternalSync<TPanel>(UIPanelDataBase data) where TPanel : UIPanelBase
+        {
+            TPanel panel = GetOrLoadPanelInternalSync<TPanel>();
             if (panel == null)
             {
-                _loadingPanels.Add(type);
-                try
-                {
-                    string panelName = type.Name;
-                    string path = GetUIAssetPath(panelName);
-
-                    var prefab = await _resLoader.LoadAsync<GameObject>(path).AttachExternalCancellation(_destroyCts.Token);
-                    if (prefab != null)
-                    {
-                        _panelPaths[type] = path;
-                        var go = Instantiate(prefab);
-                        panel = go.GetComponent<T>();
-
-                        if (panel == null)
-                        {
-                            LogKit.LogError($"[UIKit] Prefab {panelName} 缺少脚本组件！");
-                            Destroy(go);
-                            return null;
-                        }
-
-                        go.name = panelName;
-                        if (_layers.TryGetValue(panel.Layer, out Transform layerTrans))
-                            go.transform.SetParent(layerTrans, false);
-                        else
-                            go.transform.SetParent(_layers[UIPanelBase.PanelLayer.Middle], false);
-
-                        var rt = panel.RectTransform;
-                        rt.FillParent();
-                        rt.localPosition = Vector3.zero;
-                        go.SetActive(false);
-
-                        panel.OnInit();
-                        _panelCache[type] = panel;
-                    }
-                    else
-                    {
-                        LogKit.LogError($"[UIKit] 加载失败: {path} (Mode: {_currentLoaderType})");
-                    }
-                }
-                catch (OperationCanceledException)
-                {
-                    return null;
-                }
-                finally
-                {
-                    _loadingPanels.Remove(type);
-                }
+                Debug.LogError(
+                    $"[UIKit] OpenPanel 失败: 面板创建失败，Panel={typeof(TPanel).Name}，DataType={data?.GetType().Name ?? "null"}");
+                return null;
             }
 
-            if (panel != null && openAfterLoad)
+            OpenExistingPanel(panel, data);
+            return panel;
+        }
+
+        private async UniTask<TPanel> OpenPanelInternalAsync<TPanel>(UIPanelDataBase data) where TPanel : UIPanelBase
+        {
+            TPanel panel = await GetOrLoadPanelInternalAsync<TPanel>();
+            if (panel == null)
             {
-                // 如果面板已经处于激活状态，仅置顶并刷新数据，防止重复执行入场动画
-                if (panel.gameObject.activeSelf)
-                {
-                    panel.transform.SetAsLastSibling();
-                    panel.RefreshData(uiData);
-                }
-                else
-                {
-                    await panel.OnOpen(uiData);
-                }
+                Debug.LogError(
+                    $"[UIKit] OpenPanelAsync 失败: 面板创建失败，Panel={typeof(TPanel).Name}，DataType={data?.GetType().Name ?? "null"}");
+                return null;
             }
+
+            OpenExistingPanel(panel, data);
+            return panel;
+        }
+
+        private void OpenExistingPanel(UIPanelBase panel, UIPanelDataBase data)
+        {
+            if (panel == null)
+            {
+                Debug.LogError($"[UIKit] OpenExistingPanel 失败: panel 为空，DataType={data?.GetType().Name ?? "null"}");
+                return;
+            }
+
+            if (!panel.gameObject.activeSelf)
+            {
+                panel.gameObject.SetActive(true);
+            }
+
+            panel.transform.SetAsLastSibling();
+            panel.CanvasGroup.alpha = 1f;
+            panel.CanvasGroup.interactable = true;
+            panel.CanvasGroup.blocksRaycasts = true;
+            panel.OnOpen(data);
+        }
+
+        #endregion
+
+        #region 内部逻辑 - 刷新
+
+        private void RefreshPanelInternal(Type panelType, UIPanelDataBase data)
+        {
+            if (panelType == null)
+            {
+                Debug.LogError(
+                    $"[UIKit] RefreshPanelInternal 失败: panelType 为空，DataType={data?.GetType().Name ?? "null"}");
+                return;
+            }
+
+            if (!_panelCache.TryGetValue(panelType, out var panel) || panel == null)
+            {
+                Debug.LogError(
+                    $"[UIKit] RefreshPanelInternal 失败: 面板未缓存，Panel={panelType.Name}，DataType={data?.GetType().Name ?? "null"}");
+                return;
+            }
+
+            panel.OnRefresh(data);
+        }
+
+        #endregion
+
+        #region 内部逻辑 - 关闭
+
+        private void ClosePanelInternal(Type panelType)
+        {
+            if (panelType == null)
+            {
+                Debug.LogError("[UIKit] ClosePanelInternal 失败: panelType 为空");
+                return;
+            }
+
+            if (!_panelCache.TryGetValue(panelType, out var panel) || panel == null)
+            {
+                return;
+            }
+
+            if (panel.gameObject.activeSelf)
+            {
+                panel.OnClose();
+                panel.CanvasGroup.interactable = false;
+                panel.CanvasGroup.blocksRaycasts = false;
+                panel.gameObject.SetActive(false);
+            }
+
+            if (!panel.DestroyOnClose)
+            {
+                return;
+            }
+
+            if (_panelNames.TryGetValue(panelType, out string panelName))
+            {
+                _loadStrategy?.UnloadPanelPrefab(panelName);
+                _panelNames.Remove(panelType);
+            }
+
+            _panelCache.Remove(panelType);
+            Destroy(panel.gameObject);
+        }
+
+        #endregion
+
+        #region 内部逻辑 - 创建面板
+
+        private TPanel CreatePanelSync<TPanel>() where TPanel : UIPanelBase
+        {
+            Type panelType = typeof(TPanel);
+            string panelName = panelType.Name;
+
+            GameObject prefab = _loadStrategy.LoadPanelPrefab(panelName);
+            if (prefab == null)
+            {
+                Debug.LogError(
+                    $"[UIKit] CreatePanelSync 失败: Prefab 加载为空，Panel={panelName}，策略={_loadStrategy?.GetType().Name ?? "null"}");
+                return null;
+            }
+
+            return CreatePanelFromPrefab<TPanel>(prefab, panelName);
+        }
+
+        private async UniTask<UIPanelBase> CreatePanelAsyncInternal<TPanel>() where TPanel : UIPanelBase
+        {
+            Type panelType = typeof(TPanel);
+            string panelName = panelType.Name;
+
+            GameObject prefab = await _loadStrategy.LoadPanelPrefabAsync(panelName);
+            if (prefab == null)
+            {
+                Debug.LogError(
+                    $"[UIKit] CreatePanelAsync 失败: Prefab 加载为空，Panel={panelName}，策略={_loadStrategy?.GetType().Name ?? "null"}");
+                return null;
+            }
+
+            return CreatePanelFromPrefab<TPanel>(prefab, panelName);
+        }
+
+        private TPanel CreatePanelFromPrefab<TPanel>(GameObject prefab, string panelName) where TPanel : UIPanelBase
+        {
+            if (prefab == null)
+            {
+                Debug.LogError($"[UIKit] CreatePanelFromPrefab 失败: prefab 为空，Panel={panelName}");
+                return null;
+            }
+
+            GameObject go = Instantiate(prefab);
+            go.name = panelName;
+
+            TPanel panel = go.GetComponent<TPanel>();
+            if (panel == null)
+            {
+                Debug.LogError($"[UIKit] CreatePanelFromPrefab 失败: 预制体缺少目标组件，Panel={panelName}，物体名={go.name}");
+                Destroy(go);
+                return null;
+            }
+
+            if (!_layers.TryGetValue(panel.Layer, out Transform layerTrans) || layerTrans == null)
+            {
+                Debug.LogError($"[UIKit] CreatePanelFromPrefab 失败: 层级不存在，Panel={panelName}，Layer={panel.Layer}");
+                Destroy(go);
+                return null;
+            }
+
+            go.transform.SetParent(layerTrans, false);
+
+            RectTransform rt = panel.RectTransform;
+            if (rt == null)
+            {
+                Debug.LogError($"[UIKit] CreatePanelFromPrefab 失败: RectTransform 获取为空，Panel={panelName}，物体名={go.name}");
+                Destroy(go);
+                return null;
+            }
+
+            rt.FillParent();
+            rt.localPosition = Vector3.zero;
+
+            go.SetActive(false);
+            panel.OnInit();
+
+            Type panelType = typeof(TPanel);
+            _panelCache[panelType] = panel;
+            _panelNames[panelType] = panelName;
 
             return panel;
         }
 
-        private async void ClosePanelInternal(Type type)
-        {
-            if (_panelCache.TryGetValue(type, out var panel))
-            {
-                if (panel.gameObject.activeSelf)
-                {
-                    await panel.OnClose();
-                }
-
-                if (panel.DestroyOnClose)
-                {
-                    Destroy(panel.gameObject);
-                    _panelCache.Remove(type);
-
-                    if (_panelPaths.TryGetValue(type, out string path))
-                    {
-                        _resLoader.Unload(path);
-                        _panelPaths.Remove(type);
-                    }
-                }
-            }
-        }
-
         #endregion
 
-        #region 公开函数 (Sync)
+        #region 内部逻辑 - 校验
 
-        public static T PreloadPanel<T>(object uiData = null) where T : UIPanelBase
-        {
-            return Instance.LoadPanelInternalSync<T>(uiData, false);
-        }
-
-        public static T OpenPanel<T>(object uiData = null) where T : UIPanelBase
-        {
-            return Instance.LoadPanelInternalSync<T>(uiData, true);
-        }
-
-        #endregion
-
-        #region 内部逻辑 (Sync)
-
-        private T LoadPanelInternalSync<T>(object uiData, bool openAfterLoad) where T : UIPanelBase
+        private bool EnsureReadyForSync(Type panelType, string apiName)
         {
             if (!_isInitialized)
             {
-                LogKit.LogError("[UIKit] 未初始化，请先调用 UIKit.Instance.Init()");
-                return null;
+                Debug.LogError($"[UIKit] {apiName} 失败: UIKit 未初始化，Panel={panelType?.Name ?? "null"}");
+                return false;
             }
 
-            Type type = typeof(T);
-
-            if (_panelCache.TryGetValue(type, out var cachedPanel))
+            if (_loadStrategy == null)
             {
-                var p = cachedPanel as T;
-                if (openAfterLoad && p != null)
-                {
-                    // 核心修改：同步加载分支同样处理状态判定
-                    if (p.gameObject.activeSelf)
-                    {
-                        p.transform.SetAsLastSibling();
-                        p.RefreshData(uiData);
-                    }
-                    else
-                    {
-                        p.OnOpen(uiData).Forget();
-                    }
-                }
-
-                return p;
+                Debug.LogError($"[UIKit] {apiName} 失败: 加载策略为空，Panel={panelType?.Name ?? "null"}");
+                return false;
             }
 
-            string panelName = type.Name;
-            string path = GetUIAssetPath(panelName);
-            GameObject prefab = _resLoader.Load<GameObject>(path);
-
-            if (prefab != null)
+            if (!_loadStrategy.SupportSyncLoad)
             {
-                _panelPaths[type] = path;
-                var go = Instantiate(prefab);
-                T panel = go.GetComponent<T>();
-
-                if (panel == null)
-                {
-                    LogKit.LogError($"[UIKit] Prefab {panelName} 缺少脚本组件！");
-                    Destroy(go);
-                    return null;
-                }
-
-                go.name = panelName;
-                if (_layers.TryGetValue(panel.Layer, out Transform layerTrans))
-                {
-                    go.transform.SetParent(layerTrans, false);
-                }
-                else
-                {
-                    go.transform.SetParent(_layers[UIPanelBase.PanelLayer.Middle], false);
-                }
-
-                var rt = panel.RectTransform;
-                rt.FillParent();
-                rt.localPosition = Vector3.zero;
-                go.SetActive(false);
-
-                panel.OnInit();
-                _panelCache[type] = panel;
-
-                if (openAfterLoad)
-                {
-                    panel.OnOpen(uiData).Forget();
-                }
-
-                return panel;
+                Debug.LogError(
+                    $"[UIKit] {apiName} 失败: 当前加载策略不支持同步加载，Panel={panelType?.Name ?? "null"}，策略={_loadStrategy.GetType().Name}");
+                return false;
             }
-            else
+
+            return true;
+        }
+
+        private bool EnsureReadyForAsync(Type panelType, string apiName)
+        {
+            if (!_isInitialized)
             {
-                LogKit.LogError($"[UIKit] 同步加载失败，未找到资源: {path} (Mode: {_currentLoaderType})");
-                return null;
+                Debug.LogError($"[UIKit] {apiName} 失败: UIKit 未初始化，Panel={panelType?.Name ?? "null"}");
+                return false;
             }
+
+            if (_loadStrategy == null)
+            {
+                Debug.LogError($"[UIKit] {apiName} 失败: 加载策略为空，Panel={panelType?.Name ?? "null"}");
+                return false;
+            }
+
+            return true;
         }
 
         #endregion
 
         protected override void OnDestroy()
         {
-            _destroyCts.Cancel();
-            _destroyCts.Dispose();
-
-            if (_resLoader != null)
+            if (_destroyCts != null)
             {
-                ResKit.Recycle(_resLoader);
-                _resLoader = null;
+                _destroyCts.Cancel();
+                _destroyCts.Dispose();
+                _destroyCts = null;
             }
+
+            if (_loadStrategy != null)
+            {
+                _loadStrategy.ReleaseAll();
+                _loadStrategy = null;
+            }
+
+            _panelLoadingTasks.Clear();
+            _panelCache.Clear();
+            _panelNames.Clear();
+            _layers.Clear();
+
+            RootCanvas = null;
+            RootScaler = null;
+            UICamera = null;
 
             base.OnDestroy();
         }

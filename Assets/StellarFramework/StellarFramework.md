@@ -17,7 +17,6 @@
 
 ### 方式一：通过 UPM 安装 (推荐)
 打开 Unity 的 `Window -> Package Manager`，点击左上角 `+` 号，选择 `Add package from git URL...`，填入本仓库地址：
-
 ```text
 https://github.com/StarrDream/StellarFramework.git?path=/Assets/StellarFramework
 ```
@@ -37,7 +36,7 @@ https://github.com/StarrDream/StellarFramework.git?path=/Assets/StellarFramework
 2.  **[Newtonsoft.Json](https://github.com/jilleJr/Newtonsoft.Json-for-Unity)** (必须)
     *   用于 ConfigKit 和 NetworkKit 的序列化处理。
 3.  **Addressables** (可选)
-    *   若需使用 `ResLoaderType.Addressable` 模式，请安装 Addressables 包。
+    *   若需使用 `AddressableLoader` 模式，请安装 Addressables 包。
     *   **注意**：安装后需在 `Project Settings -> Player -> Scripting Define Symbols` 中添加宏 `UNITY_ADDRESSABLES` 以启用相关代码。
 
 ---
@@ -50,7 +49,6 @@ https://github.com/StarrDream/StellarFramework.git?path=/Assets/StellarFramework
 *   **生命周期失控**：UI 关了动画还在播、物体销毁了事件还没注销，导致 `MissingReferenceException` 频发。
 
 **StellarFramework 的设计原则：**
-
 *   **⚡ 性能优先 (Performance First)**：在底层实现上追求极致。例如 `EventKit` 利用泛型静态类消除字典查找开销，`BindableKit` 使用双向链表实现 0GC 通知。
 *   **🌊 拥抱异步 (Async Native)**：全面放弃 Coroutine，使用 `UniTask` 重构所有异步流。代码即文档，逻辑线性化。
 *   **🛡️ 安全闭环 (Safety)**：强制的生命周期绑定机制。`UnRegisterWhenGameObjectDestroyed` 贯穿全框架，根绝空引用报错。
@@ -116,8 +114,7 @@ https://github.com/StarrDream/StellarFramework.git?path=/Assets/StellarFramework
 ## 🔌 拓展性 (Extensibility)
 
 StellarFramework 不是一个封闭的黑盒，它预留了丰富的扩展接口：
-
-*   **ResKit**：继承 `ResLoader` 即可实现自定义加载器（如 RawFileLoader, AssetBundleLoader）。
+*   **ResKit**：继承 `ResLoader` 即可实现自定义加载器（如 RawFileLoader, AssetBundleLoader），无需修改底层枚举。
 *   **ActionKit**：通过 C# 扩展方法 (`this UniActionChain chain`)，可以轻松添加自定义的 Tween 动画节点（如 `DoText`, `DoShader`）。
 *   **Service**：业务逻辑层完全是普通的 C# 类，不强制继承 MonoBehaviour，易于进行单元测试或移植到服务器端。
 
@@ -127,7 +124,6 @@ StellarFramework 不是一个封闭的黑盒，它预留了丰富的扩展接口
 
 ### 1. 初始化框架
 在游戏入口 (`GameEntry.cs`) 调用：
-
 ```csharp
 void Awake() 
 {
@@ -157,7 +153,7 @@ var prefab = await loader.LoadAsync<GameObject>("Hero");
 // ... 使用资源 ...
 
 // 释放加载器（自动释放其加载的所有资源引用）
-loader.Recycle2Cache();
+ResKit.Recycle(loader);
 ```
 
 ---
@@ -173,5 +169,4 @@ loader.Recycle2Cache();
 *   以及所有帮助过我的朋友们
 
 ---
-
 Copyright © 2024 StellarFramework. Released under the MIT License.

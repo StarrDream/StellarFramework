@@ -101,7 +101,8 @@ namespace StellarFramework.Editor.Modules
             Section("物理对齐 (Snap to Ground)");
             using (new GUILayout.VerticalScope(EditorStyles.helpBox))
             {
-                _groundLayerMask = EditorGUILayout.MaskField("地面层级", _groundLayerMask, UnityEditorInternal.InternalEditorUtility.layers);
+                _groundLayerMask = EditorGUILayout.MaskField("地面层级", _groundLayerMask,
+                    UnityEditorInternal.InternalEditorUtility.layers);
                 if (PrimaryButton("⬇️ 选中物体对齐地面")) SnapToGround();
             }
 
@@ -144,7 +145,8 @@ namespace StellarFramework.Editor.Modules
                 float hgt = 2.0f;
                 if (t.TryGetComponent<Renderer>(out var r)) hgt = r.bounds.size.y + 0.5f;
 
-                if (Physics.Raycast(t.position + Vector3.up * hgt, Vector3.down, out RaycastHit h, 2000f, _groundLayerMask))
+                if (Physics.Raycast(t.position + Vector3.up * hgt, Vector3.down, out RaycastHit h, 2000f,
+                        _groundLayerMask))
                 {
                     Vector3 p = h.point;
                     if (t.TryGetComponent<Renderer>(out var ren)) p.y += (t.position.y - ren.bounds.min.y);
@@ -308,7 +310,8 @@ namespace StellarFramework.Editor.Modules
             if (_targetFont == null) return;
             foreach (var go in Selection.gameObjects)
             {
-                var tmps = go.GetComponentsInChildren<Component>(true).Where(c => c.GetType().Name.Contains("TextMeshPro")).ToArray();
+                var tmps = go.GetComponentsInChildren<Component>(true)
+                    .Where(c => c.GetType().Name.Contains("TextMeshPro")).ToArray();
                 Undo.RecordObjects(tmps, "Set TMP Font");
                 foreach (var tmp in tmps)
                 {
@@ -340,7 +343,8 @@ namespace StellarFramework.Editor.Modules
             if (GUILayout.Button("🔍 扫描重复物体 (位置/旋转/Mesh)")) FindDuplicateObjects();
 
             Section("资产替换");
-            _replacementPrefab = (GameObject)EditorGUILayout.ObjectField("替换为", _replacementPrefab, typeof(GameObject), false);
+            _replacementPrefab =
+                (GameObject)EditorGUILayout.ObjectField("替换为", _replacementPrefab, typeof(GameObject), false);
             if (GUILayout.Button("🔄 替换选中物体")) ReplaceWithPrefab();
 
             Section("批量静态设置");
@@ -349,7 +353,8 @@ namespace StellarFramework.Editor.Modules
                 _batchContributeGI = EditorGUILayout.ToggleLeft("GI", _batchContributeGI, GUILayout.Width(40));
                 _batchBatching = EditorGUILayout.ToggleLeft("Batching", _batchBatching, GUILayout.Width(70));
                 _batchOccluder = EditorGUILayout.ToggleLeft("Occluder", _batchOccluder, GUILayout.Width(70));
-                _batchReflectionProbe = EditorGUILayout.ToggleLeft("Reflect", _batchReflectionProbe, GUILayout.Width(60));
+                _batchReflectionProbe =
+                    EditorGUILayout.ToggleLeft("Reflect", _batchReflectionProbe, GUILayout.Width(60));
             }
 
             if (GUILayout.Button("⚙️ 应用静态标志")) ApplyStaticFlags();
@@ -494,7 +499,8 @@ namespace StellarFramework.Editor.Modules
 
         private void Row(Action action, string name, string icon)
         {
-            if (GUILayout.Button(new GUIContent("  " + name, EditorGUIUtility.IconContent(icon).image), Window.SidebarButtonStyle))
+            if (GUILayout.Button(new GUIContent("  " + name, EditorGUIUtility.IconContent(icon).image),
+                    Window.SidebarButtonStyle))
                 action();
         }
 
@@ -592,41 +598,8 @@ namespace StellarFramework.Editor.Modules
         public override void OnGUI()
         {
             if (PrimaryButton("生成 / 覆盖 UIRoot Prefab", GUILayout.Height(34))) UIKitEditor.CreateUIRootPrefab();
-            if (PrimaryButton("创建 Panel Template", GUILayout.Height(34))) UIKitEditor.CreatePanelTemplateUnderSelection();
-        }
-    }
-
-    [StellarTool("AppConfig 工具", "框架核心", 4)]
-    public class AppConfigHubModule : ToolModule
-    {
-        public override string Icon => "d_TextAsset Icon";
-        public override string Description => "生成/打开/清除 AppConfig。";
-
-        public override void OnGUI()
-        {
-            if (PrimaryButton("生成默认配置", GUILayout.Height(30))) AppConfigEditor.GenerateDefaultConfig();
-            if (PrimaryButton("打开默认配置文件", GUILayout.Height(30))) AppConfigEditor.OpenDefaultConfig();
-            if (DangerButton("清除本地存档", GUILayout.Height(30))) AppConfigEditor.ClearSaveConfig();
-        }
-    }
-
-    [StellarTool("UrlConfig 工具", "框架核心", 5)]
-    public class UrlConfigHubModule : ToolModule
-    {
-        public override string Icon => "d_UnityEditor.ConsoleWindow";
-        public override string Description => "切换 Dev/Release、生成默认 urlConfig。";
-
-        public override void OnGUI()
-        {
-            EditorGUILayout.LabelField($"当前环境：{UrlConfigEditor.GetCurrentEnvLabel()}", EditorStyles.miniBoldLabel);
-            using (new GUILayout.HorizontalScope())
-            {
-                if (PrimaryButton("Dev")) UrlConfigEditor.SwitchToDev();
-                if (DangerButton("Release")) UrlConfigEditor.SwitchToRelease();
-            }
-
-            if (GUILayout.Button("打开配置文件")) UrlConfigEditor.OpenConfigFile();
-            if (GUILayout.Button("生成默认配置")) UrlConfigEditor.GenerateDefaultConfig();
+            if (PrimaryButton("创建 Panel Template", GUILayout.Height(34)))
+                UIKitEditor.CreatePanelTemplateUnderSelection();
         }
     }
 }
