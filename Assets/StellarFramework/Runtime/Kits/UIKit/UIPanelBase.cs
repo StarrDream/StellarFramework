@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 
 namespace StellarFramework.UI
@@ -22,8 +23,11 @@ namespace StellarFramework.UI
             System = 4
         }
 
-        [Header("设置")] [SerializeField] protected PanelLayer layer = PanelLayer.Middle;
+        [Header("基础设置")] [SerializeField] protected PanelLayer layer = PanelLayer.Middle;
         [SerializeField] protected bool destroyOnClose = false;
+
+        [Header("栈管理设置")] [Tooltip("是否为全屏界面。若为 true，UIStackManager 会自动隐藏其下方的所有界面以降低 DrawCall")] [SerializeField]
+        protected bool isFullScreen = false;
 
         private CanvasGroup _canvasGroup;
         private RectTransform _rectTransform;
@@ -31,6 +35,13 @@ namespace StellarFramework.UI
 
         public PanelLayer Layer => layer;
         public bool DestroyOnClose => destroyOnClose;
+        public bool IsFullScreen => isFullScreen;
+
+        /// <summary>
+        /// 全局面板关闭事件
+        /// 职责：向外广播关闭动作，供 UIStackManager 等外部模块被动监听，实现解耦
+        /// </summary>
+        public static event Action<UIPanelBase> OnPanelClosedGlobal;
 
         public CanvasGroup CanvasGroup
         {
@@ -105,6 +116,21 @@ namespace StellarFramework.UI
         /// </summary>
         public virtual void OnClose()
         {
+            OnPanelClosedGlobal?.Invoke(this);
+        }
+
+        /// <summary>
+        /// [UIStackManager 驱动] 当该面板被上方全屏面板遮挡时调用
+        /// </summary>
+        public virtual void OnPause()
+        {
+        }
+
+        /// <summary>
+        /// [UIStackManager 驱动] 当上方全屏面板移出栈，该面板重新暴露时调用
+        /// </summary>
+        public virtual void OnResume()
+        {
         }
 
         /// <summary>
@@ -114,7 +140,6 @@ namespace StellarFramework.UI
         protected bool TryGetPanelData<T>(UIPanelDataBase data, out T typedData) where T : UIPanelDataBase
         {
             typedData = null;
-
             if (data == null)
             {
                 Debug.LogError(
@@ -140,6 +165,7 @@ namespace StellarFramework.UI
         protected void CloseSelf()
         {
             UIKit.ClosePanel(GetType());
+            
         }
     }
 }

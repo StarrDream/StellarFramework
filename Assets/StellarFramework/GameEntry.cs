@@ -11,7 +11,7 @@ using Random = UnityEngine.Random;
 /// </summary>
 public class GameEntry : MonoBehaviour
 {
-    private async void Start()
+    private void Start()
     {
         GameApp.Interface.Init();
     }
