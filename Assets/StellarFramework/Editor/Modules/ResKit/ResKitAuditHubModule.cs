@@ -12,7 +12,7 @@ namespace StellarFramework.Editor.Modules
     /// ResKit 运行时资源审计工具
     /// 职责：在 Editor 环境下通过反射读取 ResMgr 的内部缓存，提供实时的资源驻留与泄漏排查视图。
     /// </summary>
-    [StellarTool("ResKit 资源审计", "框架核心", 11)]
+    [StellarTool("ResKit 资源审计", "框架核心", 1)]
     public class ResKitAuditHubModule : ToolModule
     {
         public override string Icon => "d_SettingsIcon";

@@ -14,7 +14,7 @@ namespace StellarFramework.Editor.Modules
     /// EventKit 运行时事件链路追踪工具
     /// 职责：在 Editor 环境下通过反射穿透泛型静态类的物理隔离，可视化当前内存中活跃的事件与监听者。
     /// </summary>
-    [StellarTool("EventKit 链路追踪", "框架核心", 12)]
+    [StellarTool("EventKit 链路追踪", "框架核心", 2)]
     public class EventKitTrackerHubModule : ToolModule
     {
         public override string Icon => "d_EventSystem Icon";

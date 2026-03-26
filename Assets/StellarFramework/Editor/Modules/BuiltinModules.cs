@@ -541,7 +541,7 @@ namespace StellarFramework.Editor.Modules
     // 框架核心组
     // =========================================================
 
-    [StellarTool("字典序列化 (增强)", "框架核心", 0)]
+    [StellarTool("字典序列化 (增强)", "框架核心", 20)]
     public class DictionarySerializerHubModule : ToolModule
     {
         public override string Icon => "d_ScriptableObject Icon";
@@ -553,7 +553,7 @@ namespace StellarFramework.Editor.Modules
         }
     }
 
-    [StellarTool("列表序列化 (增强)", "框架核心", 0)]
+    [StellarTool("列表序列化 (增强)", "框架核心", 20)]
     public class ListSerializerWindowHubModule : ToolModule
     {
         public override string Icon => "d_ScriptableObject Icon";
@@ -577,7 +577,7 @@ namespace StellarFramework.Editor.Modules
         }
     }
 
-    [StellarTool("URP 材质转换", "框架核心", 2)]
+    [StellarTool("URP 材质转换", "框架核心", 20)]
     public class URPConverterHubModule : ToolModule
     {
         public override string Icon => "d_Material Icon";
