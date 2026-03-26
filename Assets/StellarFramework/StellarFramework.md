@@ -4,169 +4,329 @@
 [![Version](https://img.shields.io/badge/Version-1.0.0-green.svg)](https://github.com/)
 [![License](https://img.shields.io/badge/License-MIT-orange.svg)](https://opensource.org/licenses/MIT)
 
-> **让 Unity 开发回归代码的纯粹与优雅。**
-
-**StellarFramework** 是一套专为独立开发者项目打造的高性能 Unity 开发框架。
-它拒绝臃肿的“全家桶”式设计，而是专注于解决 Unity 开发中真正的痛点：**GC 峰值、异步逻辑混乱、资源引用泄露、架构耦合**。
+> 面向 Unity 项目的模块化基础框架，当前重点提供架构、资源、UI、事件、绑定、对象池与编辑器工具等能力。
 
 ---
 
-## 📥 安装与下载 (Installation)
+## 1. 框架定位
 
-你可以通过以下几种方式将 StellarFramework 集成到你的项目中：
+`StellarFramework` 当前更适合作为：
 
-### 方式一：通过 UPM 安装 (推荐)
-打开 Unity 的 `Window -> Package Manager`，点击左上角 `+` 号，选择 `Add package from git URL...`，填入本仓库地址：
-```text
-https://github.com/StarrDream/StellarFramework.git?path=/Assets/StellarFramework
-```
+- **项目基础层**
+- **团队二次收敛底座**
+- **模块化接入的运行时工具集**
 
-### 方式二：手动安装
-1. 下载本仓库的 [Releases](https://github.com/StarrDream/StellarFramework/releases) 中的 `.unitypackage` 包。
-2. 将其导入到你的 Unity 项目中。
+而不是一个“接入即完美覆盖所有项目问题”的全家桶方案。
 
----
-
-## 🛠️ 核心依赖 (Dependencies)
-
-本框架深度依赖现代 Unity 异步流，使用前请确保项目中包含以下库：
-
-1.  **[UniTask](https://github.com/Cysharp/UniTask)** (必须)
-    *   用于驱动 ActionKit、ResKit、UIKit 的所有异步逻辑，替代 Coroutine 实现 0GC 异步。
-2.  **[Newtonsoft.Json](https://github.com/jilleJr/Newtonsoft.Json-for-Unity)** (必须)
-    *   用于 ConfigKit 和 NetworkKit 的序列化处理。
-3.  **Addressables** (可选)
-    *   若需使用 `AddressableLoader` 模式，请安装 Addressables 包。
-    *   **注意**：安装后需在 `Project Settings -> Player -> Scripting Define Symbols` 中添加宏 `UNITY_ADDRESSABLES` 以启用相关代码。
+框架当前已经具备一批可用模块，但不同模块的成熟度并不完全一致。  
+在商业项目中，建议根据项目边界按需接入，并结合本项目规范继续收口。
 
 ---
 
-## 💡 设计初衷与哲学 (Design Philosophy)
+## 2. 当前已提供的主要能力
 
-在多年的商业项目实战中，我们发现传统的 Unity 开发模式存在几个顽疾：
-*   **回调地狱**：资源加载嵌套、UI 动画回调嵌套，代码难以维护。
-*   **GC 刺客**：大量的 `Action` 闭包、装箱拆箱 (`boxing`)、协程 (`IEnumerator`) 分配，导致手机发热掉帧。
-*   **生命周期失控**：UI 关了动画还在播、物体销毁了事件还没注销，导致 `MissingReferenceException` 频发。
+### 2.1 架构核心
 
-**StellarFramework 的设计原则：**
-*   **⚡ 性能优先 (Performance First)**：在底层实现上追求极致。例如 `EventKit` 利用泛型静态类消除字典查找开销，`BindableKit` 使用双向链表实现 0GC 通知。
-*   **🌊 拥抱异步 (Async Native)**：全面放弃 Coroutine，使用 `UniTask` 重构所有异步流。代码即文档，逻辑线性化。
-*   **🛡️ 安全闭环 (Safety)**：强制的生命周期绑定机制。`UnRegisterWhenGameObjectDestroyed` 贯穿全框架，根绝空引用报错。
-*   **🧱 架构分离 (Clean Architecture)**：基于 **MSV (Model-Service-View)** 模式，强制分离数据、逻辑与表现。
+- 基于 **MSV (Model-Service-View)** 的基础架构容器
+- `Architecture<T>` 提供 Model / Service 注册与获取
+- View 通过接口或基类接入架构域
+- 支持基础生命周期状态控制
 
----
+### 2.2 资源管理
 
-## 📦 功能模块预览 (Modules)
+- `ResKit` 提供统一的资源加载器抽象
+- 当前已包含：
+    - `ResourceLoader`
+    - `AssetBundleLoader`
+    - `AddressableLoader`（需安装 Addressables）
+- 支持：
+    - 资源引用计数
+    - 异步并发去重
+    - 加载器回收后统一释放引用
+- Editor 侧提供 AssetBundle 打包辅助工具
 
-### 1. 核心架构 (Core Architecture)
-*   **MSV 模式**：提供 `IModel` (数据)、`IService` (逻辑)、`IArchitecture` (容器)。
-*   **SingletonKit**：
-    *   **去 Find 化**：严厉禁止 `FindObjectOfType`，使用注册表模式。
-    *   **生命周期管理**：严格区分 `Global` (全生命周期) 和 `Scene` (随场景销毁) 单例。
-    *   **线程安全**：内置主线程检查，防止异步线程访问 Unity API 导致崩溃。
+### 2.3 UI 系统
 
-### 2. 异步与动画 (ActionKit)
-*   **链式编程**：`MonoKit.Sequence(go).Delay(1f).MoveTo(...).Start()`。
-*   **UniTask 驱动**：比 DOTween 更轻量，完全基于 `UniTask`，无缝融入 `await` 流程。
-*   **自动取消**：自动绑定 GameObject 的 `CancellationToken`，物体销毁时动画自动停止。
+- `UIKit` 提供基础面板加载、实例化、关闭与缓存能力
+- 支持：
+    - 强类型面板数据
+    - 层级节点管理
+    - 基础异步打开流程
+    - `UIStackManager` 的栈式导航扩展
+- 默认通过 `ResKitUILoadStrategy` 接入 ResKit
 
-### 3. 事件系统 (EventKit)
-*   **物理隔离**：使用 `private static class EventBox<T>` 物理隔离不同枚举类型的存储。
-*   **零装箱**：`Enum` 作为 Key 时**不产生装箱 GC**。
-*   **极速调用**：结构体事件 (`GlobalStructEvent`) 直接调用静态委托，性能接近原生 C# 调用。
+### 2.4 事件系统
 
-### 4. 数据绑定 (BindableKit)
-*   **0GC 设计**：放弃 C# `event`，使用**对象池 + 双向链表**管理观察者。
-*   **全类型支持**：支持 `BindableProperty<T>`、`BindableList<T>`、`BindableDictionary<K,V>`。
-*   **防忘注销**：内置自动注销触发器。
+- `EventKit` 提供：
+    - 枚举事件
+    - 强类型结构体事件
+- 支持生命周期绑定式自动注销
 
-### 5. 资源管理 (ResKit)
-*   **统一接口**：无论是 Resources 还是 Addressables，上层 API 统一。
-*   **引用计数**：全自动管理资源生命周期，A 和 B 都释放了，资源才卸载。
-*   **并发去重**：同一帧对同一资源发起 10 次请求，底层只执行 1 次 IO。
+### 2.5 数据绑定
 
-### 6. UI 系统 (UIKit)
-*   **层级管理**：内置 Bottom/Middle/Popup/Top/System 五层栈式管理。
-*   **泛型加载**：`OpenPanelAsync<LoginPanel>()`，约定大于配置。
-*   **异步生命周期**：`OnOpen` 支持 `async/await`，轻松处理打开时的入场动画或网络请求。
+- `BindableKit` 提供：
+    - `BindableProperty<T>`
+    - `BindableList<T>`
+    - `BindableDictionary<K,V>`
+- 用于驱动 Model 变化到 View 刷新
 
-### 7. 实用工具链 (Toolchain)
-*   **AudioKit**：支持优先级剔除 (Priority Eviction) 的音效池，防止爆音。
-*   **NetworkKit**：自动 Token 注入、防重复请求、大文件断点下载。
-*   **Editor Tools**：包含字典可视化编辑、资源引用查找、批量重命名等实战工具。
+### 2.6 对象池
 
----
+- `PoolKit` 提供：
+    - 纯 C# 对象池
+    - 基于工厂委托的对象池
+- 支持对象出池 / 回池生命周期回调
 
-## ⚖️ 优势与不足 (Pros & Cons)
+### 2.7 编辑器工具
 
-| 特性 | 说明 |
-| :--- | :--- |
-| ✅ **极低开销** | 大量使用对象池、静态类泛型缓存、Struct 优化，适合对性能敏感的移动端项目。 |
-| ✅ **开发高效** | `UniTask` 让异步逻辑像写同步代码一样流畅；丰富的 Editor 工具减少了配置时间。 |
-| ✅ **商业稳定** | 经过实战检验的引用计数机制和异常处理（Try-Catch、CancellationToken）。 |
-| ✅ **无侵入性** | 模块间耦合度低，你可以只用 `EventKit` 而不用 `UIKit`。 |
-| ❌ **学习门槛** | 开发者需要熟悉 `UniTask` 和 `async/await` 编程范式。 |
-| ❌ **IL2CPP体积** | 泛型的大量使用可能导致 IL2CPP 代码体积略微膨胀（可通过 Strip Engine Code 缓解）。 |
-| ❌ **严格规范** | 框架限制了一些“随意”的写法（如禁止直接 Find 单例），初学者可能需要适应期。 |
+- Tools Hub 统一入口
+- 当前包含：
+    - AssetBundle 工具
+    - UIKit 工具
+    - ConfigKit Dashboard
+    - 序列化辅助工具
+    - 文档中心
+    - 若干生产力编辑器工具
 
 ---
 
-## 🔌 拓展性 (Extensibility)
+## 3. 当前依赖
 
-StellarFramework 不是一个封闭的黑盒，它预留了丰富的扩展接口：
-*   **ResKit**：继承 `ResLoader` 即可实现自定义加载器（如 RawFileLoader, AssetBundleLoader），无需修改底层枚举。
-*   **ActionKit**：通过 C# 扩展方法 (`this UniActionChain chain`)，可以轻松添加自定义的 Tween 动画节点（如 `DoText`, `DoShader`）。
-*   **Service**：业务逻辑层完全是普通的 C# 类，不强制继承 MonoBehaviour，易于进行单元测试或移植到服务器端。
+根据使用模块不同，项目可能需要以下依赖：
+
+### 必选依赖
+
+1. **[UniTask](https://github.com/Cysharp/UniTask)**
+    - ActionKit
+    - ResKit 异步链路
+    - UIKit 异步流程
+    - HttpKit 异步能力
+
+2. **[Newtonsoft.Json](https://github.com/jilleJr/Newtonsoft.Json-for-Unity)**
+    - ConfigKit
+    - HttpKit JSON 反序列化
+    - 部分 Editor 工具
+
+### 可选依赖
+
+1. **Addressables**
+    - 仅当使用 `AddressableLoader` 或 Addressables 热更流程时需要
+    - 使用前请定义宏：`UNITY_ADDRESSABLES`
+
+2. **HybridCLR**
+    - 仅当接入代码热更模块时需要
+    - 使用前请定义宏：`HYBRIDCLR_ENABLE`
 
 ---
 
-## 🚀 快速开始 (Quick Start)
+## 4. 当前架构原则
 
-### 1. 初始化框架
-在游戏入口 (`GameEntry.cs`) 调用：
+框架当前按以下原则设计与使用：
+
+### 4.1 MSV 分层
+
+- **Model**：只负责状态存储
+- **Service**：只负责业务逻辑与状态修改
+- **View**：只负责表现与交互转发
+
+推荐数据流：
+
+`View -> Service -> Model -> View刷新`
+
+### 4.2 组件式开发优先
+
+- 场景行为优先采用 `MonoBehaviour`
+- 共用能力优先通过可组合组件或模块提供
+- 不鼓励把多职责长期堆进单个“大管理器”
+
+### 4.3 运行时主链路避免反射
+
+当前框架已开始将部分运行时反射迁移到 Editor 生成阶段。  
+例如单例系统采用静态注册表生成方式，而不是运行时扫描 Attribute。
+
+### 4.4 服务端绝对权威不在本仓库默认覆盖范围
+
+当前仓库内并未形成一套完整的 Shared / Server / Client 显式网络协议框架。  
+如果项目涉及多人同步，请在此基础上另行构建：
+
+- Shared 共享协议定义
+- Server 权威逻辑
+- Client 表现与预测
+- 显式消息同步与房间隔离机制
+
+---
+
+## 5. 当前模块成熟度说明
+
+下面的说明更接近当前代码状态，而不是设计目标。
+
+| 模块 | 当前状态 | 说明 |
+| :--- | :--- | :--- |
+| Architecture | 可用 | 已具备基础状态控制与注册机制，仍建议继续收紧访问边界 |
+| ResKit | 较可用 | 是当前较值得继续打磨的主干模块之一 |
+| UIKit | 可用 | 已具备基本框架能力，状态机与导航规则仍建议继续治理 |
+| EventKit | 可用 | 适合轻量到中等规模项目使用 |
+| BindableKit | 可用 | 可作为模型到界面的基础驱动层 |
+| PoolKit | 可用 | 适合运行时纯 C# 对象与部分工厂对象复用 |
+| LogKit | 基础可用 | 当前更偏统一入口，仍建议继续强化结构化诊断能力 |
+| AudioKit | 可接入 | 适合中小规模音频管理，复杂项目建议继续扩展治理 |
+| ConfigKit | 可接入 | 已具备基础配置读写与 Dashboard 入口 |
+| HttpKit | 可接入 | 提供常见请求封装，但不等于完整生产网络层 |
+| FSMKit | 可接入 | 适合作为轻量状态机基础件 |
+| RaycastKit | 可接入 | 偏工具型封装 |
+| HotUpdateKit | 边界模块 | 属于接入辅助层，不属于主干运行时核心 |
+
+---
+
+## 6. 不建议直接理解为“生产承诺”的内容
+
+下面这些能力，当前仓库中可能有实现、示例或文档，但**不建议直接等同于生产承诺**：
+
+- “全链路 0GC”
+- “适合所有商业项目直接接入”
+- “所有模块都已生产稳定”
+- “接入后无需二次架构治理”
+- “内置网络层可直接覆盖多人项目”
+
+这些更适合作为：
+
+- 设计方向
+- 模块目标
+- 某些场景下可达成的工程结果
+
+而不是当前版本对所有模块的统一保证。
+
+---
+
+## 7. 快速开始
+
+### 7.1 初始化架构
+
+`GameApp.cs`
+
 ```csharp
-void Awake() 
+using StellarFramework;
+
+public class GameApp : Architecture<GameApp>
 {
-    // 启动架构容器
-    GameApp.Interface.Init();
-    // 初始化 UI 系统
-    UIKit.Instance.Init();
+    protected override void InitModules()
+    {
+    }
 }
 ```
 
-### 2. 监听事件
+`GameEntry.cs`
+
 ```csharp
-// 注册事件，并绑定当前 GameObject 的生命周期
-// 当物体销毁时，自动注销事件，防止空引用
-GlobalEnumEvent.Register(GameEvent.Start, OnGameStart)
-               .UnRegisterWhenGameObjectDestroyed(gameObject);
+using StellarFramework;
+using UnityEngine;
+
+public class GameEntry : MonoBehaviour
+{
+    private void Start()
+    {
+        GameApp.Interface.Init();
+    }
+}
 ```
 
-### 3. 加载资源
+### 7.2 打开 UI 系统
+
 ```csharp
-// 申请一个加载器
+await UIKit.Instance.InitAsync();
+```
+
+### 7.3 打开面板
+
+```csharp
+await UIKit.OpenPanelAsync<ExamplePanel>();
+```
+
+### 7.4 注册事件
+
+```csharp
+GlobalEnumEvent.Register(GameEvent.Start, OnGameStart)
+    .UnRegisterWhenGameObjectDestroyed(gameObject);
+```
+
+### 7.5 分配资源加载器
+
+```csharp
 var loader = ResKit.Allocate<ResourceLoader>();
-
-// 异步加载（支持 await）
 var prefab = await loader.LoadAsync<GameObject>("Hero");
-
-// ... 使用资源 ...
-
-// 释放加载器（自动释放其加载的所有资源引用）
 ResKit.Recycle(loader);
 ```
 
 ---
 
-## 👤 作者与致谢 (Author & Credits)
+## 8. 目录内容说明
 
-*   **作者**: 小梦
-*   **QQ**: 2649933509
+当前仓库中同时包含几类内容：
 
-**致谢**:
-*   [QFramework](https://github.com/liangxiegame/QFramework) (架构思想启发)
-*   凉鞋大大
-*   以及所有帮助过我的朋友们
+- **Runtime**：正式运行时代码
+- **Editor**：编辑器工具
+- **Demo**：演示业务流转
+- **Example**：模块示例用法
+- **Generated**：生成代码产物
+- **Art**：部分演示素材与资源
+
+其中：
+
+- `Demo`
+- `Example`
+
+更偏示例与验证用途，不建议直接视为生产层结构模板。  
+正式商业项目中，建议将框架层与业务层进一步物理隔离。
 
 ---
-Copyright © 2024 StellarFramework. Released under the MIT License.
+
+## 9. 使用建议
+
+如果你准备在项目里接入本框架，建议按下面顺序评估：
+
+1. 先接入 `Architecture`
+2. 再接入 `EventKit / BindableKit / PoolKit`
+3. 然后根据资源方案选择 `ResKit`
+4. 最后再评估 `UIKit / AudioKit / ConfigKit / HttpKit`
+
+这样可以避免一次性接入过多模块导致边界不清。
+
+---
+
+## 10. 已知注意事项
+
+### 10.1 不同模块成熟度不完全一致
+请不要假设每个模块都已经达到同样的生产稳定度。
+
+### 10.2 示例代码不等于生产规范全部落地
+`Example` 和 `Demo` 主要用于展示调用方式与验证闭环，不应直接替代项目级规范。
+
+### 10.3 Editor 自动化不代表 Runtime 允许照搬反射方案
+部分 Editor 工具依赖反射扫描属于合理范围，运行时主链路仍应优先使用静态生成或显式注册。
+
+### 10.4 UIKit 与 ResKit 仍建议继续强化审计能力
+如果你的项目规模较大，建议继续补充：
+
+- 状态快照
+- 资源持有者诊断
+- UI 栈导航可视化
+- 面板状态审计
+- 自动化测试
+
+---
+
+## 11. 作者与来源说明
+
+- 作者：小梦
+- 启发来源：
+    - [QFramework](https://github.com/liangxiegame/QFramework)
+
+当前仓库中的部分设计方向、工具形式与接口组织，带有明显的个人框架演进痕迹。  
+如果用于团队项目，建议在接入后由项目主程继续做目录治理、边界收口与文档统一。
+
+---
+
+## 12. 许可证
+
+Copyright © 2024 StellarFramework.  
+Released under the MIT License.

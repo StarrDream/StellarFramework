@@ -19,23 +19,28 @@ namespace StellarFramework.Bindable
         public DictEventType Type;
         public K Key;
         public V Value;
-        public V OldValue; // Update 用
+        public V OldValue;
     }
 
     /// <summary>
-    /// [StellarFramework] 响应式字典 
+    /// 响应式字典
+    /// 我只负责字典结构和键值替换通知，不负责 Value 内部字段变化通知。
+    /// 这样设计是为了保持事件边界清晰，避免业务把引用对象内部修改误认为字典更新。
     /// </summary>
+    [Serializable]
     public class BindableDictionary<K, V> : IEnumerable<KeyValuePair<K, V>>
     {
-        private Dictionary<K, V> _dict = new Dictionary<K, V>();
+        private readonly Dictionary<K, V> _dict = new Dictionary<K, V>();
 
         private ObserverNode _head;
         private ObserverNode _tail;
-
-        //  遍历计数器
-        private int _iteratingCount = 0;
+        private int _iteratingCount;
+        private bool _isNotifying;
 
         public int Count => _dict.Count;
+
+        public ICollection<K> Keys => _dict.Keys;
+        public ICollection<V> Values => _dict.Values;
 
         public V this[K key]
         {
@@ -45,61 +50,147 @@ namespace StellarFramework.Bindable
                 if (_dict.TryGetValue(key, out var oldVal))
                 {
                     _dict[key] = value;
-                    Notify(new DictEvent<K, V> { Type = DictEventType.Update, Key = key, Value = value, OldValue = oldVal });
+
+                    Notify(new DictEvent<K, V>
+                    {
+                        Type = DictEventType.Update,
+                        Key = key,
+                        Value = value,
+                        OldValue = oldVal
+                    });
+
+                    return;
                 }
-                else
-                {
-                    Add(key, value);
-                }
+
+                Add(key, value);
             }
         }
 
         public void Add(K key, V value)
         {
+            if (_dict.ContainsKey(key))
+            {
+                LogKit.LogError(
+                    $"[BindableDictionary] Add 失败: Key 已存在, Key={key}, KeyType={typeof(K).Name}, ValueType={typeof(V).Name}, Count={_dict.Count}");
+                return;
+            }
+
             _dict.Add(key, value);
-            Notify(new DictEvent<K, V> { Type = DictEventType.Add, Key = key, Value = value });
+
+            Notify(new DictEvent<K, V>
+            {
+                Type = DictEventType.Add,
+                Key = key,
+                Value = value
+            });
         }
 
         public bool Remove(K key)
         {
-            if (_dict.TryGetValue(key, out var val))
+            if (!_dict.TryGetValue(key, out var val))
             {
-                _dict.Remove(key);
-                Notify(new DictEvent<K, V> { Type = DictEventType.Remove, Key = key, Value = val });
-                return true;
+                return false;
             }
 
-            return false;
+            _dict.Remove(key);
+
+            Notify(new DictEvent<K, V>
+            {
+                Type = DictEventType.Remove,
+                Key = key,
+                Value = val
+            });
+
+            return true;
+        }
+
+        public bool TryGetValue(K key, out V value)
+        {
+            return _dict.TryGetValue(key, out value);
+        }
+
+        public bool ContainsKey(K key)
+        {
+            return _dict.ContainsKey(key);
         }
 
         public void Clear()
         {
+            if (_dict.Count == 0)
+            {
+                return;
+            }
+
             _dict.Clear();
-            Notify(new DictEvent<K, V> { Type = DictEventType.Clear });
+
+            Notify(new DictEvent<K, V>
+            {
+                Type = DictEventType.Clear
+            });
         }
 
-        public bool TryGetValue(K key, out V value) => _dict.TryGetValue(key, out value);
-        public bool ContainsKey(K key) => _dict.ContainsKey(key);
+        public IUnRegister Register(Action<DictEvent<K, V>> onDictChanged)
+        {
+            LogKit.AssertNotNull(onDictChanged,
+                $"[BindableDictionary] 注册失败: 回调为空, KeyType={typeof(K).Name}, ValueType={typeof(V).Name}");
+            if (onDictChanged == null)
+            {
+                return new CustomUnRegister(null);
+            }
+
+            return AddNode(onDictChanged);
+        }
+
+        /// <summary>
+        /// 手动广播一次刷新
+        /// 我提供这个能力给批量写入后的业务层使用，避免它们通过伪修改触发通知。
+        /// </summary>
+        public void NotifyRefresh()
+        {
+            Notify(new DictEvent<K, V>
+            {
+                Type = DictEventType.Update
+            });
+        }
+
+        public void UnRegisterAll()
+        {
+            var node = _head;
+            while (node != null)
+            {
+                var next = node.Next;
+                node.Recycle();
+                node = next;
+            }
+
+            _head = null;
+            _tail = null;
+            _iteratingCount = 0;
+            _isNotifying = false;
+        }
 
         private void Notify(DictEvent<K, V> e)
         {
+            LogKit.Assert(!_isNotifying,
+                $"[BindableDictionary] 致命错误: 检测到递归通知, EventType={e.Type}, KeyType={typeof(K).Name}, ValueType={typeof(V).Name}");
+            if (_isNotifying)
+            {
+                return;
+            }
+
+            _isNotifying = true;
             _iteratingCount++;
+
             try
             {
                 var node = _head;
                 while (node != null)
                 {
                     var next = node.Next;
+
                     if (!node.MarkedForDeletion)
                     {
-                        try
-                        {
-                            node.Action?.Invoke(e);
-                        }
-                        catch (Exception ex)
-                        {
-                            LogKit.LogError($"[BindableList/Dict] 回调异常: {ex}");
-                        }
+                        node.Action?.Invoke(e);
                     }
 
                     node = next;
@@ -108,54 +199,79 @@ namespace StellarFramework.Bindable
             finally
             {
                 _iteratingCount--;
-                if (_iteratingCount == 0) Cleanup();
+                _isNotifying = false;
+
+                if (_iteratingCount == 0)
+                {
+                    Cleanup();
+                }
             }
         }
 
-        public IUnRegister Register(Action<DictEvent<K, V>> onDictChanged)
-        {
-            return AddNode(onDictChanged);
-        }
-
-        // --- 链表与池化 ---
         private ObserverNode AddNode(Action<DictEvent<K, V>> action)
         {
             var node = ObserverNode.Allocate(action, this);
+
             if (_head == null)
             {
                 _head = node;
                 _tail = node;
-            }
-            else
-            {
-                _tail.Next = node;
-                node.Previous = _tail;
-                _tail = node;
+                return node;
             }
 
+            _tail.Next = node;
+            node.Previous = _tail;
+            _tail = node;
             return node;
         }
 
         private void RemoveNode(ObserverNode node)
         {
-            if (node.Owner != this) return;
+            if (node == null)
+            {
+                LogKit.LogError(
+                    $"[BindableDictionary] RemoveNode 失败: 节点为空, KeyType={typeof(K).Name}, ValueType={typeof(V).Name}");
+                return;
+            }
+
+            if (!ReferenceEquals(node.Owner, this))
+            {
+                LogKit.LogError(
+                    $"[BindableDictionary] RemoveNode 失败: 节点归属不匹配, KeyType={typeof(K).Name}, ValueType={typeof(V).Name}");
+                return;
+            }
 
             if (_iteratingCount > 0)
             {
                 node.MarkedForDeletion = true;
+                return;
             }
-            else
-            {
-                UnlinkAndRecycle(node);
-            }
+
+            UnlinkAndRecycle(node);
         }
 
         private void UnlinkAndRecycle(ObserverNode node)
         {
-            if (node == _head) _head = node.Next;
-            if (node == _tail) _tail = node.Previous;
-            if (node.Previous != null) node.Previous.Next = node.Next;
-            if (node.Next != null) node.Next.Previous = node.Previous;
+            if (node == _head)
+            {
+                _head = node.Next;
+            }
+
+            if (node == _tail)
+            {
+                _tail = node.Previous;
+            }
+
+            if (node.Previous != null)
+            {
+                node.Previous.Next = node.Next;
+            }
+
+            if (node.Next != null)
+            {
+                node.Next.Previous = node.Previous;
+            }
+
             node.Recycle();
         }
 
@@ -165,12 +281,16 @@ namespace StellarFramework.Bindable
             while (node != null)
             {
                 var next = node.Next;
-                if (node.MarkedForDeletion) UnlinkAndRecycle(node);
+                if (node.MarkedForDeletion)
+                {
+                    UnlinkAndRecycle(node);
+                }
+
                 node = next;
             }
         }
 
-        private class ObserverNode : IUnRegister
+        private sealed class ObserverNode : IUnRegister
         {
             public Action<DictEvent<K, V>> Action;
             public BindableDictionary<K, V> Owner;
@@ -178,13 +298,15 @@ namespace StellarFramework.Bindable
             public ObserverNode Next;
             public bool MarkedForDeletion;
 
-            private static readonly Stack<ObserverNode> _pool = new Stack<ObserverNode>();
+            private static readonly Stack<ObserverNode> Pool = new Stack<ObserverNode>();
 
             public static ObserverNode Allocate(Action<DictEvent<K, V>> action, BindableDictionary<K, V> owner)
             {
-                var node = _pool.Count > 0 ? _pool.Pop() : new ObserverNode();
+                var node = Pool.Count > 0 ? Pool.Pop() : new ObserverNode();
                 node.Action = action;
                 node.Owner = owner;
+                node.Previous = null;
+                node.Next = null;
                 node.MarkedForDeletion = false;
                 return node;
             }
@@ -196,15 +318,20 @@ namespace StellarFramework.Bindable
                 Previous = null;
                 Next = null;
                 MarkedForDeletion = false;
-                _pool.Push(this);
+                Pool.Push(this);
             }
 
-            public void UnRegister() => Owner?.RemoveNode(this);
+            public void UnRegister()
+            {
+                Owner?.RemoveNode(this);
+            }
 
             public IUnRegister UnRegisterWhenGameObjectDestroyed(GameObject gameObject)
             {
                 if (gameObject == null)
                 {
+                    LogKit.LogError(
+                        $"[BindableDictionary] 生命周期绑定失败: GameObject 为空, KeyType={typeof(K).Name}, ValueType={typeof(V).Name}");
                     UnRegister();
                     return this;
                 }
@@ -220,7 +347,14 @@ namespace StellarFramework.Bindable
             }
         }
 
-        public IEnumerator<KeyValuePair<K, V>> GetEnumerator() => _dict.GetEnumerator();
-        IEnumerator IEnumerable.GetEnumerator() => _dict.GetEnumerator();
+        public IEnumerator<KeyValuePair<K, V>> GetEnumerator()
+        {
+            return _dict.GetEnumerator();
+        }
+
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return _dict.GetEnumerator();
+        }
     }
 }

@@ -1,26 +1,27 @@
-﻿using System;
+﻿// ==================================================================================
+// BindableProperty - Commercial Convergence V2
+// ----------------------------------------------------------------------------------
+// 职责：响应式属性。
+// 改造说明：
+// 1. 移除 Notify 中的 try-catch，强制业务层处理自己的异常。
+// 2. 将递归修改检测升级为致命断言 (Assert)，防止死循环导致栈溢出。
+// ==================================================================================
+
+using System;
 using System.Collections.Generic;
 using StellarFramework.Event;
 using UnityEngine;
 
 namespace StellarFramework.Bindable
 {
-    /// <summary>
-    /// [StellarFramework] 响应式属性 
-    /// </summary>
     [Serializable]
     public class BindableProperty<T>
     {
         [SerializeField] private T _value;
 
-        // 观察者链表
         private ObserverNode _head;
         private ObserverNode _tail;
-
-        // 遍历计数器，用于处理遍历过程中发生的注销操作
         private int _iteratingCount = 0;
-
-        //  重入锁：防止回调中修改 Value 导致死循环
         private bool _isNotifying = false;
 
         public BindableProperty(T initValue = default) => _value = initValue;
@@ -38,29 +39,19 @@ namespace StellarFramework.Bindable
             }
         }
 
-        /// <summary>
-        /// 设置值但不触发通知
-        /// </summary>
         public void SetValueWithoutNotify(T value) => _value = value;
 
-        // 强制设置值并通知（即使值相同）
         public void SetValueForceNotify(T value)
         {
             _value = value;
             Notify();
         }
 
-        /// <summary>
-        /// 强制通知
-        /// </summary>
         public void Notify()
         {
-            //  防止死循环
-            if (_isNotifying)
-            {
-                LogKit.LogWarning("[BindableProperty] 检测到递归修改 Value，已拦截以防止 StackOverflow。");
-                return;
-            }
+            // Fail-Fast: 严格拦截在回调中再次修改 Value 导致的死循环
+            LogKit.Assert(!_isNotifying, "[BindableProperty] 致命错误：检测到递归修改 Value，已拦截以防止 StackOverflow。");
+            if (_isNotifying) return;
 
             _isNotifying = true;
             _iteratingCount++;
@@ -71,17 +62,10 @@ namespace StellarFramework.Bindable
                 while (node != null)
                 {
                     var next = node.Next;
-
                     if (!node.MarkedForDeletion)
                     {
-                        try
-                        {
-                            node.Action?.Invoke(_value);
-                        }
-                        catch (Exception ex)
-                        {
-                            LogKit.LogError($"[BindableProperty] Callback exception: {ex.Message}\n{ex.StackTrace}");
-                        }
+                        // 核心改造：移除 try-catch，让业务异常自然上抛
+                        node.Action?.Invoke(_value);
                     }
 
                     node = next;
@@ -89,8 +73,9 @@ namespace StellarFramework.Bindable
             }
             finally
             {
+                // 确保即使发生异常，状态锁和迭代计数器也能正确恢复
                 _iteratingCount--;
-                _isNotifying = false; // 解锁
+                _isNotifying = false;
                 if (_iteratingCount == 0)
                 {
                     Cleanup();
@@ -102,11 +87,13 @@ namespace StellarFramework.Bindable
 
         public IUnRegister Register(Action<T> onValueChanged)
         {
+            LogKit.AssertNotNull(onValueChanged, "[BindableProperty] 注册失败：回调委托不能为空");
             return AddNode(onValueChanged);
         }
 
         public IUnRegister RegisterWithInitValue(Action<T> onValueChanged)
         {
+            LogKit.AssertNotNull(onValueChanged, "[BindableProperty] 注册失败：回调委托不能为空");
             onValueChanged?.Invoke(_value);
             return AddNode(onValueChanged);
         }
@@ -166,6 +153,7 @@ namespace StellarFramework.Bindable
         {
             if (node == _head) _head = node.Next;
             if (node == _tail) _tail = node.Previous;
+
             if (node.Previous != null) node.Previous.Next = node.Next;
             if (node.Next != null) node.Next.Previous = node.Previous;
 

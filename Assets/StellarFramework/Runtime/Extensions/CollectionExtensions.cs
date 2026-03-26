@@ -1,9 +1,6 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
-using System.Reflection;
 using System.Text;
-using Newtonsoft.Json;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
@@ -11,6 +8,7 @@ namespace StellarFramework
 {
     /// <summary>
     /// 高性能深拷贝接口
+    /// 我要求业务对象自行提供深拷贝实现，避免运行时反射或序列化式复制带来的额外开销与不可控分配。
     /// </summary>
     public interface IDeepCopyable<T>
     {
@@ -25,226 +23,295 @@ namespace StellarFramework
         #region List Extensions
 
         /// <summary>
-        /// [高性能] 移除列表中的空引用 (O(N) 复杂度)
+        /// 移除列表中的空引用
+        /// 我使用 RemoveAll 保持 O(N) 清理效率，避免倒序 RemoveAt 带来的多次搬移成本。
         /// </summary>
         public static int RemoveMissing<T>(this List<T> list) where T : Object
         {
-            if (list == null) return 0;
-            // 使用 RemoveAll 比倒序 RemoveAt 快得多，因为 RemoveAt 会导致多次数组内存移动
+            if (list == null)
+            {
+                LogKit.LogError("[CollectionExtensions] RemoveMissing 失败: list 为空");
+                return 0;
+            }
+
             return list.RemoveAll(item => item == null);
         }
 
+        /// <summary>
+        /// 输出列表摘要信息
+        /// 我在运行时只输出稳定、低风险的摘要，不再执行深层反射遍历。
+        /// 这样设计是为了严格遵守运行时主链路禁反射规范，并避免调试工具污染性能边界。
+        /// </summary>
         public static string LogList<T>(this List<T> list)
         {
-            // 容错检查：空列表直接返回
             if (list == null)
             {
-                Debug.LogError("LogListDetail: 传入的列表为 null");
+                LogKit.LogError("[CollectionExtensions] LogList 失败: list 为空");
                 return "null";
             }
 
-            // 性能警告：仅在Debug模式或非高频逻辑中使用
-            // 反射操作非常耗时，不要在 Update 中调用
+            var sb = new StringBuilder(128);
+            sb.Append("List<");
+            sb.Append(typeof(T).Name);
+            sb.Append(">(Count=");
+            sb.Append(list.Count);
+            sb.Append(") [");
 
-            var sb = new StringBuilder();
-            var visited = new HashSet<object>(); // 防止循环引用导致死循环
-            const int MAX_DEPTH = 5; // 最大递归深度，防止堆栈溢出
-
-            sb.Append("[\n");
-
-            // === 本地函数：递归获取单个对象的详细字符串 ===
-            string GetValueString(object obj, int depth)
+            int previewCount = Mathf.Min(list.Count, 10);
+            for (int i = 0; i < previewCount; i++)
             {
-                if (obj == null) return "null";
-
-                // 深度限制保护
-                if (depth > MAX_DEPTH) return "...(深度限制)...";
-
-                var type = obj.GetType();
-
-                // 1. 基础类型、字符串、枚举直接返回，不进行反射
-                if (type.IsPrimitive || obj is string || type.IsEnum || type == typeof(decimal))
-                    return obj.ToString();
-
-                // 2. Unity原生类型 (Vector3, Transform等) 直接使用其自带的ToString
-                // 否则会反射出大量无用的内部数据
-                if (type.Namespace != null && (type.Namespace.StartsWith("UnityEngine") || type.Namespace.StartsWith("System")))
-                    return obj.ToString();
-
-                // 3. 循环引用检测 (比如 A 引用 B, B 又引用 A)
-                if (visited.Contains(obj)) return "(循环引用)";
-                visited.Add(obj);
-
-                // 4. 处理嵌套集合 (List 里面套 List)
-                if (obj is IEnumerable enumerable)
+                if (i > 0)
                 {
-                    var sbSub = new StringBuilder("[");
-                    foreach (var item in enumerable)
-                    {
-                        sbSub.Append(GetValueString(item, depth + 1)).Append(", ");
-                    }
-
-                    if (sbSub.Length > 1) sbSub.Length -= 2; // 移除末尾逗号
-                    sbSub.Append("]");
-                    visited.Remove(obj); // 回溯
-                    return sbSub.ToString();
+                    sb.Append(", ");
                 }
 
-                // 5. 自定义类：反射获取字段
-                var sbObj = new StringBuilder();
-                sbObj.Append(type.Name).Append(" { ");
-
-                // 获取所有实例字段 (Public 和 Private)
-                var fields = type.GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
-                bool hasContent = false;
-
-                foreach (var field in fields)
+                T item = list[i];
+                if (item == null)
                 {
-                    // 过滤掉编译器生成的 backing field (比如属性自动生成的字段)
-                    if (field.Name.Contains("<")) continue;
-
-                    if (hasContent) sbObj.Append(", ");
-
-                    // 递归获取字段值
-                    var val = field.GetValue(obj);
-                    sbObj.Append(field.Name).Append(": ").Append(GetValueString(val, depth + 1));
-                    hasContent = true;
+                    sb.Append("null");
                 }
-
-                sbObj.Append(" }");
-                visited.Remove(obj); // 回溯：退出当前对象后，允许其他分支再次访问该对象
-                return sbObj.ToString();
+                else
+                {
+                    sb.Append(item);
+                }
             }
-            // === 本地函数结束 ===
 
-            // 主循环遍历列表
-            int count = 0;
-            foreach (var item in list)
+            if (list.Count > previewCount)
             {
-                sb.Append("\t"); // 缩进
-                sb.Append(GetValueString(item, 1));
-                sb.Append(",\n");
-                count++;
+                sb.Append(", ...");
             }
 
-            // 移除最后一个逗号和换行
-            if (count > 0)
-            {
-                sb.Length -= 2;
-                sb.AppendLine();
-            }
-
-            sb.Append("]");
+            sb.Append(']');
             return sb.ToString();
         }
 
         /// <summary>
-        /// [高性能] 列表深拷贝
-        /// 要求元素类型实现 IDeepCopyable 接口
+        /// 列表深拷贝
+        /// 我要求元素实现 IDeepCopyable，避免运行时反射与序列化复制。
         /// </summary>
         public static List<T> DeepCopy<T>(this List<T> source) where T : IDeepCopyable<T>
         {
-            if (source == null) return null;
+            if (source == null)
+            {
+                LogKit.LogError("[CollectionExtensions] DeepCopy(List) 失败: source 为空");
+                return null;
+            }
 
-            // 预分配内存，避免扩容GC
             var newList = new List<T>(source.Count);
 
             for (int i = 0; i < source.Count; i++)
             {
-                // 如果元素为空，直接添加默认值
-                if (source[i] == null)
+                T item = source[i];
+                if (item == null)
                 {
                     newList.Add(default);
+                    continue;
                 }
-                else
-                {
-                    // 调用接口方法，0反射，0装箱
-                    newList.Add(source[i].DeepCopy());
-                }
+
+                newList.Add(item.DeepCopy());
             }
 
             return newList;
         }
 
-
         public static bool RemoveAndDestroy<T>(this List<T> list, T item) where T : Component
         {
-            if (list.Contains(item))
+            if (list == null)
             {
-                if (item != null) item.gameObject.SafeDestroy();
-                list.Remove(item);
-                return true;
+                LogKit.LogError(
+                    $"[CollectionExtensions] RemoveAndDestroy(List<Component>) 失败: list 为空, Item={(item == null ? "null" : item.name)}");
+                return false;
             }
 
-            return false;
+            if (item == null)
+            {
+                LogKit.LogError("[CollectionExtensions] RemoveAndDestroy(List<Component>) 失败: item 为空");
+                return false;
+            }
+
+            if (!list.Contains(item))
+            {
+                return false;
+            }
+
+            item.gameObject.SafeDestroy();
+            list.Remove(item);
+            return true;
         }
 
         public static bool RemoveAtAndDestroy<T>(this List<T> list, int index) where T : Component
         {
-            if (index >= 0 && index < list.Count)
+            if (list == null)
             {
-                var item = list[index];
-                if (item != null) item.gameObject.SafeDestroy();
-                list.RemoveAt(index);
-                return true;
+                LogKit.LogError(
+                    $"[CollectionExtensions] RemoveAtAndDestroy(List<Component>) 失败: list 为空, Index={index}");
+                return false;
             }
 
-            return false;
+            if (index < 0 || index >= list.Count)
+            {
+                LogKit.LogError(
+                    $"[CollectionExtensions] RemoveAtAndDestroy(List<Component>) 失败: 索引越界, Index={index}, Count={list.Count}");
+                return false;
+            }
+
+            T item = list[index];
+            if (item != null)
+            {
+                item.gameObject.SafeDestroy();
+            }
+
+            list.RemoveAt(index);
+            return true;
         }
 
         public static void ClearAndDestroy<T>(this List<T> list) where T : Component
         {
-            var items = list.ToArray();
-            list.Clear();
-            foreach (var item in items)
+            if (list == null)
             {
-                if (item != null) Object.Destroy(item.gameObject);
+                LogKit.LogError("[CollectionExtensions] ClearAndDestroy(List<Component>) 失败: list 为空");
+                return;
             }
+
+            int count = list.Count;
+            for (int i = count - 1; i >= 0; i--)
+            {
+                T item = list[i];
+                if (item != null)
+                {
+                    item.gameObject.SafeDestroy();
+                }
+            }
+
+            list.Clear();
         }
 
         public static void ClearAndDestroy(this List<GameObject> list)
         {
-            var items = list.ToArray();
-            list.Clear();
-            foreach (var item in items)
+            if (list == null)
             {
-                if (item != null) Object.Destroy(item.gameObject);
+                LogKit.LogError("[CollectionExtensions] ClearAndDestroy(List<GameObject>) 失败: list 为空");
+                return;
             }
+
+            int count = list.Count;
+            for (int i = count - 1; i >= 0; i--)
+            {
+                GameObject item = list[i];
+                if (item != null)
+                {
+                    item.SafeDestroy();
+                }
+            }
+
+            list.Clear();
         }
 
         public static void RemoveRangeAndDestroy<T>(this List<T> list, int index, int count) where T : Component
         {
-            if (index < 0 || index >= list.Count) return;
-            var endIndex = Mathf.Min(index + count, list.Count);
-            for (var i = index; i < endIndex; i++)
+            if (list == null)
             {
-                var item = list[i];
-                if (item != null) item.gameObject.SafeDestroy();
+                LogKit.LogError(
+                    $"[CollectionExtensions] RemoveRangeAndDestroy(List<Component>) 失败: list 为空, Index={index}, Count={count}");
+                return;
             }
 
-            list.RemoveRange(index, count);
+            if (count <= 0)
+            {
+                LogKit.LogError(
+                    $"[CollectionExtensions] RemoveRangeAndDestroy(List<Component>) 失败: count 非法, Index={index}, Count={count}, ListCount={list.Count}");
+                return;
+            }
+
+            if (index < 0 || index >= list.Count)
+            {
+                LogKit.LogError(
+                    $"[CollectionExtensions] RemoveRangeAndDestroy(List<Component>) 失败: index 越界, Index={index}, Count={count}, ListCount={list.Count}");
+                return;
+            }
+
+            int safeCount = Mathf.Min(count, list.Count - index);
+            for (int i = index; i < index + safeCount; i++)
+            {
+                T item = list[i];
+                if (item != null)
+                {
+                    item.gameObject.SafeDestroy();
+                }
+            }
+
+            list.RemoveRange(index, safeCount);
         }
 
-        public static void RemoveRangeAndDestroy<T>(this List<GameObject> list, int index, int count)
+        public static void RemoveRangeAndDestroy(this List<GameObject> list, int index, int count)
         {
-            if (index < 0 || index >= list.Count) return;
-            var endIndex = Mathf.Min(index + count, list.Count);
-            for (var i = index; i < endIndex; i++)
+            if (list == null)
             {
-                var item = list[i];
-                if (item != null) item.gameObject.SafeDestroy();
+                LogKit.LogError(
+                    $"[CollectionExtensions] RemoveRangeAndDestroy(List<GameObject>) 失败: list 为空, Index={index}, Count={count}");
+                return;
             }
 
-            list.RemoveRange(index, count);
+            if (count <= 0)
+            {
+                LogKit.LogError(
+                    $"[CollectionExtensions] RemoveRangeAndDestroy(List<GameObject>) 失败: count 非法, Index={index}, Count={count}, ListCount={list.Count}");
+                return;
+            }
+
+            if (index < 0 || index >= list.Count)
+            {
+                LogKit.LogError(
+                    $"[CollectionExtensions] RemoveRangeAndDestroy(List<GameObject>) 失败: index 越界, Index={index}, Count={count}, ListCount={list.Count}");
+                return;
+            }
+
+            int safeCount = Mathf.Min(count, list.Count - index);
+            for (int i = index; i < index + safeCount; i++)
+            {
+                GameObject item = list[i];
+                if (item != null)
+                {
+                    item.SafeDestroy();
+                }
+            }
+
+            list.RemoveRange(index, safeCount);
         }
 
         public static int RemoveAllAndDestroy<T>(this List<T> list, Predicate<T> match) where T : Component
         {
-            var itemsToRemove = list.FindAll(match);
-            foreach (var item in itemsToRemove)
+            if (list == null)
+            {
+                LogKit.LogError("[CollectionExtensions] RemoveAllAndDestroy 失败: list 为空");
+                return 0;
+            }
+
+            if (match == null)
+            {
+                LogKit.LogError($"[CollectionExtensions] RemoveAllAndDestroy 失败: match 为空, ListCount={list.Count}");
+                return 0;
+            }
+
+            int removedCount = 0;
+            for (int i = list.Count - 1; i >= 0; i--)
+            {
+                T item = list[i];
+                if (!match(item))
+                {
+                    continue;
+                }
+
                 if (item != null)
+                {
                     item.gameObject.SafeDestroy();
-            return list.RemoveAll(match);
+                }
+
+                list.RemoveAt(i);
+                removedCount++;
+            }
+
+            return removedCount;
         }
 
         #endregion
@@ -253,83 +320,180 @@ namespace StellarFramework
 
         public static bool AddOrReplace<TKey, TValue>(this Dictionary<TKey, TValue> dict, TKey key, TValue value)
         {
-            if (dict == null) throw new ArgumentNullException(nameof(dict));
-            var isNew = !dict.ContainsKey(key);
+            if (dict == null)
+            {
+                LogKit.LogError(
+                    $"[CollectionExtensions] AddOrReplace 失败: dict 为空, Key={key}, ValueType={typeof(TValue).Name}");
+                return false;
+            }
+
+            bool isNew = !dict.ContainsKey(key);
             dict[key] = value;
             return isNew;
         }
 
         public static bool AddOrSkip<TKey, TValue>(this Dictionary<TKey, TValue> dict, TKey key, TValue value)
         {
-            if (dict == null) throw new ArgumentNullException(nameof(dict));
-            if (dict.ContainsKey(key)) return false;
+            if (dict == null)
+            {
+                LogKit.LogError(
+                    $"[CollectionExtensions] AddOrSkip 失败: dict 为空, Key={key}, ValueType={typeof(TValue).Name}");
+                return false;
+            }
+
+            if (dict.ContainsKey(key))
+            {
+                return false;
+            }
+
             dict.Add(key, value);
             return true;
         }
 
-        public static bool AddSafe<TKey, TValue>(this Dictionary<TKey, TValue> dict, TKey key, TValue value, bool overwrite = true)
+        public static bool AddSafe<TKey, TValue>(this Dictionary<TKey, TValue> dict, TKey key, TValue value,
+            bool overwrite = true)
         {
-            if (dict == null) throw new ArgumentNullException(nameof(dict));
+            if (dict == null)
+            {
+                LogKit.LogError(
+                    $"[CollectionExtensions] AddSafe 失败: dict 为空, Key={key}, Overwrite={overwrite}, ValueType={typeof(TValue).Name}");
+                return false;
+            }
+
             if (overwrite)
             {
                 dict[key] = value;
                 return true;
             }
 
-            if (dict.ContainsKey(key)) return false;
+            if (dict.ContainsKey(key))
+            {
+                return false;
+            }
+
             dict.Add(key, value);
             return true;
         }
 
-        public static int AddRange<TKey, TValue>(this Dictionary<TKey, TValue> dict, IEnumerable<KeyValuePair<TKey, TValue>> items, bool overwrite = true)
+        public static int AddRange<TKey, TValue>(this Dictionary<TKey, TValue> dict,
+            IEnumerable<KeyValuePair<TKey, TValue>> items, bool overwrite = true)
         {
-            if (dict == null) throw new ArgumentNullException(nameof(dict));
-            if (items == null) throw new ArgumentNullException(nameof(items));
-            var count = 0;
-            foreach (var item in items)
+            if (dict == null)
+            {
+                LogKit.LogError(
+                    $"[CollectionExtensions] AddRange(IEnumerable) 失败: dict 为空, ValueType={typeof(TValue).Name}");
+                return 0;
+            }
+
+            if (items == null)
+            {
+                LogKit.LogError(
+                    $"[CollectionExtensions] AddRange(IEnumerable) 失败: items 为空, DictCount={dict.Count}, ValueType={typeof(TValue).Name}");
+                return 0;
+            }
+
+            int count = 0;
+            foreach (KeyValuePair<TKey, TValue> item in items)
+            {
                 if (dict.AddSafe(item.Key, item.Value, overwrite))
+                {
                     count++;
+                }
+            }
+
             return count;
         }
 
-        public static int AddRange<TKey, TValue>(this Dictionary<TKey, TValue> dict, Dictionary<TKey, TValue> other, bool overwrite = true)
+        public static int AddRange<TKey, TValue>(this Dictionary<TKey, TValue> dict, Dictionary<TKey, TValue> other,
+            bool overwrite = true)
         {
-            if (dict == null) throw new ArgumentNullException(nameof(dict));
-            if (other == null) throw new ArgumentNullException(nameof(other));
-            var count = 0;
-            foreach (var kvp in other)
+            if (dict == null)
+            {
+                LogKit.LogError(
+                    $"[CollectionExtensions] AddRange(Dictionary) 失败: dict 为空, ValueType={typeof(TValue).Name}");
+                return 0;
+            }
+
+            if (other == null)
+            {
+                LogKit.LogError(
+                    $"[CollectionExtensions] AddRange(Dictionary) 失败: other 为空, DictCount={dict.Count}, ValueType={typeof(TValue).Name}");
+                return 0;
+            }
+
+            int count = 0;
+            foreach (KeyValuePair<TKey, TValue> kvp in other)
+            {
                 if (dict.AddSafe(kvp.Key, kvp.Value, overwrite))
+                {
                     count++;
+                }
+            }
+
             return count;
         }
 
         public static string LogDict<TKey, TValue>(this Dictionary<TKey, TValue> dict)
         {
-            if (dict == null) return "null";
-            var sb = new StringBuilder();
-            sb.Append("{");
-            foreach (var kvp in dict)
+            if (dict == null)
             {
-                sb.Append(kvp.Key).Append(":").Append(kvp.Value).Append(",");
+                LogKit.LogError("[CollectionExtensions] LogDict 失败: dict 为空");
+                return "null";
             }
 
-            if (sb.Length > 1) sb.Remove(sb.Length - 1, 1);
+            var sb = new StringBuilder(128);
+            sb.Append("Dictionary<");
+            sb.Append(typeof(TKey).Name);
+            sb.Append(", ");
+            sb.Append(typeof(TValue).Name);
+            sb.Append(">(Count=");
+            sb.Append(dict.Count);
+            sb.Append(") {");
+
+            int previewCount = 0;
+            foreach (KeyValuePair<TKey, TValue> kvp in dict)
+            {
+                if (previewCount > 0)
+                {
+                    sb.Append(", ");
+                }
+
+                sb.Append(kvp.Key);
+                sb.Append(":");
+                sb.Append(kvp.Value);
+
+                previewCount++;
+                if (previewCount >= 10)
+                {
+                    break;
+                }
+            }
+
+            if (dict.Count > previewCount)
+            {
+                sb.Append(", ...");
+            }
+
             sb.Append("}");
             return sb.ToString();
         }
 
         /// <summary>
-        /// [高性能] 字典深拷贝
-        /// 要求 Value 实现 IDeepCopyable 接口 (Key通常是基础类型，直接复制即可)
+        /// 字典深拷贝
+        /// 我默认认为 Key 通常是值语义或稳定标识，因此只深拷贝 Value。
         /// </summary>
         public static Dictionary<TKey, TValue> DeepCopy<TKey, TValue>(this Dictionary<TKey, TValue> source)
             where TValue : IDeepCopyable<TValue>
         {
-            if (source == null) return null;
+            if (source == null)
+            {
+                LogKit.LogError(
+                    $"[CollectionExtensions] DeepCopy(Dictionary) 失败: source 为空, KeyType={typeof(TKey).Name}, ValueType={typeof(TValue).Name}");
+                return null;
+            }
 
             var newDict = new Dictionary<TKey, TValue>(source.Count);
-
-            foreach (var kvp in source)
+            foreach (KeyValuePair<TKey, TValue> kvp in source)
             {
                 TValue newValue = kvp.Value == null ? default : kvp.Value.DeepCopy();
                 newDict.Add(kvp.Key, newValue);
@@ -338,24 +502,46 @@ namespace StellarFramework
             return newDict;
         }
 
-
-        public static bool RemoveAndDestroy<TKey, TValue>(this Dictionary<TKey, TValue> dict, TKey key) where TValue : Component
+        public static bool RemoveAndDestroy<TKey, TValue>(this Dictionary<TKey, TValue> dict, TKey key)
+            where TValue : Component
         {
-            if (dict.TryGetValue(key, out var value))
+            if (dict == null)
             {
-                if (value != null) value.gameObject.SafeDestroy();
-                dict.Remove(key);
-                return true;
+                LogKit.LogError($"[CollectionExtensions] RemoveAndDestroy(Dictionary) 失败: dict 为空, Key={key}");
+                return false;
             }
 
-            return false;
+            if (!dict.TryGetValue(key, out TValue value))
+            {
+                return false;
+            }
+
+            if (value != null)
+            {
+                value.gameObject.SafeDestroy();
+            }
+
+            dict.Remove(key);
+            return true;
         }
 
         public static void ClearAndDestroy<TKey, TValue>(this Dictionary<TKey, TValue> dict) where TValue : Component
         {
-            foreach (var value in dict.Values)
+            if (dict == null)
+            {
+                LogKit.LogError(
+                    $"[CollectionExtensions] ClearAndDestroy(Dictionary) 失败: dict 为空, KeyType={typeof(TKey).Name}, ValueType={typeof(TValue).Name}");
+                return;
+            }
+
+            foreach (TValue value in dict.Values)
+            {
                 if (value != null)
+                {
                     value.gameObject.SafeDestroy();
+                }
+            }
+
             dict.Clear();
         }
 
@@ -365,30 +551,41 @@ namespace StellarFramework
 
         /// <summary>
         /// 随机获取列表中的一个元素
+        /// 我在非法输入时直接返回默认值，不抛异常，避免把工具方法变成崩溃源。
         /// </summary>
         public static T GetRandomItem<T>(this IList<T> list)
         {
-            if (list == null || list.Count == 0) return default;
+            if (list == null || list.Count == 0)
+            {
+                return default;
+            }
+
             return list[UnityEngine.Random.Range(0, list.Count)];
         }
 
         /// <summary>
-        /// 洗牌算法 (Fisher-Yates Shuffle)
+        /// Fisher-Yates 洗牌
+        /// 我使用原地交换，避免额外容器分配。
         /// </summary>
         public static void Shuffle<T>(this IList<T> list)
         {
-            if (list == null) return;
-            var n = list.Count;
+            if (list == null)
+            {
+                LogKit.LogError("[CollectionExtensions] Shuffle 失败: list 为空");
+                return;
+            }
+
+            int n = list.Count;
             while (n > 1)
             {
                 n--;
-                var k = UnityEngine.Random.Range(0, n + 1);
+                int k = UnityEngine.Random.Range(0, n + 1);
                 (list[k], list[n]) = (list[n], list[k]);
             }
         }
 
         /// <summary>
-        /// 列表是否为空或Null
+        /// 列表是否为空或 null
         /// </summary>
         public static bool IsNullOrEmpty<T>(this IList<T> list)
         {

@@ -1,19 +1,23 @@
-﻿using System;
+﻿// ==================================================================================
+// GlobalEnumEvent - Commercial Convergence V2
+// ----------------------------------------------------------------------------------
+// 职责：全局枚举事件总线。
+// 改造说明：
+// 1. 彻底移除 Broadcast 内部的 try-catch，贯彻 Fail-Fast 原则。
+// 2. 增加 Register 时的空引用断言。
+// ==================================================================================
+
+using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using UnityEngine;
 
 namespace StellarFramework.Event
 {
-    /// <summary>
-    /// 全局枚举事件总线
-    /// 特性：泛型隔离、对象池、反向查找、签名校验、零GC(运行时)
-    /// </summary>
     public static class GlobalEnumEvent
     {
         #region Internal Types
 
-        // 组合 Key，用于在 LookupTable 中精确定位
         private readonly struct CallbackKey<T> : IEquatable<CallbackKey<T>> where T : Enum
         {
             public readonly T Key;
@@ -46,18 +50,14 @@ namespace StellarFramework.Event
 
         private static class EventBox<T> where T : Enum
         {
-            // 核心委托表
             public static readonly Dictionary<T, Delegate> EventTable =
                 new Dictionary<T, Delegate>(EqualityComparer<T>.Default);
 
-            // Token 对象池
             public static readonly Stack<EnumEventToken<T>> TokenPool = new Stack<EnumEventToken<T>>();
 
-            // 反向查找表：支持同 Key 同 Callback 的重复注册 (使用 List 存储)
             public static readonly Dictionary<CallbackKey<T>, List<EnumEventToken<T>>> LookupTable =
                 new Dictionary<CallbackKey<T>, List<EnumEventToken<T>>>();
 
-            // 签名校验表：防止 Release 模式下因签名不匹配导致的强转崩溃
             public static readonly Dictionary<T, Type> DelegateTypeByKey =
                 new Dictionary<T, Type>(EqualityComparer<T>.Default);
         }
@@ -71,8 +71,6 @@ namespace StellarFramework.Event
             public void UnRegister()
             {
                 if (!IsInUse) return;
-
-                // 移除委托并回收 Token
                 RemoveFromEventTable(Key, Callback);
                 Recycle(this);
             }
@@ -116,9 +114,7 @@ namespace StellarFramework.Event
 
             if (existedType == cbType) return true;
 
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
-            Debug.LogError($"[GlobalEnumEvent] 注册失败: Key '{key}' 的委托签名不匹配。期望: '{existedType}', 实际: '{cbType}'。请检查参数类型。");
-#endif
+            LogKit.LogError($"[GlobalEnumEvent] 注册失败: Key '{key}' 的委托签名不匹配。期望: '{existedType}', 实际: '{cbType}'。");
             return false;
         }
 
@@ -147,7 +143,6 @@ namespace StellarFramework.Event
 
             if (!lookup.TryGetValue(ck, out var list)) return;
 
-            // 倒序遍历，按引用移除
             for (int i = list.Count - 1; i >= 0; i--)
             {
                 if (ReferenceEquals(list[i], token))
@@ -157,8 +152,7 @@ namespace StellarFramework.Event
                 }
             }
 
-            if (list.Count == 0)
-                lookup.Remove(ck);
+            if (list.Count == 0) lookup.Remove(ck);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -207,7 +201,7 @@ namespace StellarFramework.Event
 
         private static void Recycle<T>(EnumEventToken<T> token) where T : Enum
         {
-            RemoveFromLookup(token); // 清理反向表
+            RemoveFromLookup(token);
             token.Key = default;
             token.Callback = null;
             token.IsInUse = false;
@@ -220,6 +214,7 @@ namespace StellarFramework.Event
 
         private static IUnRegister OnRegister<T>(T key, Delegate callback) where T : Enum
         {
+            LogKit.AssertNotNull(callback, $"[GlobalEnumEvent] 注册失败: 传入的回调委托为空, Key: {key}");
             if (callback == null) return new CustomUnRegister(null);
             if (!EnsureDelegateTypeMatches(key, callback)) return new CustomUnRegister(null);
 
@@ -228,9 +223,15 @@ namespace StellarFramework.Event
         }
 
         public static IUnRegister Register<T>(T key, Action callback) where T : Enum => OnRegister(key, callback);
-        public static IUnRegister Register<T, T1>(T key, Action<T1> callback) where T : Enum => OnRegister(key, callback);
-        public static IUnRegister Register<T, T1, T2>(T key, Action<T1, T2> callback) where T : Enum => OnRegister(key, callback);
-        public static IUnRegister Register<T, T1, T2, T3>(T key, Action<T1, T2, T3> callback) where T : Enum => OnRegister(key, callback);
+
+        public static IUnRegister Register<T, T1>(T key, Action<T1> callback) where T : Enum =>
+            OnRegister(key, callback);
+
+        public static IUnRegister Register<T, T1, T2>(T key, Action<T1, T2> callback) where T : Enum =>
+            OnRegister(key, callback);
+
+        public static IUnRegister Register<T, T1, T2, T3>(T key, Action<T1, T2, T3> callback) where T : Enum =>
+            OnRegister(key, callback);
 
         #endregion
 
@@ -243,104 +244,62 @@ namespace StellarFramework.Event
             var ck = new CallbackKey<T>(key, callback);
             var lookup = EventBox<T>.LookupTable;
 
-            // 优先尝试通过 Token 进行完整注销（包含回收逻辑）
             if (lookup.TryGetValue(ck, out var list) && list.Count > 0)
             {
-                var token = list[list.Count - 1]; // 取出最后一个注册的 Token
+                var token = list[list.Count - 1];
                 token.UnRegister();
                 return;
             }
 
-            // 保底逻辑：如果找不到 Token，强制移除委托，防止逻辑残留
             RemoveFromEventTable(key, callback);
         }
 
         public static void UnRegister<T>(T key, Action callback) where T : Enum => OnUnRegister(key, callback);
         public static void UnRegister<T, T1>(T key, Action<T1> callback) where T : Enum => OnUnRegister(key, callback);
-        public static void UnRegister<T, T1, T2>(T key, Action<T1, T2> callback) where T : Enum => OnUnRegister(key, callback);
-        public static void UnRegister<T, T1, T2, T3>(T key, Action<T1, T2, T3> callback) where T : Enum => OnUnRegister(key, callback);
+
+        public static void UnRegister<T, T1, T2>(T key, Action<T1, T2> callback) where T : Enum =>
+            OnUnRegister(key, callback);
+
+        public static void UnRegister<T, T1, T2, T3>(T key, Action<T1, T2, T3> callback) where T : Enum =>
+            OnUnRegister(key, callback);
 
         #endregion
 
         #region Public API: Broadcast
 
+        // 核心改造：移除 try-catch。如果业务层在事件回调中抛出异常，必须让其暴露，
+        // 否则会导致后续的回调被静默跳过，产生难以排查的脏状态。
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void Broadcast<T>(T key) where T : Enum
         {
             if (!EventBox<T>.EventTable.TryGetValue(key, out var d)) return;
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
-            try
-            {
-                ((Action)d).Invoke();
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"[Event] '{key}': {ex}");
-            }
-#else
             ((Action)d).Invoke();
-#endif
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void Broadcast<T, T1>(T key, T1 v1) where T : Enum
         {
             if (!EventBox<T>.EventTable.TryGetValue(key, out var d)) return;
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
-            try
-            {
-                ((Action<T1>)d).Invoke(v1);
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"[Event] '{key}': {ex}");
-            }
-#else
             ((Action<T1>)d).Invoke(v1);
-#endif
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void Broadcast<T, T1, T2>(T key, T1 v1, T2 v2) where T : Enum
         {
             if (!EventBox<T>.EventTable.TryGetValue(key, out var d)) return;
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
-            try
-            {
-                ((Action<T1, T2>)d).Invoke(v1, v2);
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"[Event] '{key}': {ex}");
-            }
-#else
             ((Action<T1, T2>)d).Invoke(v1, v2);
-#endif
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void Broadcast<T, T1, T2, T3>(T key, T1 v1, T2 v2, T3 v3) where T : Enum
         {
             if (!EventBox<T>.EventTable.TryGetValue(key, out var d)) return;
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
-            try
-            {
-                ((Action<T1, T2, T3>)d).Invoke(v1, v2, v3);
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"[Event] '{key}': {ex}");
-            }
-#else
             ((Action<T1, T2, T3>)d).Invoke(v1, v2, v3);
-#endif
         }
 
         #endregion
 
-        /// <summary>
-        /// 彻底清理某类型的所有事件数据（慎用）
-        /// </summary>
         public static void ClearAll<T>() where T : Enum
         {
             EventBox<T>.EventTable.Clear();

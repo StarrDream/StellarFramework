@@ -67,7 +67,7 @@ namespace StellarFramework.Demo
 
             // 规范：使用 ActionKit 替代 DOTween，执行 0GC 的入场动画
             RectTransform.localScale = Vector3.zero;
-            MonoKit.Sequence(gameObject)
+            ActionKit.Sequence(gameObject)
                 .ScaleTo(RectTransform, Vector3.one, 0.4f, Ease.OutBack)
                 .Start();
         }
@@ -75,7 +75,7 @@ namespace StellarFramework.Demo
         private void OnClickMine()
         {
             // 表现层逻辑：播放按钮点击反馈动画
-            MonoKit.Sequence(gameObject)
+            ActionKit.Sequence(gameObject)
                 .ScaleTo(MineButton.transform, Vector3.one * 1.1f, 0.1f)
                 .ScaleTo(MineButton.transform, Vector3.one, 0.1f)
                 .Start();

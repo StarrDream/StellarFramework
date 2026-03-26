@@ -1,14 +1,19 @@
-﻿using System;
+﻿// ==================================================================================
+// PerformanceUtil - Commercial Convergence V2
+// ----------------------------------------------------------------------------------
+// 职责：仅负责 CPU 耗时测量、内存快照与 GC 控制。
+// 改造说明：
+// 1. 彻底移除 MeasureExecutionTime 内部的 try-catch，遵循 Fail-Fast 原则。
+//    性能测试工具不应干涉或掩盖业务代码的异常抛出行为。
+// ==================================================================================
+
+using System;
 using System.Diagnostics;
 using UnityEngine;
 using UnityEngine.Profiling;
 
 namespace StellarFramework
 {
-    /// <summary>
-    /// 性能与内存诊断工具
-    /// 职责单一：仅负责 CPU 耗时测量、内存快照与 GC 控制，与基础日志流转彻底解耦。
-    /// </summary>
     public static class PerformanceUtil
     {
         /// <summary>
@@ -24,23 +29,14 @@ namespace StellarFramework
                 return;
             }
 
-            // 使用 Stopwatch 规避 DateTime.Now 带来的装箱与 GC 开销，且精度更高
             var stopwatch = Stopwatch.StartNew();
-            try
-            {
-                action.Invoke();
-            }
-            catch (Exception e)
-            {
-                // 精准报错：保留堆栈信息，随后 Fail Fast 抛出，绝不掩盖业务层异常
-                LogKit.LogError($"[PerformanceUtil] {actionName} 执行期发生异常: {e.Message}\n{e.StackTrace}");
-                throw;
-            }
-            finally
-            {
-                stopwatch.Stop();
-                LogKit.Log($"[PerformanceUtil] {actionName} 耗时: {stopwatch.Elapsed.TotalMilliseconds:F4} ms");
-            }
+
+            // 核心改造：移除 try-catch，让业务异常自然上抛。
+            // 保证在性能测量的同时，不破坏业务层原有的错误阻断链路。
+            action.Invoke();
+
+            stopwatch.Stop();
+            LogKit.Log($"[PerformanceUtil] {actionName} 耗时: {stopwatch.Elapsed.TotalMilliseconds:F4} ms");
         }
 
         /// <summary>
@@ -48,7 +44,6 @@ namespace StellarFramework
         /// </summary>
         public static void LogMemoryUsage()
         {
-            // Profiler API 调用存在底层开销，建议仅在排查内存瓶颈时调用
             long totalReserved = Profiler.GetTotalReservedMemoryLong();
             long totalAllocated = Profiler.GetTotalAllocatedMemoryLong();
             long gcMemory = GC.GetTotalMemory(false);
@@ -66,21 +61,15 @@ namespace StellarFramework
         {
             LogKit.LogWarning("[PerformanceUtil] 正在执行强制 GC，将引发主线程阻塞与帧率抖动...");
 
-            // 触发完整的托管堆 GC
             GC.Collect();
             GC.WaitForPendingFinalizers();
             GC.Collect();
 
-            // 触发非托管资源 (Unity Assets) 的卸载
-            // 注意：UnloadUnusedAssets 是异步操作，实际内存在下一帧或更晚才会真正回落
             Resources.UnloadUnusedAssets();
 
             LogKit.Log("[PerformanceUtil] 强制 GC 与资源卸载指令已发出");
         }
 
-        /// <summary>
-        /// 字节转兆字节辅助计算
-        /// </summary>
         private static float ToMB(long bytes)
         {
             return bytes / 1024f / 1024f;

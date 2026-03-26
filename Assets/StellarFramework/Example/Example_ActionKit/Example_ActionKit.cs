@@ -39,15 +39,15 @@ namespace StellarFramework.Examples
             LogKit.Log("[Example_ActionKit] 开始播放序列动画...");
 
             // 规范：传入 gameObject 绑定生命周期，物体销毁时自动取消 0GC
-            _currentChain = MonoKit.Sequence(gameObject)
+            _currentChain = ActionKit.Sequence(gameObject)
                 // 1. 移动
                 .LocalMoveTo(cubeTransform, new Vector3(5, 0, 0), 1f, Ease.OutQuad)
                 // 2. 延时
                 .Delay(0.5f)
                 // 3. 并行执行多个动画
                 .Parallel(
-                    t => MonoKit.Sequence(gameObject).ScaleTo(cubeTransform, Vector3.one * 2, 1f, Ease.OutBack).Await(),
-                    t => MonoKit.Sequence(gameObject).FadeTo(uiGroup, 0.5f, 1f).Await()
+                    t => ActionKit.Sequence(gameObject).ScaleTo(cubeTransform, Vector3.one * 2, 1f, Ease.OutBack).Await(),
+                    t => ActionKit.Sequence(gameObject).FadeTo(uiGroup, 0.5f, 1f).Await()
                 )
                 // 4. 回调
                 .Callback(() => LogKit.Log("[Example_ActionKit] 动画序列执行完毕！"))

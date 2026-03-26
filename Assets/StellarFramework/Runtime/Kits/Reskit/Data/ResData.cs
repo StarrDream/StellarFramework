@@ -1,29 +1,51 @@
-﻿using System;
+﻿// ==================================================================================
+// ResData - Commercial Convergence V2
+// ----------------------------------------------------------------------------------
+// 职责：资源缓存数据实体。
+// 改造说明：
+// 1. 引入 Owners 追踪集合（仅在开发期生效），精确记录当前是哪些 Loader 持有了该资源。
+// 2. 配合 ResMgr 实现资源泄漏的精准定位。
+// ==================================================================================
+
+using System;
+using System.Collections.Generic;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
 namespace StellarFramework.Res
 {
-    /// <summary>
-    /// 资源缓存数据实体
-    /// </summary>
     public class ResData
     {
-        public string Path; // 资源路径 (Key)
-        public Object Asset; // 资源对象引用
-        public int RefCount; // 全局引用计数
-
-        // 架构重构：废弃 Enum，改用字符串标识命名空间
+        public string Path;
+        public Object Asset;
+        public int RefCount;
         public string LoaderName;
-
-        /// <summary>
-        /// 扩展数据：用于存储 Addressable 的 AsyncOperationHandle 或其他元数据
-        /// </summary>
         public object Data;
-
-        /// <summary>
-        /// 架构重构：卸载委托。由具体的 Loader 注入自身的卸载逻辑，实现 ResMgr 与具体加载方式的彻底解耦。
-        /// </summary>
         public Action<ResData> UnloadAction;
+
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        // 审计追踪：记录所有持有该资源的 LoaderId
+        // 仅在开发环境开启，Release 包 0 开销
+        private HashSet<string> _owners;
+
+        public HashSet<string> Owners
+        {
+            get
+            {
+                if (_owners == null) _owners = new HashSet<string>();
+                return _owners;
+            }
+        }
+
+        public void AddOwner(string ownerId)
+        {
+            Owners.Add(ownerId);
+        }
+
+        public void RemoveOwner(string ownerId)
+        {
+            Owners.Remove(ownerId);
+        }
+#endif
     }
 }
