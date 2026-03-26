@@ -14,7 +14,10 @@ namespace StellarFramework.Examples
             LogKit.Log("[GlobalNetworkManager] 全局网络管理器已初始化");
         }
 
-        public void Connect() { /* 连接逻辑 */ }
+        public void Connect()
+        {
+            /* 连接逻辑 */
+        }
     }
 
     // 2. 场景单例 (Scene)
@@ -28,11 +31,15 @@ namespace StellarFramework.Examples
             LogKit.Log("[LevelDirector] 关卡导演已初始化");
         }
 
-        public void StartLevel() { /* 关卡逻辑 */ }
+        public void StartLevel()
+        {
+            /* 关卡逻辑 */
+        }
     }
 
     // 3. 纯 C# 单例
     // 特性：不继承 MonoBehaviour，纯数据或算法类，0GC 自动创建
+    [Singleton]
     public class GameDataCalculator : Singleton<GameDataCalculator>
     {
         public int CalculateDamage(int atk, int def)

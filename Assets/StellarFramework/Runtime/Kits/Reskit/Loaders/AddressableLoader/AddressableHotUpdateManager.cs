@@ -25,6 +25,7 @@ namespace StellarFramework.Res
     /// Addressables 商业级热更管理器
     /// 职责：提供 Catalog 更新检查、下载体积计算、依赖预下载与进度回调的完整工作流。
     /// </summary>
+    [Singleton]
     public class AddressableHotUpdateManager : Singleton<AddressableHotUpdateManager>
     {
         /// <summary>

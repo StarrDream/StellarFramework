@@ -7,6 +7,7 @@ using UnityEngine.Networking;
 
 namespace StellarFramework.Res.AB
 {
+    [Singleton]
     public class AssetBundleManager : Singleton<AssetBundleManager>
     {
         private const string SHADER_BUNDLE_NAME = "shaders";

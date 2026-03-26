@@ -9,6 +9,7 @@ namespace StellarFramework.UI
     /// UI 栈管理器 (横向扩展模块)
     /// 职责：提供基于栈的 UI 导航（Push/Pop），自动管理全屏界面的底层遮挡剔除（降低 DrawCall）。
     /// </summary>
+    [Singleton]
     public class UIStackManager : Singleton<UIStackManager>
     {
         // 使用 List 模拟栈结构，方便从顶向下遍历计算遮挡关系
