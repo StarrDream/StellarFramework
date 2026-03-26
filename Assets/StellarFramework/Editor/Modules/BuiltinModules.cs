@@ -588,18 +588,5 @@ namespace StellarFramework.Editor.Modules
             if (PrimaryButton("打开窗口", GUILayout.Height(34))) URPMaterialConverterWindow.Open();
         }
     }
-
-    [StellarTool("UIKit 工具", "框架核心", 3)]
-    public class UIKitHubModule : ToolModule
-    {
-        public override string Icon => "d_Canvas Icon";
-        public override string Description => "UIRoot/Panel Template 入口。";
-
-        public override void OnGUI()
-        {
-            if (PrimaryButton("生成 / 覆盖 UIRoot Prefab", GUILayout.Height(34))) UIKitEditor.CreateUIRootPrefab();
-            if (PrimaryButton("创建 Panel Template", GUILayout.Height(34)))
-                UIKitEditor.CreatePanelTemplateUnderSelection();
-        }
-    }
+    
 }
