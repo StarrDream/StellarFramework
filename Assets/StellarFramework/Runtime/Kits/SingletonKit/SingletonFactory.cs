@@ -8,7 +8,7 @@ namespace StellarFramework
     /// <summary>
     /// 单例工厂
     /// 我统一负责单例实例注册、生命周期判定与自动创建。
-    /// 这里是运行时核心主链路，因此我禁止运行时反射读取 Attribute，统一依赖静态生成元数据。
+    /// 这里是运行时核心主链路，因此我禁止运行时反射读取 Attribute，也禁止反射式实例化纯 C# 单例。
     /// </summary>
     public static class SingletonFactory
     {
@@ -16,6 +16,9 @@ namespace StellarFramework
 
         private static readonly Dictionary<Type, SingletonMetadata> MetadataCache =
             new Dictionary<Type, SingletonMetadata>();
+
+        private static readonly Dictionary<Type, Func<ISingleton>> PureSingletonCreators =
+            new Dictionary<Type, Func<ISingleton>>();
 
         private static readonly object Locker = new object();
 
@@ -28,8 +31,8 @@ namespace StellarFramework
         {
             _mainThreadId = Thread.CurrentThread.ManagedThreadId;
             _isQuitting = false;
-
             Instances.Clear();
+            PureSingletonCreators.Clear();
 
             Application.quitting -= OnApplicationQuitting;
             Application.quitting += OnApplicationQuitting;
@@ -44,7 +47,6 @@ namespace StellarFramework
 
         /// <summary>
         /// 注册静态元数据
-        /// 我只允许生成代码在启动阶段注入，不允许运行时业务动态修改单例配置。
         /// </summary>
         public static void RegisterMetadata(Type type, SingletonMetadata metadata)
         {
@@ -69,6 +71,32 @@ namespace StellarFramework
         }
 
         /// <summary>
+        /// 注册纯 C# 单例创建器
+        /// 我要求生成代码或静态代码在启动阶段显式注入，禁止运行时反射实例化。
+        /// </summary>
+        public static void RegisterPureSingletonCreator(Type type, Func<ISingleton> creator)
+        {
+            if (type == null)
+            {
+                Debug.LogError("[SingletonFactory] RegisterPureSingletonCreator 失败: type 为空");
+                return;
+            }
+
+            if (creator == null)
+            {
+                Debug.LogError($"[SingletonFactory] RegisterPureSingletonCreator 失败: creator 为空, Type={type.FullName}");
+                return;
+            }
+
+            PureSingletonCreators[type] = creator;
+        }
+
+        public static void ClearPureSingletonCreators()
+        {
+            PureSingletonCreators.Clear();
+        }
+
+        /// <summary>
         /// 获取单例实例
         /// 我强制要求 Unity 相关单例只能在主线程访问，防止异步线程误触 Unity API。
         /// </summary>
@@ -87,7 +115,7 @@ namespace StellarFramework
 
             Type type = typeof(T);
 
-            if (Instances.TryGetValue(type, out var fastInstance))
+            if (Instances.TryGetValue(type, out ISingleton fastInstance))
             {
                 if (fastInstance is UnityEngine.Object fastUnityObj && fastUnityObj == null)
                 {
@@ -104,7 +132,7 @@ namespace StellarFramework
 
             lock (Locker)
             {
-                if (Instances.TryGetValue(type, out var lockedInstance))
+                if (Instances.TryGetValue(type, out ISingleton lockedInstance))
                 {
                     if (lockedInstance is UnityEngine.Object lockedUnityObj && lockedUnityObj == null)
                     {
@@ -116,7 +144,7 @@ namespace StellarFramework
                     }
                 }
 
-                if (!TryGetMetadata(type, out var metadata))
+                if (!TryGetMetadata(type, out SingletonMetadata metadata))
                 {
                     return null;
                 }
@@ -138,7 +166,6 @@ namespace StellarFramework
 
         /// <summary>
         /// 注册单例实例
-        /// MonoSingleton 会在 Awake 中走到这里。
         /// </summary>
         public static void Register(Type type, ISingleton instance)
         {
@@ -162,7 +189,7 @@ namespace StellarFramework
 
             lock (Locker)
             {
-                if (Instances.TryGetValue(type, out var existing))
+                if (Instances.TryGetValue(type, out ISingleton existing))
                 {
                     if (existing is UnityEngine.Object existingUnityObj && existingUnityObj == null)
                     {
@@ -200,7 +227,6 @@ namespace StellarFramework
 
         /// <summary>
         /// 反注册单例实例
-        /// 我只移除当前记录的同一实例，防止错误时序下误删其他对象。
         /// </summary>
         public static void Unregister(Type type, ISingleton instance)
         {
@@ -211,7 +237,7 @@ namespace StellarFramework
 
             lock (Locker)
             {
-                if (!Instances.TryGetValue(type, out var existing))
+                if (!Instances.TryGetValue(type, out ISingleton existing))
                 {
                     return;
                 }
@@ -277,16 +303,30 @@ namespace StellarFramework
 
         private static T CreateGlobalInstance<T>(Type type, SingletonMetadata metadata) where T : class, ISingleton
         {
-            LogKit.AssertNotNull(metadata,
-                $"[SingletonFactory] CreateGlobalInstance 失败: metadata 为空, Type={type.FullName}");
             if (metadata == null)
             {
+                LogKit.LogError($"[SingletonFactory] CreateGlobalInstance 失败: metadata 为空, Type={type.FullName}");
                 return null;
             }
 
             if (!typeof(MonoBehaviour).IsAssignableFrom(type))
             {
-                T pureInstance = Activator.CreateInstance<T>();
+                if (!PureSingletonCreators.TryGetValue(type, out Func<ISingleton> creator))
+                {
+                    LogKit.LogError(
+                        $"[SingletonFactory] 创建纯 C# 单例失败: 缺少静态创建器, Type={type.FullName}\n" +
+                        "请通过生成代码或静态注册代码调用 RegisterPureSingletonCreator 注入工厂。");
+                    return null;
+                }
+
+                ISingleton created = creator.Invoke();
+                if (!(created is T pureInstance))
+                {
+                    LogKit.LogError(
+                        $"[SingletonFactory] 创建纯 C# 单例失败: 创建器返回类型不匹配, Type={type.FullName}, ReturnedType={created?.GetType().FullName ?? "null"}");
+                    return null;
+                }
+
                 Register(type, pureInstance);
                 return pureInstance;
             }

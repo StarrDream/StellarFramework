@@ -203,13 +203,13 @@ namespace StellarFramework.Examples
             if (_aaInstance != null) Destroy(_aaInstance);
 
             // 再回收加载器
-            if (_resLoader != null) ResKit.Recycle(_resLoader);
-            if (_abLoader != null) ResKit.Recycle(_abLoader);
-            if (_customLoader != null) ResKit.Recycle(_customLoader);
-
+            if (_resLoader != null) ResKit.Recycle<ResourceLoader>((ResourceLoader)_resLoader);
+            if (_abLoader != null) ResKit.Recycle<AssetBundleLoader>((AssetBundleLoader)_abLoader);
+            if (_customLoader != null) ResKit.Recycle<RawTextLoader>((RawTextLoader)_customLoader);
 #if UNITY_ADDRESSABLES
-            if (_aaLoader != null) ResKit.Recycle(_aaLoader);
+if (_aaLoader != null) ResKit.Recycle<AddressableLoader>((AddressableLoader)_aaLoader);
 #endif
+
 
             // 重新分配，以便可以再次点击按钮测试
             Start();

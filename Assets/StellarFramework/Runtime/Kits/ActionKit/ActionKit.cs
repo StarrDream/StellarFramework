@@ -11,31 +11,33 @@ namespace StellarFramework
     /// <summary>
     /// 异步流程控制工具
     /// 我负责构造链式动作入口，不负责吞掉业务异常。
-    /// 这样设计是为了让动作系统保持“只调度、不掩盖错误”的职责边界。
     /// </summary>
     public static class ActionKit
     {
         public static UniActionChain Sequence(GameObject target)
         {
-            var chain = PoolKit.Allocate<UniActionChain>();
+            if (target == null)
+            {
+                LogKit.LogError("[ActionKit] Sequence(GameObject) 失败: target 为空");
+                return null;
+            }
+
+            UniActionChain chain = PoolKit.Allocate<UniActionChain>();
             chain.SetTarget(target);
             return chain;
         }
 
         public static UniActionChain Sequence(Component component)
         {
-            if (component == null)
+            if (component == null || component.gameObject == null)
             {
-                return Sequence((GameObject)null);
+                LogKit.LogError("[ActionKit] Sequence(Component) 失败: component 或 gameObject 为空");
+                return null;
             }
 
             return Sequence(component.gameObject);
         }
 
-        /// <summary>
-        /// 快捷延时调用
-        /// 我保留这个门面是为了兼容原有调用习惯，但底层依然走统一链式实现。
-        /// </summary>
         public static UniActionChain Delay(
             float seconds,
             Action callback,
@@ -44,7 +46,20 @@ namespace StellarFramework
             [CallerFilePath] string file = "",
             [CallerLineNumber] int line = 0)
         {
-            return Sequence(target)
+            if (target == null)
+            {
+                LogKit.LogError(
+                    $"[ActionKit] Delay 失败: target 为空, File={System.IO.Path.GetFileName(file)}, Line={line}, Member={member}");
+                return null;
+            }
+
+            UniActionChain chain = Sequence(target);
+            if (chain == null)
+            {
+                return null;
+            }
+
+            return chain
                 .Delay(seconds)
                 .Callback(callback, member, file, line)
                 .Start();
@@ -64,7 +79,8 @@ namespace StellarFramework
             Running = 2,
             Cancelled = 3,
             Completed = 4,
-            Recycled = 5
+            Faulted = 5,
+            Recycled = 6
         }
 
         private GameObject _target;
@@ -83,17 +99,34 @@ namespace StellarFramework
 
         public void SetTarget(GameObject target)
         {
-            EnsureUsable("SetTarget");
+            if (!EnsureUsable("SetTarget"))
+            {
+                return;
+            }
+
+            if (_state != ChainState.Idle)
+            {
+                LogKit.LogError(
+                    $"[UniActionChain] SetTarget 失败: 仅允许 Idle 状态设置目标, CurrentState={_state}, Target={target?.name ?? "null"}");
+                return;
+            }
+
+            if (target == null)
+            {
+                LogKit.LogError("[UniActionChain] SetTarget 失败: target 为空");
+                return;
+            }
+
             _target = target;
         }
 
-        /// <summary>
-        /// 设置是否忽略 TimeScale
-        /// 我把这个能力保留在链本体上，避免每个 Tween 节点各自处理时间模式导致行为不一致。
-        /// </summary>
         public UniActionChain SetUpdate(bool ignoreTimeScale)
         {
-            EnsureUsable("SetUpdate");
+            if (!EnsureBuildable("SetUpdate"))
+            {
+                return this;
+            }
+
             _ignoreTimeScale = ignoreTimeScale;
             return this;
         }
@@ -148,11 +181,14 @@ namespace StellarFramework
 
         public UniActionChain AppendTask(Func<CancellationToken, UniTask> task)
         {
-            EnsureBuildable("AppendTask");
+            if (!EnsureBuildable("AppendTask"))
+            {
+                return this;
+            }
 
-            LogKit.AssertNotNull(task, "[MonoKit] AppendTask 失败: task 不能为空");
             if (task == null)
             {
+                LogKit.LogError("[UniActionChain] AppendTask 失败: task 为空");
                 return this;
             }
 
@@ -162,11 +198,15 @@ namespace StellarFramework
 
         public UniActionChain Delay(float seconds)
         {
-            EnsureBuildable("Delay");
+            if (!EnsureBuildable("Delay"))
+            {
+                return this;
+            }
 
             if (seconds < 0f)
             {
-                LogKit.LogError($"[MonoKit] Delay 失败: seconds 不能小于 0, Seconds={seconds}");
+                LogKit.LogError(
+                    $"[UniActionChain] Delay 失败: seconds 非法, Seconds={seconds}, Target={_target?.name ?? "null"}");
                 return this;
             }
 
@@ -183,11 +223,15 @@ namespace StellarFramework
 
         public UniActionChain DelayFrame(int frames)
         {
-            EnsureBuildable("DelayFrame");
+            if (!EnsureBuildable("DelayFrame"))
+            {
+                return this;
+            }
 
             if (frames < 0)
             {
-                LogKit.LogError($"[MonoKit] DelayFrame 失败: frames 不能小于 0, Frames={frames}");
+                LogKit.LogError(
+                    $"[UniActionChain] DelayFrame 失败: frames 非法, Frames={frames}, Target={_target?.name ?? "null"}");
                 return this;
             }
 
@@ -202,12 +246,15 @@ namespace StellarFramework
             [CallerFilePath] string file = "",
             [CallerLineNumber] int line = 0)
         {
-            EnsureBuildable("Callback");
+            if (!EnsureBuildable("Callback"))
+            {
+                return this;
+            }
 
-            LogKit.AssertNotNull(action,
-                $"[MonoKit] Callback 注册失败: action 为空, File={System.IO.Path.GetFileName(file)}, Line={line}, Member={member}");
             if (action == null)
             {
+                LogKit.LogError(
+                    $"[UniActionChain] Callback 注册失败: action 为空, File={System.IO.Path.GetFileName(file)}, Line={line}, Member={member}");
                 return this;
             }
 
@@ -227,11 +274,14 @@ namespace StellarFramework
 
         public UniActionChain Until(Func<bool> condition)
         {
-            EnsureBuildable("Until");
+            if (!EnsureBuildable("Until"))
+            {
+                return this;
+            }
 
-            LogKit.AssertNotNull(condition, "[MonoKit] Until 失败: condition 为空");
             if (condition == null)
             {
+                LogKit.LogError($"[UniActionChain] Until 失败: condition 为空, Target={_target?.name ?? "null"}");
                 return this;
             }
 
@@ -242,28 +292,32 @@ namespace StellarFramework
 
         public UniActionChain Parallel(params Func<CancellationToken, UniTask>[] asyncActions)
         {
-            EnsureBuildable("Parallel");
-
-            LogKit.AssertNotNull(asyncActions, "[MonoKit] Parallel 失败: asyncActions 为空");
-            if (asyncActions == null || asyncActions.Length == 0)
+            if (!EnsureBuildable("Parallel"))
             {
                 return this;
             }
 
+            if (asyncActions == null || asyncActions.Length == 0)
+            {
+                LogKit.LogError($"[UniActionChain] Parallel 失败: asyncActions 为空, Target={_target?.name ?? "null"}");
+                return this;
+            }
+
+            for (int i = 0; i < asyncActions.Length; i++)
+            {
+                if (asyncActions[i] == null)
+                {
+                    LogKit.LogError($"[UniActionChain] Parallel 失败: 第 {i} 个任务为空, Target={_target?.name ?? "null"}");
+                    return this;
+                }
+            }
+
             _steps.Add(async token =>
             {
-                var tasks = new UniTask[asyncActions.Length];
-
+                UniTask[] tasks = new UniTask[asyncActions.Length];
                 for (int i = 0; i < asyncActions.Length; i++)
                 {
-                    var action = asyncActions[i];
-                    LogKit.AssertNotNull(action, $"[MonoKit] Parallel 失败: 第 {i} 个并行任务为空");
-                    if (action == null)
-                    {
-                        throw new InvalidOperationException($"[MonoKit] Parallel 非法状态: 第 {i} 个任务为空");
-                    }
-
-                    tasks[i] = action.Invoke(token);
+                    tasks[i] = asyncActions[i].Invoke(token);
                 }
 
                 await UniTask.WhenAll(tasks);
@@ -274,21 +328,33 @@ namespace StellarFramework
 
         public UniActionChain OnComplete(Action onComplete)
         {
-            EnsureBuildable("OnComplete");
+            if (!EnsureBuildable("OnComplete"))
+            {
+                return this;
+            }
+
             _onComplete = onComplete;
             return this;
         }
 
         public UniActionChain OnCancel(Action onCancel)
         {
-            EnsureBuildable("OnCancel");
+            if (!EnsureBuildable("OnCancel"))
+            {
+                return this;
+            }
+
             _onCancel = onCancel;
             return this;
         }
 
         public UniActionChain OnError(Action<Exception> onError)
         {
-            EnsureBuildable("OnError");
+            if (!EnsureBuildable("OnError"))
+            {
+                return this;
+            }
+
             _onError = onError;
             return this;
         }
@@ -297,21 +363,22 @@ namespace StellarFramework
 
         #region Runner
 
-        /// <summary>
-        /// 手动取消当前序列
-        /// 我把取消视为一种正常控制流，而不是错误。
-        /// </summary>
         public void Cancel()
         {
-            if (_state == ChainState.Recycled)
+            if (!EnsureUsable("Cancel"))
             {
-                LogKit.LogError("[MonoKit] Cancel 失败: 当前链条已回收，禁止继续操作");
+                return;
+            }
+
+            if (_state == ChainState.Completed || _state == ChainState.Cancelled || _state == ChainState.Faulted)
+            {
                 return;
             }
 
             if (_selfCts == null)
             {
-                LogKit.LogError("[MonoKit] Cancel 失败: 当前链条未初始化或已释放");
+                LogKit.LogError(
+                    $"[UniActionChain] Cancel 失败: _selfCts 为空, Target={_target?.name ?? "null"}, State={_state}");
                 return;
             }
 
@@ -324,46 +391,59 @@ namespace StellarFramework
             _selfCts.Cancel();
         }
 
-        /// <summary>
-        /// 启动序列
-        /// 我禁止同一条链重复 Start，因为池化对象一旦执行结束就会被回收，再次使用会直接污染池状态。
-        /// </summary>
         public UniActionChain Start()
         {
-            EnsureRunnable("Start");
-
-            if (_target != null && _target.ToString() == "null")
+            if (!EnsureRunnable("Start"))
             {
-                LogKit.LogError("[MonoKit] Start 失败: 绑定的目标对象已销毁");
+                return this;
+            }
+
+            if (_target == null)
+            {
+                LogKit.LogError("[UniActionChain] Start 失败: target 为空");
                 PoolKit.Recycle(this);
                 return this;
             }
 
+            _state = ChainState.Running;
             RunAsync(_version).Forget();
             return this;
         }
 
-        /// <summary>
-        /// 以 await 方式运行
-        /// 我同样禁止重复 Await，与 Start 保持完全一致的生命周期语义。
-        /// </summary>
         public async UniTask Await()
         {
-            EnsureRunnable("Await");
+            if (!EnsureRunnable("Await"))
+            {
+                return;
+            }
+
+            if (_target == null)
+            {
+                LogKit.LogError("[UniActionChain] Await 失败: target 为空");
+                PoolKit.Recycle(this);
+                return;
+            }
+
+            _state = ChainState.Running;
             await RunAsync(_version);
         }
 
         private async UniTask RunAsync(int runVersion)
         {
-            _state = ChainState.Running;
+            if (_target == null)
+            {
+                LogKit.LogError($"[UniActionChain] RunAsync 失败: _target 为空, Version={runVersion}");
+                _state = ChainState.Faulted;
+                PoolKit.Recycle(this);
+                return;
+            }
 
-            CancellationToken targetToken = _target != null
-                ? _target.GetCancellationTokenOnDestroy()
-                : CancellationToken.None;
-
+            CancellationToken targetToken = _target.GetCancellationTokenOnDestroy();
             CancellationToken selfToken = _selfCts.Token;
 
-            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(targetToken, selfToken);
+            using CancellationTokenSource linkedCts =
+                CancellationTokenSource.CreateLinkedTokenSource(targetToken, selfToken);
+
             CancellationToken token = linkedCts.Token;
 
             try
@@ -375,12 +455,13 @@ namespace StellarFramework
                         break;
                     }
 
-                    var step = _steps[i];
-                    LogKit.AssertNotNull(step, $"[MonoKit] 执行失败: Step 为空, StepIndex={i}, Version={runVersion}");
+                    Func<CancellationToken, UniTask> step = _steps[i];
                     if (step == null)
                     {
-                        throw new InvalidOperationException(
-                            $"[MonoKit] 非法状态: Step 为空, StepIndex={i}, Version={runVersion}");
+                        LogKit.LogError(
+                            $"[UniActionChain] 执行失败: step 为空, StepIndex={i}, Target={_target?.name ?? "null"}, Version={runVersion}");
+                        _state = ChainState.Faulted;
+                        return;
                     }
 
                     await step.Invoke(token);
@@ -404,15 +485,10 @@ namespace StellarFramework
             }
             catch (Exception ex)
             {
-                _state = ChainState.Completed;
-
-                if (_onError != null)
-                {
-                    _onError.Invoke(ex);
-                }
-
+                _state = ChainState.Faulted;
+                _onError?.Invoke(ex);
                 LogKit.LogError(
-                    $"[MonoKit] Chain 执行失败: Target={_target?.name ?? "null"}, Version={runVersion}, State={_state}, Exception={ex}");
+                    $"[UniActionChain] 执行失败: Target={_target?.name ?? "null"}, Version={runVersion}, State={_state}, Exception={ex}");
                 throw;
             }
             finally
@@ -428,36 +504,61 @@ namespace StellarFramework
 
         #region Guard
 
-        private void EnsureUsable(string apiName)
+        private bool EnsureUsable(string apiName)
         {
             if (_state == ChainState.Recycled)
             {
-                LogKit.LogError($"[MonoKit] {apiName} 失败: 当前链条已回收，禁止继续使用");
-                return;
+                LogKit.LogError($"[UniActionChain] {apiName} 失败: 当前链条已回收，禁止继续使用");
+                return false;
             }
 
             if (_selfCts == null)
             {
-                LogKit.LogError($"[MonoKit] {apiName} 失败: 当前链条未初始化，可能未从对象池正确分配");
+                LogKit.LogError($"[UniActionChain] {apiName} 失败: 当前链条未初始化, State={_state}");
+                return false;
             }
+
+            return true;
         }
 
-        private void EnsureBuildable(string apiName)
+        private bool EnsureBuildable(string apiName)
         {
-            EnsureUsable(apiName);
+            if (!EnsureUsable(apiName))
+            {
+                return false;
+            }
 
-            LogKit.Assert(
-                _state == ChainState.Idle,
-                $"[MonoKit] {apiName} 非法调用: 仅允许在 Idle 状态构建链条, CurrentState={_state}");
+            if (_state != ChainState.Idle)
+            {
+                LogKit.LogError(
+                    $"[UniActionChain] {apiName} 非法调用: 仅允许在 Idle 状态构建链条, CurrentState={_state}, Target={_target?.name ?? "null"}");
+                return false;
+            }
+
+            return true;
         }
 
-        private void EnsureRunnable(string apiName)
+        private bool EnsureRunnable(string apiName)
         {
-            EnsureUsable(apiName);
+            if (!EnsureUsable(apiName))
+            {
+                return false;
+            }
 
-            LogKit.Assert(
-                _state == ChainState.Idle,
-                $"[MonoKit] {apiName} 非法调用: 同一条链禁止重复启动或重复等待, CurrentState={_state}, Target={_target?.name ?? "null"}");
+            if (_state != ChainState.Idle)
+            {
+                LogKit.LogError(
+                    $"[UniActionChain] {apiName} 非法调用: 同一条链禁止重复启动或重复等待, CurrentState={_state}, Target={_target?.name ?? "null"}");
+                return false;
+            }
+
+            if (_steps.Count == 0)
+            {
+                LogKit.LogError($"[UniActionChain] {apiName} 失败: 当前链条没有任何步骤, Target={_target?.name ?? "null"}");
+                return false;
+            }
+
+            return true;
         }
 
         #endregion

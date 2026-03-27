@@ -1,24 +1,14 @@
-﻿// ==================================================================================
-// StellarFramework MSV (Pure Architecture) - Commercial Convergence V2
-// ----------------------------------------------------------------------------------
-// 纯粹的 MSV (Model-Service-View) 架构核心。
-// 改造说明：
-// 1. 引入显式状态机 (ArchitectureState)，杜绝生命周期混乱。
-// 2. 移除 Init/Dispose 中的 try-catch，贯彻 Fail-Fast 原则，模块初始化失败必须立即暴露并阻断。
-// 3. 增加 GetModel/GetService 的前置状态断言，防止在架构销毁后产生野指针访问。
-// ==================================================================================
-
-using System;
+﻿using System;
 using System.Collections.Generic;
 using UnityEngine;
 
 namespace StellarFramework
 {
-    #region 1. 核心接口与状态定义 (Core Interfaces & States)
+    #region 1. 核心接口与状态定义
 
     /// <summary>
     /// 架构生命周期状态
-    /// 职责：使架构的流转状态显式化，为防御性编程提供断言依据
+    /// 我显式暴露状态机，是为了让架构生命周期可审计、可阻断，避免业务在脏状态下继续访问容器。
     /// </summary>
     public enum ArchitectureState
     {
@@ -35,14 +25,18 @@ namespace StellarFramework
     public interface IArchitecture
     {
         ArchitectureState State { get; }
+
         T GetModel<T>() where T : class, IModel;
+
         T GetService<T>() where T : class, IService;
     }
 
     public interface IModule
     {
         IArchitecture Architecture { get; set; }
+
         void Init();
+
         void Deinit();
     }
 
@@ -57,21 +51,30 @@ namespace StellarFramework
     public interface IView
     {
         IArchitecture Architecture { get; }
+
         void OnBind();
+
         void OnUnbind();
     }
 
     #endregion
 
-    #region 2. 架构扩展 (Extensions)
+    #region 2. 架构扩展
 
     public static class StellarArchitectureExtensions
     {
         public static T GetModel<T>(this IView view) where T : class, IModel
         {
+            if (view == null)
+            {
+                LogKit.LogError($"[StellarFramework] GetModel 失败: view 为空, ModelType={typeof(T).Name}");
+                return null;
+            }
+
             if (view.Architecture == null)
             {
-                LogKit.LogError($"[StellarFramework] View {view.GetType().Name} 未指定 Architecture，无法获取 Model");
+                LogKit.LogError(
+                    $"[StellarFramework] GetModel 失败: View 未指定 Architecture, ViewType={view.GetType().Name}, ModelType={typeof(T).Name}");
                 return null;
             }
 
@@ -80,9 +83,16 @@ namespace StellarFramework
 
         public static T GetService<T>(this IView view) where T : class, IService
         {
+            if (view == null)
+            {
+                LogKit.LogError($"[StellarFramework] GetService 失败: view 为空, ServiceType={typeof(T).Name}");
+                return null;
+            }
+
             if (view.Architecture == null)
             {
-                LogKit.LogError($"[StellarFramework] View {view.GetType().Name} 未指定 Architecture，无法获取 Service");
+                LogKit.LogError(
+                    $"[StellarFramework] GetService 失败: View 未指定 Architecture, ViewType={view.GetType().Name}, ServiceType={typeof(T).Name}");
                 return null;
             }
 
@@ -92,7 +102,7 @@ namespace StellarFramework
 
     #endregion
 
-    #region 3. 架构核心容器 (Architecture Kernel)
+    #region 3. 架构核心容器
 
     public abstract class Architecture<T> : IArchitecture, IDisposable where T : Architecture<T>, new()
     {
@@ -100,6 +110,7 @@ namespace StellarFramework
         private readonly Dictionary<Type, IService> _services = new Dictionary<Type, IService>();
 
         private ArchitectureState _state = ArchitectureState.Uninitialized;
+
         public ArchitectureState State => _state;
 
         private static T _instance;
@@ -108,7 +119,7 @@ namespace StellarFramework
         {
             get
             {
-                if (_instance == null)
+                if (_instance == null || _instance.State == ArchitectureState.Disposed)
                 {
                     _instance = new T();
                 }
@@ -119,66 +130,105 @@ namespace StellarFramework
 
         /// <summary>
         /// 架构启动入口
+        /// 我只允许从未初始化状态进入初始化，拒绝在 Disposed 对象上复用旧实例。
         /// </summary>
         public void Init()
         {
-            // 前置拦截：防止重复初始化导致的数据覆盖与内存泄漏
-            if (_state != ArchitectureState.Uninitialized)
+            if (_state == ArchitectureState.Initialized)
             {
-                LogKit.LogError($"[StellarFramework] 架构 {typeof(T).Name} 拒绝重复初始化，当前状态: {_state}");
+                LogKit.LogWarning($"[StellarFramework] 架构重复 Init 已忽略, Architecture={typeof(T).Name}, State={_state}");
+                return;
+            }
+
+            if (_state == ArchitectureState.Initializing || _state == ArchitectureState.Disposing)
+            {
+                LogKit.LogError(
+                    $"[StellarFramework] 架构 Init 失败: 当前处于中间态, Architecture={typeof(T).Name}, State={_state}");
+                return;
+            }
+
+            if (_state == ArchitectureState.Disposed)
+            {
+                LogKit.LogError(
+                    $"[StellarFramework] 架构 Init 失败: 当前实例已销毁, Architecture={typeof(T).Name}, State={_state}. 请通过 {typeof(T).Name}.Interface 获取新实例后再调用 Init。");
                 return;
             }
 
             _state = ArchitectureState.Initializing;
-            if (_instance == null) _instance = (T)this;
+
+            if (_instance == null)
+            {
+                _instance = (T)this;
+            }
 
             InitModules();
 
-            // 核心改造：移除 try-catch。
-            // 商业化项目中，如果某个核心 Model 或 Service 初始化失败，整个业务域的数据基底就是脏的。
-            // 必须让异常直接抛出并阻断流程，绝不允许带着脏数据进入 Running 状态。
-            foreach (var model in _models.Values)
+            foreach (IModel model in _models.Values)
             {
+                if (model == null)
+                {
+                    LogKit.LogError(
+                        $"[StellarFramework] 架构 Init 失败: 检测到空 Model, Architecture={typeof(T).Name}, State={_state}");
+                    _state = ArchitectureState.Uninitialized;
+                    return;
+                }
+
                 model.Init();
             }
 
-            foreach (var service in _services.Values)
+            foreach (IService service in _services.Values)
             {
+                if (service == null)
+                {
+                    LogKit.LogError(
+                        $"[StellarFramework] 架构 Init 失败: 检测到空 Service, Architecture={typeof(T).Name}, State={_state}");
+                    _state = ArchitectureState.Uninitialized;
+                    return;
+                }
+
                 service.Init();
             }
 
             _state = ArchitectureState.Initialized;
             LogKit.Log(
-                $"[StellarFramework] 架构启动成功: {typeof(T).Name} | Models: {_models.Count}, Services: {_services.Count}");
+                $"[StellarFramework] 架构启动成功: {typeof(T).Name} | Models={_models.Count}, Services={_services.Count}");
         }
 
         /// <summary>
         /// 架构销毁
+        /// 我要求销毁阶段必须清空容器与静态入口，避免旧实例在 Dispose 后被继续访问。
         /// </summary>
         public virtual void Dispose()
         {
-            if (_state == ArchitectureState.Disposed || _state == ArchitectureState.Uninitialized)
+            if (_state == ArchitectureState.Uninitialized || _state == ArchitectureState.Disposed)
+            {
+                return;
+            }
+
+            if (_state == ArchitectureState.Disposing)
             {
                 return;
             }
 
             _state = ArchitectureState.Disposing;
 
-            // 同样移除 try-catch，强制要求业务层在 Deinit 中编写健壮的清理逻辑
-            foreach (var service in _services.Values)
+            foreach (IService service in _services.Values)
             {
-                service.Deinit();
+                service?.Deinit();
             }
 
-            foreach (var model in _models.Values)
+            foreach (IModel model in _models.Values)
             {
-                model.Deinit();
+                model?.Deinit();
             }
 
             _models.Clear();
             _services.Clear();
 
-            if (_instance == this) _instance = null;
+            if (ReferenceEquals(_instance, this))
+            {
+                _instance = null;
+            }
 
             _state = ArchitectureState.Disposed;
             LogKit.Log($"[StellarFramework] 架构已销毁: {typeof(T).Name}");
@@ -190,15 +240,24 @@ namespace StellarFramework
 
         protected void RegisterModel<TM>(TM model) where TM : class, IModel
         {
+            if (model == null)
+            {
+                LogKit.LogError(
+                    $"[StellarFramework] RegisterModel 失败: model 为空, Architecture={typeof(T).Name}, ModelType={typeof(TM).Name}");
+                return;
+            }
+
             if (_state != ArchitectureState.Initializing && _state != ArchitectureState.Uninitialized)
             {
-                LogKit.LogError($"[StellarFramework] 拒绝在运行时动态注册 Model: {typeof(TM).Name}，必须在 InitModules 中完成注册");
+                LogKit.LogError(
+                    $"[StellarFramework] RegisterModel 失败: 禁止在运行期动态注册, Architecture={typeof(T).Name}, ModelType={typeof(TM).Name}, State={_state}");
                 return;
             }
 
             if (_models.ContainsKey(typeof(TM)))
             {
-                LogKit.LogError($"[StellarFramework] 拒绝重复注册 Model: {typeof(TM).Name}");
+                LogKit.LogError(
+                    $"[StellarFramework] RegisterModel 失败: 重复注册, Architecture={typeof(T).Name}, ModelType={typeof(TM).Name}");
                 return;
             }
 
@@ -208,15 +267,24 @@ namespace StellarFramework
 
         protected void RegisterService<TS>(TS service) where TS : class, IService
         {
+            if (service == null)
+            {
+                LogKit.LogError(
+                    $"[StellarFramework] RegisterService 失败: service 为空, Architecture={typeof(T).Name}, ServiceType={typeof(TS).Name}");
+                return;
+            }
+
             if (_state != ArchitectureState.Initializing && _state != ArchitectureState.Uninitialized)
             {
-                LogKit.LogError($"[StellarFramework] 拒绝在运行时动态注册 Service: {typeof(TS).Name}，必须在 InitModules 中完成注册");
+                LogKit.LogError(
+                    $"[StellarFramework] RegisterService 失败: 禁止在运行期动态注册, Architecture={typeof(T).Name}, ServiceType={typeof(TS).Name}, State={_state}");
                 return;
             }
 
             if (_services.ContainsKey(typeof(TS)))
             {
-                LogKit.LogError($"[StellarFramework] 拒绝重复注册 Service: {typeof(TS).Name}");
+                LogKit.LogError(
+                    $"[StellarFramework] RegisterService 失败: 重复注册, Architecture={typeof(T).Name}, ServiceType={typeof(TS).Name}");
                 return;
             }
 
@@ -230,30 +298,39 @@ namespace StellarFramework
 
         public TM GetModel<TM>() where TM : class, IModel
         {
-            // 前置拦截：架构未就绪或已销毁时，严禁获取数据
-            LogKit.Assert(_state == ArchitectureState.Initialized || _state == ArchitectureState.Initializing,
-                $"[StellarFramework] 架构状态异常，无法获取 Model: {typeof(TM).Name}，当前状态: {_state}");
-
-            if (_models.TryGetValue(typeof(TM), out var model))
+            if (_state != ArchitectureState.Initialized && _state != ArchitectureState.Initializing)
             {
-                return (TM)model;
+                LogKit.LogError(
+                    $"[StellarFramework] GetModel 失败: 架构状态非法, Architecture={typeof(T).Name}, ModelType={typeof(TM).Name}, State={_state}");
+                return null;
             }
 
-            LogKit.LogError($"[StellarFramework] 获取 Model 失败: {typeof(TM).Name} 未在 {typeof(T).Name} 中注册");
+            if (_models.TryGetValue(typeof(TM), out IModel model))
+            {
+                return model as TM;
+            }
+
+            LogKit.LogError(
+                $"[StellarFramework] GetModel 失败: 未注册, Architecture={typeof(T).Name}, ModelType={typeof(TM).Name}, State={_state}");
             return null;
         }
 
         public TS GetService<TS>() where TS : class, IService
         {
-            LogKit.Assert(_state == ArchitectureState.Initialized || _state == ArchitectureState.Initializing,
-                $"[StellarFramework] 架构状态异常，无法获取 Service: {typeof(TS).Name}，当前状态: {_state}");
-
-            if (_services.TryGetValue(typeof(TS), out var service))
+            if (_state != ArchitectureState.Initialized && _state != ArchitectureState.Initializing)
             {
-                return (TS)service;
+                LogKit.LogError(
+                    $"[StellarFramework] GetService 失败: 架构状态非法, Architecture={typeof(T).Name}, ServiceType={typeof(TS).Name}, State={_state}");
+                return null;
             }
 
-            LogKit.LogError($"[StellarFramework] 获取 Service 失败: {typeof(TS).Name} 未在 {typeof(T).Name} 中注册");
+            if (_services.TryGetValue(typeof(TS), out IService service))
+            {
+                return service as TS;
+            }
+
+            LogKit.LogError(
+                $"[StellarFramework] GetService 失败: 未注册, Architecture={typeof(T).Name}, ServiceType={typeof(TS).Name}, State={_state}");
             return null;
         }
 
@@ -262,7 +339,7 @@ namespace StellarFramework
 
     #endregion
 
-    #region 4. 模块基类 (Abstract Bases)
+    #region 4. 模块基类
 
     public abstract class AbstractModel : IModel
     {
@@ -291,43 +368,63 @@ namespace StellarFramework
 
         protected T GetModel<T>() where T : class, IModel
         {
+            if (Architecture == null)
+            {
+                LogKit.LogError(
+                    $"[StellarFramework] Service.GetModel 失败: Architecture 为空, ServiceType={GetType().Name}, ModelType={typeof(T).Name}");
+                return null;
+            }
+
             return Architecture.GetModel<T>();
         }
 
         protected T GetService<T>() where T : class, IService
         {
+            if (Architecture == null)
+            {
+                LogKit.LogError(
+                    $"[StellarFramework] Service.GetService 失败: Architecture 为空, ServiceType={GetType().Name}, TargetServiceType={typeof(T).Name}");
+                return null;
+            }
+
             return Architecture.GetService<T>();
         }
     }
 
     #endregion
 
-    #region 5. 视图层基类 (View Base)
+    #region 5. 视图层基类
 
     public abstract class StellarView : MonoBehaviour, IView
     {
         public abstract IArchitecture Architecture { get; }
-        private bool _isBound = false;
+
+        private bool _isBound;
 
         protected virtual void Start()
         {
-            if (!_isBound)
+            if (_isBound)
             {
-                OnBind();
-                _isBound = true;
+                return;
             }
+
+            OnBind();
+            _isBound = true;
         }
 
         protected virtual void OnDestroy()
         {
-            if (_isBound)
+            if (!_isBound)
             {
-                OnUnbind();
-                _isBound = false;
+                return;
             }
+
+            OnUnbind();
+            _isBound = false;
         }
 
         public abstract void OnBind();
+
         public abstract void OnUnbind();
     }
 

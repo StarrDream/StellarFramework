@@ -7,8 +7,8 @@ namespace StellarFramework.FSM
     #region 核心接口与基类
 
     /// <summary>
-    /// [StellarFramework] 携带参数的状态接口
-    /// 用于实现 0GC、类型安全的参数传递。若需传递多个参数，请在业务层定义 Struct。
+    /// 携带参数的状态接口
+    /// 我要求参数切换走显式泛型接口，避免 object 弱类型与装箱。
     /// </summary>
     /// <typeparam name="TPayload">参数载荷类型</typeparam>
     public interface IPayloadState<TPayload>
@@ -17,34 +17,17 @@ namespace StellarFramework.FSM
     }
 
     /// <summary>
-    /// [StellarFramework] 状态基类
+    /// 状态基类
     /// </summary>
-    /// <typeparam name="T">持有者类型 (Context)</typeparam>
+    /// <typeparam name="T">持有者类型</typeparam>
     public abstract class FSMState<T>
     {
-        /// <summary>
-        /// 状态机引用
-        /// </summary>
         protected FSM<T> FSM;
-
-        /// <summary>
-        /// 持有者引用
-        /// </summary>
         protected T Owner;
-
-        /// <summary>
-        /// 进入状态的时间点
-        /// </summary>
         protected float StateStartTime;
 
-        /// <summary>
-        /// 状态持续时间
-        /// </summary>
         public float Duration => Time.time - StateStartTime;
 
-        /// <summary>
-        /// 初始化 (仅在加入状态机时调用一次)
-        /// </summary>
         public virtual void OnInit(FSM<T> fsm, T owner)
         {
             FSM = fsm;
@@ -52,16 +35,13 @@ namespace StellarFramework.FSM
         }
 
         /// <summary>
-        /// 框架内部调用，统一记录状态开始时间，防止带参重载时遗漏
+        /// 我统一在状态切换入口刷新起始时间，避免子类遗漏。
         /// </summary>
         internal void InternalRecordStartTime()
         {
             StateStartTime = Time.time;
         }
 
-        /// <summary>
-        /// 无参进入状态
-        /// </summary>
         public virtual void OnEnter()
         {
         }
@@ -88,7 +68,8 @@ namespace StellarFramework.FSM
     #region 状态机驱动器
 
     /// <summary>
-    /// [StellarFramework] 有限状态机 (0GC, 纯 C#)
+    /// 有限状态机
+    /// 我保持它纯 C#、轻量、低分配，但必须显式阻断状态切换重入，否则业务状态会被污染。
     /// </summary>
     /// <typeparam name="T">持有者类型</typeparam>
     public class FSM<T>
@@ -99,11 +80,15 @@ namespace StellarFramework.FSM
 
         private readonly Dictionary<Type, FSMState<T>> _stateCache = new Dictionary<Type, FSMState<T>>();
 
+        private bool _isTransitioning;
+        private bool _isCleared;
+
         public FSM(T owner)
         {
             if (owner == null)
             {
-                Debug.LogError($"[FSM] 初始化失败: 传入的 Owner 为空。");
+                Debug.LogError($"[FSM] 初始化失败: 传入的 Owner 为空, OwnerType={typeof(T).Name}");
+                _isCleared = true;
                 return;
             }
 
@@ -111,20 +96,25 @@ namespace StellarFramework.FSM
         }
 
         /// <summary>
-        /// 注册状态 (手动注册实例)
+        /// 注册状态（手动注册实例）
         /// </summary>
         public void AddState(FSMState<T> state)
         {
+            if (!EnsureUsable("AddState"))
+            {
+                return;
+            }
+
             if (state == null)
             {
-                Debug.LogError($"[FSM] 添加状态失败: 传入的状态实例为空。");
+                Debug.LogError($"[FSM] AddState 失败: state 为空, OwnerType={typeof(T).Name}");
                 return;
             }
 
             Type type = state.GetType();
             if (_stateCache.ContainsKey(type))
             {
-                Debug.LogWarning($"[FSM] 状态 {type.Name} 已存在，请勿重复添加。");
+                Debug.LogWarning($"[FSM] AddState 已忽略: 重复注册状态, StateType={type.Name}, OwnerType={typeof(T).Name}");
                 return;
             }
 
@@ -133,14 +123,22 @@ namespace StellarFramework.FSM
         }
 
         /// <summary>
-        /// 注册状态 (自动创建实例)
+        /// 注册状态（自动创建实例）
         /// </summary>
         public void AddState<TState>() where TState : FSMState<T>, new()
         {
-            Type type = typeof(TState);
-            if (_stateCache.ContainsKey(type)) return;
+            if (!EnsureUsable("AddState<TState>"))
+            {
+                return;
+            }
 
-            var state = new TState();
+            Type type = typeof(TState);
+            if (_stateCache.ContainsKey(type))
+            {
+                return;
+            }
+
+            TState state = new TState();
             AddState(state);
         }
 
@@ -150,61 +148,31 @@ namespace StellarFramework.FSM
         public void ChangeState<TState>() where TState : FSMState<T>
         {
             Type type = typeof(TState);
-            if (!TryPrepareChangeState(type, out var newState)) return;
+            if (!TryPrepareChangeState(type, out FSMState<T> newState))
+            {
+                return;
+            }
 
             ExecuteStateChange(newState);
             CurrentState.OnEnter();
+            _isTransitioning = false;
         }
 
         /// <summary>
-        /// 带参切换状态 (0GC, 强类型约束)
+        /// 带参切换状态
         /// </summary>
         public void ChangeState<TState, TPayload>(TPayload payload)
             where TState : FSMState<T>, IPayloadState<TPayload>
         {
             Type type = typeof(TState);
-            if (!TryPrepareChangeState(type, out var newState)) return;
+            if (!TryPrepareChangeState(type, out FSMState<T> newState))
+            {
+                return;
+            }
 
             ExecuteStateChange(newState);
-
-            // 显式转换为接口并传递参数，避免了拆装箱
             ((IPayloadState<TPayload>)CurrentState).OnEnter(payload);
-        }
-
-        /// <summary>
-        /// 内部流转准备，执行前置校验
-        /// </summary>
-        private bool TryPrepareChangeState(Type targetType, out FSMState<T> newState)
-        {
-            newState = null;
-
-            if (CurrentState != null && CurrentState.GetType() == targetType)
-            {
-                return false; // 忽略同状态重复切换
-            }
-
-            if (!_stateCache.TryGetValue(targetType, out newState))
-            {
-                Debug.LogError($"[FSM] 状态切换失败: 试图切换到未注册的状态 {targetType.Name}。请先调用 AddState 进行注册。");
-                return false;
-            }
-
-            return true;
-        }
-
-        /// <summary>
-        /// 执行核心的状态替换与生命周期流转
-        /// </summary>
-        private void ExecuteStateChange(FSMState<T> newState)
-        {
-            if (CurrentState != null)
-            {
-                CurrentState.OnExit();
-                PreviousState = CurrentState;
-            }
-
-            CurrentState = newState;
-            CurrentState.InternalRecordStartTime(); // 统一刷新状态计时器
+            _isTransitioning = false;
         }
 
         /// <summary>
@@ -212,40 +180,170 @@ namespace StellarFramework.FSM
         /// </summary>
         public void RevertToPreviousState()
         {
-            if (PreviousState == null)
+            if (!EnsureUsable("RevertToPreviousState"))
             {
-                Debug.LogWarning("[FSM] 无法回退状态: PreviousState 为空。");
                 return;
             }
 
-            var targetState = PreviousState;
-            CurrentState?.OnExit();
-            PreviousState = CurrentState;
-            CurrentState = targetState;
+            if (_isTransitioning)
+            {
+                Debug.LogError(
+                    $"[FSM] RevertToPreviousState 失败: 检测到状态切换重入, CurrentState={CurrentStateName}, OwnerType={typeof(T).Name}");
+                return;
+            }
 
+            if (PreviousState == null)
+            {
+                Debug.LogWarning(
+                    $"[FSM] RevertToPreviousState 已忽略: PreviousState 为空, CurrentState={CurrentStateName}, OwnerType={typeof(T).Name}");
+                return;
+            }
+
+            if (ReferenceEquals(PreviousState, CurrentState))
+            {
+                Debug.LogWarning(
+                    $"[FSM] RevertToPreviousState 已忽略: PreviousState 与 CurrentState 相同, StateType={CurrentStateName}, OwnerType={typeof(T).Name}");
+                return;
+            }
+
+            _isTransitioning = true;
+
+            FSMState<T> targetState = PreviousState;
+            FSMState<T> leavingState = CurrentState;
+
+            leavingState?.OnExit();
+
+            PreviousState = leavingState;
+            CurrentState = targetState;
             CurrentState.InternalRecordStartTime();
             CurrentState.OnEnter();
+
+            _isTransitioning = false;
         }
 
         #region 驱动方法
 
-        public void OnUpdate() => CurrentState?.OnUpdate();
-        public void OnFixedUpdate() => CurrentState?.OnFixedUpdate();
-        public void OnGUI() => CurrentState?.OnGUI();
+        public void OnUpdate()
+        {
+            if (!EnsureUsable("OnUpdate"))
+            {
+                return;
+            }
+
+            CurrentState?.OnUpdate();
+        }
+
+        public void OnFixedUpdate()
+        {
+            if (!EnsureUsable("OnFixedUpdate"))
+            {
+                return;
+            }
+
+            CurrentState?.OnFixedUpdate();
+        }
+
+        public void OnGUI()
+        {
+            if (!EnsureUsable("OnGUI"))
+            {
+                return;
+            }
+
+            CurrentState?.OnGUI();
+        }
 
         #endregion
 
         public string CurrentStateName => CurrentState != null ? CurrentState.GetType().Name : "None";
 
         /// <summary>
-        /// 清理 FSM (断开引用，防止内存泄漏)
+        /// 清理状态机
+        /// 我显式进入 cleared 状态，防止外部还拿着引用继续驱动。
         /// </summary>
         public void Clear()
         {
+            _stateCache.Clear();
             CurrentState = null;
             PreviousState = null;
-            _stateCache.Clear();
             Owner = default;
+            _isTransitioning = false;
+            _isCleared = true;
+        }
+
+        private bool TryPrepareChangeState(Type targetType, out FSMState<T> newState)
+        {
+            newState = null;
+
+            if (!EnsureUsable("ChangeState"))
+            {
+                return false;
+            }
+
+            if (targetType == null)
+            {
+                Debug.LogError(
+                    $"[FSM] ChangeState 失败: targetType 为空, OwnerType={typeof(T).Name}, CurrentState={CurrentStateName}");
+                return false;
+            }
+
+            if (_isTransitioning)
+            {
+                Debug.LogError(
+                    $"[FSM] ChangeState 失败: 检测到状态切换重入, TargetState={targetType.Name}, CurrentState={CurrentStateName}, OwnerType={typeof(T).Name}");
+                return false;
+            }
+
+            if (CurrentState != null && CurrentState.GetType() == targetType)
+            {
+                return false;
+            }
+
+            if (!_stateCache.TryGetValue(targetType, out newState))
+            {
+                Debug.LogError(
+                    $"[FSM] ChangeState 失败: 试图切换到未注册状态, TargetState={targetType.Name}, CurrentState={CurrentStateName}, OwnerType={typeof(T).Name}");
+                return false;
+            }
+
+            _isTransitioning = true;
+            return true;
+        }
+
+        private void ExecuteStateChange(FSMState<T> newState)
+        {
+            if (newState == null)
+            {
+                Debug.LogError(
+                    $"[FSM] ExecuteStateChange 失败: newState 为空, CurrentState={CurrentStateName}, OwnerType={typeof(T).Name}");
+                _isTransitioning = false;
+                return;
+            }
+
+            FSMState<T> oldState = CurrentState;
+            oldState?.OnExit();
+
+            PreviousState = oldState;
+            CurrentState = newState;
+            CurrentState.InternalRecordStartTime();
+        }
+
+        private bool EnsureUsable(string apiName)
+        {
+            if (_isCleared)
+            {
+                Debug.LogError($"[FSM] {apiName} 失败: 状态机已清理, OwnerType={typeof(T).Name}");
+                return false;
+            }
+
+            if (Owner == null)
+            {
+                Debug.LogError(
+                    $"[FSM] {apiName} 失败: Owner 为空, OwnerType={typeof(T).Name}, CurrentState={CurrentStateName}");
+                return false;
+            }
+
+            return true;
         }
     }
 

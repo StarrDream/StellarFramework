@@ -22,11 +22,6 @@ namespace StellarFramework.Bindable
         public int Index;
     }
 
-    /// <summary>
-    /// 响应式列表
-    /// 我只负责列表结构变化通知，不负责列表元素内部字段变化通知。
-    /// 这样设计是为了明确边界，避免业务层误以为修改引用对象内部字段也能自动广播。
-    /// </summary>
     [Serializable]
     public class BindableList<T> : IEnumerable<T>
     {
@@ -44,16 +39,20 @@ namespace StellarFramework.Bindable
             get => _list[index];
             set
             {
+                if (!EnsureMutationAllowed("Indexer.Set"))
+                {
+                    return;
+                }
+
                 if (index < 0 || index >= _list.Count)
                 {
                     LogKit.LogError(
-                        $"[BindableList] 设置元素失败: 索引越界, Index={index}, Count={_list.Count}, 元素类型={typeof(T).Name}");
+                        $"[BindableList] 设置元素失败: 索引越界, Index={index}, Count={_list.Count}, ValueType={typeof(T).Name}");
                     return;
                 }
 
                 T old = _list[index];
                 _list[index] = value;
-
                 Notify(new ListEvent<T>
                 {
                     Type = ListEventType.Replace,
@@ -66,8 +65,12 @@ namespace StellarFramework.Bindable
 
         public void Add(T item)
         {
-            _list.Add(item);
+            if (!EnsureMutationAllowed("Add"))
+            {
+                return;
+            }
 
+            _list.Add(item);
             Notify(new ListEvent<T>
             {
                 Type = ListEventType.Add,
@@ -78,6 +81,11 @@ namespace StellarFramework.Bindable
 
         public bool Remove(T item)
         {
+            if (!EnsureMutationAllowed("Remove"))
+            {
+                return false;
+            }
+
             int index = _list.IndexOf(item);
             if (index < 0)
             {
@@ -86,48 +94,53 @@ namespace StellarFramework.Bindable
 
             T removedItem = _list[index];
             _list.RemoveAt(index);
-
             Notify(new ListEvent<T>
             {
                 Type = ListEventType.Remove,
                 Item = removedItem,
                 Index = index
             });
-
             return true;
         }
 
         public bool RemoveAt(int index)
         {
+            if (!EnsureMutationAllowed("RemoveAt"))
+            {
+                return false;
+            }
+
             if (index < 0 || index >= _list.Count)
             {
                 LogKit.LogError(
-                    $"[BindableList] RemoveAt 失败: 索引越界, Index={index}, Count={_list.Count}, 元素类型={typeof(T).Name}");
+                    $"[BindableList] RemoveAt 失败: 索引越界, Index={index}, Count={_list.Count}, ValueType={typeof(T).Name}");
                 return false;
             }
 
             T removedItem = _list[index];
             _list.RemoveAt(index);
-
             Notify(new ListEvent<T>
             {
                 Type = ListEventType.Remove,
                 Item = removedItem,
                 Index = index
             });
-
             return true;
         }
 
         public void Clear()
         {
+            if (!EnsureMutationAllowed("Clear"))
+            {
+                return;
+            }
+
             if (_list.Count == 0)
             {
                 return;
             }
 
             _list.Clear();
-
             Notify(new ListEvent<T>
             {
                 Type = ListEventType.Clear,
@@ -145,27 +158,26 @@ namespace StellarFramework.Bindable
             return _list.IndexOf(item);
         }
 
-        /// <summary>
-        /// 注册列表变化监听
-        /// 我要求回调不能为空，否则后续链表节点会成为无意义脏节点。
-        /// </summary>
         public IUnRegister Register(Action<ListEvent<T>> onListChanged)
         {
-            LogKit.AssertNotNull(onListChanged, $"[BindableList] 注册失败: 回调为空, 元素类型={typeof(T).Name}");
             if (onListChanged == null)
             {
+                LogKit.LogError($"[BindableList] 注册失败: 回调为空, ValueType={typeof(T).Name}");
                 return new CustomUnRegister(null);
             }
 
             return AddNode(onListChanged);
         }
 
-        /// <summary>
-        /// 主动广播当前列表被刷新
-        /// 我提供这个入口是为了支持某些业务在批量修改后手动触发一次刷新，而不暴露内部 Notify 细节。
-        /// </summary>
         public void NotifyRefresh()
         {
+            if (_isNotifying)
+            {
+                LogKit.LogError(
+                    $"[BindableList] NotifyRefresh 失败: 当前正在通知中，禁止嵌套刷新, ValueType={typeof(T).Name}, Count={_list.Count}");
+                return;
+            }
+
             Notify(new ListEvent<T>
             {
                 Type = ListEventType.Replace,
@@ -173,16 +185,12 @@ namespace StellarFramework.Bindable
             });
         }
 
-        /// <summary>
-        /// 清理所有监听
-        /// 我在业务域销毁或测试环境重置时需要一个强制清空入口，避免历史监听残留。
-        /// </summary>
         public void UnRegisterAll()
         {
-            var node = _head;
+            ObserverNode node = _head;
             while (node != null)
             {
-                var next = node.Next;
+                ObserverNode next = node.Next;
                 node.Recycle();
                 node = next;
             }
@@ -193,12 +201,24 @@ namespace StellarFramework.Bindable
             _isNotifying = false;
         }
 
-        private void Notify(ListEvent<T> e)
+        private bool EnsureMutationAllowed(string apiName)
         {
-            LogKit.Assert(!_isNotifying,
-                $"[BindableList] 致命错误: 检测到递归通知, EventType={e.Type}, Index={e.Index}, 元素类型={typeof(T).Name}");
             if (_isNotifying)
             {
+                LogKit.LogError(
+                    $"[BindableList] {apiName} 失败: 禁止在通知回调中修改集合, ValueType={typeof(T).Name}, Count={_list.Count}");
+                return false;
+            }
+
+            return true;
+        }
+
+        private void Notify(ListEvent<T> e)
+        {
+            if (_isNotifying)
+            {
+                LogKit.LogError(
+                    $"[BindableList] Notify 失败: 检测到递归通知，已阻断, EventType={e.Type}, Index={e.Index}, ValueType={typeof(T).Name}");
                 return;
             }
 
@@ -207,11 +227,10 @@ namespace StellarFramework.Bindable
 
             try
             {
-                var node = _head;
+                ObserverNode node = _head;
                 while (node != null)
                 {
-                    var next = node.Next;
-
+                    ObserverNode next = node.Next;
                     if (!node.MarkedForDeletion)
                     {
                         node.Action?.Invoke(e);
@@ -224,7 +243,6 @@ namespace StellarFramework.Bindable
             {
                 _iteratingCount--;
                 _isNotifying = false;
-
                 if (_iteratingCount == 0)
                 {
                     Cleanup();
@@ -234,32 +252,26 @@ namespace StellarFramework.Bindable
 
         private ObserverNode AddNode(Action<ListEvent<T>> action)
         {
-            var node = ObserverNode.Allocate(action, this);
-
+            ObserverNode node = ObserverNode.Allocate(action, this);
             if (_head == null)
             {
                 _head = node;
                 _tail = node;
-                return node;
+            }
+            else
+            {
+                _tail.Next = node;
+                node.Previous = _tail;
+                _tail = node;
             }
 
-            _tail.Next = node;
-            node.Previous = _tail;
-            _tail = node;
             return node;
         }
 
         private void RemoveNode(ObserverNode node)
         {
-            if (node == null)
+            if (node == null || !ReferenceEquals(node.Owner, this))
             {
-                LogKit.LogError($"[BindableList] RemoveNode 失败: 节点为空, 元素类型={typeof(T).Name}");
-                return;
-            }
-
-            if (!ReferenceEquals(node.Owner, this))
-            {
-                LogKit.LogError($"[BindableList] RemoveNode 失败: 节点归属不匹配, 元素类型={typeof(T).Name}");
                 return;
             }
 
@@ -299,10 +311,10 @@ namespace StellarFramework.Bindable
 
         private void Cleanup()
         {
-            var node = _head;
+            ObserverNode node = _head;
             while (node != null)
             {
-                var next = node.Next;
+                ObserverNode next = node.Next;
                 if (node.MarkedForDeletion)
                 {
                     UnlinkAndRecycle(node);
@@ -324,7 +336,7 @@ namespace StellarFramework.Bindable
 
             public static ObserverNode Allocate(Action<ListEvent<T>> action, BindableList<T> owner)
             {
-                var node = Pool.Count > 0 ? Pool.Pop() : new ObserverNode();
+                ObserverNode node = Pool.Count > 0 ? Pool.Pop() : new ObserverNode();
                 node.Action = action;
                 node.Owner = owner;
                 node.Previous = null;
@@ -352,15 +364,51 @@ namespace StellarFramework.Bindable
             {
                 if (gameObject == null)
                 {
-                    LogKit.LogError($"[BindableList] 生命周期绑定失败: GameObject 为空, 元素类型={typeof(T).Name}");
+                    LogKit.LogError($"[BindableList] 生命周期绑定失败: gameObject 为空, ValueType={typeof(T).Name}");
                     UnRegister();
                     return this;
                 }
 
-                if (!gameObject.TryGetComponent<EventUnregisterTrigger>(out var trigger))
+                if (!CustomUnRegister.TryAttachDestroyTrigger(gameObject, out EventUnregisterTrigger trigger))
                 {
-                    trigger = gameObject.AddComponent<EventUnregisterTrigger>();
-                    trigger.hideFlags = HideFlags.HideInInspector;
+                    LogKit.LogError(
+                        $"[BindableList] 生命周期绑定失败: 无法挂载销毁触发器, TriggerObject={gameObject.name}, ValueType={typeof(T).Name}");
+                    UnRegister();
+                    return this;
+                }
+
+                trigger.Add(this);
+                return this;
+            }
+
+            public IUnRegister UnRegisterWhenGameObjectDestroyed(MonoBehaviour mono)
+            {
+                if (mono == null)
+                {
+                    LogKit.LogError($"[BindableList] 生命周期绑定失败: mono 为空, ValueType={typeof(T).Name}");
+                    UnRegister();
+                    return this;
+                }
+
+                return UnRegisterWhenGameObjectDestroyed(mono.gameObject);
+            }
+
+            public IUnRegister UnRegisterWhenDisabled(MonoBehaviour mono)
+            {
+                if (mono == null || mono.gameObject == null)
+                {
+                    LogKit.LogError($"[BindableList] 生命周期绑定失败: mono 或 gameObject 为空, ValueType={typeof(T).Name}");
+                    UnRegister();
+                    return this;
+                }
+
+                if (!CustomUnRegister.TryAttachDisableTrigger(mono.gameObject,
+                        out EventUnregisterOnDisableTrigger trigger))
+                {
+                    LogKit.LogError(
+                        $"[BindableList] 生命周期绑定失败: 无法挂载失活触发器, TriggerObject={mono.gameObject.name}, ValueType={typeof(T).Name}");
+                    UnRegister();
+                    return this;
                 }
 
                 trigger.Add(this);

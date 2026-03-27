@@ -4,6 +4,10 @@ using Cysharp.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.UI;
 
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
+
 namespace StellarFramework
 {
     #region 核心枚举与算法
@@ -75,6 +79,25 @@ namespace StellarFramework
     /// </summary>
     public static class TweenKit
     {
+        /// <summary>
+        /// 获取当前环境的 DeltaTime
+        /// 我通过此方法兼容 Editor 预览模式。在非 Play 模式下，Time.deltaTime 为 0，
+        /// 必须使用 EditorApplication.timeSinceStartup 计算真实的时间增量，否则 UniTask 会陷入死循环。
+        /// </summary>
+        private static float GetDeltaTime(bool ignoreTimeScale, ref double lastEditorTime)
+        {
+#if UNITY_EDITOR
+            if (!Application.isPlaying)
+            {
+                double currentEditorTime = EditorApplication.timeSinceStartup;
+                float dt = (float)(currentEditorTime - lastEditorTime);
+                lastEditorTime = currentEditorTime;
+                return dt;
+            }
+#endif
+            return ignoreTimeScale ? Time.unscaledDeltaTime : Time.deltaTime;
+        }
+
         #region 核心插值器 (带 Progress 重载)
 
         public static async UniTask To(float start, float end, float duration, Action<float> onUpdate, Ease ease,
@@ -88,21 +111,25 @@ namespace StellarFramework
             }
 
             float time = 0f;
-            onUpdate?.Invoke(start);
+            double lastEditorTime = 0;
+#if UNITY_EDITOR
+            lastEditorTime = EditorApplication.timeSinceStartup;
+#endif
 
+            onUpdate?.Invoke(start);
             while (time < duration)
             {
                 if (token.IsCancellationRequested) return;
 
-                float dt = ignoreTimeScale ? Time.unscaledDeltaTime : Time.deltaTime;
+                float dt = GetDeltaTime(ignoreTimeScale, ref lastEditorTime);
                 time += dt;
 
                 float t = Mathf.Clamp01(time / duration);
                 float value = Easing.Evaluate(ease, t);
-
                 onUpdate?.Invoke(Mathf.LerpUnclamped(start, end, value));
                 progress?.Report(t);
 
+                // 在 Editor 模式下，NextFrame(Update) 依然有效，但需要配合 EditorApplication.update 刷新
                 await UniTask.NextFrame(PlayerLoopTiming.Update, token);
             }
 
@@ -124,18 +151,21 @@ namespace StellarFramework
             }
 
             float time = 0f;
-            onUpdate?.Invoke(start);
+            double lastEditorTime = 0;
+#if UNITY_EDITOR
+            lastEditorTime = EditorApplication.timeSinceStartup;
+#endif
 
+            onUpdate?.Invoke(start);
             while (time < duration)
             {
                 if (token.IsCancellationRequested) return;
 
-                float dt = ignoreTimeScale ? Time.unscaledDeltaTime : Time.deltaTime;
+                float dt = GetDeltaTime(ignoreTimeScale, ref lastEditorTime);
                 time += dt;
 
                 float t = Mathf.Clamp01(time / duration);
                 float value = Easing.Evaluate(ease, t);
-
                 onUpdate?.Invoke(Vector3.LerpUnclamped(start, end, value));
                 progress?.Report(t);
 
@@ -160,18 +190,21 @@ namespace StellarFramework
             }
 
             float time = 0f;
-            onUpdate?.Invoke(start);
+            double lastEditorTime = 0;
+#if UNITY_EDITOR
+            lastEditorTime = EditorApplication.timeSinceStartup;
+#endif
 
+            onUpdate?.Invoke(start);
             while (time < duration)
             {
                 if (token.IsCancellationRequested) return;
 
-                float dt = ignoreTimeScale ? Time.unscaledDeltaTime : Time.deltaTime;
+                float dt = GetDeltaTime(ignoreTimeScale, ref lastEditorTime);
                 time += dt;
 
                 float t = Mathf.Clamp01(time / duration);
                 float value = Easing.Evaluate(ease, t);
-
                 onUpdate?.Invoke(Color.LerpUnclamped(start, end, value));
                 progress?.Report(t);
 
@@ -186,33 +219,45 @@ namespace StellarFramework
         }
 
         public static async UniTask ToRotation(Quaternion start, Quaternion end, float duration,
-            Action<Quaternion> onUpdate, Ease ease, CancellationToken token, bool ignoreTimeScale)
+            Action<Quaternion> onUpdate, Ease ease, CancellationToken token, bool ignoreTimeScale,
+            IProgress<float> progress = null)
         {
             if (duration <= 0f)
             {
                 onUpdate?.Invoke(end);
+                progress?.Report(1.0f);
                 return;
             }
 
             float time = 0f;
-            onUpdate?.Invoke(start);
+            double lastEditorTime = 0;
+#if UNITY_EDITOR
+            lastEditorTime = EditorApplication.timeSinceStartup;
+#endif
 
+            onUpdate?.Invoke(start);
             while (time < duration)
             {
                 if (token.IsCancellationRequested) return;
 
-                float dt = ignoreTimeScale ? Time.unscaledDeltaTime : Time.deltaTime;
+                float dt = GetDeltaTime(ignoreTimeScale, ref lastEditorTime);
                 time += dt;
 
                 float t = Mathf.Clamp01(time / duration);
                 float value = Easing.Evaluate(ease, t);
 
+                // 强制使用 SlerpUnclamped 保证旋转路径的最短与平滑
                 onUpdate?.Invoke(Quaternion.SlerpUnclamped(start, end, value));
+                progress?.Report(t);
 
                 await UniTask.NextFrame(PlayerLoopTiming.Update, token);
             }
 
-            if (!token.IsCancellationRequested) onUpdate?.Invoke(end);
+            if (!token.IsCancellationRequested)
+            {
+                onUpdate?.Invoke(end);
+                progress?.Report(1.0f);
+            }
         }
 
         #endregion

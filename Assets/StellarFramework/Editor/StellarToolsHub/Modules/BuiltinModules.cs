@@ -577,6 +577,18 @@ namespace StellarFramework.Editor.Modules
         }
     }
 
+    [StellarTool("动画编组", "框架核心", 9)]
+    public class ActionEngineHubModule : ToolModule
+    {
+        public override string Icon => "d_AnimationClip Icon";
+        public override string Description => "打开 ActionEngineEditorWindow。";
+
+        public override void OnGUI()
+        {
+            if (PrimaryButton("打开窗口", GUILayout.Height(34))) ActionEngineEditorWindow.ShowWindow();
+        }
+    }
+
     [StellarTool("URP 材质转换", "框架核心", 20)]
     public class URPConverterHubModule : ToolModule
     {
@@ -588,5 +600,4 @@ namespace StellarFramework.Editor.Modules
             if (PrimaryButton("打开窗口", GUILayout.Height(34))) URPMaterialConverterWindow.Open();
         }
     }
-    
 }

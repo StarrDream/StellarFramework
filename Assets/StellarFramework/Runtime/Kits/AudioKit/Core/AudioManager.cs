@@ -1,10 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
-using UnityEngine;
-using UnityEngine.Audio;
+using System.Threading;
 using Cysharp.Threading.Tasks;
 using StellarFramework.Pool;
-using System.Threading;
+using UnityEngine;
+using UnityEngine.Audio;
 
 namespace StellarFramework.Audio
 {
@@ -13,18 +13,17 @@ namespace StellarFramework.Audio
     /// </summary>
     public enum SoundPriority
     {
-        Low = 0, // 环境音、脚步声、远处的爆炸
-        Normal = 1, // 普通攻击、UI点击
-        High = 2, // 技能释放、受击、关键提示音
-        Critical = 3 // Boss技能、剧情对白、玩家死亡
+        Low = 0,
+        Normal = 1,
+        High = 2,
+        Critical = 3
     }
 
     [RequireComponent(typeof(AudioListener))]
     [Singleton(lifeCycle: SingletonLifeCycle.Global)]
     public class AudioManager : MonoSingleton<AudioManager>
     {
-        private IAudioLoader _audioLoader; // 策略接口
-
+        private IAudioLoader _audioLoader;
         private AudioMixer _mixer;
         private AudioMixerGroup _bgmGroup;
         private AudioMixerGroup _sfxGroup;
@@ -36,7 +35,7 @@ namespace StellarFramework.Audio
 
         private FactoryObjectPool<AudioSource> _sfxPool;
 
-        private class ActiveSoundInfo
+        private sealed class ActiveSoundInfo
         {
             public AudioSource Source;
             public Transform FollowTarget;
@@ -45,6 +44,9 @@ namespace StellarFramework.Audio
 
         private readonly List<ActiveSoundInfo> _activeSounds = new List<ActiveSoundInfo>(AudioDefines.MAX_SOUND_VOICES);
         private readonly CancellationTokenSource _managerCTS = new CancellationTokenSource();
+
+        private CancellationTokenSource _bgmSwitchCTS;
+        private bool _isInitialized;
 
         private float _musicVolume = 1.0f;
         private float _soundVolume = 1.0f;
@@ -55,25 +57,38 @@ namespace StellarFramework.Audio
         {
             if (mixer == null)
             {
-                Debug.LogError("[AudioManager] 初始化失败: Mixer 为空");
+                Debug.LogError($"[AudioManager] 初始化失败: mixer 为空, TriggerObject={gameObject.name}");
                 return;
             }
 
             if (loader == null)
             {
-                Debug.LogError("[AudioManager] 初始化失败: IAudioLoader 为空");
+                Debug.LogError($"[AudioManager] 初始化失败: loader 为空, TriggerObject={gameObject.name}");
                 return;
+            }
+
+            if (_isInitialized)
+            {
+                if (ReferenceEquals(_mixer, mixer) && ReferenceEquals(_audioLoader, loader))
+                {
+                    Debug.LogWarning(
+                        $"[AudioManager] 检测到重复初始化，已忽略, TriggerObject={gameObject.name}, Mixer={mixer.name}");
+                    return;
+                }
+
+                ShutdownRuntimeState();
             }
 
             _mixer = mixer;
             _audioLoader = loader;
 
-            var bgmGroups = _mixer.FindMatchingGroups(AudioDefines.MIXER_GROUP_BGM);
-            var sfxGroups = _mixer.FindMatchingGroups(AudioDefines.MIXER_GROUP_SFX);
+            AudioMixerGroup[] bgmGroups = _mixer.FindMatchingGroups(AudioDefines.MIXER_GROUP_BGM);
+            AudioMixerGroup[] sfxGroups = _mixer.FindMatchingGroups(AudioDefines.MIXER_GROUP_SFX);
 
-            if (bgmGroups.Length == 0 || sfxGroups.Length == 0)
+            if (bgmGroups == null || bgmGroups.Length == 0 || sfxGroups == null || sfxGroups.Length == 0)
             {
-                Debug.LogError("[AudioManager] 初始化失败: AudioMixer 中缺少 BGM 或 SFX 组配置");
+                Debug.LogError(
+                    $"[AudioManager] 初始化失败: AudioMixer 缺少 BGM 或 SFX Group, TriggerObject={gameObject.name}, Mixer={mixer.name}");
                 return;
             }
 
@@ -83,29 +98,29 @@ namespace StellarFramework.Audio
             InitializeBGM();
             InitializeSFXPool();
             LoadSettings();
+
+            _isInitialized = true;
+            Debug.Log($"[AudioManager] 初始化完成, Mixer={mixer.name}, TriggerObject={gameObject.name}");
         }
 
         private void Update()
         {
-            // 倒序遍历，安全移除无效项并执行 Update 轮询回收
             for (int i = _activeSounds.Count - 1; i >= 0; i--)
             {
-                var info = _activeSounds[i];
-                if (info.Source == null)
+                ActiveSoundInfo info = _activeSounds[i];
+                if (info == null || info.Source == null)
                 {
                     _activeSounds.RemoveAt(i);
                     continue;
                 }
 
-                // 核心优化：通过 isPlaying 判定回收，废弃容易引发状态混乱的 UniTask.Delay
                 if (!info.Source.isPlaying)
                 {
-                    _sfxPool.Recycle(info.Source);
+                    _sfxPool?.Recycle(info.Source);
                     _activeSounds.RemoveAt(i);
                     continue;
                 }
 
-                // 跟随逻辑
                 if (info.FollowTarget != null)
                 {
                     info.Source.transform.position = info.FollowTarget.position;
@@ -115,8 +130,31 @@ namespace StellarFramework.Audio
 
         protected override void OnDestroy()
         {
-            _managerCTS.Cancel();
+            ShutdownRuntimeState();
+
+            if (!_managerCTS.IsCancellationRequested)
+            {
+                _managerCTS.Cancel();
+            }
+
             _managerCTS.Dispose();
+            base.OnDestroy();
+        }
+
+        private void ShutdownRuntimeState()
+        {
+            StopMusic();
+
+            if (_bgmSwitchCTS != null)
+            {
+                if (!_bgmSwitchCTS.IsCancellationRequested)
+                {
+                    _bgmSwitchCTS.Cancel();
+                }
+
+                _bgmSwitchCTS.Dispose();
+                _bgmSwitchCTS = null;
+            }
 
             if (_audioLoader != null)
             {
@@ -124,13 +162,46 @@ namespace StellarFramework.Audio
                 _audioLoader = null;
             }
 
-            base.OnDestroy();
+            for (int i = _activeSounds.Count - 1; i >= 0; i--)
+            {
+                ActiveSoundInfo info = _activeSounds[i];
+                if (info?.Source != null)
+                {
+                    info.Source.Stop();
+                    _sfxPool?.Recycle(info.Source);
+                }
+            }
+
+            _activeSounds.Clear();
+
+            if (_bgmSourceA != null)
+            {
+                _bgmSourceA.Stop();
+            }
+
+            if (_bgmSourceB != null)
+            {
+                _bgmSourceB.Stop();
+            }
+
+            _currentBgmPath = null;
+            _isInitialized = false;
         }
 
         private void InitializeBGM()
         {
-            _bgmSourceA = CreateSource("BGM_Track_A", _bgmGroup);
-            _bgmSourceB = CreateSource("BGM_Track_B", _bgmGroup);
+            if (_bgmSourceA == null)
+            {
+                _bgmSourceA = CreateSource("BGM_Track_A", _bgmGroup);
+            }
+
+            if (_bgmSourceB == null)
+            {
+                _bgmSourceB = CreateSource("BGM_Track_B", _bgmGroup);
+            }
+
+            _bgmSourceA.outputAudioMixerGroup = _bgmGroup;
+            _bgmSourceB.outputAudioMixerGroup = _bgmGroup;
             _bgmSourceA.loop = true;
             _bgmSourceB.loop = true;
             _bgmSourceA.spatialBlend = 0f;
@@ -141,9 +212,21 @@ namespace StellarFramework.Audio
         {
             _sfxPool = new FactoryObjectPool<AudioSource>(
                 factoryMethod: () => CreateSource("SFX_Pool_Item", _sfxGroup),
-                allocateMethod: source => { source.gameObject.SetActive(true); },
+                allocateMethod: source =>
+                {
+                    if (source != null)
+                    {
+                        source.outputAudioMixerGroup = _sfxGroup;
+                        source.gameObject.SetActive(true);
+                    }
+                },
                 recycleMethod: source =>
                 {
+                    if (source == null)
+                    {
+                        return;
+                    }
+
                     source.Stop();
                     source.clip = null;
                     source.transform.SetParent(transform);
@@ -155,7 +238,10 @@ namespace StellarFramework.Audio
                 },
                 destroyMethod: source =>
                 {
-                    if (source != null) Destroy(source.gameObject);
+                    if (source != null)
+                    {
+                        Destroy(source.gameObject);
+                    }
                 },
                 maxCount: AudioDefines.MAX_SOUND_VOICES
             );
@@ -163,25 +249,35 @@ namespace StellarFramework.Audio
 
         private AudioSource CreateSource(string name, AudioMixerGroup group)
         {
-            var go = new GameObject(name);
+            GameObject go = new GameObject(name);
             go.transform.SetParent(transform);
-            var source = go.AddComponent<AudioSource>();
+            AudioSource source = go.AddComponent<AudioSource>();
             source.outputAudioMixerGroup = group;
             return source;
         }
 
-        // ================= SFX 核心逻辑 =================
+        // ================= SFX =================
 
         public void PlaySoundInternal(string path, Vector3 position, Transform attachTarget, bool is3D,
             SoundPriority priority)
         {
-            if (!_isSoundOn || string.IsNullOrEmpty(path)) return;
+            if (!_isInitialized)
+            {
+                Debug.LogError($"[AudioManager] 播放音效失败: 系统未初始化, Path={path}, TriggerObject={gameObject.name}");
+                return;
+            }
+
+            if (!_isSoundOn || string.IsNullOrEmpty(path))
+            {
+                return;
+            }
 
             if (_activeSounds.Count >= AudioDefines.MAX_SOUND_VOICES)
             {
                 if (!TryEvictLowPrioritySound(priority))
                 {
-                    Debug.LogWarning($"[AudioManager] 音效池已满且无法剔除，丢弃: {path} (Priority: {priority})");
+                    Debug.LogWarning(
+                        $"[AudioManager] 音效池已满且无法剔除，丢弃音效, Path={path}, Priority={priority}, ActiveCount={_activeSounds.Count}");
                     return;
                 }
             }
@@ -194,8 +290,14 @@ namespace StellarFramework.Audio
             ActiveSoundInfo candidate = null;
             SoundPriority minPriority = SoundPriority.Critical;
 
-            foreach (var info in _activeSounds)
+            for (int i = 0; i < _activeSounds.Count; i++)
             {
+                ActiveSoundInfo info = _activeSounds[i];
+                if (info == null)
+                {
+                    continue;
+                }
+
                 if (info.Priority < minPriority)
                 {
                     minPriority = info.Priority;
@@ -208,7 +310,7 @@ namespace StellarFramework.Audio
                 if (candidate.Source != null)
                 {
                     candidate.Source.Stop();
-                    _sfxPool.Recycle(candidate.Source);
+                    _sfxPool?.Recycle(candidate.Source);
                 }
 
                 _activeSounds.Remove(candidate);
@@ -221,13 +323,21 @@ namespace StellarFramework.Audio
         private async UniTaskVoid PlaySoundAsync(string path, Vector3 position, Transform attachTarget, bool is3D,
             SoundPriority priority)
         {
-            // 通过策略接口加载资源
-            var clip = await _audioLoader.LoadAudioAsync(path, _managerCTS.Token);
+            AudioClip clip = await _audioLoader.LoadAudioAsync(path, _managerCTS.Token);
+            if (this == null || !_isInitialized || !_isSoundOn || clip == null)
+            {
+                return;
+            }
 
-            if (this == null || !_isSoundOn || clip == null) return;
+            AudioSource source = _sfxPool.Allocate();
+            if (source == null)
+            {
+                Debug.LogError(
+                    $"[AudioManager] 播放音效失败: 从对象池分配 AudioSource 为空, Path={path}, TriggerObject={gameObject.name}");
+                return;
+            }
 
-            var source = _sfxPool.Allocate();
-            var info = new ActiveSoundInfo
+            ActiveSoundInfo info = new ActiveSoundInfo
             {
                 Source = source,
                 FollowTarget = attachTarget,
@@ -238,7 +348,6 @@ namespace StellarFramework.Audio
 
             source.clip = clip;
             source.spatialBlend = is3D ? 1.0f : 0.0f;
-
             if (is3D)
             {
                 source.minDistance = 1.0f;
@@ -250,37 +359,91 @@ namespace StellarFramework.Audio
             source.Play();
         }
 
-        // ================= BGM 逻辑 =================
+        // ================= BGM =================
 
-        public async void PlayMusic(string path, float fadeDuration)
+        public void PlayMusic(string path, float fadeDuration)
         {
-            if (string.IsNullOrEmpty(path) || _currentBgmPath == path) return;
+            if (!_isInitialized)
+            {
+                Debug.LogError($"[AudioManager] 播放 BGM 失败: 系统未初始化, Path={path}, TriggerObject={gameObject.name}");
+                return;
+            }
 
+            if (string.IsNullOrEmpty(path))
+            {
+                Debug.LogError($"[AudioManager] 播放 BGM 失败: path 为空, TriggerObject={gameObject.name}");
+                return;
+            }
+
+            if (_currentBgmPath == path)
+            {
+                return;
+            }
+
+            if (_bgmSwitchCTS != null)
+            {
+                if (!_bgmSwitchCTS.IsCancellationRequested)
+                {
+                    _bgmSwitchCTS.Cancel();
+                }
+
+                _bgmSwitchCTS.Dispose();
+            }
+
+            _bgmSwitchCTS = CancellationTokenSource.CreateLinkedTokenSource(_managerCTS.Token);
+            PlayMusicAsync(path, Mathf.Max(0f, fadeDuration), _bgmSwitchCTS.Token).Forget();
+        }
+
+        private async UniTaskVoid PlayMusicAsync(string path, float fadeDuration, CancellationToken token)
+        {
             _currentBgmPath = path;
 
-            // 通过策略接口加载资源
-            var clip = await _audioLoader.LoadAudioAsync(path, _managerCTS.Token);
+            AudioClip clip = await _audioLoader.LoadAudioAsync(path, token);
+            if (clip == null || this == null || !_isInitialized || token.IsCancellationRequested)
+            {
+                return;
+            }
 
-            if (clip == null || this == null) return;
+            AudioSource targetSource = _isUsingSourceA ? _bgmSourceB : _bgmSourceA;
+            AudioSource currentSource = _isUsingSourceA ? _bgmSourceA : _bgmSourceB;
 
-            var targetSource = _isUsingSourceA ? _bgmSourceB : _bgmSourceA;
-            var currentSource = _isUsingSourceA ? _bgmSourceA : _bgmSourceB;
+            if (targetSource == null || currentSource == null)
+            {
+                Debug.LogError(
+                    $"[AudioManager] 切换 BGM 失败: BGM Source 丢失, Path={path}, TriggerObject={gameObject.name}");
+                return;
+            }
 
             targetSource.clip = clip;
-            targetSource.volume = 0;
+            targetSource.volume = 0f;
             targetSource.Play();
+
+            if (fadeDuration <= 0f)
+            {
+                currentSource.Stop();
+                targetSource.volume = 1f;
+                _isUsingSourceA = !_isUsingSourceA;
+                return;
+            }
 
             float timer = 0f;
             while (timer < fadeDuration)
             {
-                if (this == null) return;
+                if (this == null || !_isInitialized || token.IsCancellationRequested)
+                {
+                    return;
+                }
+
                 timer += Time.unscaledDeltaTime;
-                float t = timer / fadeDuration;
+                float t = Mathf.Clamp01(timer / fadeDuration);
+                targetSource.volume = Mathf.Lerp(0f, 1f, t);
 
-                targetSource.volume = Mathf.Lerp(0, 1f, t);
-                if (currentSource.isPlaying) currentSource.volume = Mathf.Lerp(1f, 0, t);
+                if (currentSource.isPlaying)
+                {
+                    currentSource.volume = Mathf.Lerp(1f, 0f, t);
+                }
 
-                await UniTask.Yield(PlayerLoopTiming.Update, _managerCTS.Token);
+                await UniTask.Yield(PlayerLoopTiming.Update, token);
             }
 
             targetSource.volume = 1f;
@@ -291,11 +454,19 @@ namespace StellarFramework.Audio
         public void StopMusic()
         {
             _currentBgmPath = null;
-            if (_bgmSourceA) _bgmSourceA.Stop();
-            if (_bgmSourceB) _bgmSourceB.Stop();
+
+            if (_bgmSourceA != null)
+            {
+                _bgmSourceA.Stop();
+            }
+
+            if (_bgmSourceB != null)
+            {
+                _bgmSourceB.Stop();
+            }
         }
 
-        // ================= Settings 逻辑 (接入 AudioMixer) =================
+        // ================= Settings =================
 
         private void LoadSettings()
         {
@@ -337,19 +508,29 @@ namespace StellarFramework.Audio
 
             if (!isOn)
             {
-                foreach (var info in _activeSounds)
+                for (int i = _activeSounds.Count - 1; i >= 0; i--)
                 {
-                    if (info.Source != null) info.Source.Stop();
+                    ActiveSoundInfo info = _activeSounds[i];
+                    if (info?.Source != null)
+                    {
+                        info.Source.Stop();
+                        _sfxPool?.Recycle(info.Source);
+                    }
                 }
+
+                _activeSounds.Clear();
             }
         }
 
         /// <summary>
-        /// 将 0~1 的线性音量转换为 AudioMixer 的对数分贝值 (-80dB ~ 0dB)
+        /// 将 0~1 线性音量转换为 AudioMixer 的对数分贝值
         /// </summary>
         private void ApplyMixerVolume(string paramName, float linearVolume)
         {
-            if (_mixer == null) return;
+            if (_mixer == null)
+            {
+                return;
+            }
 
             float dbVolume = linearVolume <= 0.0001f ? -80f : Mathf.Log10(linearVolume) * 20f;
             _mixer.SetFloat(paramName, dbVolume);

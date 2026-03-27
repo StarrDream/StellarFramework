@@ -22,23 +22,16 @@ namespace StellarFramework.Bindable
         public V OldValue;
     }
 
-    /// <summary>
-    /// 响应式字典
-    /// 我只负责字典结构和键值替换通知，不负责 Value 内部字段变化通知。
-    /// 这样设计是为了保持事件边界清晰，避免业务把引用对象内部修改误认为字典更新。
-    /// </summary>
     [Serializable]
     public class BindableDictionary<K, V> : IEnumerable<KeyValuePair<K, V>>
     {
         private readonly Dictionary<K, V> _dict = new Dictionary<K, V>();
-
         private ObserverNode _head;
         private ObserverNode _tail;
         private int _iteratingCount;
         private bool _isNotifying;
 
         public int Count => _dict.Count;
-
         public ICollection<K> Keys => _dict.Keys;
         public ICollection<V> Values => _dict.Values;
 
@@ -47,10 +40,14 @@ namespace StellarFramework.Bindable
             get => _dict[key];
             set
             {
-                if (_dict.TryGetValue(key, out var oldVal))
+                if (!EnsureMutationAllowed("Indexer.Set"))
+                {
+                    return;
+                }
+
+                if (_dict.TryGetValue(key, out V oldVal))
                 {
                     _dict[key] = value;
-
                     Notify(new DictEvent<K, V>
                     {
                         Type = DictEventType.Update,
@@ -58,7 +55,6 @@ namespace StellarFramework.Bindable
                         Value = value,
                         OldValue = oldVal
                     });
-
                     return;
                 }
 
@@ -68,15 +64,18 @@ namespace StellarFramework.Bindable
 
         public void Add(K key, V value)
         {
+            if (!EnsureMutationAllowed("Add"))
+            {
+                return;
+            }
+
             if (_dict.ContainsKey(key))
             {
-                LogKit.LogError(
-                    $"[BindableDictionary] Add 失败: Key 已存在, Key={key}, KeyType={typeof(K).Name}, ValueType={typeof(V).Name}, Count={_dict.Count}");
+                LogKit.LogError($"[BindableDictionary] Add 失败: Key 已存在, Key={key}");
                 return;
             }
 
             _dict.Add(key, value);
-
             Notify(new DictEvent<K, V>
             {
                 Type = DictEventType.Add,
@@ -87,20 +86,23 @@ namespace StellarFramework.Bindable
 
         public bool Remove(K key)
         {
-            if (!_dict.TryGetValue(key, out var val))
+            if (!EnsureMutationAllowed("Remove"))
+            {
+                return false;
+            }
+
+            if (!_dict.TryGetValue(key, out V val))
             {
                 return false;
             }
 
             _dict.Remove(key);
-
             Notify(new DictEvent<K, V>
             {
                 Type = DictEventType.Remove,
                 Key = key,
                 Value = val
             });
-
             return true;
         }
 
@@ -116,13 +118,17 @@ namespace StellarFramework.Bindable
 
         public void Clear()
         {
+            if (!EnsureMutationAllowed("Clear"))
+            {
+                return;
+            }
+
             if (_dict.Count == 0)
             {
                 return;
             }
 
             _dict.Clear();
-
             Notify(new DictEvent<K, V>
             {
                 Type = DictEventType.Clear
@@ -131,22 +137,25 @@ namespace StellarFramework.Bindable
 
         public IUnRegister Register(Action<DictEvent<K, V>> onDictChanged)
         {
-            LogKit.AssertNotNull(onDictChanged,
-                $"[BindableDictionary] 注册失败: 回调为空, KeyType={typeof(K).Name}, ValueType={typeof(V).Name}");
             if (onDictChanged == null)
             {
+                LogKit.LogError(
+                    $"[BindableDictionary] 注册失败: 回调为空, KeyType={typeof(K).Name}, ValueType={typeof(V).Name}");
                 return new CustomUnRegister(null);
             }
 
             return AddNode(onDictChanged);
         }
 
-        /// <summary>
-        /// 手动广播一次刷新
-        /// 我提供这个能力给批量写入后的业务层使用，避免它们通过伪修改触发通知。
-        /// </summary>
         public void NotifyRefresh()
         {
+            if (_isNotifying)
+            {
+                LogKit.LogError(
+                    $"[BindableDictionary] NotifyRefresh 失败: 当前正在通知中，禁止嵌套刷新, KeyType={typeof(K).Name}, ValueType={typeof(V).Name}, Count={_dict.Count}");
+                return;
+            }
+
             Notify(new DictEvent<K, V>
             {
                 Type = DictEventType.Update
@@ -155,10 +164,10 @@ namespace StellarFramework.Bindable
 
         public void UnRegisterAll()
         {
-            var node = _head;
+            ObserverNode node = _head;
             while (node != null)
             {
-                var next = node.Next;
+                ObserverNode next = node.Next;
                 node.Recycle();
                 node = next;
             }
@@ -169,12 +178,24 @@ namespace StellarFramework.Bindable
             _isNotifying = false;
         }
 
-        private void Notify(DictEvent<K, V> e)
+        private bool EnsureMutationAllowed(string apiName)
         {
-            LogKit.Assert(!_isNotifying,
-                $"[BindableDictionary] 致命错误: 检测到递归通知, EventType={e.Type}, KeyType={typeof(K).Name}, ValueType={typeof(V).Name}");
             if (_isNotifying)
             {
+                LogKit.LogError(
+                    $"[BindableDictionary] {apiName} 失败: 禁止在通知回调中修改字典, KeyType={typeof(K).Name}, ValueType={typeof(V).Name}, Count={_dict.Count}");
+                return false;
+            }
+
+            return true;
+        }
+
+        private void Notify(DictEvent<K, V> e)
+        {
+            if (_isNotifying)
+            {
+                LogKit.LogError(
+                    $"[BindableDictionary] Notify 失败: 检测到递归通知，已阻断, EventType={e.Type}, Key={e.Key}, KeyType={typeof(K).Name}, ValueType={typeof(V).Name}");
                 return;
             }
 
@@ -183,11 +204,10 @@ namespace StellarFramework.Bindable
 
             try
             {
-                var node = _head;
+                ObserverNode node = _head;
                 while (node != null)
                 {
-                    var next = node.Next;
-
+                    ObserverNode next = node.Next;
                     if (!node.MarkedForDeletion)
                     {
                         node.Action?.Invoke(e);
@@ -200,7 +220,6 @@ namespace StellarFramework.Bindable
             {
                 _iteratingCount--;
                 _isNotifying = false;
-
                 if (_iteratingCount == 0)
                 {
                     Cleanup();
@@ -210,34 +229,26 @@ namespace StellarFramework.Bindable
 
         private ObserverNode AddNode(Action<DictEvent<K, V>> action)
         {
-            var node = ObserverNode.Allocate(action, this);
-
+            ObserverNode node = ObserverNode.Allocate(action, this);
             if (_head == null)
             {
                 _head = node;
                 _tail = node;
-                return node;
+            }
+            else
+            {
+                _tail.Next = node;
+                node.Previous = _tail;
+                _tail = node;
             }
 
-            _tail.Next = node;
-            node.Previous = _tail;
-            _tail = node;
             return node;
         }
 
         private void RemoveNode(ObserverNode node)
         {
-            if (node == null)
+            if (node == null || !ReferenceEquals(node.Owner, this))
             {
-                LogKit.LogError(
-                    $"[BindableDictionary] RemoveNode 失败: 节点为空, KeyType={typeof(K).Name}, ValueType={typeof(V).Name}");
-                return;
-            }
-
-            if (!ReferenceEquals(node.Owner, this))
-            {
-                LogKit.LogError(
-                    $"[BindableDictionary] RemoveNode 失败: 节点归属不匹配, KeyType={typeof(K).Name}, ValueType={typeof(V).Name}");
                 return;
             }
 
@@ -277,10 +288,10 @@ namespace StellarFramework.Bindable
 
         private void Cleanup()
         {
-            var node = _head;
+            ObserverNode node = _head;
             while (node != null)
             {
-                var next = node.Next;
+                ObserverNode next = node.Next;
                 if (node.MarkedForDeletion)
                 {
                     UnlinkAndRecycle(node);
@@ -302,7 +313,7 @@ namespace StellarFramework.Bindable
 
             public static ObserverNode Allocate(Action<DictEvent<K, V>> action, BindableDictionary<K, V> owner)
             {
-                var node = Pool.Count > 0 ? Pool.Pop() : new ObserverNode();
+                ObserverNode node = Pool.Count > 0 ? Pool.Pop() : new ObserverNode();
                 node.Action = action;
                 node.Owner = owner;
                 node.Previous = null;
@@ -331,15 +342,53 @@ namespace StellarFramework.Bindable
                 if (gameObject == null)
                 {
                     LogKit.LogError(
-                        $"[BindableDictionary] 生命周期绑定失败: GameObject 为空, KeyType={typeof(K).Name}, ValueType={typeof(V).Name}");
+                        $"[BindableDictionary] 生命周期绑定失败: gameObject 为空, KeyType={typeof(K).Name}, ValueType={typeof(V).Name}");
                     UnRegister();
                     return this;
                 }
 
-                if (!gameObject.TryGetComponent<EventUnregisterTrigger>(out var trigger))
+                if (!CustomUnRegister.TryAttachDestroyTrigger(gameObject, out EventUnregisterTrigger trigger))
                 {
-                    trigger = gameObject.AddComponent<EventUnregisterTrigger>();
-                    trigger.hideFlags = HideFlags.HideInInspector;
+                    LogKit.LogError(
+                        $"[BindableDictionary] 生命周期绑定失败: 无法挂载销毁触发器, TriggerObject={gameObject.name}, KeyType={typeof(K).Name}, ValueType={typeof(V).Name}");
+                    UnRegister();
+                    return this;
+                }
+
+                trigger.Add(this);
+                return this;
+            }
+
+            public IUnRegister UnRegisterWhenGameObjectDestroyed(MonoBehaviour mono)
+            {
+                if (mono == null)
+                {
+                    LogKit.LogError(
+                        $"[BindableDictionary] 生命周期绑定失败: mono 为空, KeyType={typeof(K).Name}, ValueType={typeof(V).Name}");
+                    UnRegister();
+                    return this;
+                }
+
+                return UnRegisterWhenGameObjectDestroyed(mono.gameObject);
+            }
+
+            public IUnRegister UnRegisterWhenDisabled(MonoBehaviour mono)
+            {
+                if (mono == null || mono.gameObject == null)
+                {
+                    LogKit.LogError(
+                        $"[BindableDictionary] 生命周期绑定失败: mono 或 gameObject 为空, KeyType={typeof(K).Name}, ValueType={typeof(V).Name}");
+                    UnRegister();
+                    return this;
+                }
+
+                if (!CustomUnRegister.TryAttachDisableTrigger(mono.gameObject,
+                        out EventUnregisterOnDisableTrigger trigger))
+                {
+                    LogKit.LogError(
+                        $"[BindableDictionary] 生命周期绑定失败: 无法挂载失活触发器, TriggerObject={mono.gameObject.name}, KeyType={typeof(K).Name}, ValueType={typeof(V).Name}");
+                    UnRegister();
+                    return this;
                 }
 
                 trigger.Add(this);

@@ -6,13 +6,12 @@
 ---
 
 ## 1. 为什么要用 UniTask？
-
 在 StellarFramework 中，我们全面推荐使用 `UniTask` 替代 Unity 原生的 `Coroutine` (协程)。
 
-*   **零 GC (Zero GC)**：原生协程的 `yield return new WaitForSeconds(...)` 会产生大量垃圾内存，而 UniTask 是基于结构体的，几乎没有内存分配。
-*   **线性逻辑**：告别回调地狱，使用 `async/await` 让异步代码像同步代码一样易读。
+*   **低 GC (Low GC) / 零分配设计**：原生协程的 `yield return new WaitForSeconds(...)` 会产生堆内存分配，而 UniTask 基于结构体实现，可大幅减少内存分配。
+*   **线性逻辑**：减少回调嵌套，使用 `async/await` 让异步代码结构更接近同步代码。
 *   **强类型返回值**：协程无法直接返回值，而 `UniTask<T>` 可以。
-*   **生命周期安全**：完美解决“GameObject 销毁后协程还在跑导致报错”的问题。
+*   **生命周期安全**：结合 CancellationToken，可有效解决“GameObject 销毁后协程还在跑导致报错”的问题。
 
 ---
 
@@ -20,7 +19,7 @@
 
 ### 2.1 定义方法的区别
 
-**❌ 传统协程 (Coroutine):**
+**传统协程 (Coroutine):**
 ```csharp
 // 定义
 IEnumerator MyCoroutine() {
@@ -30,7 +29,7 @@ IEnumerator MyCoroutine() {
 StartCoroutine(MyCoroutine());
 ```
 
-**✅ UniTask:**
+**UniTask:**
 ```csharp
 // 定义 (如果是入口方法，用 UniTaskVoid)
 async UniTaskVoid MyAsyncMethod() {
@@ -53,12 +52,10 @@ MyAsyncMethod().Forget();
 ---
 
 ## 3. 进阶：UniTask 与协程的协同工作
-
-在实际开发中，你可能需要使用旧的插件（基于协程）或渐进式重构。UniTask 提供了完美的互操作性。
+在实际开发中，可能需要使用旧的插件（基于协程）或进行渐进式重构。UniTask 提供了良好的互操作性。
 
 ### 3.1 在 UniTask 中等待协程
 如果有一个旧的协程方法必须调用，可以使用 `.ToUniTask()` 将其转换为可等待对象。
-
 ```csharp
 // 旧的协程
 IEnumerator OldSystemInit() {
@@ -76,8 +73,7 @@ async UniTask InitAll() {
 ```
 
 ### 3.2 在协程中等待 UniTask
-如果你的主流程还是协程，但想调用 StellarFramework 的异步 API。
-
+如果主流程还是协程，但想调用 StellarFramework 的异步 API。
 ```csharp
 // StellarFramework 的异步方法
 async UniTask<int> CalculateAsync() {
@@ -97,21 +93,19 @@ IEnumerator MyCoroutine() {
 ---
 
 ## 4. 与框架 Kit 的深度联动
-
-StellarFramework 的核心模块均已原生支持 UniTask。
+StellarFramework 的核心模块均已支持 UniTask。
 
 ### 4.1 与 ActionKit 联动 (动画序列)
-`ActionKit` 的链式编程可以无缝融入 `await` 流程。
-
+`ActionKit` 的链式编程可以融入 `await` 流程。
 ```csharp
 async UniTask PlayEntranceAnim()
 {
     // 1. 播放入场动画并等待其结束
-    await MonoKit.Sequence(gameObject)
+    await ActionKit.Sequence(gameObject)
         .FadeTo(canvasGroup, 1f, 0.5f)
         .ScaleTo(transform, Vector3.one, 0.5f, Ease.OutBack)
         .Await(); // 注意：使用 .Await() 而不是 .Start()
-
+        
     // 2. 动画播完后，才执行后续逻辑
     Debug.Log("动画播放完毕，开始加载数据...");
 }
@@ -119,7 +113,6 @@ async UniTask PlayEntranceAnim()
 
 ### 4.2 与 ResKit 联动 (资源加载)
 `IResLoader` 提供了 `LoadAsync<T>` 接口。
-
 ```csharp
 async UniTaskVoid LoadHero()
 {
@@ -130,7 +123,7 @@ async UniTaskVoid LoadHero()
         loader.LoadAsync<GameObject>("Hero"),
         loader.LoadAsync<GameObject>("Effect/Fire")
     );
-
+    
     Instantiate(prefab);
     Instantiate(effect);
     
@@ -140,8 +133,7 @@ async UniTaskVoid LoadHero()
 ```
 
 ### 4.3 与 UIKit 联动 (界面管理)
-`UIKit.OpenPanelAsync` 返回的是 `UniTask<T>`，这意味着你可以等待界面完全初始化并打开（包括播放完 `OnOpen` 里的入场动画）后，再继续逻辑。
-
+`UIKit.OpenPanelAsync` 返回的是 `UniTask<T>`，这意味着你可以等待界面完全初始化并打开后，再继续逻辑。
 ```csharp
 async void OnClickStartGame()
 {
@@ -152,7 +144,7 @@ async void OnClickStartGame()
     await UniTask.Delay(2000);
     
     // 关闭 Loading，打开主界面
-    loadingPanel.Close();
+    loadingPanel.CloseSelf();
     await UIKit.OpenPanelAsync<MainPanel>();
 }
 ```
@@ -162,7 +154,7 @@ async void OnClickStartGame()
 ## 5. 最佳实践与防坑指南
 
 ### 5.1 自动取消 (Cancellation)
-这是 UniTask 最强大的功能。当 GameObject 销毁时，自动停止异步逻辑，防止空引用报错。
+这是 UniTask 的核心功能之一。当 GameObject 销毁时，自动停止异步逻辑，防止空引用报错。
 
 **推荐写法：**
 ```csharp
@@ -173,36 +165,24 @@ var token = this.GetCancellationTokenOnDestroy();
 await UniTask.Delay(1000, cancellationToken: token);
 
 // 如果在 1秒内物体被销毁，await 会抛出 OperationCanceledException，
-// 后面的代码自动不再执行。
-transform.position = Vector3.zero; // 安全！不会报错
+// 后面的代码自动不再执行，避免报错。
+transform.position = Vector3.zero; 
 ```
 
 ### 5.2 按钮点击事件
 Unity 的 Button 事件不支持 `async`，请使用 `UniTaskVoid` 配合 lambda。
-
 ```csharp
 button.onClick.AddListener(() => OnClickAsync().Forget());
 
 async UniTaskVoid OnClickAsync()
 {
     button.interactable = false; // 防止连点
-    await NetworkApiKit.PostAsync(...);
+    await HttpKit.PostAsync(...);
     button.interactable = true;
 }
 ```
 
 ### 5.3 避免 `async void`
-除了 Unity 事件回调（如 Start, Update, ButtonClick），**严禁**使用 `async void`。
+除了 Unity 事件回调（如 Start, Update, ButtonClick），**尽量避免**使用 `async void`。
 *   **请使用**：`async UniTaskVoid` (无等待发后即忘) 或 `async UniTask` (可等待)。
-*   **原因**：`async void` 发生的异常无法被 try-catch 捕获，会导致程序崩溃且难以定位。
-### TODO:
-    
-StellarFramework 待补齐的功能
-*   P0（严重缺失）
-* ❌ Command 系统（参考 QFramework 实现）
-* ❌ UI 栈管理（自动隐藏/恢复）
-* ❌ AudioKit 分组（Music/SFX/Voice/UI）
-*   P1（重要缺失）
-* ⚠️ FSM 状态传参
-* ⚠️ ActionKit 暂停/恢复
-* ⚠️ UI 遮罩系统
+*   **原因**：`async void` 发生的异常无法被 try-catch 捕获，可能导致程序状态异常且难以定位。

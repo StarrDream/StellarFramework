@@ -1,6 +1,5 @@
-﻿using UnityEngine;
-using Cysharp.Threading.Tasks;
-using StellarFramework.UI;
+﻿using StellarFramework.UI;
+using UnityEngine;
 
 namespace StellarFramework.Demo
 {
@@ -10,31 +9,66 @@ namespace StellarFramework.Demo
     /// </summary>
     public class DemoEntry : MonoBehaviour
     {
+        private bool _isStarted;
+
         private async void Start()
         {
+            if (_isStarted)
+            {
+                LogKit.LogWarning($"[DemoEntry] 重复启动已忽略, TriggerObject={gameObject.name}");
+                return;
+            }
+
+            _isStarted = true;
             LogKit.Log("[DemoEntry] 开始启动业务流转...");
 
-            // 1. 初始化业务架构 (实例化 Model 与 Service)
-            DemoApp.Interface.Init();
+            if (DemoApp.Interface == null)
+            {
+                LogKit.LogError($"[DemoEntry] 启动失败: DemoApp.Interface 为空, TriggerObject={gameObject.name}");
+                return;
+            }
 
-            // 2. 异步初始化 UI 系统 (底层自动加载 UIRoot 并构建层级栈)
+            if (DemoApp.Interface.State == ArchitectureState.Uninitialized)
+            {
+                DemoApp.Interface.Init();
+            }
+            else if (DemoApp.Interface.State != ArchitectureState.Initialized)
+            {
+                LogKit.LogError(
+                    $"[DemoEntry] 启动失败: DemoApp 状态非法, TriggerObject={gameObject.name}, State={DemoApp.Interface.State}");
+                return;
+            }
+
             await UIKit.Instance.InitAsync();
 
-            // 3. 构造强类型参数并异步打开主界面
-            var initData = new MainPanelData
+            if (this == null || gameObject == null)
+            {
+                LogKit.LogWarning("[DemoEntry] 启动链路中断: 宿主已销毁");
+                return;
+            }
+
+            MainPanelData initData = new MainPanelData
             {
                 WelcomeMessage = "欢迎体验 StellarFramework MSV 全闭环流转！"
             };
 
             await UIKit.OpenPanelAsync<Panel_Main>(initData);
-
             LogKit.Log("[DemoEntry] 首屏加载完毕，控制权移交玩家。");
         }
 
         private void OnDestroy()
         {
-            // 规范：场景卸载或业务域结束时，必须销毁架构以释放内部缓存
-            DemoApp.Interface.Dispose();
+            if (!_isStarted)
+            {
+                return;
+            }
+
+            if (DemoApp.Interface != null && DemoApp.Interface.State == ArchitectureState.Initialized)
+            {
+                DemoApp.Interface.Dispose();
+            }
+
+            _isStarted = false;
         }
     }
 }

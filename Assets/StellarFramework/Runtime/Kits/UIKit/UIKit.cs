@@ -14,6 +14,8 @@ namespace StellarFramework.UI
 
         private IUILoadStrategy _loadStrategy;
         private bool _isInitialized;
+        private bool _isInitializing;
+        private bool _isDisposed;
 
         public Canvas RootCanvas { get; private set; }
         public CanvasScaler RootScaler { get; private set; }
@@ -35,16 +37,12 @@ namespace StellarFramework.UI
 
         #region 配置与初始化
 
-        /// <summary>
-        /// 我允许在初始化前注入自定义 UI 加载策略。
-        /// 初始化后切换策略会破坏已缓存面板与资源引用边界，所以这里直接阻断。
-        /// </summary>
         public void Configure(IUILoadStrategy loadStrategy)
         {
-            if (_isInitialized)
+            if (_isInitialized || _isInitializing)
             {
                 Debug.LogError(
-                    $"[UIKit] Configure 失败: UIKit 已初始化，当前策略={_loadStrategy?.GetType().Name ?? "null"}，新策略={loadStrategy?.GetType().Name ?? "null"}");
+                    $"[UIKit] Configure 失败: UIKit 已初始化或正在初始化, CurrentStrategy={_loadStrategy?.GetType().Name ?? "null"}, NewStrategy={loadStrategy?.GetType().Name ?? "null"}");
                 return;
             }
 
@@ -59,66 +57,108 @@ namespace StellarFramework.UI
 
         public void Init()
         {
+            if (_isDisposed)
+            {
+                Debug.LogError("[UIKit] Init 失败: UIKit 已销毁");
+                return;
+            }
+
             if (_isInitialized)
             {
                 return;
             }
 
+            if (_isInitializing)
+            {
+                Debug.LogError("[UIKit] Init 失败: 当前正在初始化中");
+                return;
+            }
+
+            _isInitializing = true;
             EnsureDefaultStrategy();
+
             if (_loadStrategy == null)
             {
                 Debug.LogError("[UIKit] Init 失败: 加载策略为空");
+                _isInitializing = false;
                 return;
             }
 
             GameObject rootPrefab = _loadStrategy.LoadUIRoot();
             if (rootPrefab == null)
             {
-                Debug.LogError($"[UIKit] Init 失败: UIRoot 加载为空，策略={_loadStrategy.GetType().Name}");
+                Debug.LogError($"[UIKit] Init 失败: UIRoot 加载为空, Strategy={_loadStrategy.GetType().Name}");
+                _isInitializing = false;
                 return;
             }
 
             if (!SetupUIRoot(rootPrefab))
             {
                 Debug.LogError(
-                    $"[UIKit] Init 失败: UIRoot 结构非法，策略={_loadStrategy.GetType().Name}，Prefab={rootPrefab.name}");
+                    $"[UIKit] Init 失败: UIRoot 结构非法, Strategy={_loadStrategy.GetType().Name}, Prefab={rootPrefab.name}");
+                _isInitializing = false;
                 return;
             }
 
             _isInitialized = true;
-            LogKit.Log($"[UIKit] 同步初始化完成，策略={_loadStrategy.GetType().Name}");
+            _isInitializing = false;
+            LogKit.Log($"[UIKit] 同步初始化完成, Strategy={_loadStrategy.GetType().Name}");
         }
 
         public async UniTask InitAsync()
         {
+            if (_isDisposed)
+            {
+                Debug.LogError("[UIKit] InitAsync 失败: UIKit 已销毁");
+                return;
+            }
+
             if (_isInitialized)
             {
                 return;
             }
 
+            if (_isInitializing)
+            {
+                return;
+            }
+
+            _isInitializing = true;
             EnsureDefaultStrategy();
+
             if (_loadStrategy == null)
             {
                 Debug.LogError("[UIKit] InitAsync 失败: 加载策略为空");
+                _isInitializing = false;
                 return;
             }
 
             GameObject rootPrefab = await _loadStrategy.LoadUIRootAsync();
+
+            if (_isDisposed || this == null)
+            {
+                _isInitializing = false;
+                return;
+            }
+
             if (rootPrefab == null)
             {
-                Debug.LogError($"[UIKit] InitAsync 失败: UIRoot 加载为空，策略={_loadStrategy.GetType().Name}");
+                Debug.LogError($"[UIKit] InitAsync 失败: UIRoot 加载为空, Strategy={_loadStrategy.GetType().Name}");
+                _isInitializing = false;
                 return;
             }
 
             if (!SetupUIRoot(rootPrefab))
             {
                 Debug.LogError(
-                    $"[UIKit] InitAsync 失败: UIRoot 结构非法，策略={_loadStrategy.GetType().Name}，Prefab={rootPrefab.name}");
+                    $"[UIKit] InitAsync 失败: UIRoot 结构非法, Strategy={_loadStrategy.GetType().Name}, Prefab={rootPrefab.name}");
+                _isInitializing = false;
                 return;
             }
 
             _isInitialized = true;
-            LogKit.Log($"[UIKit] 异步初始化完成，策略={_loadStrategy.GetType().Name}");
+            _isInitializing = false;
+            LogKit.Log($"[UIKit] 异步初始化完成, Strategy={_loadStrategy.GetType().Name}");
         }
 
         private void EnsureDefaultStrategy()
@@ -142,7 +182,7 @@ namespace StellarFramework.UI
             if (RootCanvas != null)
             {
                 Debug.LogError(
-                    $"[UIKit] SetupUIRoot 失败: 已存在 UIRoot，当前 Canvas 物体名={RootCanvas.gameObject.name}，新 Prefab={rootPrefab.name}");
+                    $"[UIKit] SetupUIRoot 失败: 已存在 UIRoot, CurrentCanvas={RootCanvas.gameObject.name}, NewPrefab={rootPrefab.name}");
                 return false;
             }
 
@@ -156,12 +196,13 @@ namespace StellarFramework.UI
             if (rootCanvas == null)
             {
                 Debug.LogError(
-                    $"[UIKit] SetupUIRoot 失败: UIRoot 缺少 Canvas，物体名={rootGo.name}，Prefab={rootPrefab.name}");
+                    $"[UIKit] SetupUIRoot 失败: UIRoot 缺少 Canvas, GameObject={rootGo.name}, Prefab={rootPrefab.name}");
                 Destroy(rootGo);
                 return false;
             }
 
-            var newLayers = new Dictionary<UIPanelBase.PanelLayer, Transform>();
+            Dictionary<UIPanelBase.PanelLayer, Transform> newLayers =
+                new Dictionary<UIPanelBase.PanelLayer, Transform>();
             foreach (UIPanelBase.PanelLayer layer in Enum.GetValues(typeof(UIPanelBase.PanelLayer)))
             {
                 string layerName = layer.ToString();
@@ -169,7 +210,7 @@ namespace StellarFramework.UI
                 if (layerTrans == null)
                 {
                     Debug.LogError(
-                        $"[UIKit] SetupUIRoot 失败: UIRoot 缺少层级节点，物体名={rootGo.name}，缺失层={layerName}，Prefab={rootPrefab.name}");
+                        $"[UIKit] SetupUIRoot 失败: 缺少层级节点, GameObject={rootGo.name}, MissingLayer={layerName}, Prefab={rootPrefab.name}");
                     Destroy(rootGo);
                     return false;
                 }
@@ -185,7 +226,7 @@ namespace StellarFramework.UI
             UICamera = uiCamera;
 
             _layers.Clear();
-            foreach (var pair in newLayers)
+            foreach (KeyValuePair<UIPanelBase.PanelLayer, Transform> pair in newLayers)
             {
                 _layers[pair.Key] = pair.Value;
             }
@@ -198,7 +239,7 @@ namespace StellarFramework.UI
             if (RootScaler == null)
             {
                 Debug.LogError(
-                    $"[UIKit] SetResolution 失败: RootScaler 为空，Resolution={resolution}，Match={matchWidthOrHeight}");
+                    $"[UIKit] SetResolution 失败: RootScaler 为空, Resolution={resolution}, Match={matchWidthOrHeight}");
                 return;
             }
 
@@ -210,7 +251,7 @@ namespace StellarFramework.UI
 
         #endregion
 
-        #region 静态公开 API - 打开
+        #region 静态公开 API
 
         public static TPanel OpenPanel<TPanel>(UIPanelDataBase data = null) where TPanel : UIPanelBase
         {
@@ -223,10 +264,6 @@ namespace StellarFramework.UI
             return await Instance.OpenPanelInternalAsync<TPanel>(data);
         }
 
-        #endregion
-
-        #region 静态公开 API - 预加载
-
         public static TPanel PreloadPanel<TPanel>() where TPanel : UIPanelBase
         {
             return Instance.GetOrLoadPanelInternalSync<TPanel>();
@@ -237,19 +274,15 @@ namespace StellarFramework.UI
             return await Instance.GetOrLoadPanelInternalAsync<TPanel>();
         }
 
-        #endregion
-
-        #region 静态公开 API - 获取
-
         public static TPanel GetPanel<TPanel>() where TPanel : UIPanelBase
         {
             if (Instance == null)
             {
-                Debug.LogError($"[UIKit] GetPanel 失败: UIKit 实例为空，Panel={typeof(TPanel).Name}");
+                Debug.LogError($"[UIKit] GetPanel 失败: UIKit 实例为空, Panel={typeof(TPanel).Name}");
                 return null;
             }
 
-            if (Instance._panelCache.TryGetValue(typeof(TPanel), out var panel))
+            if (Instance._panelCache.TryGetValue(typeof(TPanel), out UIPanelBase panel))
             {
                 return panel as TPanel;
             }
@@ -257,40 +290,22 @@ namespace StellarFramework.UI
             return null;
         }
 
-        public static TPanel GetOrLoadPanel<TPanel>() where TPanel : UIPanelBase
-        {
-            return Instance.GetOrLoadPanelInternalSync<TPanel>();
-        }
-
-        public static async UniTask<TPanel> GetOrLoadPanelAsync<TPanel>() where TPanel : UIPanelBase
-        {
-            return await Instance.GetOrLoadPanelInternalAsync<TPanel>();
-        }
-
-        #endregion
-
-        #region 静态公开 API - 刷新
-
         public static void RefreshPanel<TPanel>(UIPanelDataBase data) where TPanel : UIPanelBase
         {
             if (Instance == null)
             {
-                Debug.LogError($"[UIKit] RefreshPanel 失败: UIKit 实例为空，Panel={typeof(TPanel).Name}");
+                Debug.LogError($"[UIKit] RefreshPanel 失败: UIKit 实例为空, Panel={typeof(TPanel).Name}");
                 return;
             }
 
             Instance.RefreshPanelInternal(typeof(TPanel), data);
         }
 
-        #endregion
-
-        #region 静态公开 API - 关闭
-
         public static void ClosePanel<TPanel>() where TPanel : UIPanelBase
         {
             if (Instance == null)
             {
-                Debug.LogError($"[UIKit] ClosePanel 失败: UIKit 实例为空，Panel={typeof(TPanel).Name}");
+                Debug.LogError($"[UIKit] ClosePanel 失败: UIKit 实例为空, Panel={typeof(TPanel).Name}");
                 return;
             }
 
@@ -301,7 +316,7 @@ namespace StellarFramework.UI
         {
             if (Instance == null)
             {
-                Debug.LogError($"[UIKit] ClosePanel(Type) 失败: UIKit 实例为空，PanelType={panelType?.Name ?? "null"}");
+                Debug.LogError($"[UIKit] ClosePanel(Type) 失败: UIKit 实例为空, PanelType={panelType?.Name ?? "null"}");
                 return;
             }
 
@@ -316,7 +331,7 @@ namespace StellarFramework.UI
                 return;
             }
 
-            var keys = new List<Type>(Instance._panelCache.Keys);
+            List<Type> keys = new List<Type>(Instance._panelCache.Keys);
             for (int i = 0; i < keys.Count; i++)
             {
                 Instance.ClosePanelInternal(keys[i]);
@@ -331,11 +346,11 @@ namespace StellarFramework.UI
                 return;
             }
 
-            var keys = new List<Type>(Instance._panelCache.Keys);
+            List<Type> keys = new List<Type>(Instance._panelCache.Keys);
             for (int i = 0; i < keys.Count; i++)
             {
                 Type panelType = keys[i];
-                if (!Instance._panelCache.TryGetValue(panelType, out var panel) || panel == null)
+                if (!Instance._panelCache.TryGetValue(panelType, out UIPanelBase panel) || panel == null)
                 {
                     continue;
                 }
@@ -377,7 +392,7 @@ namespace StellarFramework.UI
                 return null;
             }
 
-            if (_panelCache.TryGetValue(typeof(TPanel), out var cachedPanel))
+            if (_panelCache.TryGetValue(typeof(TPanel), out UIPanelBase cachedPanel))
             {
                 return cachedPanel as TPanel;
             }
@@ -393,18 +408,19 @@ namespace StellarFramework.UI
             }
 
             Type panelType = typeof(TPanel);
-            if (_panelCache.TryGetValue(panelType, out var cachedPanel))
+
+            if (_panelCache.TryGetValue(panelType, out UIPanelBase cachedPanel))
             {
                 return cachedPanel as TPanel;
             }
 
-            if (_panelLoadingTasks.TryGetValue(panelType, out var loadingTask))
+            if (_panelLoadingTasks.TryGetValue(panelType, out UniTask<UIPanelBase> loadingTask))
             {
                 UIPanelBase existingLoadingPanel = await loadingTask;
                 return existingLoadingPanel as TPanel;
             }
 
-            UniTask<UIPanelBase> newTask = CreatePanelAsyncInternal<TPanel>().Preserve();
+            UniTask<UIPanelBase> newTask = CreatePanelAsyncInternal<TPanel>(_destroyCts.Token).Preserve();
             _panelLoadingTasks[panelType] = newTask;
 
             UIPanelBase createdPanel = null;
@@ -415,6 +431,11 @@ namespace StellarFramework.UI
             finally
             {
                 _panelLoadingTasks.Remove(panelType);
+            }
+
+            if (_isDisposed || this == null)
+            {
+                return null;
             }
 
             return createdPanel as TPanel;
@@ -430,7 +451,7 @@ namespace StellarFramework.UI
             if (panel == null)
             {
                 Debug.LogError(
-                    $"[UIKit] OpenPanel 失败: 面板创建失败，Panel={typeof(TPanel).Name}，DataType={data?.GetType().Name ?? "null"}");
+                    $"[UIKit] OpenPanel 失败: 面板创建失败, Panel={typeof(TPanel).Name}, DataType={data?.GetType().Name ?? "null"}");
                 return null;
             }
 
@@ -441,10 +462,15 @@ namespace StellarFramework.UI
         private async UniTask<TPanel> OpenPanelInternalAsync<TPanel>(UIPanelDataBase data) where TPanel : UIPanelBase
         {
             TPanel panel = await GetOrLoadPanelInternalAsync<TPanel>();
+            if (_isDisposed || this == null)
+            {
+                return null;
+            }
+
             if (panel == null)
             {
                 Debug.LogError(
-                    $"[UIKit] OpenPanelAsync 失败: 面板创建失败，Panel={typeof(TPanel).Name}，DataType={data?.GetType().Name ?? "null"}");
+                    $"[UIKit] OpenPanelAsync 失败: 面板创建失败, Panel={typeof(TPanel).Name}, DataType={data?.GetType().Name ?? "null"}");
                 return null;
             }
 
@@ -456,7 +482,7 @@ namespace StellarFramework.UI
         {
             if (panel == null)
             {
-                Debug.LogError($"[UIKit] OpenExistingPanel 失败: panel 为空，DataType={data?.GetType().Name ?? "null"}");
+                Debug.LogError($"[UIKit] OpenExistingPanel 失败: panel 为空, DataType={data?.GetType().Name ?? "null"}");
                 return;
             }
 
@@ -481,14 +507,14 @@ namespace StellarFramework.UI
             if (panelType == null)
             {
                 Debug.LogError(
-                    $"[UIKit] RefreshPanelInternal 失败: panelType 为空，DataType={data?.GetType().Name ?? "null"}");
+                    $"[UIKit] RefreshPanelInternal 失败: panelType 为空, DataType={data?.GetType().Name ?? "null"}");
                 return;
             }
 
-            if (!_panelCache.TryGetValue(panelType, out var panel) || panel == null)
+            if (!_panelCache.TryGetValue(panelType, out UIPanelBase panel) || panel == null)
             {
                 Debug.LogError(
-                    $"[UIKit] RefreshPanelInternal 失败: 面板未缓存，Panel={panelType.Name}，DataType={data?.GetType().Name ?? "null"}");
+                    $"[UIKit] RefreshPanelInternal 失败: 面板未缓存, Panel={panelType.Name}, DataType={data?.GetType().Name ?? "null"}");
                 return;
             }
 
@@ -507,7 +533,7 @@ namespace StellarFramework.UI
                 return;
             }
 
-            if (!_panelCache.TryGetValue(panelType, out var panel) || panel == null)
+            if (!_panelCache.TryGetValue(panelType, out UIPanelBase panel) || panel == null)
             {
                 return;
             }
@@ -548,23 +574,29 @@ namespace StellarFramework.UI
             if (prefab == null)
             {
                 Debug.LogError(
-                    $"[UIKit] CreatePanelSync 失败: Prefab 加载为空，Panel={panelName}，策略={_loadStrategy?.GetType().Name ?? "null"}");
+                    $"[UIKit] CreatePanelSync 失败: Prefab 加载为空, Panel={panelName}, Strategy={_loadStrategy?.GetType().Name ?? "null"}");
                 return null;
             }
 
             return CreatePanelFromPrefab<TPanel>(prefab, panelName);
         }
 
-        private async UniTask<UIPanelBase> CreatePanelAsyncInternal<TPanel>() where TPanel : UIPanelBase
+        private async UniTask<UIPanelBase> CreatePanelAsyncInternal<TPanel>(CancellationToken token)
+            where TPanel : UIPanelBase
         {
             Type panelType = typeof(TPanel);
             string panelName = panelType.Name;
 
             GameObject prefab = await _loadStrategy.LoadPanelPrefabAsync(panelName);
+            if (token.IsCancellationRequested || _isDisposed || this == null)
+            {
+                return null;
+            }
+
             if (prefab == null)
             {
                 Debug.LogError(
-                    $"[UIKit] CreatePanelAsync 失败: Prefab 加载为空，Panel={panelName}，策略={_loadStrategy?.GetType().Name ?? "null"}");
+                    $"[UIKit] CreatePanelAsync 失败: Prefab 加载为空, Panel={panelName}, Strategy={_loadStrategy?.GetType().Name ?? "null"}");
                 return null;
             }
 
@@ -573,9 +605,14 @@ namespace StellarFramework.UI
 
         private TPanel CreatePanelFromPrefab<TPanel>(GameObject prefab, string panelName) where TPanel : UIPanelBase
         {
+            if (_isDisposed)
+            {
+                return null;
+            }
+
             if (prefab == null)
             {
-                Debug.LogError($"[UIKit] CreatePanelFromPrefab 失败: prefab 为空，Panel={panelName}");
+                Debug.LogError($"[UIKit] CreatePanelFromPrefab 失败: prefab 为空, Panel={panelName}");
                 return null;
             }
 
@@ -585,14 +622,14 @@ namespace StellarFramework.UI
             TPanel panel = go.GetComponent<TPanel>();
             if (panel == null)
             {
-                Debug.LogError($"[UIKit] CreatePanelFromPrefab 失败: 预制体缺少目标组件，Panel={panelName}，物体名={go.name}");
+                Debug.LogError($"[UIKit] CreatePanelFromPrefab 失败: 预制体缺少目标组件, Panel={panelName}, GameObject={go.name}");
                 Destroy(go);
                 return null;
             }
 
             if (!_layers.TryGetValue(panel.Layer, out Transform layerTrans) || layerTrans == null)
             {
-                Debug.LogError($"[UIKit] CreatePanelFromPrefab 失败: 层级不存在，Panel={panelName}，Layer={panel.Layer}");
+                Debug.LogError($"[UIKit] CreatePanelFromPrefab 失败: 层级不存在, Panel={panelName}, Layer={panel.Layer}");
                 Destroy(go);
                 return null;
             }
@@ -602,21 +639,21 @@ namespace StellarFramework.UI
             RectTransform rt = panel.RectTransform;
             if (rt == null)
             {
-                Debug.LogError($"[UIKit] CreatePanelFromPrefab 失败: RectTransform 获取为空，Panel={panelName}，物体名={go.name}");
+                Debug.LogError(
+                    $"[UIKit] CreatePanelFromPrefab 失败: RectTransform 获取为空, Panel={panelName}, GameObject={go.name}");
                 Destroy(go);
                 return null;
             }
 
             rt.FillParent();
             rt.localPosition = Vector3.zero;
-
             go.SetActive(false);
+
             panel.OnInit();
 
             Type panelType = typeof(TPanel);
             _panelCache[panelType] = panel;
             _panelNames[panelType] = panelName;
-
             return panel;
         }
 
@@ -626,22 +663,28 @@ namespace StellarFramework.UI
 
         private bool EnsureReadyForSync(Type panelType, string apiName)
         {
+            if (_isDisposed)
+            {
+                Debug.LogError($"[UIKit] {apiName} 失败: UIKit 已销毁, Panel={panelType?.Name ?? "null"}");
+                return false;
+            }
+
             if (!_isInitialized)
             {
-                Debug.LogError($"[UIKit] {apiName} 失败: UIKit 未初始化，Panel={panelType?.Name ?? "null"}");
+                Debug.LogError($"[UIKit] {apiName} 失败: UIKit 未初始化, Panel={panelType?.Name ?? "null"}");
                 return false;
             }
 
             if (_loadStrategy == null)
             {
-                Debug.LogError($"[UIKit] {apiName} 失败: 加载策略为空，Panel={panelType?.Name ?? "null"}");
+                Debug.LogError($"[UIKit] {apiName} 失败: 加载策略为空, Panel={panelType?.Name ?? "null"}");
                 return false;
             }
 
             if (!_loadStrategy.SupportSyncLoad)
             {
                 Debug.LogError(
-                    $"[UIKit] {apiName} 失败: 当前加载策略不支持同步加载，Panel={panelType?.Name ?? "null"}，策略={_loadStrategy.GetType().Name}");
+                    $"[UIKit] {apiName} 失败: 当前加载策略不支持同步加载, Panel={panelType?.Name ?? "null"}, Strategy={_loadStrategy.GetType().Name}");
                 return false;
             }
 
@@ -650,15 +693,21 @@ namespace StellarFramework.UI
 
         private bool EnsureReadyForAsync(Type panelType, string apiName)
         {
+            if (_isDisposed)
+            {
+                Debug.LogError($"[UIKit] {apiName} 失败: UIKit 已销毁, Panel={panelType?.Name ?? "null"}");
+                return false;
+            }
+
             if (!_isInitialized)
             {
-                Debug.LogError($"[UIKit] {apiName} 失败: UIKit 未初始化，Panel={panelType?.Name ?? "null"}");
+                Debug.LogError($"[UIKit] {apiName} 失败: UIKit 未初始化, Panel={panelType?.Name ?? "null"}");
                 return false;
             }
 
             if (_loadStrategy == null)
             {
-                Debug.LogError($"[UIKit] {apiName} 失败: 加载策略为空，Panel={panelType?.Name ?? "null"}");
+                Debug.LogError($"[UIKit] {apiName} 失败: 加载策略为空, Panel={panelType?.Name ?? "null"}");
                 return false;
             }
 
@@ -669,6 +718,8 @@ namespace StellarFramework.UI
 
         protected override void OnDestroy()
         {
+            _isDisposed = true;
+
             if (_destroyCts != null)
             {
                 _destroyCts.Cancel();

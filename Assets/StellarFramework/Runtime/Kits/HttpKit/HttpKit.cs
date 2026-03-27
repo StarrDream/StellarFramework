@@ -37,8 +37,8 @@ namespace StellarFramework
             }
             catch (Exception ex)
             {
-                // 仅在不可控的第三方反序列化时使用 try-catch，并输出精准日志
-                LogKit.LogError($"[HttpKit] JSON反序列化失败 | 类型: {typeof(T).Name} | 异常: {ex.Message}\n内容: {responseText}");
+                LogKit.LogError(
+                    $"[HttpKit] JSON反序列化失败 | Type={typeof(T).Name} | Exception={ex.Message}\nResponse={responseText}");
                 return default;
             }
         }
@@ -46,6 +46,7 @@ namespace StellarFramework
         public bool TryDeserialize<T>(out T result)
         {
             result = default;
+
             if (!isSuccess || string.IsNullOrEmpty(responseText))
             {
                 return false;
@@ -56,8 +57,10 @@ namespace StellarFramework
                 result = JsonConvert.DeserializeObject<T>(responseText);
                 return result != null;
             }
-            catch
+            catch (Exception ex)
             {
+                LogKit.LogError(
+                    $"[HttpKit] TryDeserialize 失败 | Type={typeof(T).Name} | Exception={ex.Message}\nResponse={responseText}");
                 return false;
             }
         }
@@ -81,7 +84,7 @@ namespace StellarFramework
     {
         private static HttpKit _instance;
 
-        // Key: 复合请求标识 (Method::URL::BodyHash)
+        // Key: Method::URL::BodyHash
         private readonly Dictionary<string, CancellationTokenSource> _activeCTS =
             new Dictionary<string, CancellationTokenSource>();
 
@@ -94,7 +97,7 @@ namespace StellarFramework
             {
                 if (_instance == null)
                 {
-                    var go = new GameObject("[HttpKit]");
+                    GameObject go = new GameObject("[HttpKit]");
                     _instance = go.AddComponent<HttpKit>();
                     DontDestroyOnLoad(go);
                 }
@@ -109,8 +112,10 @@ namespace StellarFramework
             {
                 _instance = this;
                 DontDestroyOnLoad(gameObject);
+                return;
             }
-            else if (_instance != this)
+
+            if (_instance != this)
             {
                 Destroy(gameObject);
             }
@@ -129,7 +134,10 @@ namespace StellarFramework
             Instance._tokenType = tokenType;
         }
 
-        public static string GetAuthToken() => Instance._authToken;
+        public static string GetAuthToken()
+        {
+            return Instance._authToken;
+        }
 
         public static void ClearAuthToken()
         {
@@ -137,7 +145,10 @@ namespace StellarFramework
             Instance._tokenType = "Bearer";
         }
 
-        public static bool HasAuthToken() => !string.IsNullOrEmpty(Instance._authToken);
+        public static bool HasAuthToken()
+        {
+            return !string.IsNullOrEmpty(Instance._authToken);
+        }
 
         #endregion
 
@@ -148,7 +159,7 @@ namespace StellarFramework
         {
             if (string.IsNullOrEmpty(url) || string.IsNullOrEmpty(savePath))
             {
-                LogKit.LogError($"[HttpKit] 下载参数非法 | URL: {url} | SavePath: {savePath}");
+                LogKit.LogError($"[HttpKit] 下载参数非法 | URL={url} | SavePath={savePath}");
                 return false;
             }
 
@@ -161,39 +172,37 @@ namespace StellarFramework
                 }
                 catch (Exception ex)
                 {
-                    LogKit.LogError($"[HttpKit] 创建下载目录失败 | 路径: {dir} | 异常: {ex.Message}");
+                    LogKit.LogError($"[HttpKit] 创建下载目录失败 | Dir={dir} | Exception={ex.Message}");
                     return false;
                 }
             }
 
-            using (var request = UnityWebRequest.Get(url))
+            using UnityWebRequest request = UnityWebRequest.Get(url);
+            request.downloadHandler = new DownloadHandlerFile(savePath);
+            request.timeout = timeout;
+
+            IProgress<float> progress = onProgress != null ? Progress.Create<float>(onProgress) : null;
+
+            try
             {
-                request.downloadHandler = new DownloadHandlerFile(savePath);
-                request.timeout = timeout;
-                var progress = onProgress != null ? Progress.Create<float>(onProgress) : null;
-
-                try
+                await request.SendWebRequest().ToUniTask(progress: progress);
+                if (request.result != UnityWebRequest.Result.Success)
                 {
-                    await request.SendWebRequest().ToUniTask(progress: progress);
-
-                    if (request.result != UnityWebRequest.Result.Success)
-                    {
-                        LogKit.LogError($"[HttpKit] 文件下载失败 | URL: {url} | 错误: {request.error}");
-                        return false;
-                    }
-
-                    return true;
-                }
-                catch (OperationCanceledException)
-                {
-                    LogKit.LogWarning($"[HttpKit] 文件下载被取消 | URL: {url}");
+                    LogKit.LogError($"[HttpKit] 文件下载失败 | URL={url} | Error={request.error}");
                     return false;
                 }
-                catch (Exception ex)
-                {
-                    LogKit.LogError($"[HttpKit] 文件下载异常 | URL: {url} | 异常: {ex.Message}");
-                    return false;
-                }
+
+                return true;
+            }
+            catch (OperationCanceledException)
+            {
+                LogKit.LogWarning($"[HttpKit] 文件下载被取消 | URL={url}");
+                return false;
+            }
+            catch (Exception ex)
+            {
+                LogKit.LogError($"[HttpKit] 文件下载异常 | URL={url} | Exception={ex.Message}");
+                return false;
             }
         }
 
@@ -206,20 +215,38 @@ namespace StellarFramework
         {
             if (string.IsNullOrEmpty(url))
             {
-                LogKit.LogError($"[HttpKit] 请求失败: URL不能为空 | Method: {method}");
-                return new HttpResponse { isSuccess = false, error = "URL is null or empty" };
+                LogKit.LogError($"[HttpKit] 请求失败: URL 不能为空 | Method={method}");
+                return new HttpResponse
+                {
+                    isSuccess = false,
+                    error = "URL is null or empty"
+                };
+            }
+
+            if (config == null)
+            {
+                LogKit.LogError($"[HttpKit] 请求失败: config 为空 | Method={method} | URL={url}");
+                return new HttpResponse
+                {
+                    isSuccess = false,
+                    error = "RequestConfig is null"
+                };
             }
 
             string requestKey = GenerateRequestKey(method, url, body);
 
             if (config.preventDuplicate && _activeCTS.ContainsKey(requestKey))
             {
-                LogKit.LogWarning($"[HttpKit] 拦截重复请求 | Key: {requestKey}");
+                LogKit.LogWarning($"[HttpKit] 拦截重复请求 | Key={requestKey} | Method={method} | URL={url}");
                 return new HttpResponse
-                    { isSuccess = false, error = "Request is pending (Duplicate)", responseCode = 0 };
+                {
+                    isSuccess = false,
+                    error = "Request is pending (Duplicate)",
+                    responseCode = 0
+                };
             }
 
-            var cts = new CancellationTokenSource();
+            CancellationTokenSource cts = new CancellationTokenSource();
             _activeCTS[requestKey] = cts;
 
             HttpResponse response = new HttpResponse();
@@ -227,39 +254,41 @@ namespace StellarFramework
 
             try
             {
-                // 将实例化移入 try 块，确保发生异常时 finally 能够正确清理 cts
                 request = CreateWebRequest(method, url, body, config);
-                var progress = config.onProgress != null ? Progress.Create<float>(config.onProgress) : null;
+
+                IProgress<float> progress = config.onProgress != null
+                    ? Progress.Create<float>(config.onProgress)
+                    : null;
 
                 await request.SendWebRequest().ToUniTask(progress: progress, cancellationToken: cts.Token);
-
                 response = ProcessResponse(request);
+
                 if (!response.isSuccess)
                 {
                     LogKit.LogWarning(
-                        $"[HttpKit] 请求失败 | URL: {url} | Code: {response.responseCode} | Error: {response.error}");
+                        $"[HttpKit] 请求失败 | Method={method} | URL={url} | Code={response.responseCode} | Error={response.error}");
                 }
             }
             catch (OperationCanceledException)
             {
-                LogKit.Log($"[HttpKit] 请求已取消 | URL: {url}");
                 response.isSuccess = false;
                 response.error = "Request Cancelled";
+                LogKit.Log($"[HttpKit] 请求已取消 | Method={method} | URL={url}");
             }
             catch (UnityWebRequestException uwrEx)
             {
                 response = ProcessResponse(uwrEx.UnityWebRequest);
-                LogKit.LogError($"[HttpKit] 网络异常 | URL: {url} | 错误: {uwrEx.Message}");
+                LogKit.LogError($"[HttpKit] 网络异常 | Method={method} | URL={url} | Exception={uwrEx.Message}");
             }
             catch (Exception ex)
             {
                 response.isSuccess = false;
                 response.error = ex.Message;
-                LogKit.LogError($"[HttpKit] 未知异常 | URL: {url} | 异常: {ex.Message}");
+                LogKit.LogError($"[HttpKit] 未知异常 | Method={method} | URL={url} | Exception={ex.Message}");
             }
             finally
             {
-                if (_activeCTS.ContainsKey(requestKey))
+                if (_activeCTS.TryGetValue(requestKey, out CancellationTokenSource current) && current == cts)
                 {
                     _activeCTS.Remove(requestKey);
                 }
@@ -296,7 +325,7 @@ namespace StellarFramework
 
             if (config.headers != null)
             {
-                foreach (var header in config.headers)
+                foreach (KeyValuePair<string, string> header in config.headers)
                 {
                     request.SetRequestHeader(header.Key, header.Value);
                 }
@@ -310,10 +339,14 @@ namespace StellarFramework
         {
             if (request == null)
             {
-                return new HttpResponse { isSuccess = false, error = "Request object is null" };
+                return new HttpResponse
+                {
+                    isSuccess = false,
+                    error = "Request object is null"
+                };
             }
 
-            var response = new HttpResponse
+            HttpResponse response = new HttpResponse
             {
                 responseCode = request.responseCode,
                 responseText = request.downloadHandler?.text ?? string.Empty
@@ -333,10 +366,10 @@ namespace StellarFramework
                 response.isSuccess = true;
             }
 
-            var headers = request.GetResponseHeaders();
-            if (headers != null)
+            Dictionary<string, string> responseHeaders = request.GetResponseHeaders();
+            if (responseHeaders != null)
             {
-                foreach (var kvp in headers)
+                foreach (KeyValuePair<string, string> kvp in responseHeaders)
                 {
                     response.headers[kvp.Key] = kvp.Value;
                 }
@@ -358,16 +391,16 @@ namespace StellarFramework
         public void CancelRequest(string url, string method = "GET", string body = null)
         {
             string key = GenerateRequestKey(method, url, body);
-            if (_activeCTS.TryGetValue(key, out var cts))
+            if (_activeCTS.TryGetValue(key, out CancellationTokenSource cts))
             {
                 cts.Cancel();
-                LogKit.Log($"[HttpKit] 触发取消 | URL: {url}");
+                LogKit.Log($"[HttpKit] 触发取消 | Method={method} | URL={url}");
             }
         }
 
         public void CancelAllRequests()
         {
-            foreach (var cts in _activeCTS.Values)
+            foreach (CancellationTokenSource cts in _activeCTS.Values)
             {
                 cts.Cancel();
             }
@@ -382,23 +415,37 @@ namespace StellarFramework
         public static async UniTask<HttpResponse> GetAsync(string url, Dictionary<string, string> headers = null,
             int timeout = 30)
         {
-            var config = new RequestConfig { headers = headers, timeout = timeout };
+            RequestConfig config = new RequestConfig
+            {
+                headers = headers,
+                timeout = timeout
+            };
+
             return await Instance.SendRequestAsync("GET", url, null, config);
         }
 
         public static async UniTask<(T data, HttpResponse response)> GetJsonAsync<T>(string url,
             Dictionary<string, string> headers = null, int timeout = 30)
         {
-            var response = await GetAsync(url, headers, timeout);
+            HttpResponse response = await GetAsync(url, headers, timeout);
             T data = default;
-            if (response.isSuccess) response.TryDeserialize(out data);
+            if (response.isSuccess)
+            {
+                response.TryDeserialize(out data);
+            }
+
             return (data, response);
         }
 
         public static async UniTask<HttpResponse> PostAsync(string url, string jsonBody,
             Dictionary<string, string> headers = null, int timeout = 30)
         {
-            var config = new RequestConfig { headers = headers, timeout = timeout };
+            RequestConfig config = new RequestConfig
+            {
+                headers = headers,
+                timeout = timeout
+            };
+
             return await Instance.SendRequestAsync("POST", url, jsonBody, config);
         }
 
@@ -410,25 +457,42 @@ namespace StellarFramework
         }
 
         public static async UniTask<(TResponse data, HttpResponse response)> PostJsonAsync<TRequest, TResponse>(
-            string url, TRequest requestData, Dictionary<string, string> headers = null, int timeout = 30)
+            string url,
+            TRequest requestData,
+            Dictionary<string, string> headers = null,
+            int timeout = 30)
         {
-            var response = await PostAsync(url, requestData, headers, timeout);
+            HttpResponse response = await PostAsync(url, requestData, headers, timeout);
             TResponse data = default;
-            if (response.isSuccess) response.TryDeserialize(out data);
+            if (response.isSuccess)
+            {
+                response.TryDeserialize(out data);
+            }
+
             return (data, response);
         }
 
         public static async UniTask<HttpResponse> PutAsync(string url, string jsonBody,
             Dictionary<string, string> headers = null, int timeout = 30)
         {
-            var config = new RequestConfig { headers = headers, timeout = timeout };
+            RequestConfig config = new RequestConfig
+            {
+                headers = headers,
+                timeout = timeout
+            };
+
             return await Instance.SendRequestAsync("PUT", url, jsonBody, config);
         }
 
         public static async UniTask<HttpResponse> DeleteAsync(string url, Dictionary<string, string> headers = null,
             int timeout = 30)
         {
-            var config = new RequestConfig { headers = headers, timeout = timeout };
+            RequestConfig config = new RequestConfig
+            {
+                headers = headers,
+                timeout = timeout
+            };
+
             return await Instance.SendRequestAsync("DELETE", url, null, config);
         }
 
@@ -456,7 +520,8 @@ namespace StellarFramework
             Action<TResponse, HttpResponse> onComplete)
         {
             PostJsonAsync<TRequest, TResponse>(url, requestData)
-                .ContinueWith(result => onComplete?.Invoke(result.data, result.response)).Forget();
+                .ContinueWith(result => onComplete?.Invoke(result.data, result.response))
+                .Forget();
         }
 
         #endregion

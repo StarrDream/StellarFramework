@@ -1,10 +1,11 @@
 ﻿using UnityEngine;
-using StellarFramework;
 
 namespace StellarFramework.Examples
 {
     // 1. 全局单例 (Global)
-    // 特性：任意地方调用 Instance 都会自动创建，跨场景不销毁
+    // 特性：
+    // 1. 任意地方调用 Instance 都会自动创建
+    // 2. 跨场景不销毁
     [Singleton(lifeCycle: SingletonLifeCycle.Global)]
     public class GlobalNetworkManager : MonoSingleton<GlobalNetworkManager>
     {
@@ -16,12 +17,14 @@ namespace StellarFramework.Examples
 
         public void Connect()
         {
-            /* 连接逻辑 */
         }
     }
 
     // 2. 场景单例 (Scene)
-    // 特性：必须手动挂载在场景中，切场景自动销毁。若未挂载直接访问会精准报错，绝不执行 Find 导致卡顿
+    // 特性：
+    // 1. 必须手动挂载在场景中
+    // 2. 切场景自动销毁
+    // 3. 若未挂载直接访问会精准报错，绝不执行 Find 导致卡顿
     [Singleton(lifeCycle: SingletonLifeCycle.Scene)]
     public class LevelDirector : MonoSingleton<LevelDirector>
     {
@@ -33,12 +36,14 @@ namespace StellarFramework.Examples
 
         public void StartLevel()
         {
-            /* 关卡逻辑 */
         }
     }
 
     // 3. 纯 C# 单例
-    // 特性：不继承 MonoBehaviour，纯数据或算法类，0GC 自动创建
+    // 特性：
+    // 1. 不继承 MonoBehaviour
+    // 2. 运行时不再依赖反射实例化
+    // 3. 必须由静态注册表注入创建器
     [Singleton]
     public class GameDataCalculator : Singleton<GameDataCalculator>
     {
@@ -59,11 +64,22 @@ namespace StellarFramework.Examples
             GlobalNetworkManager.Instance.Connect();
 
             // 纯 C# 单例调用
-            int dmg = GameDataCalculator.Instance.CalculateDamage(100, 50);
+            GameDataCalculator calculator = GameDataCalculator.Instance;
+            if (calculator == null)
+            {
+                LogKit.LogError("[Example_SingletonKit] 获取纯 C# 单例失败: GameDataCalculator.Instance 为空");
+                return;
+            }
+
+            int dmg = calculator.CalculateDamage(100, 50);
             LogKit.Log($"[Example_SingletonKit] 计算伤害结果: {dmg}");
 
-            // 注意：LevelDirector 必须事先挂载在当前场景中，否则这里会触发 LogError 阻断
-            // LevelDirector.Instance.StartLevel(); 
+            // 场景单例必须预先挂在当前场景中
+            // 若项目里未挂载，请不要直接访问
+            if (LevelDirector.Instance != null)
+            {
+                LevelDirector.Instance.StartLevel();
+            }
         }
     }
 }

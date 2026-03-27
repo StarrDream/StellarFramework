@@ -1,13 +1,4 @@
-﻿// ==================================================================================
-// GlobalEnumEvent - Commercial Convergence V2
-// ----------------------------------------------------------------------------------
-// 职责：全局枚举事件总线。
-// 改造说明：
-// 1. 彻底移除 Broadcast 内部的 try-catch，贯彻 Fail-Fast 原则。
-// 2. 增加 Register 时的空引用断言。
-// ==================================================================================
-
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using UnityEngine;
@@ -35,14 +26,17 @@ namespace StellarFramework.Event
                        && EqualityComparer<Delegate>.Default.Equals(Callback, other.Callback);
             }
 
-            public override bool Equals(object obj) => obj is CallbackKey<T> other && Equals(other);
+            public override bool Equals(object obj)
+            {
+                return obj is CallbackKey<T> other && Equals(other);
+            }
 
             public override int GetHashCode()
             {
                 unchecked
                 {
-                    var h1 = EqualityComparer<T>.Default.GetHashCode(Key);
-                    var h2 = Callback != null ? EqualityComparer<Delegate>.Default.GetHashCode(Callback) : 0;
+                    int h1 = EqualityComparer<T>.Default.GetHashCode(Key);
+                    int h2 = Callback != null ? EqualityComparer<Delegate>.Default.GetHashCode(Callback) : 0;
                     return (h1 * 397) ^ h2;
                 }
             }
@@ -67,11 +61,20 @@ namespace StellarFramework.Event
             public T Key;
             public Delegate Callback;
             public bool IsInUse;
+            public bool IsRegistered;
 
             public void UnRegister()
             {
-                if (!IsInUse) return;
-                RemoveFromEventTable(Key, Callback);
+                if (!IsInUse)
+                {
+                    return;
+                }
+
+                if (IsRegistered)
+                {
+                    RemoveFromEventTable(Key, Callback);
+                }
+
                 Recycle(this);
             }
 
@@ -79,14 +82,51 @@ namespace StellarFramework.Event
             {
                 if (gameObject == null)
                 {
+                    LogKit.LogError($"[GlobalEnumEvent] 生命周期绑定失败: gameObject 为空, EventKey={Key}");
                     UnRegister();
                     return this;
                 }
 
-                if (!gameObject.TryGetComponent<EventUnregisterTrigger>(out var trigger))
+                if (!CustomUnRegister.TryAttachDestroyTrigger(gameObject, out EventUnregisterTrigger trigger))
                 {
-                    trigger = gameObject.AddComponent<EventUnregisterTrigger>();
-                    trigger.hideFlags = HideFlags.HideInInspector;
+                    LogKit.LogError(
+                        $"[GlobalEnumEvent] 生命周期绑定失败: 无法挂载销毁触发器, EventKey={Key}, TriggerObject={gameObject.name}");
+                    UnRegister();
+                    return this;
+                }
+
+                trigger.Add(this);
+                return this;
+            }
+
+            public IUnRegister UnRegisterWhenGameObjectDestroyed(MonoBehaviour mono)
+            {
+                if (mono == null)
+                {
+                    LogKit.LogError($"[GlobalEnumEvent] 生命周期绑定失败: mono 为空, EventKey={Key}");
+                    UnRegister();
+                    return this;
+                }
+
+                return UnRegisterWhenGameObjectDestroyed(mono.gameObject);
+            }
+
+            public IUnRegister UnRegisterWhenDisabled(MonoBehaviour mono)
+            {
+                if (mono == null || mono.gameObject == null)
+                {
+                    LogKit.LogError($"[GlobalEnumEvent] 生命周期绑定失败: mono 或 gameObject 为空, EventKey={Key}");
+                    UnRegister();
+                    return this;
+                }
+
+                if (!CustomUnRegister.TryAttachDisableTrigger(mono.gameObject,
+                        out EventUnregisterOnDisableTrigger trigger))
+                {
+                    LogKit.LogError(
+                        $"[GlobalEnumEvent] 生命周期绑定失败: 无法挂载失活触发器, EventKey={Key}, TriggerObject={mono.gameObject.name}");
+                    UnRegister();
+                    return this;
                 }
 
                 trigger.Add(this);
@@ -101,30 +141,44 @@ namespace StellarFramework.Event
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static bool EnsureDelegateTypeMatches<T>(T key, Delegate callback) where T : Enum
         {
-            if (callback == null) return false;
+            if (callback == null)
+            {
+                return false;
+            }
 
-            var box = EventBox<T>.DelegateTypeByKey;
-            var cbType = callback.GetType();
+            Dictionary<T, Type> box = EventBox<T>.DelegateTypeByKey;
+            Type cbType = callback.GetType();
 
-            if (!box.TryGetValue(key, out var existedType))
+            if (!box.TryGetValue(key, out Type existedType))
             {
                 box[key] = cbType;
                 return true;
             }
 
-            if (existedType == cbType) return true;
+            if (existedType == cbType)
+            {
+                return true;
+            }
 
-            LogKit.LogError($"[GlobalEnumEvent] 注册失败: Key '{key}' 的委托签名不匹配。期望: '{existedType}', 实际: '{cbType}'。");
+            LogKit.LogError($"[GlobalEnumEvent] 注册失败: Key '{key}' 的委托签名不匹配, Expected={existedType}, Actual={cbType}");
             return false;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static bool ContainsRegistration<T>(T key, Delegate callback) where T : Enum
+        {
+            CallbackKey<T> ck = new CallbackKey<T>(key, callback);
+            Dictionary<CallbackKey<T>, List<EnumEventToken<T>>> lookup = EventBox<T>.LookupTable;
+            return lookup.TryGetValue(ck, out List<EnumEventToken<T>> list) && list.Count > 0;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static void AddToLookup<T>(EnumEventToken<T> token) where T : Enum
         {
-            var lookup = EventBox<T>.LookupTable;
-            var ck = new CallbackKey<T>(token.Key, token.Callback);
+            Dictionary<CallbackKey<T>, List<EnumEventToken<T>>> lookup = EventBox<T>.LookupTable;
+            CallbackKey<T> ck = new CallbackKey<T>(token.Key, token.Callback);
 
-            if (!lookup.TryGetValue(ck, out var list))
+            if (!lookup.TryGetValue(ck, out List<EnumEventToken<T>> list))
             {
                 list = new List<EnumEventToken<T>>(1);
                 lookup.Add(ck, list);
@@ -136,12 +190,18 @@ namespace StellarFramework.Event
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static void RemoveFromLookup<T>(EnumEventToken<T> token) where T : Enum
         {
-            if (token.Callback == null) return;
+            if (token.Callback == null)
+            {
+                return;
+            }
 
-            var lookup = EventBox<T>.LookupTable;
-            var ck = new CallbackKey<T>(token.Key, token.Callback);
+            Dictionary<CallbackKey<T>, List<EnumEventToken<T>>> lookup = EventBox<T>.LookupTable;
+            CallbackKey<T> ck = new CallbackKey<T>(token.Key, token.Callback);
 
-            if (!lookup.TryGetValue(ck, out var list)) return;
+            if (!lookup.TryGetValue(ck, out List<EnumEventToken<T>> list))
+            {
+                return;
+            }
 
             for (int i = list.Count - 1; i >= 0; i--)
             {
@@ -152,29 +212,40 @@ namespace StellarFramework.Event
                 }
             }
 
-            if (list.Count == 0) lookup.Remove(ck);
+            if (list.Count == 0)
+            {
+                lookup.Remove(ck);
+            }
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static void AddToEventTable<T>(T key, Delegate callback) where T : Enum
         {
-            var table = EventBox<T>.EventTable;
-            if (!table.TryGetValue(key, out var d))
+            Dictionary<T, Delegate> table = EventBox<T>.EventTable;
+            if (!table.TryGetValue(key, out Delegate d))
+            {
                 table[key] = callback;
-            else
-                table[key] = Delegate.Combine(d, callback);
+                return;
+            }
+
+            table[key] = Delegate.Combine(d, callback);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static void RemoveFromEventTable<T>(T key, Delegate callback) where T : Enum
         {
-            if (callback == null) return;
+            if (callback == null)
+            {
+                return;
+            }
 
-            var table = EventBox<T>.EventTable;
-            if (!table.TryGetValue(key, out var currentDel)) return;
+            Dictionary<T, Delegate> table = EventBox<T>.EventTable;
+            if (!table.TryGetValue(key, out Delegate currentDel))
+            {
+                return;
+            }
 
             currentDel = Delegate.Remove(currentDel, callback);
-
             if (currentDel == null)
             {
                 table.Remove(key);
@@ -188,13 +259,12 @@ namespace StellarFramework.Event
 
         private static IUnRegister AllocateToken<T>(T key, Delegate callback) where T : Enum
         {
-            var pool = EventBox<T>.TokenPool;
-            var token = pool.Count > 0 ? pool.Pop() : new EnumEventToken<T>();
-
+            Stack<EnumEventToken<T>> pool = EventBox<T>.TokenPool;
+            EnumEventToken<T> token = pool.Count > 0 ? pool.Pop() : new EnumEventToken<T>();
             token.Key = key;
             token.Callback = callback;
             token.IsInUse = true;
-
+            token.IsRegistered = true;
             AddToLookup(token);
             return token;
         }
@@ -204,8 +274,31 @@ namespace StellarFramework.Event
             RemoveFromLookup(token);
             token.Key = default;
             token.Callback = null;
+            token.IsRegistered = false;
             token.IsInUse = false;
             EventBox<T>.TokenPool.Push(token);
+        }
+
+        private static bool TryGetDelegate<T, TDelegate>(T key, out TDelegate typedDelegate)
+            where T : Enum
+            where TDelegate : class
+        {
+            typedDelegate = null;
+
+            if (!EventBox<T>.EventTable.TryGetValue(key, out Delegate d))
+            {
+                return false;
+            }
+
+            typedDelegate = d as TDelegate;
+            if (typedDelegate != null)
+            {
+                return true;
+            }
+
+            LogKit.LogError(
+                $"[GlobalEnumEvent] 广播失败: Key '{key}' 的委托签名与当前 Broadcast 调用不匹配, ActualDelegateType={d.GetType().Name}, ExpectedDelegateType={typeof(TDelegate).Name}");
+            return false;
         }
 
         #endregion
@@ -214,39 +307,63 @@ namespace StellarFramework.Event
 
         private static IUnRegister OnRegister<T>(T key, Delegate callback) where T : Enum
         {
-            LogKit.AssertNotNull(callback, $"[GlobalEnumEvent] 注册失败: 传入的回调委托为空, Key: {key}");
-            if (callback == null) return new CustomUnRegister(null);
-            if (!EnsureDelegateTypeMatches(key, callback)) return new CustomUnRegister(null);
+            if (callback == null)
+            {
+                LogKit.LogError($"[GlobalEnumEvent] 注册失败: 回调为空, Key={key}");
+                return new CustomUnRegister(null);
+            }
+
+            if (!EnsureDelegateTypeMatches(key, callback))
+            {
+                return new CustomUnRegister(null);
+            }
+
+            if (ContainsRegistration(key, callback))
+            {
+                LogKit.LogWarning($"[GlobalEnumEvent] 检测到重复注册，已拦截, Key={key}, Method={callback.Method.Name}");
+                return new CustomUnRegister(() => OnUnRegister(key, callback));
+            }
 
             AddToEventTable(key, callback);
             return AllocateToken(key, callback);
         }
 
-        public static IUnRegister Register<T>(T key, Action callback) where T : Enum => OnRegister(key, callback);
+        public static IUnRegister Register<T>(T key, Action callback) where T : Enum
+        {
+            return OnRegister(key, callback);
+        }
 
-        public static IUnRegister Register<T, T1>(T key, Action<T1> callback) where T : Enum =>
-            OnRegister(key, callback);
+        public static IUnRegister Register<T, T1>(T key, Action<T1> callback) where T : Enum
+        {
+            return OnRegister(key, callback);
+        }
 
-        public static IUnRegister Register<T, T1, T2>(T key, Action<T1, T2> callback) where T : Enum =>
-            OnRegister(key, callback);
+        public static IUnRegister Register<T, T1, T2>(T key, Action<T1, T2> callback) where T : Enum
+        {
+            return OnRegister(key, callback);
+        }
 
-        public static IUnRegister Register<T, T1, T2, T3>(T key, Action<T1, T2, T3> callback) where T : Enum =>
-            OnRegister(key, callback);
+        public static IUnRegister Register<T, T1, T2, T3>(T key, Action<T1, T2, T3> callback) where T : Enum
+        {
+            return OnRegister(key, callback);
+        }
 
         #endregion
 
-        #region Public API: UnRegister (Manual)
+        #region Public API: UnRegister
 
         private static void OnUnRegister<T>(T key, Delegate callback) where T : Enum
         {
-            if (callback == null) return;
-
-            var ck = new CallbackKey<T>(key, callback);
-            var lookup = EventBox<T>.LookupTable;
-
-            if (lookup.TryGetValue(ck, out var list) && list.Count > 0)
+            if (callback == null)
             {
-                var token = list[list.Count - 1];
+                return;
+            }
+
+            CallbackKey<T> ck = new CallbackKey<T>(key, callback);
+            Dictionary<CallbackKey<T>, List<EnumEventToken<T>>> lookup = EventBox<T>.LookupTable;
+            if (lookup.TryGetValue(ck, out List<EnumEventToken<T>> list) && list.Count > 0)
+            {
+                EnumEventToken<T> token = list[list.Count - 1];
                 token.UnRegister();
                 return;
             }
@@ -254,48 +371,72 @@ namespace StellarFramework.Event
             RemoveFromEventTable(key, callback);
         }
 
-        public static void UnRegister<T>(T key, Action callback) where T : Enum => OnUnRegister(key, callback);
-        public static void UnRegister<T, T1>(T key, Action<T1> callback) where T : Enum => OnUnRegister(key, callback);
-
-        public static void UnRegister<T, T1, T2>(T key, Action<T1, T2> callback) where T : Enum =>
+        public static void UnRegister<T>(T key, Action callback) where T : Enum
+        {
             OnUnRegister(key, callback);
+        }
 
-        public static void UnRegister<T, T1, T2, T3>(T key, Action<T1, T2, T3> callback) where T : Enum =>
+        public static void UnRegister<T, T1>(T key, Action<T1> callback) where T : Enum
+        {
             OnUnRegister(key, callback);
+        }
+
+        public static void UnRegister<T, T1, T2>(T key, Action<T1, T2> callback) where T : Enum
+        {
+            OnUnRegister(key, callback);
+        }
+
+        public static void UnRegister<T, T1, T2, T3>(T key, Action<T1, T2, T3> callback) where T : Enum
+        {
+            OnUnRegister(key, callback);
+        }
 
         #endregion
 
         #region Public API: Broadcast
 
-        // 核心改造：移除 try-catch。如果业务层在事件回调中抛出异常，必须让其暴露，
-        // 否则会导致后续的回调被静默跳过，产生难以排查的脏状态。
-
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void Broadcast<T>(T key) where T : Enum
         {
-            if (!EventBox<T>.EventTable.TryGetValue(key, out var d)) return;
-            ((Action)d).Invoke();
+            if (!TryGetDelegate<T, Action>(key, out Action action))
+            {
+                return;
+            }
+
+            action.Invoke();
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void Broadcast<T, T1>(T key, T1 v1) where T : Enum
         {
-            if (!EventBox<T>.EventTable.TryGetValue(key, out var d)) return;
-            ((Action<T1>)d).Invoke(v1);
+            if (!TryGetDelegate<T, Action<T1>>(key, out Action<T1> action))
+            {
+                return;
+            }
+
+            action.Invoke(v1);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void Broadcast<T, T1, T2>(T key, T1 v1, T2 v2) where T : Enum
         {
-            if (!EventBox<T>.EventTable.TryGetValue(key, out var d)) return;
-            ((Action<T1, T2>)d).Invoke(v1, v2);
+            if (!TryGetDelegate<T, Action<T1, T2>>(key, out Action<T1, T2> action))
+            {
+                return;
+            }
+
+            action.Invoke(v1, v2);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void Broadcast<T, T1, T2, T3>(T key, T1 v1, T2 v2, T3 v3) where T : Enum
         {
-            if (!EventBox<T>.EventTable.TryGetValue(key, out var d)) return;
-            ((Action<T1, T2, T3>)d).Invoke(v1, v2, v3);
+            if (!TryGetDelegate<T, Action<T1, T2, T3>>(key, out Action<T1, T2, T3> action))
+            {
+                return;
+            }
+
+            action.Invoke(v1, v2, v3);
         }
 
         #endregion

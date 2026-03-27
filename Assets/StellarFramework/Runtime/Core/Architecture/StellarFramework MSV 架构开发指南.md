@@ -6,7 +6,6 @@
 ---
 
 ## 1. 架构概览 (Overview)
-
 本架构采用 **Model-Service-View (MSV)** 设计模式。
 
 ### 核心分层
@@ -80,6 +79,7 @@ public class PlayerView : StellarView
     }
 
     private void OnHpChanged(int hp) { /* Update UI */ }
+    
     public override void OnUnbind() { }
 }
 ```
@@ -107,12 +107,11 @@ public class MyButton : Button, IView
 
 ### 3.2 为什么 View 不能直接改 Model？
 如果 View 直接 `model.HP = 0`，业务逻辑就散落在 UI 代码里了。当需要在扣血时增加“无敌判断”或“播放音效”时，你需要去修改每一个相关的 UI 脚本。
-**正确做法**：View 调用 `Service.TakeDamage()`，所有逻辑在 Service 中收口。
+**规范做法**：View 调用 `Service.TakeDamage()`，所有逻辑在 Service 中收口。
 
 ---
 
 ## 4. 多架构管理 (Multi-Architecture Strategy)
-
 在复杂项目中，通常需要多个架构并存。例如：**全局架构**（一直存在）和 **战斗架构**（随场景销毁）。
 
 ### 4.1 定义多个架构
@@ -174,7 +173,6 @@ public void OnGameWin()
 {
     // 1. 处理战斗数据
     var battleModel = GetModel<BattleModel>();
-    
     // 2. [跨架构] 获取全局 UserService 增加经验值
     GlobalApp.Interface.GetService<UserService>().AddExp(100);
 }

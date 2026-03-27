@@ -5,191 +5,267 @@ using UnityEngine;
 
 namespace StellarFramework.UI
 {
-    /// <summary>
-    /// UI 栈管理器 (横向扩展模块)
-    /// 职责：提供基于栈的 UI 导航（Push/Pop），自动管理全屏界面的底层遮挡剔除（降低 DrawCall）。
-    /// </summary>
-    [Singleton]
-    public class UIStackManager : Singleton<UIStackManager>
+    [Singleton(lifeCycle: SingletonLifeCycle.Global)]
+    public sealed class UIStackManager : ISingleton
     {
-        // 使用 List 模拟栈结构，方便从顶向下遍历计算遮挡关系
-        private readonly List<UIPanelBase> _panelStack = new List<UIPanelBase>();
+        private readonly List<UIPanelBase> _stack = new List<UIPanelBase>(16);
+        private bool _isInitialized;
 
-        public int StackCount => _panelStack.Count;
+        public static UIStackManager Instance => SingletonFactory.GetSingleton<UIStackManager>();
 
-        public override void OnSingletonInit()
+        public void OnSingletonInit()
         {
-            base.OnSingletonInit();
-            // 监听全局关闭事件，防止开发者绕过 Pop 直接调用 CloseSelf 导致栈状态残留
-            UIPanelBase.OnPanelClosedGlobal += RemoveFromStack;
-            LogKit.Log("[UIStackManager] UI 栈管理器已初始化，已挂载全局关闭监听");
+            if (_isInitialized)
+            {
+                return;
+            }
+
+            UIPanelBase.OnPanelClosedGlobal += HandlePanelClosed;
+            _isInitialized = true;
         }
 
         /// <summary>
-        /// 同步压栈打开面板
+        /// 我显式提供销毁收口，避免静态事件把全局实例长期挂死。
         /// </summary>
-        public TPanel PushPanel<TPanel>(UIPanelDataBase data = null) where TPanel : UIPanelBase
+        public void Dispose()
+        {
+            if (!_isInitialized)
+            {
+                return;
+            }
+
+            UIPanelBase.OnPanelClosedGlobal -= HandlePanelClosed;
+            _stack.Clear();
+            _isInitialized = false;
+        }
+
+        #region 静态导航 API
+
+        public static TPanel PushPanel<TPanel>(UIPanelDataBase data = null) where TPanel : UIPanelBase
         {
             TPanel panel = UIKit.OpenPanel<TPanel>(data);
-            if (panel == null) return null;
+            if (panel == null)
+            {
+                LogKit.LogError($"[UIStackManager] PushPanel 失败: 打开面板为空, Panel={typeof(TPanel).Name}");
+                return null;
+            }
 
-            ProcessPush(panel);
+            Instance?.Push(panel);
             return panel;
         }
 
-        /// <summary>
-        /// 异步压栈打开面板
-        /// </summary>
-        public async UniTask<TPanel> PushPanelAsync<TPanel>(UIPanelDataBase data = null) where TPanel : UIPanelBase
+        public static async UniTask<TPanel> PushPanelAsync<TPanel>(UIPanelDataBase data = null)
+            where TPanel : UIPanelBase
         {
             TPanel panel = await UIKit.OpenPanelAsync<TPanel>(data);
-            if (panel == null) return null;
+            if (panel == null)
+            {
+                LogKit.LogError($"[UIStackManager] PushPanelAsync 失败: 打开面板为空, Panel={typeof(TPanel).Name}");
+                return null;
+            }
 
-            ProcessPush(panel);
+            Instance?.Push(panel);
             return panel;
         }
 
-        private void ProcessPush(UIPanelBase panel)
+        public static void PopPanel()
         {
-            // 如果已经在栈顶，忽略重复压栈
-            if (_panelStack.Count > 0 && _panelStack[_panelStack.Count - 1] == panel)
+            UIStackManager mgr = Instance;
+            if (mgr == null)
+            {
+                LogKit.LogError("[UIStackManager] PopPanel 失败: Instance 为空");
+                return;
+            }
+
+            UIPanelBase top = mgr.Peek();
+            if (top == null)
             {
                 return;
             }
 
-            // 如果在栈中其他位置，先移出（等同于将其提至栈顶）
-            if (_panelStack.Contains(panel))
-            {
-                _panelStack.Remove(panel);
-            }
-
-            _panelStack.Add(panel);
-            EvaluateVisibility();
+            UIKit.ClosePanel(top.GetType());
         }
 
-        /// <summary>
-        /// 弹出栈顶面板
-        /// </summary>
-        public void PopPanel()
+        public static void PopToPanel<TPanel>() where TPanel : UIPanelBase
         {
-            if (_panelStack.Count == 0)
+            UIStackManager mgr = Instance;
+            if (mgr == null)
             {
-                LogKit.LogWarning("[UIStackManager] 弹栈失败：当前 UI 栈为空");
+                LogKit.LogError($"[UIStackManager] PopToPanel 失败: Instance 为空, TargetPanel={typeof(TPanel).Name}");
                 return;
             }
 
-            UIPanelBase topPanel = _panelStack[_panelStack.Count - 1];
-            _panelStack.RemoveAt(_panelStack.Count - 1);
+            mgr.CleanupInvalidPanels();
 
-            // 调用 UIKit 的核心关闭逻辑
-            UIKit.ClosePanel(topPanel.GetType());
-
-            EvaluateVisibility();
-        }
-
-        /// <summary>
-        /// 弹出直到指定类型的面板暴露在栈顶
-        /// </summary>
-        public void PopToPanel<TPanel>() where TPanel : UIPanelBase
-        {
-            Type targetType = typeof(TPanel);
-            int targetIndex = -1;
-
-            for (int i = _panelStack.Count - 1; i >= 0; i--)
+            for (int i = mgr._stack.Count - 1; i >= 0; i--)
             {
-                if (_panelStack[i].GetType() == targetType)
+                UIPanelBase panel = mgr._stack[i];
+                if (panel == null)
                 {
-                    targetIndex = i;
-                    break;
+                    continue;
                 }
-            }
 
-            if (targetIndex == -1)
+                if (panel is TPanel)
+                {
+                    mgr.EvaluateVisibility();
+                    return;
+                }
+
+                UIKit.ClosePanel(panel.GetType());
+            }
+        }
+
+        public static void ClearStack()
+        {
+            UIStackManager mgr = Instance;
+            if (mgr == null)
             {
-                LogKit.LogWarning($"[UIStackManager] 弹栈失败：栈中未找到目标面板 {targetType.Name}");
+                LogKit.LogError("[UIStackManager] ClearStack 失败: Instance 为空");
                 return;
             }
 
-            // 从顶向下 Pop，直到目标索引
-            for (int i = _panelStack.Count - 1; i > targetIndex; i--)
+            mgr.CleanupInvalidPanels();
+
+            for (int i = mgr._stack.Count - 1; i >= 0; i--)
             {
-                UIPanelBase panel = _panelStack[i];
-                _panelStack.RemoveAt(i);
+                UIPanelBase panel = mgr._stack[i];
+                if (panel == null)
+                {
+                    continue;
+                }
+
                 UIKit.ClosePanel(panel.GetType());
             }
 
+            mgr._stack.Clear();
+        }
+
+        #endregion
+
+        public void Push(UIPanelBase panel)
+        {
+            if (panel == null)
+            {
+                LogKit.LogError("[UIStackManager] Push 失败: panel 为空");
+                return;
+            }
+
+            CleanupInvalidPanels();
+
+            int existedIndex = _stack.IndexOf(panel);
+            if (existedIndex >= 0)
+            {
+                _stack.RemoveAt(existedIndex);
+            }
+
+            _stack.Add(panel);
             EvaluateVisibility();
         }
 
-        /// <summary>
-        /// 清空整个栈
-        /// </summary>
-        public void ClearStack()
+        public void Remove(UIPanelBase panel)
         {
-            for (int i = _panelStack.Count - 1; i >= 0; i--)
+            if (panel == null)
             {
-                UIKit.ClosePanel(_panelStack[i].GetType());
+                return;
             }
 
-            _panelStack.Clear();
-        }
+            CleanupInvalidPanels();
 
-        /// <summary>
-        /// 供 UIPanelBase 全局事件回调使用，清理脏数据
-        /// </summary>
-        private void RemoveFromStack(UIPanelBase panel)
-        {
-            if (_panelStack.Remove(panel))
+            if (_stack.Remove(panel))
             {
                 EvaluateVisibility();
             }
         }
 
-        /// <summary>
-        /// 核心逻辑：从栈顶向下遍历，遇到全屏面板则隐藏其下方的所有面板
-        /// 采用 CanvasGroup 调节透明度与交互，避免触发 GameObject.SetActive 带来的高昂开销与生命周期混乱
-        /// </summary>
+        public UIPanelBase Peek()
+        {
+            CleanupInvalidPanels();
+
+            if (_stack.Count == 0)
+            {
+                return null;
+            }
+
+            return _stack[_stack.Count - 1];
+        }
+
+        private void HandlePanelClosed(UIPanelBase panel)
+        {
+            Remove(panel);
+        }
+
         private void EvaluateVisibility()
         {
-            bool blockBelow = false;
+            CleanupInvalidPanels();
 
-            // 倒序遍历，同时清理可能存在的空引用（如被 DestroyAllPanels 强制销毁的面板）
-            for (int i = _panelStack.Count - 1; i >= 0; i--)
+            int topFullscreenIndex = -1;
+            for (int i = _stack.Count - 1; i >= 0; i--)
             {
-                UIPanelBase panel = _panelStack[i];
-
-                if (panel == null || !panel.gameObject.activeSelf)
+                UIPanelBase panel = _stack[i];
+                if (panel == null)
                 {
-                    _panelStack.RemoveAt(i);
                     continue;
                 }
 
-                if (!blockBelow)
+                if (panel.IsFullScreen)
                 {
-                    // 处于可见层，若之前被隐藏则恢复
-                    if (panel.CanvasGroup.alpha < 1f || !panel.CanvasGroup.interactable)
-                    {
-                        panel.CanvasGroup.alpha = 1f;
-                        panel.CanvasGroup.interactable = true;
-                        panel.CanvasGroup.blocksRaycasts = true;
-                        panel.OnResume();
-                    }
-
-                    if (panel.IsFullScreen)
-                    {
-                        blockBelow = true; // 标记阻断，下方的面板将被全部剔除
-                    }
+                    topFullscreenIndex = i;
+                    break;
                 }
-                else
+            }
+
+            for (int i = 0; i < _stack.Count; i++)
+            {
+                UIPanelBase panel = _stack[i];
+                if (panel == null)
                 {
-                    // 被全屏面板遮挡，执行视觉剔除与交互阻断
-                    if (panel.CanvasGroup.alpha > 0f || panel.CanvasGroup.interactable)
-                    {
-                        panel.CanvasGroup.alpha = 0f;
-                        panel.CanvasGroup.interactable = false;
-                        panel.CanvasGroup.blocksRaycasts = false;
-                        panel.OnPause();
-                    }
+                    continue;
+                }
+
+                bool visible = topFullscreenIndex < 0 || i >= topFullscreenIndex;
+                ApplyVisible(panel, visible);
+            }
+        }
+
+        private void ApplyVisible(UIPanelBase panel, bool visible)
+        {
+            if (panel == null)
+            {
+                return;
+            }
+
+            CanvasGroup group = panel.CanvasGroup;
+            if (group == null)
+            {
+                LogKit.LogError(
+                    $"[UIStackManager] ApplyVisible 失败: CanvasGroup 为空, Panel={panel.GetType().Name}, TriggerObject={panel.gameObject.name}, Visible={visible}");
+                return;
+            }
+
+            bool wasVisible = group.alpha > 0.01f;
+
+            group.alpha = visible ? 1f : 0f;
+            group.interactable = visible;
+            group.blocksRaycasts = visible;
+
+            if (visible && !wasVisible)
+            {
+                panel.OnResume();
+            }
+            else if (!visible && wasVisible)
+            {
+                panel.OnPause();
+            }
+        }
+
+        private void CleanupInvalidPanels()
+        {
+            for (int i = _stack.Count - 1; i >= 0; i--)
+            {
+                UIPanelBase panel = _stack[i];
+                if (panel == null || panel.gameObject == null)
+                {
+                    _stack.RemoveAt(i);
                 }
             }
         }
