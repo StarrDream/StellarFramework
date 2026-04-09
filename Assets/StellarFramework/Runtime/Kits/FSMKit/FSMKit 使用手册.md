@@ -204,3 +204,84 @@ public class AttackState : FSMState<Player>
 
 ### 必须先注册
 调用 `ChangeState` 之前，必须确保目标状态已通过 `AddState` 注册，否则会记录错误日志并中断切换。
+
+---
+
+## 6. 进阶架构：结合孤岛式 Animator (MSV 规范)
+
+在商业化项目中，为了解决 Animator 连线（Transitions）难以维护、容易产生面条式网状结构的问题，我们强制推行 **孤岛式 Animator** 配合 **MSV (Model-Service-View)** 架构。
+
+### 核心理念
+*   **孤岛节点**：Animator Controller 中不创建任何连线，只放置独立的 Animation Clip 节点。
+*   **逻辑剥离**：FSM (Service 层) 负责决定当前该处于什么状态，绝对不允许直接调用 `GetComponent<Animator>()`。
+*   **数据驱动**：FSM 将期望的动画 Hash 和过渡时间写入 Model，View 层监听 Model 变化并调用 `Animator.CrossFade` 实现丝滑切换。
+
+### 实现规范与步骤
+
+**1. 定义动画哈希与载荷（零 GC）**
+必须在静态类中缓存 Hash，杜绝运行时字符串分配。
+```csharp
+public struct AnimRequestPayload
+{
+    public readonly int StateHash;
+    public readonly float TransitionDuration;
+    public AnimRequestPayload(int hash, float duration) { StateHash = hash; TransitionDuration = duration; }
+}
+
+public static class AnimHashes
+{
+    public static readonly int Idle = Animator.StringToHash("Idle");
+    public static readonly int Run = Animator.StringToHash("Run");
+}
+```
+
+**2. Model 层分发事件**
+Model 仅负责存储数据与分发事件，不依赖 Unity 组件。
+```csharp
+public class CharacterModel
+{
+    public event Action<AnimRequestPayload> OnAnimStateChanged;
+    
+    public void RequestAnimation(AnimRequestPayload payload)
+    {
+        OnAnimStateChanged?.Invoke(payload);
+    }
+}
+```
+
+**3. View 层执行 CrossFade**
+View 层挂载在带有 Animator 的 GameObject 上，监听 Model 事件。
+```csharp
+[RequireComponent(typeof(Animator))]
+public class CharacterView : MonoBehaviour
+{
+    private Animator _animator;
+
+    public void BindModel(CharacterModel model)
+    {
+        _animator = GetComponent<Animator>();
+        model.OnAnimStateChanged += (payload) => 
+        {
+            // 使用 CrossFade 实现无连线的丝滑过渡
+            _animator.CrossFade(payload.StateHash, payload.TransitionDuration, 0);
+        };
+    }
+}
+```
+
+**4. FSM 状态层下发指令**
+在具体的 FSM 状态中，通过宿主获取 Model，并下发表现指令。
+```csharp
+public class IdleState : FSMState<CharacterService>
+{
+    public override void OnEnter()
+    {
+        // 0.2f 为混合过渡时间，实现丝滑切换
+        AnimRequestPayload payload = new AnimRequestPayload(AnimHashes.Idle, 0.2f);
+        Owner.Model.RequestAnimation(payload);
+    }
+}
+```
+
+### 优势总结
+通过此架构，FSMKit 彻底与 Unity 表现层解耦。不仅杜绝了 Animator 连线地狱，还使得逻辑代码完全可进行无头（Headless）单元测试，极大地提升了代码的可维护性与复用性。
