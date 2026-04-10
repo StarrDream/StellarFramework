@@ -1,4 +1,6 @@
-﻿using System;
+﻿#if UNITY_EDITOR
+using System;
+using System.IO;
 using System.Reflection;
 using System.Text;
 using UnityEditor;
@@ -110,13 +112,13 @@ namespace StellarFramework.Editor
             sb.AppendLine("}");
 
             string dir = "Assets/StellarFramework/Generated";
-            if (!System.IO.Directory.Exists(dir))
+            if (!Directory.Exists(dir))
             {
-                System.IO.Directory.CreateDirectory(dir);
+                Directory.CreateDirectory(dir);
             }
 
             string filePath = $"{dir}/SingletonRegister.cs";
-            System.IO.File.WriteAllText(filePath, sb.ToString(), Encoding.UTF8);
+            File.WriteAllText(filePath, sb.ToString(), Encoding.UTF8);
             AssetDatabase.Refresh();
 
             LogKit.Log(
@@ -124,3 +126,4 @@ namespace StellarFramework.Editor
         }
     }
 }
+#endif
