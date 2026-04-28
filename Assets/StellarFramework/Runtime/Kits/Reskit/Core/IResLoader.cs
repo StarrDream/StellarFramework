@@ -1,8 +1,9 @@
-﻿// ========== IResLoader.cs ==========
+// ========== IResLoader.cs ==========
 // Path: Assets/StellarFramework/Runtime/Kits/Reskit/Core/IResLoader.cs
 
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using Cysharp.Threading.Tasks;
 using Object = UnityEngine.Object;
 
@@ -21,12 +22,13 @@ namespace StellarFramework.Res
         /// <summary>
         /// 异步加载
         /// </summary>
-        UniTask<T> LoadAsync<T>(string path) where T : Object;
+        UniTask<T> LoadAsync<T>(string path, CancellationToken cancellationToken = default) where T : Object;
 
         /// <summary>
         /// 批量预加载
         /// </summary>
-        UniTask PreloadAsync(IList<string> paths, Action<float> onProgress = null);
+        UniTask PreloadAsync(IList<string> paths, Action<float> onProgress = null,
+            CancellationToken cancellationToken = default);
 
         /// <summary>
         /// 卸载单个资源 (引用计数 -1)
@@ -37,5 +39,7 @@ namespace StellarFramework.Res
         /// 释放所有加载过的资源引用
         /// </summary>
         void ReleaseAll();
+
+        void RecycleToPool();
     }
 }

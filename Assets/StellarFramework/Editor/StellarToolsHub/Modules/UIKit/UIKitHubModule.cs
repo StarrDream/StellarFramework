@@ -61,7 +61,25 @@ namespace StellarFramework.Editor.Modules
                 _matchWidthOrHeight = EditorGUILayout.Slider("Match (Width-Height)", _matchWidthOrHeight, 0f, 1f);
             }
 
-            Section("2. UI 工作区 (Workspace)");
+            Section("2. 基础结构");
+            EditorGUILayout.HelpBox("UIRoot 和 Panel Template 统一从这里创建；保留 Hierarchy 右键入口，避免把常用操作散落到顶层菜单。", MessageType.Info);
+            using (new GUILayout.HorizontalScope())
+            {
+                if (PrimaryButton("生成或覆盖 UIRoot", GUILayout.Height(30)))
+                {
+                    UIKitEditor.CreateUIRootPrefab();
+                }
+
+                GUI.enabled = Selection.activeGameObject != null;
+                if (GUILayout.Button("在当前选中节点下创建 Panel Template", GUILayout.Height(30)))
+                {
+                    UIKitEditor.CreatePanelTemplateUnderSelection();
+                }
+
+                GUI.enabled = true;
+            }
+
+            Section("3. UI 工作区 (Workspace)");
             EditorGUILayout.HelpBox("输入面板名称，一键创建独立的带相机 UI 编辑场景、逻辑脚本与标准预制体(自带 root 节点)。", MessageType.Info);
 
             using (new GUILayout.HorizontalScope())
@@ -75,9 +93,9 @@ namespace StellarFramework.Editor.Modules
                 }
             }
 
-            Section("3. 代码生成与自动绑定 (Auto Bind)");
+            Section("4. 代码生成与自动绑定 (Auto Bind)");
             EditorGUILayout.HelpBox(
-                "提示：你现在可以直接在 Project 或 Hierarchy 窗口中右键点击 UI Prefab，选择 [StellarFramework/UIKit/生成 UI 绑定代码] 进行快速绑定，无需每次打开此面板。",
+                "提示：你现在可以直接在 Project 窗口使用 [Assets/UIKit/生成 UI 绑定代码]，或在 Hierarchy 窗口使用 [GameObject/UIKit/生成 UI 绑定代码] 进行快速绑定，无需每次打开此面板。",
                 MessageType.Info);
 
             GameObject selectedObj = Selection.activeGameObject;

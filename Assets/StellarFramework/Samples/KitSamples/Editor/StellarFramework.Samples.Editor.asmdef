@@ -1,0 +1,33 @@
+{
+    "name": "StellarFramework.Samples.Editor",
+    "rootNamespace": "",
+    "references": [
+        "GUID:ee69db06ccc61304d96f7862cc10f3f9",
+        "StellarFramework.Samples.Runtime",
+        "StellarFramework.ActionKit",
+        "StellarFramework.AudioKit",
+        "StellarFramework.BindableKit",
+        "StellarFramework.ConfigKit",
+        "StellarFramework.EventKit",
+        "StellarFramework.FSMKit",
+        "StellarFramework.HotUpdateKit",
+        "StellarFramework.HttpKit",
+        "StellarFramework.LogKit",
+        "StellarFramework.PoolKit",
+        "StellarFramework.ResKit",
+        "StellarFramework.SettingsKit",
+        "StellarFramework.SingletonKit",
+        "StellarFramework.UIKit"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

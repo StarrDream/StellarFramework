@@ -1,4 +1,5 @@
-﻿using Cysharp.Threading.Tasks;
+using System.Threading;
+using Cysharp.Threading.Tasks;
 using StellarFramework.Res;
 using UnityEngine;
 
@@ -13,10 +14,10 @@ namespace StellarFramework.UI
         bool SupportSyncLoad { get; }
 
         GameObject LoadUIRoot();
-        UniTask<GameObject> LoadUIRootAsync();
+        UniTask<GameObject> LoadUIRootAsync(CancellationToken cancellationToken = default);
 
         GameObject LoadPanelPrefab(string panelName);
-        UniTask<GameObject> LoadPanelPrefabAsync(string panelName);
+        UniTask<GameObject> LoadPanelPrefabAsync(string panelName, CancellationToken cancellationToken = default);
 
         void UnloadPanelPrefab(string panelName);
         void ReleaseAll();

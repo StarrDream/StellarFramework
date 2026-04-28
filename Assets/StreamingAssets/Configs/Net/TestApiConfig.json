@@ -1,0 +1,25 @@
+{
+  "ActiveProfile": "Dev",
+  "Environments": {
+    "Dev": {
+      "GameApi": "https://api.example.com"
+    },
+    "Release": {
+      "GameApi": "https://release.example.com"
+    }
+  },
+  "Endpoints": {
+    "Auth.Login": {
+      "Service": "GameApi",
+      "Path": "/auth/login"
+    },
+    "Item.GetDetail": {
+      "Service": "GameApi",
+      "Path": "/item/{itemId}"
+    },
+    "Room.Join": {
+      "Service": "GameApi",
+      "Path": "/room/{roomId}/join/{uid}"
+    }
+  }
+}

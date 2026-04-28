@@ -61,13 +61,11 @@ namespace StellarFramework
         /// 错误日志输出
         /// 规范：调用此方法后，业务线必须紧跟 return 阻断逻辑，防止脏数据扩散。
         /// </summary>
-        [Conditional("ENABLE_LOG")]
         public static void LogError(object msg)
         {
             _logger.LogError(msg?.ToString());
         }
 
-        [Conditional("ENABLE_LOG")]
         public static void LogError(object script, object msg)
         {
             if (script == null)
@@ -79,7 +77,6 @@ namespace StellarFramework
             _logger.LogError($"[{script.GetType().Name}] {msg}");
         }
 
-        [Conditional("ENABLE_LOG")]
         public static void LogException(Exception e)
         {
             _logger.LogException(e);

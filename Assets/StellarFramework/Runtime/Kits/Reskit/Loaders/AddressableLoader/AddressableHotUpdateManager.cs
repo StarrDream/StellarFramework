@@ -88,6 +88,7 @@ namespace StellarFramework.Res
                 LogKit.LogError($"[AAHotUpdate] 检查更新时发生异常: {ex.Message}\n{ex.StackTrace}");
             }
 #else
+            await UniTask.CompletedTask;
             LogKit.LogError("[AAHotUpdate] 请先安装 Addressables 包并定义 UNITY_ADDRESSABLES 宏");
 #endif
             return result;
@@ -163,6 +164,7 @@ namespace StellarFramework.Res
                 return false;
             }
 #else
+            await UniTask.CompletedTask;
             LogKit.LogError("[AAHotUpdate] 请先安装 Addressables 包并定义 UNITY_ADDRESSABLES 宏");
             return false;
 #endif

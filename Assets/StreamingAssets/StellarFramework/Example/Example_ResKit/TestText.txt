@@ -1,0 +1,2 @@
+Hello Physical World!
+This file is generated for Example_ResKit.

@@ -494,7 +494,7 @@ namespace StellarFramework.Editor
             code += "    }\n";
             code += "}}";
 
-            string path = Path.Combine(Application.dataPath, "StellarFramework/Generated/AssetMap.cs");
+            string path = Path.Combine(Application.dataPath, "StellarFramework/Generated/AssetMap/AssetMap.cs");
             string dir = Path.GetDirectoryName(path);
             if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
 

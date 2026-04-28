@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
 using Cysharp.Threading.Tasks;
@@ -83,10 +85,13 @@ namespace StellarFramework
     public class HttpKit : MonoBehaviour
     {
         private static HttpKit _instance;
+        private static bool _isQuitting;
 
         // Key: Method::URL::BodyHash
-        private readonly Dictionary<string, CancellationTokenSource> _activeCTS =
-            new Dictionary<string, CancellationTokenSource>();
+        private readonly Dictionary<string, HashSet<CancellationTokenSource>> _activeCTS =
+            new Dictionary<string, HashSet<CancellationTokenSource>>();
+
+        private readonly object _requestLock = new object();
 
         private string _authToken;
         private string _tokenType = "Bearer";
@@ -95,15 +100,51 @@ namespace StellarFramework
         {
             get
             {
-                if (_instance == null)
-                {
-                    GameObject go = new GameObject("[HttpKit]");
-                    _instance = go.AddComponent<HttpKit>();
-                    DontDestroyOnLoad(go);
-                }
-
-                return _instance;
+                return GetOrCreateInstance();
             }
+        }
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void InitRuntimeState()
+        {
+            _instance = null;
+            _isQuitting = false;
+            Application.quitting -= OnApplicationQuitting;
+            Application.quitting += OnApplicationQuitting;
+        }
+
+        private static void OnApplicationQuitting()
+        {
+            _isQuitting = true;
+        }
+
+        private static HttpKit GetOrCreateInstance()
+        {
+            if (_isQuitting)
+            {
+                return null;
+            }
+
+            if (_instance == null)
+            {
+                GameObject go = new GameObject("[HttpKit]");
+                _instance = go.AddComponent<HttpKit>();
+                DontDestroyOnLoad(go);
+            }
+
+            return _instance;
+        }
+
+        private static bool TryGetInstance(out HttpKit instance)
+        {
+            instance = GetOrCreateInstance();
+            if (instance != null)
+            {
+                return true;
+            }
+
+            LogKit.LogWarning("[HttpKit] 当前处于退出或销毁阶段，本次调用已忽略");
+            return false;
         }
 
         private void Awake()
@@ -123,31 +164,50 @@ namespace StellarFramework
 
         private void OnDestroy()
         {
+            if (ReferenceEquals(_instance, this))
+            {
+                _isQuitting |= !Application.isPlaying;
+            }
+
             CancelAllRequests();
+            if (_instance == this)
+            {
+                _instance = null;
+            }
         }
 
         #region Token 管理
 
         public static void SetAuthToken(string token, string tokenType = "Bearer")
         {
-            Instance._authToken = token;
-            Instance._tokenType = tokenType;
+            if (!TryGetInstance(out HttpKit instance))
+            {
+                return;
+            }
+
+            instance._authToken = token;
+            instance._tokenType = tokenType;
         }
 
         public static string GetAuthToken()
         {
-            return Instance._authToken;
+            return TryGetInstance(out HttpKit instance) ? instance._authToken : null;
         }
 
         public static void ClearAuthToken()
         {
-            Instance._authToken = null;
-            Instance._tokenType = "Bearer";
+            if (!TryGetInstance(out HttpKit instance))
+            {
+                return;
+            }
+
+            instance._authToken = null;
+            instance._tokenType = "Bearer";
         }
 
         public static bool HasAuthToken()
         {
-            return !string.IsNullOrEmpty(Instance._authToken);
+            return TryGetInstance(out HttpKit instance) && !string.IsNullOrEmpty(instance._authToken);
         }
 
         #endregion
@@ -235,7 +295,7 @@ namespace StellarFramework
 
             string requestKey = GenerateRequestKey(method, url, body);
 
-            if (config.preventDuplicate && _activeCTS.ContainsKey(requestKey))
+            if (config.preventDuplicate && HasPendingRequest(requestKey))
             {
                 LogKit.LogWarning($"[HttpKit] 拦截重复请求 | Key={requestKey} | Method={method} | URL={url}");
                 return new HttpResponse
@@ -247,7 +307,7 @@ namespace StellarFramework
             }
 
             CancellationTokenSource cts = new CancellationTokenSource();
-            _activeCTS[requestKey] = cts;
+            AddPendingRequest(requestKey, cts);
 
             HttpResponse response = new HttpResponse();
             UnityWebRequest request = null;
@@ -288,11 +348,7 @@ namespace StellarFramework
             }
             finally
             {
-                if (_activeCTS.TryGetValue(requestKey, out CancellationTokenSource current) && current == cts)
-                {
-                    _activeCTS.Remove(requestKey);
-                }
-
+                RemovePendingRequest(requestKey, cts);
                 cts.Dispose();
                 request?.Dispose();
             }
@@ -380,8 +436,7 @@ namespace StellarFramework
 
         private string GenerateRequestKey(string method, string url, string body)
         {
-            int bodyHash = string.IsNullOrEmpty(body) ? 0 : body.GetHashCode();
-            return $"{method}::{url}::{bodyHash}";
+            return $"{method}::{url}::{ComputeStableBodyHash(body)}";
         }
 
         #endregion
@@ -391,21 +446,45 @@ namespace StellarFramework
         public void CancelRequest(string url, string method = "GET", string body = null)
         {
             string key = GenerateRequestKey(method, url, body);
-            if (_activeCTS.TryGetValue(key, out CancellationTokenSource cts))
+
+            CancellationTokenSource[] ctsList;
+            lock (_requestLock)
+            {
+                if (!_activeCTS.TryGetValue(key, out HashSet<CancellationTokenSource> group) || group.Count == 0)
+                {
+                    return;
+                }
+
+                ctsList = group.ToArray();
+            }
+
+            foreach (CancellationTokenSource cts in ctsList)
             {
                 cts.Cancel();
-                LogKit.Log($"[HttpKit] 触发取消 | Method={method} | URL={url}");
             }
+
+            LogKit.Log($"[HttpKit] 触发取消 | Method={method} | URL={url} | Count={ctsList.Length}");
         }
 
         public void CancelAllRequests()
         {
-            foreach (CancellationTokenSource cts in _activeCTS.Values)
+            CancellationTokenSource[] ctsList;
+            lock (_requestLock)
+            {
+                var snapshot = new List<CancellationTokenSource>(_activeCTS.Count * 2);
+                foreach (HashSet<CancellationTokenSource> group in _activeCTS.Values)
+                {
+                    snapshot.AddRange(group);
+                }
+
+                _activeCTS.Clear();
+                ctsList = snapshot.ToArray();
+            }
+
+            foreach (CancellationTokenSource cts in ctsList)
             {
                 cts.Cancel();
             }
-
-            _activeCTS.Clear();
         }
 
         #endregion
@@ -415,13 +494,18 @@ namespace StellarFramework
         public static async UniTask<HttpResponse> GetAsync(string url, Dictionary<string, string> headers = null,
             int timeout = 30)
         {
+            if (!TryGetInstance(out HttpKit instance))
+            {
+                return CreateUnavailableResponse();
+            }
+
             RequestConfig config = new RequestConfig
             {
                 headers = headers,
                 timeout = timeout
             };
 
-            return await Instance.SendRequestAsync("GET", url, null, config);
+            return await instance.SendRequestAsync("GET", url, null, config);
         }
 
         public static async UniTask<(T data, HttpResponse response)> GetJsonAsync<T>(string url,
@@ -440,13 +524,18 @@ namespace StellarFramework
         public static async UniTask<HttpResponse> PostAsync(string url, string jsonBody,
             Dictionary<string, string> headers = null, int timeout = 30)
         {
+            if (!TryGetInstance(out HttpKit instance))
+            {
+                return CreateUnavailableResponse();
+            }
+
             RequestConfig config = new RequestConfig
             {
                 headers = headers,
                 timeout = timeout
             };
 
-            return await Instance.SendRequestAsync("POST", url, jsonBody, config);
+            return await instance.SendRequestAsync("POST", url, jsonBody, config);
         }
 
         public static async UniTask<HttpResponse> PostAsync<T>(string url, T dataObject,
@@ -475,25 +564,35 @@ namespace StellarFramework
         public static async UniTask<HttpResponse> PutAsync(string url, string jsonBody,
             Dictionary<string, string> headers = null, int timeout = 30)
         {
+            if (!TryGetInstance(out HttpKit instance))
+            {
+                return CreateUnavailableResponse();
+            }
+
             RequestConfig config = new RequestConfig
             {
                 headers = headers,
                 timeout = timeout
             };
 
-            return await Instance.SendRequestAsync("PUT", url, jsonBody, config);
+            return await instance.SendRequestAsync("PUT", url, jsonBody, config);
         }
 
         public static async UniTask<HttpResponse> DeleteAsync(string url, Dictionary<string, string> headers = null,
             int timeout = 30)
         {
+            if (!TryGetInstance(out HttpKit instance))
+            {
+                return CreateUnavailableResponse();
+            }
+
             RequestConfig config = new RequestConfig
             {
                 headers = headers,
                 timeout = timeout
             };
 
-            return await Instance.SendRequestAsync("DELETE", url, null, config);
+            return await instance.SendRequestAsync("DELETE", url, null, config);
         }
 
         #endregion
@@ -502,13 +601,13 @@ namespace StellarFramework
 
         public static void Get(string url, Action<HttpResponse> onComplete, Dictionary<string, string> headers = null)
         {
-            GetAsync(url, headers).ContinueWith(onComplete).Forget();
+            GetAsync(url, headers).ContinueWith(response => onComplete?.Invoke(response)).Forget();
         }
 
         public static void Post(string url, string jsonBody, Action<HttpResponse> onComplete,
             Dictionary<string, string> headers = null)
         {
-            PostAsync(url, jsonBody, headers).ContinueWith(onComplete).Forget();
+            PostAsync(url, jsonBody, headers).ContinueWith(response => onComplete?.Invoke(response)).Forget();
         }
 
         public static void GetJson<T>(string url, Action<T, HttpResponse> onComplete)
@@ -525,5 +624,67 @@ namespace StellarFramework
         }
 
         #endregion
+
+        private void AddPendingRequest(string requestKey, CancellationTokenSource cts)
+        {
+            lock (_requestLock)
+            {
+                if (!_activeCTS.TryGetValue(requestKey, out HashSet<CancellationTokenSource> group))
+                {
+                    group = new HashSet<CancellationTokenSource>();
+                    _activeCTS[requestKey] = group;
+                }
+
+                group.Add(cts);
+            }
+        }
+
+        private bool HasPendingRequest(string requestKey)
+        {
+            lock (_requestLock)
+            {
+                return _activeCTS.TryGetValue(requestKey, out HashSet<CancellationTokenSource> group) &&
+                       group.Count > 0;
+            }
+        }
+
+        private void RemovePendingRequest(string requestKey, CancellationTokenSource cts)
+        {
+            lock (_requestLock)
+            {
+                if (!_activeCTS.TryGetValue(requestKey, out HashSet<CancellationTokenSource> group))
+                {
+                    return;
+                }
+
+                group.Remove(cts);
+                if (group.Count == 0)
+                {
+                    _activeCTS.Remove(requestKey);
+                }
+            }
+        }
+
+        private string ComputeStableBodyHash(string body)
+        {
+            if (string.IsNullOrEmpty(body))
+            {
+                return "0";
+            }
+
+            using SHA256 sha256 = SHA256.Create();
+            byte[] bytes = Encoding.UTF8.GetBytes(body);
+            byte[] hash = sha256.ComputeHash(bytes);
+            return BitConverter.ToString(hash).Replace("-", string.Empty);
+        }
+
+        private static HttpResponse CreateUnavailableResponse()
+        {
+            return new HttpResponse
+            {
+                isSuccess = false,
+                error = "HttpKit is unavailable during shutdown or disposal"
+            };
+        }
     }
 }

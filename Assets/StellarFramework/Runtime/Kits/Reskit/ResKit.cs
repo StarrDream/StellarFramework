@@ -43,7 +43,7 @@ namespace StellarFramework.Res
                 return;
             }
 
-            PoolKit.Recycle(loader);
+            loader.RecycleToPool();
         }
     }
 }

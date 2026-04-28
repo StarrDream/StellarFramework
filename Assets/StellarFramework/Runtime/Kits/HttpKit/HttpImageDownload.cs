@@ -20,14 +20,22 @@ namespace StellarFramework
             public long LastAccessTick;
         }
 
+        private sealed class OngoingDownload
+        {
+            public CancellationTokenSource SharedCts = new CancellationTokenSource();
+            public UniTaskCompletionSource<Texture2D> CompletionSource = new UniTaskCompletionSource<Texture2D>();
+            public int WaiterCount;
+            public bool IsCompleted;
+        }
+
         private static readonly Dictionary<string, CacheEntry<Texture2D>> TextureCache =
             new Dictionary<string, CacheEntry<Texture2D>>(128);
 
         private static readonly Dictionary<string, CacheEntry<Sprite>> SpriteCache =
             new Dictionary<string, CacheEntry<Sprite>>(128);
 
-        private static readonly Dictionary<string, UniTask<Texture2D>> OngoingTasks =
-            new Dictionary<string, UniTask<Texture2D>>(64);
+        private static readonly Dictionary<string, OngoingDownload> OngoingTasks =
+            new Dictionary<string, OngoingDownload>(64);
 
         private static long _accessTick;
 
@@ -45,24 +53,33 @@ namespace StellarFramework
                 return cachedTexture;
             }
 
-            if (OngoingTasks.TryGetValue(imageUrl, out UniTask<Texture2D> existingTask))
-            {
-                return await existingTask.AttachExternalCancellation(cancellationToken);
-            }
+            OngoingDownload ongoing;
 
-            // 关键修复：
-            // 共享中的真实下载任务不能绑定第一个外部请求者的生命周期，否则会污染后续同 URL 请求。
-            UniTask<Texture2D> task = DownloadTextureInternalAsync(imageUrl, CancellationToken.None);
-            OngoingTasks[imageUrl] = task;
+            if (OngoingTasks.TryGetValue(imageUrl, out ongoing))
+            {
+                ongoing.WaiterCount++;
+            }
+            else
+            {
+                ongoing = new OngoingDownload
+                {
+                    WaiterCount = 1
+                };
+                OngoingTasks[imageUrl] = ongoing;
+                RunOngoingDownloadAsync(imageUrl, ongoing).Forget();
+            }
 
             try
             {
-                Texture2D texture = await task.AttachExternalCancellation(cancellationToken);
-                return texture;
+                return await ongoing.CompletionSource.Task.AttachExternalCancellation(cancellationToken);
             }
             finally
             {
-                OngoingTasks.Remove(imageUrl);
+                ongoing.WaiterCount = Math.Max(0, ongoing.WaiterCount - 1);
+                if (ongoing.WaiterCount == 0 && !ongoing.IsCompleted && !ongoing.SharedCts.IsCancellationRequested)
+                {
+                    ongoing.SharedCts.Cancel();
+                }
             }
         }
 
@@ -173,6 +190,11 @@ namespace StellarFramework
 
         public static void ClearCache()
         {
+            foreach (KeyValuePair<string, OngoingDownload> pair in OngoingTasks)
+            {
+                pair.Value?.SharedCts.Cancel();
+            }
+
             foreach (KeyValuePair<string, CacheEntry<Sprite>> pair in SpriteCache)
             {
                 if (pair.Value?.Asset != null)
@@ -202,6 +224,12 @@ namespace StellarFramework
                 return;
             }
 
+            if (OngoingTasks.TryGetValue(imageUrl, out OngoingDownload ongoing))
+            {
+                ongoing.SharedCts.Cancel();
+                OngoingTasks.Remove(imageUrl);
+            }
+
             if (SpriteCache.TryGetValue(imageUrl, out CacheEntry<Sprite> spriteEntry))
             {
                 if (spriteEntry?.Asset != null)
@@ -221,8 +249,6 @@ namespace StellarFramework
 
                 TextureCache.Remove(imageUrl);
             }
-
-            OngoingTasks.Remove(imageUrl);
         }
 
         private static async UniTask<Texture2D> DownloadTextureInternalAsync(string imageUrl,
@@ -442,6 +468,35 @@ namespace StellarFramework
             }
 
             SpriteCache.Remove(lruKey);
+        }
+
+        private static async UniTaskVoid RunOngoingDownloadAsync(string imageUrl, OngoingDownload ongoing)
+        {
+            try
+            {
+                Texture2D texture = await DownloadTextureInternalAsync(imageUrl, ongoing.SharedCts.Token);
+                ongoing.CompletionSource.TrySetResult(texture);
+            }
+            catch (OperationCanceledException)
+            {
+                ongoing.CompletionSource.TrySetCanceled();
+            }
+            catch (Exception ex)
+            {
+                ongoing.CompletionSource.TrySetException(ex);
+                LogKit.LogError($"[HttpImageDownload] 跟踪下载任务异常: Url={imageUrl}, Exception={ex.Message}");
+            }
+            finally
+            {
+                ongoing.IsCompleted = true;
+
+                if (OngoingTasks.TryGetValue(imageUrl, out OngoingDownload current) && ReferenceEquals(current, ongoing))
+                {
+                    OngoingTasks.Remove(imageUrl);
+                }
+
+                ongoing.SharedCts.Dispose();
+            }
         }
     }
 }

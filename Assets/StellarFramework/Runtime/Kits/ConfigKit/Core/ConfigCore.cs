@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections;
 using System.IO;
+using System.Threading;
+using Cysharp.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using UnityEngine;
 using UnityEngine.Networking;
@@ -13,6 +15,18 @@ namespace StellarFramework
     /// </summary>
     public static class ConfigCore
     {
+        public readonly struct ConfigLoadResult
+        {
+            public readonly JObject Data;
+            public readonly bool IsUserSave;
+
+            public ConfigLoadResult(JObject data, bool isUserSave)
+            {
+                Data = data;
+                IsUserSave = isUserSave;
+            }
+        }
+
         /// <summary>
         /// 通用加载流程，支持相对路径
         /// </summary>
@@ -75,12 +89,83 @@ namespace StellarFramework
             }
         }
 
+        public static async UniTask<ConfigLoadResult> LoadConfigAsync(string relativePath,
+            CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrEmpty(relativePath))
+            {
+                LogKit.LogError("[ConfigCore] 加载失败: 传入的相对路径为空");
+                return new ConfigLoadResult(null, false);
+            }
+
+            string loadUrl;
+            bool isUserSave = false;
+
+            string userSavePath = Path.Combine(Application.persistentDataPath, relativePath);
+            if (File.Exists(userSavePath))
+            {
+                loadUrl = "file://" + userSavePath.Replace("\\", "/");
+                isUserSave = true;
+            }
+            else
+            {
+                loadUrl = GetStreamingAssetsUrl(relativePath);
+            }
+
+            using UnityWebRequest request = UnityWebRequest.Get(loadUrl);
+
+            try
+            {
+                await request.SendWebRequest().ToUniTask(cancellationToken: cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                LogKit.Log($"[ConfigCore] 加载已取消: {relativePath}");
+                return new ConfigLoadResult(null, false);
+            }
+            catch (UnityWebRequestException ex)
+            {
+                string requestUrl = ex.UnityWebRequest != null ? ex.UnityWebRequest.url : loadUrl;
+                string requestError = ex.UnityWebRequest != null ? ex.UnityWebRequest.error : ex.Message;
+                LogKit.LogError($"[ConfigCore] 请求失败: {requestUrl}\nError: {requestError}");
+                return new ConfigLoadResult(null, false);
+            }
+            catch (Exception ex)
+            {
+                LogKit.LogError($"[ConfigCore] 加载异常: {relativePath}\n{ex.Message}");
+                return new ConfigLoadResult(null, false);
+            }
+
+            if (request.result != UnityWebRequest.Result.Success)
+            {
+                LogKit.LogError($"[ConfigCore] 请求失败: {loadUrl}\nError: {request.error}");
+                return new ConfigLoadResult(null, false);
+            }
+
+            string json = request.downloadHandler.text;
+            if (!string.IsNullOrEmpty(json) && json[0] == '\uFEFF')
+            {
+                json = json.Substring(1);
+            }
+
+            try
+            {
+                JObject data = JObject.Parse(json);
+                return new ConfigLoadResult(data, isUserSave);
+            }
+            catch (Exception ex)
+            {
+                LogKit.LogError($"[ConfigCore] JSON 解析异常: {relativePath}\n{ex.Message}\n原始内容: {json}");
+                return new ConfigLoadResult(null, false);
+            }
+        }
+
         /// <summary>
         /// 获取适配各平台的 StreamingAssets WebRequest 路径
         /// </summary>
         public static string GetStreamingAssetsUrl(string relativePath)
         {
-            relativePath = relativePath.TrimStart('/');
+            relativePath = relativePath.TrimStart('/', '\\');
 #if UNITY_EDITOR
             return "file://" + Path.Combine(Application.streamingAssetsPath, relativePath).Replace("\\", "/");
 #elif UNITY_ANDROID || UNITY_WEBGL || UNITY_OPENHARMONY

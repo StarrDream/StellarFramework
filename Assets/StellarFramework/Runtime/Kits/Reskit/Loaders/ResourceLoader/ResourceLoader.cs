@@ -1,5 +1,6 @@
-﻿using UnityEngine;
+using System.Threading;
 using Cysharp.Threading.Tasks;
+using UnityEngine;
 
 namespace StellarFramework.Res
 {
@@ -10,15 +11,23 @@ namespace StellarFramework.Res
         protected override ResData LoadRealSync(string path)
         {
             Object asset = Resources.Load(path);
-            if (asset != null) return new ResData { Asset = asset };
+            if (asset != null)
+            {
+                return new ResData { Asset = asset };
+            }
+
             return null;
         }
 
-        protected override async UniTask<ResData> LoadRealAsync(string path)
+        protected override async UniTask<ResData> LoadRealAsync(string path, CancellationToken cancellationToken)
         {
             ResourceRequest req = Resources.LoadAsync(path);
-            await req;
-            if (req.asset != null) return new ResData { Asset = req.asset };
+            Object asset = await req.ToUniTask(cancellationToken: cancellationToken);
+            if (asset != null)
+            {
+                return new ResData { Asset = asset };
+            }
+
             return null;
         }
 
@@ -32,6 +41,11 @@ namespace StellarFramework.Res
             {
                 ResMgr.TriggerResourcesUnload();
             }
+        }
+
+        public override void RecycleToPool()
+        {
+            Pool.PoolKit.Recycle<ResourceLoader>(this);
         }
     }
 }

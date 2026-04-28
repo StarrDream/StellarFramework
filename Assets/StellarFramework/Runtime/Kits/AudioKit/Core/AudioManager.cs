@@ -32,6 +32,7 @@ namespace StellarFramework.Audio
         private AudioSource _bgmSourceB;
         private bool _isUsingSourceA = true;
         private string _currentBgmPath;
+        private string _requestedBgmPath;
 
         private FactoryObjectPool<AudioSource> _sfxPool;
 
@@ -144,17 +145,7 @@ namespace StellarFramework.Audio
         private void ShutdownRuntimeState()
         {
             StopMusic();
-
-            if (_bgmSwitchCTS != null)
-            {
-                if (!_bgmSwitchCTS.IsCancellationRequested)
-                {
-                    _bgmSwitchCTS.Cancel();
-                }
-
-                _bgmSwitchCTS.Dispose();
-                _bgmSwitchCTS = null;
-            }
+            CancelBgmSwitch();
 
             if (_audioLoader != null)
             {
@@ -185,6 +176,7 @@ namespace StellarFramework.Audio
             }
 
             _currentBgmPath = null;
+            _requestedBgmPath = null;
             _isInitialized = false;
         }
 
@@ -323,40 +315,46 @@ namespace StellarFramework.Audio
         private async UniTaskVoid PlaySoundAsync(string path, Vector3 position, Transform attachTarget, bool is3D,
             SoundPriority priority)
         {
-            AudioClip clip = await _audioLoader.LoadAudioAsync(path, _managerCTS.Token);
-            if (this == null || !_isInitialized || !_isSoundOn || clip == null)
+            try
             {
-                return;
+                AudioClip clip = await _audioLoader.LoadAudioAsync(path, _managerCTS.Token);
+                if (this == null || !_isInitialized || !_isSoundOn || clip == null)
+                {
+                    return;
+                }
+
+                AudioSource source = _sfxPool.Allocate();
+                if (source == null)
+                {
+                    Debug.LogError(
+                        $"[AudioManager] 播放音效失败: 从对象池分配 AudioSource 为空, Path={path}, TriggerObject={gameObject.name}");
+                    return;
+                }
+
+                ActiveSoundInfo info = new ActiveSoundInfo
+                {
+                    Source = source,
+                    FollowTarget = attachTarget,
+                    Priority = priority
+                };
+
+                _activeSounds.Add(info);
+
+                source.clip = clip;
+                source.spatialBlend = is3D ? 1.0f : 0.0f;
+                if (is3D)
+                {
+                    source.minDistance = 1.0f;
+                    source.maxDistance = 20.0f;
+                    source.rolloffMode = AudioRolloffMode.Linear;
+                    source.transform.position = attachTarget != null ? attachTarget.position : position;
+                }
+
+                source.Play();
             }
-
-            AudioSource source = _sfxPool.Allocate();
-            if (source == null)
+            catch (OperationCanceledException) when (_managerCTS.IsCancellationRequested)
             {
-                Debug.LogError(
-                    $"[AudioManager] 播放音效失败: 从对象池分配 AudioSource 为空, Path={path}, TriggerObject={gameObject.name}");
-                return;
             }
-
-            ActiveSoundInfo info = new ActiveSoundInfo
-            {
-                Source = source,
-                FollowTarget = attachTarget,
-                Priority = priority
-            };
-
-            _activeSounds.Add(info);
-
-            source.clip = clip;
-            source.spatialBlend = is3D ? 1.0f : 0.0f;
-            if (is3D)
-            {
-                source.minDistance = 1.0f;
-                source.maxDistance = 20.0f;
-                source.rolloffMode = AudioRolloffMode.Linear;
-                source.transform.position = attachTarget != null ? attachTarget.position : position;
-            }
-
-            source.Play();
         }
 
         // ================= BGM =================
@@ -375,94 +373,126 @@ namespace StellarFramework.Audio
                 return;
             }
 
-            if (_currentBgmPath == path)
+            if (_currentBgmPath == path || _requestedBgmPath == path)
             {
                 return;
             }
 
-            if (_bgmSwitchCTS != null)
-            {
-                if (!_bgmSwitchCTS.IsCancellationRequested)
-                {
-                    _bgmSwitchCTS.Cancel();
-                }
+            CancelBgmSwitch();
 
-                _bgmSwitchCTS.Dispose();
-            }
-
-            _bgmSwitchCTS = CancellationTokenSource.CreateLinkedTokenSource(_managerCTS.Token);
-            PlayMusicAsync(path, Mathf.Max(0f, fadeDuration), _bgmSwitchCTS.Token).Forget();
+            _requestedBgmPath = path;
+            CancellationTokenSource switchCts = CancellationTokenSource.CreateLinkedTokenSource(_managerCTS.Token);
+            _bgmSwitchCTS = switchCts;
+            PlayMusicAsync(path, Mathf.Max(0f, fadeDuration), switchCts).Forget();
         }
 
-        private async UniTaskVoid PlayMusicAsync(string path, float fadeDuration, CancellationToken token)
+        private async UniTaskVoid PlayMusicAsync(string path, float fadeDuration, CancellationTokenSource switchCts)
         {
-            _currentBgmPath = path;
+            CancellationToken token = switchCts.Token;
 
-            AudioClip clip = await _audioLoader.LoadAudioAsync(path, token);
-            if (clip == null || this == null || !_isInitialized || token.IsCancellationRequested)
+            try
             {
-                return;
-            }
-
-            AudioSource targetSource = _isUsingSourceA ? _bgmSourceB : _bgmSourceA;
-            AudioSource currentSource = _isUsingSourceA ? _bgmSourceA : _bgmSourceB;
-
-            if (targetSource == null || currentSource == null)
-            {
-                Debug.LogError(
-                    $"[AudioManager] 切换 BGM 失败: BGM Source 丢失, Path={path}, TriggerObject={gameObject.name}");
-                return;
-            }
-
-            targetSource.clip = clip;
-            targetSource.volume = 0f;
-            targetSource.Play();
-
-            if (fadeDuration <= 0f)
-            {
-                currentSource.Stop();
-                targetSource.volume = 1f;
-                _isUsingSourceA = !_isUsingSourceA;
-                return;
-            }
-
-            float timer = 0f;
-            while (timer < fadeDuration)
-            {
-                if (this == null || !_isInitialized || token.IsCancellationRequested)
+                AudioClip clip = await _audioLoader.LoadAudioAsync(path, token);
+                if (clip == null || this == null || !_isInitialized || token.IsCancellationRequested)
                 {
+                    if (ReferenceEquals(_bgmSwitchCTS, switchCts))
+                    {
+                        _requestedBgmPath = null;
+                    }
+
                     return;
                 }
 
-                timer += Time.unscaledDeltaTime;
-                float t = Mathf.Clamp01(timer / fadeDuration);
-                targetSource.volume = Mathf.Lerp(0f, 1f, t);
+                AudioSource targetSource = _isUsingSourceA ? _bgmSourceB : _bgmSourceA;
+                AudioSource currentSource = _isUsingSourceA ? _bgmSourceA : _bgmSourceB;
 
-                if (currentSource.isPlaying)
+                if (targetSource == null || currentSource == null)
                 {
-                    currentSource.volume = Mathf.Lerp(1f, 0f, t);
+                    Debug.LogError(
+                        $"[AudioManager] 切换 BGM 失败: BGM Source 丢失, Path={path}, TriggerObject={gameObject.name}");
+
+                    if (ReferenceEquals(_bgmSwitchCTS, switchCts))
+                    {
+                        _requestedBgmPath = null;
+                    }
+
+                    return;
                 }
 
-                await UniTask.Yield(PlayerLoopTiming.Update, token);
-            }
+                targetSource.clip = clip;
+                targetSource.volume = 0f;
+                targetSource.Play();
+                _currentBgmPath = path;
+                _requestedBgmPath = path;
 
-            targetSource.volume = 1f;
-            currentSource.Stop();
-            _isUsingSourceA = !_isUsingSourceA;
+                if (fadeDuration <= 0f)
+                {
+                    currentSource.Stop();
+                    targetSource.volume = 1f;
+                    _isUsingSourceA = !_isUsingSourceA;
+                    return;
+                }
+
+                float timer = 0f;
+                while (timer < fadeDuration)
+                {
+                    if (this == null || !_isInitialized || token.IsCancellationRequested)
+                    {
+                        return;
+                    }
+
+                    timer += Time.unscaledDeltaTime;
+                    float t = Mathf.Clamp01(timer / fadeDuration);
+                    targetSource.volume = Mathf.Lerp(0f, 1f, t);
+
+                    if (currentSource.isPlaying)
+                    {
+                        currentSource.volume = Mathf.Lerp(1f, 0f, t);
+                    }
+
+                    await UniTask.Yield(PlayerLoopTiming.Update, token);
+                }
+
+                targetSource.volume = 1f;
+                currentSource.Stop();
+                _isUsingSourceA = !_isUsingSourceA;
+            }
+            catch (OperationCanceledException) when (token.IsCancellationRequested)
+            {
+            }
+            finally
+            {
+                if (ReferenceEquals(_bgmSwitchCTS, switchCts))
+                {
+                    if (_currentBgmPath != path)
+                    {
+                        _requestedBgmPath = null;
+                    }
+
+                    switchCts.Dispose();
+                    _bgmSwitchCTS = null;
+                }
+            }
         }
 
         public void StopMusic()
         {
+            CancelBgmSwitch();
             _currentBgmPath = null;
+            _requestedBgmPath = null;
 
             if (_bgmSourceA != null)
             {
                 _bgmSourceA.Stop();
+                _bgmSourceA.clip = null;
+                _bgmSourceA.volume = 1f;
             }
 
             if (_bgmSourceB != null)
             {
                 _bgmSourceB.Stop();
+                _bgmSourceB.clip = null;
+                _bgmSourceB.volume = 1f;
             }
         }
 
@@ -534,6 +564,19 @@ namespace StellarFramework.Audio
 
             float dbVolume = linearVolume <= 0.0001f ? -80f : Mathf.Log10(linearVolume) * 20f;
             _mixer.SetFloat(paramName, dbVolume);
+        }
+
+        private void CancelBgmSwitch()
+        {
+            if (_bgmSwitchCTS == null)
+            {
+                return;
+            }
+
+            if (!_bgmSwitchCTS.IsCancellationRequested)
+            {
+                _bgmSwitchCTS.Cancel();
+            }
         }
     }
 }

@@ -11,7 +11,7 @@ namespace StellarFramework.Editor
     {
         public static void ShowWindow()
         {
-            var wnd = GetWindow<FolderContentCopyTool>("Copy Code Tool");
+            var wnd = GetWindow<FolderContentCopyTool>("上下文复制工具");
             wnd.minSize = new Vector2(600, 650);
             wnd.Show();
         }
@@ -30,7 +30,7 @@ namespace StellarFramework.Editor
         private bool _includeMeta = false;
 
         // 优化选项
-        private bool _optimizeForAI = true; // 基础压缩（去空行）
+        private bool _optimizeForContext = true; // 基础压缩（去空行）
         private bool _removeComments = false; // 移除注释（大幅减少）
         private bool _removeIndentation = false; // 移除缩进（代码变平，大幅减少）
 
@@ -88,11 +88,11 @@ namespace StellarFramework.Editor
                 }
 
                 GUILayout.Space(5);
-                GUILayout.Label("压缩策略 (Token 优化):", EditorStyles.boldLabel);
+                GUILayout.Label("压缩策略 (上下文优化):", EditorStyles.boldLabel);
 
-                _optimizeForAI = EditorGUILayout.ToggleLeft("基础压缩 (合并空行 + Markdown格式)", _optimizeForAI);
+                _optimizeForContext = EditorGUILayout.ToggleLeft("基础压缩 (合并空行 + Markdown 格式)", _optimizeForContext);
 
-                if (_optimizeForAI)
+                if (_optimizeForContext)
                 {
                     using (new GUILayout.HorizontalScope())
                     {
@@ -104,7 +104,7 @@ namespace StellarFramework.Editor
                     string tips = "当前策略预估效果：\n";
                     if (!_removeComments && !_removeIndentation) tips += "• 保留原始格式，仅去除多余空行。";
                     if (_removeComments) tips += "• 移除所有注释，节省约 20% Token。\n";
-                    if (_removeIndentation) tips += "• 移除行首空格，节省约 15% Token (AI仍可阅读)。";
+                    if (_removeIndentation) tips += "• 移除行首空格，节省约 15% Token，同时保留基础可读性。";
 
                     EditorGUILayout.HelpBox(tips, MessageType.Info);
                 }
@@ -161,7 +161,7 @@ namespace StellarFramework.Editor
                 GUI.enabled = _selectedFolders.Count > 0 && Directory.Exists(_rootFolder);
 
                 string btnLabel = "复制到剪贴板";
-                if (_optimizeForAI) btnLabel += " (已压缩)";
+                if (_optimizeForContext) btnLabel += " (已压缩)";
 
                 if (GUILayout.Button(btnLabel, GUILayout.Height(30)))
                 {
@@ -252,7 +252,7 @@ namespace StellarFramework.Editor
                 Debug.Log($"📄 文件数量: {fileCount}");
                 Debug.Log($"📏 字符总长: {totalLength:N0}");
                 Debug.Log($"🤖 预估Tokens: ~{estimatedTokens:N0}");
-                if (_optimizeForAI)
+                if (_optimizeForContext)
                 {
                     string details = "";
                     if (_removeComments) details += "[无注释] ";
@@ -272,7 +272,7 @@ namespace StellarFramework.Editor
 
         private void AppendFileContent(StringBuilder sb, string path, string content)
         {
-            if (_optimizeForAI)
+            if (_optimizeForContext)
             {
                 // 1. 移除注释 (如果开启)
                 if (_removeComments)

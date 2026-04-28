@@ -109,7 +109,7 @@ namespace StellarFramework.Event
             return this;
         }
 
-        internal static bool TryAttachDestroyTrigger(GameObject gameObject, out EventUnregisterTrigger trigger)
+        public static bool TryAttachDestroyTrigger(GameObject gameObject, out EventUnregisterTrigger trigger)
         {
             trigger = null;
 
@@ -133,7 +133,7 @@ namespace StellarFramework.Event
             return trigger != null;
         }
 
-        internal static bool TryAttachDisableTrigger(GameObject gameObject, out EventUnregisterOnDisableTrigger trigger)
+        public static bool TryAttachDisableTrigger(GameObject gameObject, out EventUnregisterOnDisableTrigger trigger)
         {
             trigger = null;
 

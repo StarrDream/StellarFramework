@@ -68,9 +68,7 @@ namespace StellarFramework
                 return;
             }
 
-            Stop();
-            _playbackCts = CancellationTokenSource.CreateLinkedTokenSource(destroyCancellationToken);
-            await ActionEngineRunner.Play(gameObject, _actionAsset, false, _playbackCts.Token);
+            await PlayInternal(false);
         }
 
         /// <summary>
@@ -84,9 +82,30 @@ namespace StellarFramework
                 return;
             }
 
+            await PlayInternal(true);
+        }
+
+        private async UniTask PlayInternal(bool isReverse)
+        {
             Stop();
-            _playbackCts = CancellationTokenSource.CreateLinkedTokenSource(destroyCancellationToken);
-            await ActionEngineRunner.Play(gameObject, _actionAsset, true, _playbackCts.Token);
+            CancellationTokenSource playbackCts = CancellationTokenSource.CreateLinkedTokenSource(destroyCancellationToken);
+            _playbackCts = playbackCts;
+
+            try
+            {
+                await ActionEngineRunner.Play(gameObject, _actionAsset, isReverse, playbackCts.Token);
+            }
+            catch (OperationCanceledException) when (playbackCts.IsCancellationRequested)
+            {
+            }
+            finally
+            {
+                if (ReferenceEquals(_playbackCts, playbackCts))
+                {
+                    playbackCts.Dispose();
+                    _playbackCts = null;
+                }
+            }
         }
 
         /// <summary>

@@ -1,0 +1,113 @@
+# SingletonKit / 单例系统
+
+## 1. 设计理念 (Why)
+在 Unity 开发中，单例是常用的模式，但原生实现方式常面临以下问题：
+*   **性能开销**：`FindObjectOfType` 在大场景中调用开销较大。
+*   **生命周期管理**：难以区分“跨场景全局单例”与“随场景销毁的单例”。
+*   **重复创建**：场景切换或误操作容易导致场景中存在多个单例实例。
+
+**SingletonKit 的特性：**
+*   **避免查找 (No Find)**：移除了运行时的 `FindObjectOfType` 调用，通过字典缓存使访问单例的复杂度保持在 O(1)。
+*   **注册表模式**：所有单例在 `Awake` 时主动注册到 `SingletonFactory` 的静态字典中。
+*   **严格生命周期**：明确区分 `Global` (全局) 和 `Scene` (场景) 单例。
+*   **线程安全**：增加了主线程检查，防止在异步线程访问 Unity 组件导致异常。
+
+---
+
+## 2. 核心架构 (Under the hood)
+
+### 2.1 注册表机制
+`SingletonFactory` 维护了一个 `Dictionary<Type, ISingleton>`。
+*   **MonoSingleton.Awake**：主动调用 `Register`，将自身写入字典。
+*   **MonoSingleton.OnDestroy**：主动调用 `Unregister`，从字典移除。
+*   **访问 Instance**：直接查询字典。若字典中不存在，则根据生命周期策略决定是“创建”还是“报错”。
+
+### 2.2 自动创建 (Global Only)
+对于 `Global` 单例，如果字典中不存在，工厂会：
+1.  尝试从 Resources 加载预制体（若配置了路径）。
+2.  或者 `new GameObject` 并挂载组件。
+3.  调用 `DontDestroyOnLoad`。
+4.  挂载到 `[SingletonContainer]` 节点下，保持 Hierarchy 整洁。
+
+---
+
+## 3. 使用指南 (How)
+
+### 3.1 全局单例 (Global Singleton)
+适用于：`AudioManager`, `UIManager`, `NetworkManager` 等跨场景存在的管理器。
+**特点**：自动创建，自动 `DontDestroyOnLoad`，全局存活。
+
+```csharp
+using StellarFramework;
+using UnityEngine;
+
+// 1. 标记为 Global
+// resourcePath: (可选) Resources 下的预制体路径，如果不填则创建一个空物体
+[Singleton(resourcePath: "Managers/MyGameManager", lifeCycle: SingletonLifeCycle.Global)]
+public class MyGameManager : MonoSingleton<MyGameManager>
+{
+    // 2. 替代 Awake 的初始化方法 (只会在首次注册成功时调用一次)
+    public override void OnSingletonInit()
+    {
+        Debug.Log("全局管理器初始化完成");
+    }
+
+    public void DoSomething() { }
+}
+
+// 3. 调用 (自动创建)
+MyGameManager.Instance.DoSomething();
+```
+
+### 3.2 场景单例 (Scene Singleton)
+适用于：`BattleController`, `LevelManager` 等随场景销毁的控制器。
+**特点**：**不自动创建**。必须预先在场景中挂载。如果访问 `Instance` 时场景中不存在，会直接输出错误日志。
+
+```csharp
+using StellarFramework;
+
+// 1. 必须标记为 Scene
+[Singleton(lifeCycle: SingletonLifeCycle.Scene)]
+public class BattleController : MonoSingleton<BattleController>
+{
+    // 2. 必须在场景中手动挂载此脚本
+    
+    public void StartBattle() { }
+}
+
+// 3. 调用
+// 注意：建议在 Start 中调用，确保 BattleController 已经执行了 Awake 注册
+void Start()
+{
+    BattleController.Instance.StartBattle();
+}
+```
+
+### 3.3 纯 C# 单例
+适用于：`DataCalculator`, `PathFinder` 等不需要继承 MonoBehaviour 的工具类。
+
+```csharp
+public class DataHelper : Singleton<DataHelper>
+{
+    public int Add(int a, int b) => a + b;
+}
+
+// 调用
+int result = DataHelper.Instance.Add(1, 2);
+```
+
+---
+
+## 4. 常见问题 (Pitfalls)
+
+### Q1: 报错 `[SingletonFactory] 获取场景单例失败: 场景单例未注册`
+*   **原因**：
+    1.  场景中未挂载该物体。
+    2.  物体被 Disable，导致 `Awake` 未执行。
+    3.  在其他脚本的 `Awake` 中调用了它，存在时序问题。
+*   **解决**：检查场景物体；将调用逻辑移到 `Start`；或手动调整 Script Execution Order。
+
+### Q2: 报错 `[SingletonFactory] 检测到重复单例...`
+*   **原因**：Global 单例通常由代码自动创建。如果手动将其拖入场景，代码又创建了一个，会产生冲突。
+*   **机制**：框架会保留先注册的实例，并销毁后注册的实例。
+*   **建议**：Global 单例尽量由代码自动生成，避免手动拖入场景。

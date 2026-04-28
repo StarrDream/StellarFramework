@@ -13,7 +13,7 @@ namespace StellarFramework.Editor
         [MenuItem("StellarFramework/Tools Hub %#t")]
         public static void ShowWindow()
         {
-            var window = GetWindow<StellarFrameworkTools>("Stellar Tools");
+            var window = GetWindow<StellarFrameworkTools>("Tools Hub");
             window.minSize = new Vector2(1000, 680);
             window.Show();
         }
@@ -201,11 +201,11 @@ namespace StellarFramework.Editor
             using (new GUILayout.HorizontalScope(_topBarStyle))
             {
                 GUILayout.Space(8);
-                GUILayout.Label("StellarFramework Tools", _titleStyle);
+                GUILayout.Label("StellarFramework Tools Hub", _titleStyle);
                 GUILayout.Space(10);
                 GUILayout.Label("统一入口 | Editor 工具集成版", _subTitleStyle);
                 GUILayout.FlexibleSpace();
-                if (GUILayout.Button("Reload", EditorStyles.toolbarButton, GUILayout.Width(60)))
+                if (GUILayout.Button("刷新", EditorStyles.toolbarButton, GUILayout.Width(60)))
                 {
                     ScanAndRegisterModules();
                     if (_currentModule != null) _currentModule.OnEnable();
@@ -307,9 +307,9 @@ namespace StellarFramework.Editor
         {
             using (new GUILayout.HorizontalScope(EditorStyles.helpBox))
             {
-                GUILayout.Label("v2.4 Integrated", EditorStyles.miniLabel);
+                GUILayout.Label("v2.4 集成版", EditorStyles.miniLabel);
                 GUILayout.FlexibleSpace();
-                if (GUILayout.Button("Ping Framework", GhostButtonStyle, GUILayout.Width(120)))
+                if (GUILayout.Button("定位框架目录", GhostButtonStyle, GUILayout.Width(120)))
                 {
                     var obj = AssetDatabase.LoadAssetAtPath<Object>("Assets/StellarFramework");
                     if (obj) EditorGUIUtility.PingObject(obj);

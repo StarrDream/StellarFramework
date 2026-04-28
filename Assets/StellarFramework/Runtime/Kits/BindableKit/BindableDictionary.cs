@@ -164,6 +164,18 @@ namespace StellarFramework.Bindable
 
         public void UnRegisterAll()
         {
+            if (_iteratingCount > 0)
+            {
+                ObserverNode deferredNode = _head;
+                while (deferredNode != null)
+                {
+                    deferredNode.MarkedForDeletion = true;
+                    deferredNode = deferredNode.Next;
+                }
+
+                return;
+            }
+
             ObserverNode node = _head;
             while (node != null)
             {

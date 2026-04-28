@@ -30,8 +30,8 @@ namespace StellarFramework.UI
         private readonly Dictionary<Type, string> _panelNames =
             new Dictionary<Type, string>();
 
-        private readonly Dictionary<Type, UniTask<UIPanelBase>> _panelLoadingTasks =
-            new Dictionary<Type, UniTask<UIPanelBase>>();
+        private readonly Dictionary<Type, UniTaskCompletionSource<UIPanelBase>> _panelLoadingTasks =
+            new Dictionary<Type, UniTaskCompletionSource<UIPanelBase>>();
 
         private CancellationTokenSource _destroyCts = new CancellationTokenSource();
 
@@ -124,41 +124,50 @@ namespace StellarFramework.UI
             }
 
             _isInitializing = true;
-            EnsureDefaultStrategy();
-
-            if (_loadStrategy == null)
+            try
             {
-                Debug.LogError("[UIKit] InitAsync 失败: 加载策略为空");
-                _isInitializing = false;
-                return;
+                EnsureDefaultStrategy();
+
+                if (_loadStrategy == null)
+                {
+                    Debug.LogError("[UIKit] InitAsync 失败: 加载策略为空");
+                    return;
+                }
+
+                GameObject rootPrefab = await _loadStrategy.LoadUIRootAsync(_destroyCts.Token);
+
+                if (_isDisposed || this == null)
+                {
+                    return;
+                }
+
+                if (rootPrefab == null)
+                {
+                    Debug.LogError($"[UIKit] InitAsync 失败: UIRoot 加载为空, Strategy={_loadStrategy.GetType().Name}");
+                    return;
+                }
+
+                if (!SetupUIRoot(rootPrefab))
+                {
+                    Debug.LogError(
+                        $"[UIKit] InitAsync 失败: UIRoot 结构非法, Strategy={_loadStrategy.GetType().Name}, Prefab={rootPrefab.name}");
+                    return;
+                }
+
+                _isInitialized = true;
+                LogKit.Log($"[UIKit] 异步初始化完成, Strategy={_loadStrategy.GetType().Name}");
             }
-
-            GameObject rootPrefab = await _loadStrategy.LoadUIRootAsync();
-
-            if (_isDisposed || this == null)
+            catch (OperationCanceledException)
+            {
+                if (!_isDisposed)
+                {
+                    LogKit.LogWarning("[UIKit] InitAsync 被取消");
+                }
+            }
+            finally
             {
                 _isInitializing = false;
-                return;
             }
-
-            if (rootPrefab == null)
-            {
-                Debug.LogError($"[UIKit] InitAsync 失败: UIRoot 加载为空, Strategy={_loadStrategy.GetType().Name}");
-                _isInitializing = false;
-                return;
-            }
-
-            if (!SetupUIRoot(rootPrefab))
-            {
-                Debug.LogError(
-                    $"[UIKit] InitAsync 失败: UIRoot 结构非法, Strategy={_loadStrategy.GetType().Name}, Prefab={rootPrefab.name}");
-                _isInitializing = false;
-                return;
-            }
-
-            _isInitialized = true;
-            _isInitializing = false;
-            LogKit.Log($"[UIKit] 异步初始化完成, Strategy={_loadStrategy.GetType().Name}");
         }
 
         private void EnsureDefaultStrategy()
@@ -255,23 +264,37 @@ namespace StellarFramework.UI
 
         public static TPanel OpenPanel<TPanel>(UIPanelDataBase data = null) where TPanel : UIPanelBase
         {
-            return Instance.OpenPanelInternalSync<TPanel>(data);
+            return TryGetRuntimeInstance(nameof(OpenPanel), typeof(TPanel), out UIKit instance)
+                ? instance.OpenPanelInternalSync<TPanel>(data)
+                : null;
         }
 
         public static async UniTask<TPanel> OpenPanelAsync<TPanel>(UIPanelDataBase data = null)
             where TPanel : UIPanelBase
         {
-            return await Instance.OpenPanelInternalAsync<TPanel>(data);
+            if (!TryGetRuntimeInstance(nameof(OpenPanelAsync), typeof(TPanel), out UIKit instance))
+            {
+                return null;
+            }
+
+            return await instance.OpenPanelInternalAsync<TPanel>(data);
         }
 
         public static TPanel PreloadPanel<TPanel>() where TPanel : UIPanelBase
         {
-            return Instance.GetOrLoadPanelInternalSync<TPanel>();
+            return TryGetRuntimeInstance(nameof(PreloadPanel), typeof(TPanel), out UIKit instance)
+                ? instance.GetOrLoadPanelInternalSync<TPanel>()
+                : null;
         }
 
         public static async UniTask<TPanel> PreloadPanelAsync<TPanel>() where TPanel : UIPanelBase
         {
-            return await Instance.GetOrLoadPanelInternalAsync<TPanel>();
+            if (!TryGetRuntimeInstance(nameof(PreloadPanelAsync), typeof(TPanel), out UIKit instance))
+            {
+                return null;
+            }
+
+            return await instance.GetOrLoadPanelInternalAsync<TPanel>();
         }
 
         public static TPanel GetPanel<TPanel>() where TPanel : UIPanelBase
@@ -414,19 +437,30 @@ namespace StellarFramework.UI
                 return cachedPanel as TPanel;
             }
 
-            if (_panelLoadingTasks.TryGetValue(panelType, out UniTask<UIPanelBase> loadingTask))
+            if (_panelLoadingTasks.TryGetValue(panelType, out UniTaskCompletionSource<UIPanelBase> loadingTask))
             {
-                UIPanelBase existingLoadingPanel = await loadingTask;
+                UIPanelBase existingLoadingPanel = await loadingTask.Task;
                 return existingLoadingPanel as TPanel;
             }
 
-            UniTask<UIPanelBase> newTask = CreatePanelAsyncInternal<TPanel>(_destroyCts.Token).Preserve();
-            _panelLoadingTasks[panelType] = newTask;
+            UniTaskCompletionSource<UIPanelBase> loadingSource = new UniTaskCompletionSource<UIPanelBase>();
+            _panelLoadingTasks[panelType] = loadingSource;
 
             UIPanelBase createdPanel = null;
             try
             {
-                createdPanel = await newTask;
+                createdPanel = await CreatePanelAsyncInternal<TPanel>(_destroyCts.Token);
+                loadingSource.TrySetResult(createdPanel);
+            }
+            catch (OperationCanceledException)
+            {
+                loadingSource.TrySetCanceled();
+                return null;
+            }
+            catch (Exception ex)
+            {
+                loadingSource.TrySetException(ex);
+                throw;
             }
             finally
             {
@@ -587,7 +621,7 @@ namespace StellarFramework.UI
             Type panelType = typeof(TPanel);
             string panelName = panelType.Name;
 
-            GameObject prefab = await _loadStrategy.LoadPanelPrefabAsync(panelName);
+            GameObject prefab = await _loadStrategy.LoadPanelPrefabAsync(panelName, token);
             if (token.IsCancellationRequested || _isDisposed || this == null)
             {
                 return null;
@@ -720,6 +754,11 @@ namespace StellarFramework.UI
         {
             _isDisposed = true;
 
+            if (SingletonFactory.TryGetRegisteredSingleton<UIStackManager>(out UIStackManager stackManager))
+            {
+                stackManager.Dispose();
+            }
+
             if (_destroyCts != null)
             {
                 _destroyCts.Cancel();
@@ -733,6 +772,18 @@ namespace StellarFramework.UI
                 _loadStrategy = null;
             }
 
+            if (RootCanvas != null && RootCanvas.gameObject != null)
+            {
+                if (Application.isPlaying)
+                {
+                    Destroy(RootCanvas.gameObject);
+                }
+                else
+                {
+                    DestroyImmediate(RootCanvas.gameObject);
+                }
+            }
+
             _panelLoadingTasks.Clear();
             _panelCache.Clear();
             _panelNames.Clear();
@@ -743,6 +794,18 @@ namespace StellarFramework.UI
             UICamera = null;
 
             base.OnDestroy();
+        }
+
+        private static bool TryGetRuntimeInstance(string apiName, Type panelType, out UIKit instance)
+        {
+            instance = Instance;
+            if (instance != null)
+            {
+                return true;
+            }
+
+            Debug.LogError($"[UIKit] {apiName} 失败: UIKit 实例为空, Panel={panelType?.Name ?? "null"}");
+            return false;
         }
     }
 }

@@ -1,4 +1,4 @@
-﻿// ==================================================================================
+// ==================================================================================
 // ResMgr - Commercial Convergence V2
 // ----------------------------------------------------------------------------------
 // 职责：全局资源缓存与引用计数调度中心。
@@ -11,6 +11,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Threading;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
 
@@ -18,10 +19,18 @@ namespace StellarFramework.Res
 {
     internal static class ResMgr
     {
+        private sealed class OngoingLoadEntry
+        {
+            public CancellationTokenSource SharedCts = new CancellationTokenSource();
+            public UniTaskCompletionSource<ResData> CompletionSource = new UniTaskCompletionSource<ResData>();
+            public int WaiterCount;
+            public bool IsCompleted;
+        }
+
         private static readonly Dictionary<string, ResData> _sharedCache = new Dictionary<string, ResData>();
 
-        private static readonly Dictionary<string, UniTask<ResData>> _loadingTasks =
-            new Dictionary<string, UniTask<ResData>>();
+        private static readonly Dictionary<string, OngoingLoadEntry> _loadingTasks =
+            new Dictionary<string, OngoingLoadEntry>();
 
         private static int _pendingResourcesUnloadCount = 0;
         private const int RESOURCES_UNLOAD_THRESHOLD = 10;
@@ -32,13 +41,13 @@ namespace StellarFramework.Res
         }
 
         public static async UniTask<ResData> LoadSharedAsync(string path, string loaderName, string ownerId,
-            Func<UniTask<ResData>> loadFunc)
+            Func<CancellationToken, UniTask<ResData>> loadFunc, CancellationToken cancellationToken = default)
         {
             LogKit.AssertNotNull(path, "[ResMgr] LoadSharedAsync 失败: path 为空");
 
             string key = GetCacheKey(path, loaderName);
 
-            if (_sharedCache.TryGetValue(key, out var cachedData))
+            if (_sharedCache.TryGetValue(key, out ResData cachedData))
             {
                 if (cachedData.Asset != null)
                 {
@@ -49,35 +58,58 @@ namespace StellarFramework.Res
                 _sharedCache.Remove(key);
             }
 
-            if (_loadingTasks.TryGetValue(key, out var existingTask))
+            OngoingLoadEntry entry;
+            if (_loadingTasks.TryGetValue(key, out entry))
             {
-                ResData existingRes = await existingTask;
-                if (existingRes != null && existingRes.Asset != null)
-                {
-                    AddRefInternal(existingRes, ownerId);
-                    return existingRes;
-                }
-
-                _loadingTasks.Remove(key);
+                entry.WaiterCount++;
             }
-
-            UniTask<ResData> newTask = LoadInternalAsync(key, path, loaderName, ownerId, loadFunc).Preserve();
-            _loadingTasks[key] = newTask;
+            else
+            {
+                entry = new OngoingLoadEntry
+                {
+                    WaiterCount = 1
+                };
+                _loadingTasks[key] = entry;
+                RunSharedLoadAsync(key, path, loaderName, loadFunc, entry).Forget();
+            }
 
             try
             {
-                return await newTask;
+                ResData loadedData = await entry.CompletionSource.Task.AttachExternalCancellation(cancellationToken);
+                if (loadedData != null && loadedData.Asset != null)
+                {
+                    AddRefInternal(loadedData, ownerId);
+                }
+
+                return loadedData;
+            }
+            catch (OperationCanceledException)
+            {
+                return null;
             }
             finally
             {
-                _loadingTasks.Remove(key);
+                entry.WaiterCount = Math.Max(0, entry.WaiterCount - 1);
+                if (entry.WaiterCount == 0 && !entry.IsCompleted && !entry.SharedCts.IsCancellationRequested)
+                {
+                    entry.SharedCts.Cancel();
+                }
             }
         }
 
         private static async UniTask<ResData> LoadInternalAsync(string key, string path, string loaderName,
-            string ownerId, Func<UniTask<ResData>> loadFunc)
+            Func<CancellationToken, UniTask<ResData>> loadFunc, CancellationToken cancellationToken)
         {
-            ResData data = await loadFunc.Invoke();
+            ResData data;
+            try
+            {
+                data = await loadFunc.Invoke(cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                return null;
+            }
+
             if (data == null || data.Asset == null)
             {
                 LogKit.LogError($"[ResMgr] 物理加载失败: 资源为空，Path={path}，Loader={loaderName}");
@@ -86,17 +118,19 @@ namespace StellarFramework.Res
 
             if (!_sharedCache.ContainsKey(key))
             {
-                data.RefCount = 0; // 初始为 0，随后通过 AddRefInternal 增加
+                data.RefCount = 0;
                 _sharedCache.Add(key, data);
             }
 
-            AddRefInternal(_sharedCache[key], ownerId);
             return _sharedCache[key];
         }
 
         public static void AddSync(ResData data, string ownerId)
         {
-            if (data == null || string.IsNullOrEmpty(data.Path) || data.Asset == null) return;
+            if (data == null || string.IsNullOrEmpty(data.Path) || data.Asset == null)
+            {
+                return;
+            }
 
             string key = GetCacheKey(data.Path, data.LoaderName);
             if (!_sharedCache.ContainsKey(key))
@@ -111,9 +145,13 @@ namespace StellarFramework.Res
         public static ResData GetCache(string path, string loaderName)
         {
             string key = GetCacheKey(path, loaderName);
-            if (_sharedCache.TryGetValue(key, out var data))
+            if (_sharedCache.TryGetValue(key, out ResData data))
             {
-                if (data.Asset != null) return data;
+                if (data.Asset != null)
+                {
+                    return data;
+                }
+
                 _sharedCache.Remove(key);
             }
 
@@ -128,7 +166,7 @@ namespace StellarFramework.Res
         public static void AddRef(string path, string loaderName, string ownerId)
         {
             string key = GetCacheKey(path, loaderName);
-            if (_sharedCache.TryGetValue(key, out var data))
+            if (_sharedCache.TryGetValue(key, out ResData data))
             {
                 AddRefInternal(data, ownerId);
             }
@@ -137,7 +175,10 @@ namespace StellarFramework.Res
         public static void RemoveRef(string path, string loaderName, string ownerId)
         {
             string key = GetCacheKey(path, loaderName);
-            if (!_sharedCache.TryGetValue(key, out var data)) return;
+            if (!_sharedCache.TryGetValue(key, out ResData data))
+            {
+                return;
+            }
 
             data.RefCount--;
 
@@ -145,10 +186,13 @@ namespace StellarFramework.Res
             data.RemoveOwner(ownerId);
 #endif
 
-            // Fail-Fast：严格拦截引用计数异常
-            LogKit.Assert(data.RefCount >= 0, $"[ResMgr] 致命错误：资源 {path} 的引用计数出现负数 ({data.RefCount})！存在重复卸载或越权释放。");
+            LogKit.Assert(data.RefCount >= 0,
+                $"[ResMgr] 致命错误：资源 {path} 的引用计数出现负数 ({data.RefCount})！存在重复卸载或越权释放。");
 
-            if (data.RefCount > 0) return;
+            if (data.RefCount > 0)
+            {
+                return;
+            }
 
             _sharedCache.Remove(key);
             RealUnload(data);
@@ -183,7 +227,10 @@ namespace StellarFramework.Res
 
         private static void RealUnload(ResData data)
         {
-            if (data == null || data.Asset == null) return;
+            if (data == null || data.Asset == null)
+            {
+                return;
+            }
 
             if (data.UnloadAction != null)
             {
@@ -192,8 +239,52 @@ namespace StellarFramework.Res
             else
             {
                 LogKit.LogWarning($"[ResMgr] 资源缺少卸载委托，执行默认 Destroy: Path={data.Path}");
-                if (Application.isPlaying) UnityEngine.Object.Destroy(data.Asset);
-                else UnityEngine.Object.DestroyImmediate(data.Asset);
+                if (Application.isPlaying)
+                {
+                    UnityEngine.Object.Destroy(data.Asset);
+                }
+                else
+                {
+                    UnityEngine.Object.DestroyImmediate(data.Asset);
+                }
+            }
+        }
+
+        private static async UniTaskVoid RunSharedLoadAsync(string key, string path, string loaderName,
+            Func<CancellationToken, UniTask<ResData>> loadFunc, OngoingLoadEntry entry)
+        {
+            ResData data = null;
+
+            try
+            {
+                data = await LoadInternalAsync(key, path, loaderName, loadFunc, entry.SharedCts.Token);
+                entry.CompletionSource.TrySetResult(data);
+            }
+            catch (OperationCanceledException)
+            {
+                entry.CompletionSource.TrySetCanceled();
+            }
+            catch (Exception ex)
+            {
+                entry.CompletionSource.TrySetException(ex);
+                LogKit.LogError($"[ResMgr] 跟踪共享加载任务异常: Key={key}\n{ex.Message}");
+            }
+            finally
+            {
+                entry.IsCompleted = true;
+
+                if (_loadingTasks.TryGetValue(key, out OngoingLoadEntry current) && ReferenceEquals(current, entry))
+                {
+                    _loadingTasks.Remove(key);
+                }
+
+                if (entry.WaiterCount == 0 && data != null && data.Asset != null && data.RefCount == 0)
+                {
+                    _sharedCache.Remove(key);
+                    RealUnload(data);
+                }
+
+                entry.SharedCts.Dispose();
             }
         }
 
@@ -210,9 +301,9 @@ namespace StellarFramework.Res
             sb.AppendLine("========== [ResMgr] 资源驻留内存快照 ==========");
             sb.AppendLine($"当前总计驻留资源数: {_sharedCache.Count}");
 
-            foreach (var kvp in _sharedCache)
+            foreach (KeyValuePair<string, ResData> kvp in _sharedCache)
             {
-                var data = kvp.Value;
+                ResData data = kvp.Value;
                 sb.AppendLine($"\n[资源] {data.Path} (Loader: {data.LoaderName})");
                 sb.AppendLine($" - 引用计数 (RefCount): {data.RefCount}");
                 sb.AppendLine($" - 持有者 (Owners):");
@@ -222,7 +313,7 @@ namespace StellarFramework.Res
                 }
                 else
                 {
-                    foreach (var owner in data.Owners)
+                    foreach (string owner in data.Owners)
                     {
                         sb.AppendLine($"    -> {owner}");
                     }

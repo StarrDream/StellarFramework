@@ -22,7 +22,7 @@ namespace StellarFramework.Event
             {
                 LogKit.LogWarning(
                     $"[GlobalTypeEvent] 检测到重复注册，已拦截, EventType={typeof(T).Name}, Method={onEvent.Method.Name}");
-                return new CustomUnRegister(() => EventBox<T>.Unsubscribe(onEvent));
+                return new CustomUnRegister(null);
             }
 
             EventBox<T>.Subscribe(onEvent);

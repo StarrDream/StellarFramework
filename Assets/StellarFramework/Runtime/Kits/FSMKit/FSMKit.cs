@@ -153,9 +153,15 @@ namespace StellarFramework.FSM
                 return;
             }
 
-            ExecuteStateChange(newState);
-            CurrentState.OnEnter();
-            _isTransitioning = false;
+            try
+            {
+                ExecuteStateChange(newState);
+                CurrentState.OnEnter();
+            }
+            finally
+            {
+                _isTransitioning = false;
+            }
         }
 
         /// <summary>
@@ -170,9 +176,15 @@ namespace StellarFramework.FSM
                 return;
             }
 
-            ExecuteStateChange(newState);
-            ((IPayloadState<TPayload>)CurrentState).OnEnter(payload);
-            _isTransitioning = false;
+            try
+            {
+                ExecuteStateChange(newState);
+                ((IPayloadState<TPayload>)CurrentState).OnEnter(payload);
+            }
+            finally
+            {
+                _isTransitioning = false;
+            }
         }
 
         /// <summary>
@@ -207,18 +219,22 @@ namespace StellarFramework.FSM
             }
 
             _isTransitioning = true;
+            try
+            {
+                FSMState<T> targetState = PreviousState;
+                FSMState<T> leavingState = CurrentState;
 
-            FSMState<T> targetState = PreviousState;
-            FSMState<T> leavingState = CurrentState;
+                leavingState?.OnExit();
 
-            leavingState?.OnExit();
-
-            PreviousState = leavingState;
-            CurrentState = targetState;
-            CurrentState.InternalRecordStartTime();
-            CurrentState.OnEnter();
-
-            _isTransitioning = false;
+                PreviousState = leavingState;
+                CurrentState = targetState;
+                CurrentState.InternalRecordStartTime();
+                CurrentState.OnEnter();
+            }
+            finally
+            {
+                _isTransitioning = false;
+            }
         }
 
         #region 驱动方法

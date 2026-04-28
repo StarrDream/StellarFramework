@@ -31,8 +31,7 @@ namespace StellarFramework
         {
             _mainThreadId = Thread.CurrentThread.ManagedThreadId;
             _isQuitting = false;
-            Instances.Clear();
-            PureSingletonCreators.Clear();
+            ResetRuntimeState();
 
             Application.quitting -= OnApplicationQuitting;
             Application.quitting += OnApplicationQuitting;
@@ -253,22 +252,37 @@ namespace StellarFramework
         {
             lock (Locker)
             {
-                Instances.Clear();
-
-                if (_globalContainer != null)
-                {
-                    if (Application.isPlaying)
-                    {
-                        UnityEngine.Object.Destroy(_globalContainer);
-                    }
-                    else
-                    {
-                        UnityEngine.Object.DestroyImmediate(_globalContainer);
-                    }
-
-                    _globalContainer = null;
-                }
+                ResetRuntimeState();
             }
+        }
+
+        public static bool TryGetRegisteredSingleton<T>(out T instance) where T : class, ISingleton
+        {
+            instance = null;
+
+            if (!IsMainThread)
+            {
+                return false;
+            }
+
+            Type type = typeof(T);
+            if (!Instances.TryGetValue(type, out ISingleton existing))
+            {
+                return false;
+            }
+
+            if (existing is UnityEngine.Object unityObj && unityObj == null)
+            {
+                lock (Locker)
+                {
+                    Instances.Remove(type);
+                }
+
+                return false;
+            }
+
+            instance = existing as T;
+            return instance != null;
         }
 
         private static bool TryGetMetadata(Type type, out SingletonMetadata metadata)
@@ -425,6 +439,27 @@ namespace StellarFramework
 
             _globalContainer = new GameObject("[SingletonContainer]");
             UnityEngine.Object.DontDestroyOnLoad(_globalContainer);
+        }
+
+        private static void ResetRuntimeState()
+        {
+            Instances.Clear();
+
+            if (_globalContainer == null)
+            {
+                return;
+            }
+
+            if (Application.isPlaying)
+            {
+                UnityEngine.Object.Destroy(_globalContainer);
+            }
+            else
+            {
+                UnityEngine.Object.DestroyImmediate(_globalContainer);
+            }
+
+            _globalContainer = null;
         }
     }
 }

@@ -5,8 +5,15 @@ using UnityEngine;
 
 namespace StellarFramework.Bindable
 {
+    public interface IReadOnlyBindableProperty<T>
+    {
+        T Value { get; }
+        IUnRegister Register(Action<T> onValueChanged);
+        IUnRegister RegisterWithInitValue(Action<T> onValueChanged);
+    }
+
     [Serializable]
-    public class BindableProperty<T>
+    public class BindableProperty<T> : IReadOnlyBindableProperty<T>
     {
         [SerializeField] private T _value;
 
@@ -112,6 +119,18 @@ namespace StellarFramework.Bindable
 
         public void UnRegisterAll()
         {
+            if (_iteratingCount > 0)
+            {
+                ObserverNode deferredNode = _head;
+                while (deferredNode != null)
+                {
+                    deferredNode.MarkedForDeletion = true;
+                    deferredNode = deferredNode.Next;
+                }
+
+                return;
+            }
+
             ObserverNode node = _head;
             while (node != null)
             {

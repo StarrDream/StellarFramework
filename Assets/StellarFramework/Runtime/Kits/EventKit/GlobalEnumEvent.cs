@@ -321,7 +321,7 @@ namespace StellarFramework.Event
             if (ContainsRegistration(key, callback))
             {
                 LogKit.LogWarning($"[GlobalEnumEvent] 检测到重复注册，已拦截, Key={key}, Method={callback.Method.Name}");
-                return new CustomUnRegister(() => OnUnRegister(key, callback));
+                return new CustomUnRegister(null);
             }
 
             AddToEventTable(key, callback);

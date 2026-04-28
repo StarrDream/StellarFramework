@@ -1,6 +1,8 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Threading;
+using Cysharp.Threading.Tasks;
 using UnityEngine;
 
 namespace StellarFramework
@@ -11,10 +13,23 @@ namespace StellarFramework
     /// </summary>
     public static class ConfigKit
     {
-        private static readonly Dictionary<string, NormalConfig>
-            _normalConfigs = new Dictionary<string, NormalConfig>();
+        private static readonly Dictionary<string, NormalConfig> _normalConfigs =
+            new Dictionary<string, NormalConfig>();
 
-        private static readonly Dictionary<string, NetConfig> _netConfigs = new Dictionary<string, NetConfig>();
+        private static readonly Dictionary<string, NetConfig> _netConfigs =
+            new Dictionary<string, NetConfig>();
+
+        private static readonly Dictionary<string, UniTaskCompletionSource<NormalConfig>> _normalLoadingTasks =
+            new Dictionary<string, UniTaskCompletionSource<NormalConfig>>();
+
+        private static readonly Dictionary<string, UniTaskCompletionSource<NetConfig>> _netLoadingTasks =
+            new Dictionary<string, UniTaskCompletionSource<NetConfig>>();
+
+        private static readonly Dictionary<string, string> _normalConfigPaths =
+            new Dictionary<string, string>();
+
+        private static readonly Dictionary<string, string> _netConfigPaths =
+            new Dictionary<string, string>();
 
         #region NormalConfig 管理
 
@@ -27,33 +42,47 @@ namespace StellarFramework
         public static IEnumerator LoadNormalConfig(string configName, string relativePath,
             Action<NormalConfig> onComplete = null)
         {
+            yield return UniTask.ToCoroutine(async () =>
+            {
+                NormalConfig config = await LoadNormalConfigAsync(configName, relativePath);
+                onComplete?.Invoke(config);
+            });
+        }
+
+        public static async UniTask<NormalConfig> LoadNormalConfigAsync(string configName, string relativePath,
+            CancellationToken cancellationToken = default)
+        {
             if (string.IsNullOrEmpty(configName))
             {
                 LogKit.LogError("[ConfigKit] 加载失败: configName 不能为空");
-                onComplete?.Invoke(null);
-                yield break;
+                return null;
             }
 
-            if (_normalConfigs.TryGetValue(configName, out var existingConfig))
+            if (!TryNormalizeAndValidatePath(relativePath, configName, "NormalConfig", out string normalizedPath))
             {
-                onComplete?.Invoke(existingConfig);
-                yield break;
+                return null;
             }
 
-            yield return ConfigCore.LoadConfigProcess(relativePath, (data, isUserSave) =>
+            if (!EnsureConfigNameMatchesPath(_normalConfigPaths, configName, normalizedPath, "NormalConfig"))
             {
-                if (data != null)
-                {
-                    var config = new NormalConfig(configName, relativePath, data, isUserSave);
-                    _normalConfigs[configName] = config;
-                    onComplete?.Invoke(config);
-                }
-                else
-                {
-                    LogKit.LogError($"[ConfigKit] NormalConfig '{configName}' 加载失败，路径: {relativePath}");
-                    onComplete?.Invoke(null);
-                }
-            });
+                return null;
+            }
+
+            if (_normalConfigs.TryGetValue(configName, out NormalConfig existingConfig))
+            {
+                return existingConfig;
+            }
+
+            if (_normalLoadingTasks.TryGetValue(configName, out UniTaskCompletionSource<NormalConfig> existingTask))
+            {
+                return await existingTask.Task.AttachExternalCancellation(cancellationToken);
+            }
+
+            UniTaskCompletionSource<NormalConfig> loadingSource = new UniTaskCompletionSource<NormalConfig>();
+            _normalLoadingTasks[configName] = loadingSource;
+            RunNormalLoadTask(configName, normalizedPath, loadingSource).Forget();
+
+            return await loadingSource.Task.AttachExternalCancellation(cancellationToken);
         }
 
         /// <summary>
@@ -61,7 +90,7 @@ namespace StellarFramework
         /// </summary>
         public static NormalConfig GetNormalConfig(string configName)
         {
-            if (_normalConfigs.TryGetValue(configName, out var config))
+            if (_normalConfigs.TryGetValue(configName, out NormalConfig config))
             {
                 return config;
             }
@@ -83,33 +112,47 @@ namespace StellarFramework
         public static IEnumerator LoadNetConfig(string configName, string relativePath,
             Action<NetConfig> onComplete = null)
         {
+            yield return UniTask.ToCoroutine(async () =>
+            {
+                NetConfig config = await LoadNetConfigAsync(configName, relativePath);
+                onComplete?.Invoke(config);
+            });
+        }
+
+        public static async UniTask<NetConfig> LoadNetConfigAsync(string configName, string relativePath,
+            CancellationToken cancellationToken = default)
+        {
             if (string.IsNullOrEmpty(configName))
             {
                 LogKit.LogError("[ConfigKit] 加载失败: configName 不能为空");
-                onComplete?.Invoke(null);
-                yield break;
+                return null;
             }
 
-            if (_netConfigs.TryGetValue(configName, out var existingConfig))
+            if (!TryNormalizeAndValidatePath(relativePath, configName, "NetConfig", out string normalizedPath))
             {
-                onComplete?.Invoke(existingConfig);
-                yield break;
+                return null;
             }
 
-            yield return ConfigCore.LoadConfigProcess(relativePath, (data, _) =>
+            if (!EnsureConfigNameMatchesPath(_netConfigPaths, configName, normalizedPath, "NetConfig"))
             {
-                if (data != null)
-                {
-                    var config = new NetConfig(configName, data);
-                    _netConfigs[configName] = config;
-                    onComplete?.Invoke(config);
-                }
-                else
-                {
-                    LogKit.LogError($"[ConfigKit] NetConfig '{configName}' 加载失败，路径: {relativePath}");
-                    onComplete?.Invoke(null);
-                }
-            });
+                return null;
+            }
+
+            if (_netConfigs.TryGetValue(configName, out NetConfig existingConfig))
+            {
+                return existingConfig;
+            }
+
+            if (_netLoadingTasks.TryGetValue(configName, out UniTaskCompletionSource<NetConfig> existingTask))
+            {
+                return await existingTask.Task.AttachExternalCancellation(cancellationToken);
+            }
+
+            UniTaskCompletionSource<NetConfig> loadingSource = new UniTaskCompletionSource<NetConfig>();
+            _netLoadingTasks[configName] = loadingSource;
+            RunNetLoadTask(configName, normalizedPath, loadingSource).Forget();
+
+            return await loadingSource.Task.AttachExternalCancellation(cancellationToken);
         }
 
         /// <summary>
@@ -117,7 +160,7 @@ namespace StellarFramework
         /// </summary>
         public static NetConfig GetNetConfig(string configName)
         {
-            if (_netConfigs.TryGetValue(configName, out var config))
+            if (_netConfigs.TryGetValue(configName, out NetConfig config))
             {
                 return config;
             }
@@ -135,6 +178,136 @@ namespace StellarFramework
         {
             _normalConfigs.Clear();
             _netConfigs.Clear();
+            _normalLoadingTasks.Clear();
+            _netLoadingTasks.Clear();
+            _normalConfigPaths.Clear();
+            _netConfigPaths.Clear();
+        }
+
+        private static async UniTask<NormalConfig> BuildNormalConfigAsync(string configName, string relativePath)
+        {
+            ConfigCore.ConfigLoadResult result = await ConfigCore.LoadConfigAsync(relativePath);
+            if (result.Data == null)
+            {
+                LogKit.LogError($"[ConfigKit] NormalConfig '{configName}' 加载失败，路径: {relativePath}");
+                return null;
+            }
+
+            var config = new NormalConfig(configName, relativePath, result.Data, result.IsUserSave);
+            _normalConfigs[configName] = config;
+            _normalConfigPaths[configName] = relativePath;
+            return config;
+        }
+
+        private static async UniTask<NetConfig> BuildNetConfigAsync(string configName, string relativePath)
+        {
+            ConfigCore.ConfigLoadResult result = await ConfigCore.LoadConfigAsync(relativePath);
+            if (result.Data == null)
+            {
+                LogKit.LogError($"[ConfigKit] NetConfig '{configName}' 加载失败，路径: {relativePath}");
+                return null;
+            }
+
+            var config = new NetConfig(configName, result.Data);
+            _netConfigs[configName] = config;
+            _netConfigPaths[configName] = relativePath;
+            return config;
+        }
+
+        private static async UniTaskVoid RunNormalLoadTask(string configName, string relativePath,
+            UniTaskCompletionSource<NormalConfig> loadingSource)
+        {
+            try
+            {
+                NormalConfig config = await BuildNormalConfigAsync(configName, relativePath);
+                loadingSource.TrySetResult(config);
+            }
+            catch (OperationCanceledException)
+            {
+                loadingSource.TrySetCanceled();
+            }
+            catch (Exception ex)
+            {
+                loadingSource.TrySetException(ex);
+                LogKit.LogError($"[ConfigKit] NormalConfig 跟踪任务异常: {configName}\n{ex.Message}");
+            }
+            finally
+            {
+                if (_normalLoadingTasks.TryGetValue(configName, out UniTaskCompletionSource<NormalConfig> current) &&
+                    ReferenceEquals(current, loadingSource))
+                {
+                    _normalLoadingTasks.Remove(configName);
+                }
+            }
+        }
+
+        private static async UniTaskVoid RunNetLoadTask(string configName, string relativePath,
+            UniTaskCompletionSource<NetConfig> loadingSource)
+        {
+            try
+            {
+                NetConfig config = await BuildNetConfigAsync(configName, relativePath);
+                loadingSource.TrySetResult(config);
+            }
+            catch (OperationCanceledException)
+            {
+                loadingSource.TrySetCanceled();
+            }
+            catch (Exception ex)
+            {
+                loadingSource.TrySetException(ex);
+                LogKit.LogError($"[ConfigKit] NetConfig 跟踪任务异常: {configName}\n{ex.Message}");
+            }
+            finally
+            {
+                if (_netLoadingTasks.TryGetValue(configName, out UniTaskCompletionSource<NetConfig> current) &&
+                    ReferenceEquals(current, loadingSource))
+                {
+                    _netLoadingTasks.Remove(configName);
+                }
+            }
+        }
+
+        private static bool TryNormalizeAndValidatePath(string relativePath, string configName, string configKind,
+            out string normalizedPath)
+        {
+            normalizedPath = NormalizeRelativePath(relativePath);
+            if (!string.IsNullOrEmpty(normalizedPath))
+            {
+                return true;
+            }
+
+            LogKit.LogError(
+                $"[ConfigKit] 加载失败: relativePath 不能为空, ConfigType={configKind}, ConfigName={configName}");
+            return false;
+        }
+
+        private static bool EnsureConfigNameMatchesPath(Dictionary<string, string> pathMap, string configName,
+            string relativePath, string configKind)
+        {
+            if (!pathMap.TryGetValue(configName, out string existingPath))
+            {
+                return true;
+            }
+
+            if (string.Equals(existingPath, relativePath, StringComparison.Ordinal))
+            {
+                return true;
+            }
+
+            LogKit.LogError(
+                $"[ConfigKit] 加载失败: 同名配置映射到不同路径, ConfigType={configKind}, ConfigName={configName}, ExistingPath={existingPath}, RequestedPath={relativePath}");
+            return false;
+        }
+
+        private static string NormalizeRelativePath(string relativePath)
+        {
+            if (string.IsNullOrWhiteSpace(relativePath))
+            {
+                return string.Empty;
+            }
+
+            return relativePath.Replace("\\", "/").TrimStart('/');
         }
     }
 }

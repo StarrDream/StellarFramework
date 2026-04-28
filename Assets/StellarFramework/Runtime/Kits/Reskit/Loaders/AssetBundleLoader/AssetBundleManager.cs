@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Threading;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.Networking;
@@ -19,8 +20,8 @@ namespace StellarFramework.Res.AB
         private readonly Dictionary<string, int> _bundleRefCounts = new Dictionary<string, int>();
         private readonly Dictionary<string, string[]> _dependenciesCache = new Dictionary<string, string[]>();
 
-        private readonly Dictionary<string, UniTask<AssetBundle>> _loadingBundles =
-            new Dictionary<string, UniTask<AssetBundle>>();
+        private readonly Dictionary<string, UniTaskCompletionSource<AssetBundle>> _loadingBundles =
+            new Dictionary<string, UniTaskCompletionSource<AssetBundle>>();
 
         private string BasePath => Application.streamingAssetsPath + "/AssetBundles";
 
@@ -246,7 +247,7 @@ namespace StellarFramework.Res.AB
                 }
                 else
                 {
-                    bundle.Unload(true); // 极小概率发生的竞态，直接清理冗余
+                    bundle.Unload(false); // 极小概率发生的竞态，直接清理冗余但保留已加载对象
                     IncreaseRefCount(bundleName);
                 }
             }
@@ -260,7 +261,8 @@ namespace StellarFramework.Res.AB
 
         #region API - Async Load
 
-        public async UniTask<UnityEngine.Object> LoadAssetAsync(string assetPath)
+        public async UniTask<UnityEngine.Object> LoadAssetAsync(string assetPath,
+            CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrEmpty(assetPath)) return null;
 
@@ -270,12 +272,12 @@ namespace StellarFramework.Res.AB
                 return null;
             }
 
-            await LoadBundleRecursiveAsync(bundleName);
+            await LoadBundleRecursiveAsync(bundleName, cancellationToken);
 
             if (_loadedBundles.TryGetValue(bundleName, out var bundle))
             {
                 var req = bundle.LoadAssetAsync(assetPath);
-                await req;
+                await req.ToUniTask(cancellationToken: cancellationToken);
                 if (req.asset == null) LogKit.LogError($"[AssetBundleManager] 资源加载空: {assetPath}");
                 return req.asset;
             }
@@ -283,7 +285,7 @@ namespace StellarFramework.Res.AB
             return null;
         }
 
-        private async UniTask LoadBundleRecursiveAsync(string bundleName)
+        private async UniTask LoadBundleRecursiveAsync(string bundleName, CancellationToken cancellationToken)
         {
             var deps = GetCachedDependencies(bundleName);
             if (deps != null && deps.Length > 0)
@@ -291,16 +293,16 @@ namespace StellarFramework.Res.AB
                 var tasks = new List<UniTask>(deps.Length);
                 foreach (var dep in deps)
                 {
-                    tasks.Add(LoadBundleRecursiveAsync(dep));
+                    tasks.Add(LoadBundleRecursiveAsync(dep, cancellationToken));
                 }
 
                 await UniTask.WhenAll(tasks);
             }
 
-            await LoadBundleAsyncInternal(bundleName);
+            await LoadBundleAsyncInternal(bundleName, cancellationToken);
         }
 
-        private async UniTask LoadBundleAsyncInternal(string bundleName)
+        private async UniTask LoadBundleAsyncInternal(string bundleName, CancellationToken cancellationToken)
         {
             if (_loadedBundles.ContainsKey(bundleName))
             {
@@ -308,9 +310,9 @@ namespace StellarFramework.Res.AB
                 return;
             }
 
-            if (_loadingBundles.TryGetValue(bundleName, out var loadingTask))
+            if (_loadingBundles.TryGetValue(bundleName, out UniTaskCompletionSource<AssetBundle> loadingTask))
             {
-                await loadingTask;
+                await loadingTask.Task;
                 if (_loadedBundles.ContainsKey(bundleName))
                 {
                     IncreaseRefCount(bundleName);
@@ -322,17 +324,24 @@ namespace StellarFramework.Res.AB
             string lowerBundleName = bundleName.ToLowerInvariant();
             string path = $"{BasePath}/{PlatformName}/{lowerBundleName}";
 
-            var newTask = LoadBundlePlatformSafeAsync(path).Preserve();
-            _loadingBundles[bundleName] = newTask;
+            UniTaskCompletionSource<AssetBundle> loadingSource = new UniTaskCompletionSource<AssetBundle>();
+            _loadingBundles[bundleName] = loadingSource;
 
             AssetBundle bundle = null;
             try
             {
-                bundle = await newTask;
+                bundle = await LoadBundlePlatformSafeAsync(path, cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                loadingSource.TrySetCanceled();
+                return;
             }
             catch (Exception e)
             {
+                loadingSource.TrySetException(e);
                 LogKit.LogError($"[AssetBundleManager] 异步加载异常: {bundleName}\n{e}");
+                return;
             }
             finally
             {
@@ -345,25 +354,36 @@ namespace StellarFramework.Res.AB
                 {
                     _loadedBundles.Add(bundleName, bundle);
                     _bundleRefCounts.Add(bundleName, 1);
+                    loadingSource.TrySetResult(bundle);
                 }
                 else
                 {
-                    bundle.Unload(true); // 兜底清理
+                    bundle.Unload(false); // 兜底清理，但不销毁已加载对象
                     IncreaseRefCount(bundleName);
+                    if (_loadedBundles.TryGetValue(bundleName, out AssetBundle existingBundle))
+                    {
+                        loadingSource.TrySetResult(existingBundle);
+                    }
+                    else
+                    {
+                        loadingSource.TrySetResult(bundle);
+                    }
                 }
             }
             else
             {
                 LogKit.LogError($"[AssetBundleManager] 异步加载 Bundle 失败: {path}");
+                loadingSource.TrySetResult(null);
             }
         }
 
-        private async UniTask<AssetBundle> LoadBundlePlatformSafeAsync(string pathOrUrl)
+        private async UniTask<AssetBundle> LoadBundlePlatformSafeAsync(string pathOrUrl,
+            CancellationToken cancellationToken = default)
         {
 #if UNITY_WEBGL && !UNITY_EDITOR
             using (UnityWebRequest uwr = UnityWebRequestAssetBundle.GetAssetBundle(pathOrUrl))
             {
-                await uwr.SendWebRequest();
+                await uwr.SendWebRequest().ToUniTask(cancellationToken: cancellationToken);
                 if (uwr.result != UnityWebRequest.Result.Success)
                 {
                     LogKit.LogError($"[AssetBundleManager] WebGL 网络加载失败: {pathOrUrl}\n{uwr.error}");
@@ -373,7 +393,7 @@ namespace StellarFramework.Res.AB
                 return DownloadHandlerAssetBundle.GetContent(uwr);
             }
 #else
-            return await AssetBundle.LoadFromFileAsync(pathOrUrl);
+            return await AssetBundle.LoadFromFileAsync(pathOrUrl).ToUniTask(cancellationToken: cancellationToken);
 #endif
         }
 
@@ -416,9 +436,8 @@ namespace StellarFramework.Res.AB
                 {
                     if (_loadedBundles.TryGetValue(bundleName, out var bundle))
                     {
-                        // 修复：使用 true 彻底卸载内存，防止镜像冗余。
-                        // 强制要求业务层在 Recycle 前必须销毁由该 Bundle 实例化的所有 GameObject。
-                        bundle.Unload(true);
+                        // 默认采用温和卸载策略，避免仍在使用的已加载对象被激进销毁。
+                        bundle.Unload(false);
                         _loadedBundles.Remove(bundleName);
                     }
 

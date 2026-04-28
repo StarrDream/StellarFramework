@@ -1,4 +1,4 @@
-﻿// ==================================================================================
+// ==================================================================================
 // ResLoader - Commercial Convergence V2
 // ----------------------------------------------------------------------------------
 // 职责：具体的资源加载器基类，负责与业务层对接。
@@ -9,8 +9,9 @@
 
 using System;
 using System.Collections.Generic;
-using UnityEngine;
+using System.Threading;
 using Cysharp.Threading.Tasks;
+using UnityEngine;
 using Object = UnityEngine.Object;
 
 namespace StellarFramework.Res
@@ -18,6 +19,8 @@ namespace StellarFramework.Res
     public abstract class ResLoader : IResLoader, Pool.IPoolable
     {
         private readonly HashSet<string> _loadedRecord = new HashSet<string>();
+        private readonly Dictionary<string, UniTaskCompletionSource<ResData>> _loadingRecord =
+            new Dictionary<string, UniTaskCompletionSource<ResData>>();
         private int _loaderVersion = 0;
 
         // 审计追踪：为每个加载器实例分配唯一标识 (例如: "UI_LoginPanel_Loader_abc123")
@@ -26,7 +29,7 @@ namespace StellarFramework.Res
         public abstract string LoaderName { get; }
 
         protected abstract ResData LoadRealSync(string path);
-        protected abstract UniTask<ResData> LoadRealAsync(string path);
+        protected abstract UniTask<ResData> LoadRealAsync(string path, CancellationToken cancellationToken);
         protected abstract void UnloadReal(ResData data);
 
         public ResLoader()
@@ -44,19 +47,25 @@ namespace StellarFramework.Res
         /// </summary>
         public void SetOwnerName(string ownerName)
         {
-            _loaderId = $"{LoaderName}_{ownerName}";
+            string safeOwnerName = string.IsNullOrWhiteSpace(ownerName) ? "Anonymous" : ownerName.Trim();
+            _loaderId = $"{LoaderName}_{safeOwnerName}_{Guid.NewGuid().ToString("N").Substring(0, 8)}";
         }
 
         public T Load<T>(string path) where T : Object
         {
-            if (string.IsNullOrEmpty(path)) return null;
+            if (string.IsNullOrEmpty(path))
+            {
+                return null;
+            }
 
             if (_loadedRecord.Contains(path))
             {
                 ResData cachedData = ResMgr.GetCache(path, LoaderName);
-                if (cachedData != null && cachedData.Asset != null) return cachedData.Asset as T;
+                if (cachedData != null && cachedData.Asset != null)
+                {
+                    return cachedData.Asset as T;
+                }
 
-                // 脏数据清理
                 _loadedRecord.Remove(path);
             }
 
@@ -68,10 +77,10 @@ namespace StellarFramework.Res
                 return cache.Asset as T;
             }
 
-            // Fail-Fast：严禁在异步加载途中插入同步加载请求
             if (ResMgr.IsLoadingAsync(path, LoaderName))
             {
-                LogKit.LogError($"[ResLoader] 致命冲突: 资源 {path} 正在后台异步加载中，严禁此时发起同步加载请求。请统一业务层的加载链路。");
+                LogKit.LogError(
+                    $"[ResLoader] 致命冲突: 资源 {path} 正在后台异步加载中，严禁此时发起同步加载请求。请统一业务层的加载链路。");
                 return null;
             }
 
@@ -90,53 +99,90 @@ namespace StellarFramework.Res
             return null;
         }
 
-        public async UniTask<T> LoadAsync<T>(string path) where T : Object
+        public async UniTask<T> LoadAsync<T>(string path, CancellationToken cancellationToken = default)
+            where T : Object
         {
-            if (string.IsNullOrEmpty(path)) return null;
+            if (string.IsNullOrEmpty(path))
+            {
+                return null;
+            }
 
             if (_loadedRecord.Contains(path))
             {
                 ResData cachedData = ResMgr.GetCache(path, LoaderName);
-                if (cachedData != null && cachedData.Asset != null) return cachedData.Asset as T;
+                if (cachedData != null && cachedData.Asset != null)
+                {
+                    return cachedData.Asset as T;
+                }
+
                 _loadedRecord.Remove(path);
             }
 
-            int currentVersion = _loaderVersion;
-
-            ResData data = await ResMgr.LoadSharedAsync(path, LoaderName, _loaderId, async () =>
+            if (_loadingRecord.TryGetValue(path, out UniTaskCompletionSource<ResData> loadingTask))
             {
-                var d = await LoadRealAsync(path);
-                if (d != null)
+                ResData pendingData = await loadingTask.Task;
+                return pendingData?.Asset as T;
+            }
+
+            int currentVersion = _loaderVersion;
+            string ownerIdSnapshot = _loaderId;
+            UniTaskCompletionSource<ResData> loadingSource = new UniTaskCompletionSource<ResData>();
+            _loadingRecord[path] = loadingSource;
+
+            try
+            {
+                ResData data = await ResMgr.LoadSharedAsync(path, LoaderName, ownerIdSnapshot, async token =>
                 {
-                    d.Path = path;
-                    d.LoaderName = LoaderName;
-                    d.UnloadAction = UnloadReal;
+                    ResData loaded = await LoadRealAsync(path, token);
+                    if (loaded != null)
+                    {
+                        loaded.Path = path;
+                        loaded.LoaderName = LoaderName;
+                        loaded.UnloadAction = UnloadReal;
+                    }
+
+                    return loaded;
+                }, cancellationToken);
+
+                if (currentVersion != _loaderVersion)
+                {
+                    if (data != null)
+                    {
+                        ResMgr.RemoveRef(path, LoaderName, ownerIdSnapshot);
+                    }
+
+                    loadingSource.TrySetResult(null);
+                    return null;
                 }
 
-                return d;
-            });
+                if (data == null || data.Asset == null)
+                {
+                    loadingSource.TrySetResult(null);
+                    return null;
+                }
 
-            // 如果在 await 期间加载器被回收 (Version 变更)，必须立即释放刚加载好的资源，防止泄漏
-            if (currentVersion != _loaderVersion)
-            {
-                if (data != null) ResMgr.RemoveRef(path, LoaderName, _loaderId);
-                return null;
-            }
-
-            if (data == null || data.Asset == null) return null;
-
-            if (_loadedRecord.Contains(path))
-            {
-                // 极端竞态处理：如果记录中已有，说明并发流中已经被添加过，撤销本次的 Ref 增加
-                ResMgr.RemoveRef(path, LoaderName, _loaderId);
+                _loadedRecord.Add(path);
+                loadingSource.TrySetResult(data);
                 return data.Asset as T;
             }
-
-            _loadedRecord.Add(path);
-            return data.Asset as T;
+            catch (OperationCanceledException)
+            {
+                loadingSource.TrySetCanceled();
+                throw;
+            }
+            catch (Exception ex)
+            {
+                loadingSource.TrySetException(ex);
+                throw;
+            }
+            finally
+            {
+                _loadingRecord.Remove(path);
+            }
         }
 
-        public async UniTask PreloadAsync(IList<string> paths, Action<float> onProgress = null)
+        public async UniTask PreloadAsync(IList<string> paths, Action<float> onProgress = null,
+            CancellationToken cancellationToken = default)
         {
             if (paths == null || paths.Count == 0)
             {
@@ -146,27 +192,31 @@ namespace StellarFramework.Res
 
             int total = paths.Count;
             int current = 0;
-            const int BATCH_SIZE = 5;
+            const int BatchSize = 5;
 
-            for (int i = 0; i < total; i += BATCH_SIZE)
+            for (int i = 0; i < total; i += BatchSize)
             {
+                cancellationToken.ThrowIfCancellationRequested();
+
                 var tasks = new List<UniTask>();
-                for (int j = 0; j < BATCH_SIZE && (i + j) < total; j++)
+                for (int j = 0; j < BatchSize && (i + j) < total; j++)
                 {
                     string path = paths[i + j];
-                    tasks.Add(LoadAsync<Object>(path).ContinueWith(obj => { current++; }));
+                    tasks.Add(LoadAsync<Object>(path, cancellationToken).ContinueWith(_ => { current++; }));
                 }
 
                 await UniTask.WhenAll(tasks);
                 onProgress?.Invoke((float)current / total);
-                await UniTask.Yield();
+                await UniTask.Yield(cancellationToken);
             }
         }
 
         public void Unload(string path)
         {
-            if (string.IsNullOrEmpty(path)) return;
-            if (!_loadedRecord.Contains(path)) return;
+            if (string.IsNullOrEmpty(path) || !_loadedRecord.Contains(path))
+            {
+                return;
+            }
 
             _loadedRecord.Remove(path);
             ResMgr.RemoveRef(path, LoaderName, _loaderId);
@@ -180,6 +230,7 @@ namespace StellarFramework.Res
             }
 
             _loadedRecord.Clear();
+            _loadingRecord.Clear();
             _loaderVersion++;
         }
 
@@ -188,13 +239,20 @@ namespace StellarFramework.Res
         public virtual void OnAllocated()
         {
             _loadedRecord.Clear();
+            _loadingRecord.Clear();
             _loaderVersion++;
-            GenerateNewLoaderId(); // 每次出池分配新的身份，防止历史遗留问题
+            GenerateNewLoaderId();
         }
 
         public virtual void OnRecycled()
         {
             ReleaseAll();
+        }
+
+        public virtual void RecycleToPool()
+        {
+            LogKit.LogError(
+                $"[ResLoader] RecycleToPool 未覆写: LoaderType={GetType().Name}. 请在自定义 Loader 中显式调用对应的 PoolKit.Recycle<具体类型>(this)。");
         }
 
         #endregion

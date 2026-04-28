@@ -1,0 +1,19 @@
+{
+    "name": "StellarFramework.Singleton.Editor",
+    "rootNamespace": "",
+    "references": [
+        "StellarFramework.LogKit",
+        "StellarFramework.SingletonKit"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

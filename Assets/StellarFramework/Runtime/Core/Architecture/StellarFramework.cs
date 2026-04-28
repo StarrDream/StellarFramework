@@ -31,6 +31,15 @@ namespace StellarFramework
         T GetService<T>() where T : class, IService;
     }
 
+    public interface IReadOnlyArchitecture
+    {
+        ArchitectureState State { get; }
+
+        T GetReadOnlyModel<T>() where T : class, IReadOnlyModel;
+
+        T GetService<T>() where T : class, IService;
+    }
+
     public interface IModule
     {
         IArchitecture Architecture { get; set; }
@@ -44,13 +53,17 @@ namespace StellarFramework
     {
     }
 
+    public interface IReadOnlyModel
+    {
+    }
+
     public interface IService : IModule
     {
     }
 
     public interface IView
     {
-        IArchitecture Architecture { get; }
+        IReadOnlyArchitecture Architecture { get; }
 
         void OnBind();
 
@@ -63,6 +76,7 @@ namespace StellarFramework
 
     public static class StellarArchitectureExtensions
     {
+        [Obsolete("View 不应直接持有可变 Model，请改用 GetReadOnlyModel<T>().")]
         public static T GetModel<T>(this IView view) where T : class, IModel
         {
             if (view == null)
@@ -78,7 +92,32 @@ namespace StellarFramework
                 return null;
             }
 
-            return view.Architecture.GetModel<T>();
+            if (view.Architecture is IArchitecture mutableArchitecture)
+            {
+                return mutableArchitecture.GetModel<T>();
+            }
+
+            LogKit.LogError(
+                $"[StellarFramework] GetModel 失败: 当前 View 仅暴露只读架构接口, ViewType={view.GetType().Name}, ModelType={typeof(T).Name}");
+            return null;
+        }
+
+        public static T GetReadOnlyModel<T>(this IView view) where T : class, IReadOnlyModel
+        {
+            if (view == null)
+            {
+                LogKit.LogError($"[StellarFramework] GetReadOnlyModel 失败: view 为空, ModelType={typeof(T).Name}");
+                return null;
+            }
+
+            if (view.Architecture == null)
+            {
+                LogKit.LogError(
+                    $"[StellarFramework] GetReadOnlyModel 失败: View 未指定 Architecture, ViewType={view.GetType().Name}, ModelType={typeof(T).Name}");
+                return null;
+            }
+
+            return view.Architecture.GetReadOnlyModel<T>();
         }
 
         public static T GetService<T>(this IView view) where T : class, IService
@@ -104,9 +143,10 @@ namespace StellarFramework
 
     #region 3. 架构核心容器
 
-    public abstract class Architecture<T> : IArchitecture, IDisposable where T : Architecture<T>, new()
+    public abstract class Architecture<T> : IArchitecture, IReadOnlyArchitecture, IDisposable where T : Architecture<T>, new()
     {
         private readonly Dictionary<Type, IModel> _models = new Dictionary<Type, IModel>();
+        private readonly Dictionary<Type, object> _readOnlyModels = new Dictionary<Type, object>();
         private readonly Dictionary<Type, IService> _services = new Dictionary<Type, IService>();
 
         private ArchitectureState _state = ArchitectureState.Uninitialized;
@@ -223,6 +263,7 @@ namespace StellarFramework
             }
 
             _models.Clear();
+            _readOnlyModels.Clear();
             _services.Clear();
 
             if (ReferenceEquals(_instance, this))
@@ -263,6 +304,7 @@ namespace StellarFramework
 
             model.Architecture = this;
             _models[typeof(TM)] = model;
+            RegisterReadOnlyModelContracts(model);
         }
 
         protected void RegisterService<TS>(TS service) where TS : class, IService
@@ -334,7 +376,48 @@ namespace StellarFramework
             return null;
         }
 
+        public TR GetReadOnlyModel<TR>() where TR : class, IReadOnlyModel
+        {
+            if (_state != ArchitectureState.Initialized && _state != ArchitectureState.Initializing)
+            {
+                LogKit.LogError(
+                    $"[StellarFramework] GetReadOnlyModel 失败: 架构状态非法, Architecture={typeof(T).Name}, ModelType={typeof(TR).Name}, State={_state}");
+                return null;
+            }
+
+            if (_readOnlyModels.TryGetValue(typeof(TR), out object model))
+            {
+                return model as TR;
+            }
+
+            LogKit.LogError(
+                $"[StellarFramework] GetReadOnlyModel 失败: 未注册只读模型契约, Architecture={typeof(T).Name}, ModelType={typeof(TR).Name}, State={_state}");
+            return null;
+        }
+
         #endregion
+
+        private void RegisterReadOnlyModelContracts<TM>(TM model) where TM : class, IModel
+        {
+            Type[] interfaces = model.GetType().GetInterfaces();
+            for (int i = 0; i < interfaces.Length; i++)
+            {
+                Type contractType = interfaces[i];
+                if (contractType == typeof(IReadOnlyModel) || !typeof(IReadOnlyModel).IsAssignableFrom(contractType))
+                {
+                    continue;
+                }
+
+                if (_readOnlyModels.ContainsKey(contractType))
+                {
+                    LogKit.LogError(
+                        $"[StellarFramework] RegisterReadOnlyModelContracts 失败: 只读模型契约重复注册, Architecture={typeof(T).Name}, ContractType={contractType.Name}");
+                    continue;
+                }
+
+                _readOnlyModels[contractType] = model;
+            }
+        }
     }
 
     #endregion
@@ -397,7 +480,7 @@ namespace StellarFramework
 
     public abstract class StellarView : MonoBehaviour, IView
     {
-        public abstract IArchitecture Architecture { get; }
+        public abstract IReadOnlyArchitecture Architecture { get; }
 
         private bool _isBound;
 

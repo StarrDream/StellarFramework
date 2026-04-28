@@ -1,6 +1,7 @@
-﻿using UnityEngine;
-using Cysharp.Threading.Tasks;
 using System;
+using System.Threading;
+using Cysharp.Threading.Tasks;
+using UnityEngine;
 using Object = UnityEngine.Object;
 
 #if UNITY_ADDRESSABLES
@@ -21,46 +22,71 @@ namespace StellarFramework.Res
             try
             {
                 var genericHandle = Addressables.LoadAssetAsync<Object>(path);
-                var result = genericHandle.WaitForCompletion();
-                handle = genericHandle; 
+                Object result = genericHandle.WaitForCompletion();
+                handle = genericHandle;
 
                 if (handle.Status == AsyncOperationStatus.Succeeded && result != null)
                 {
                     return new ResData { Asset = result, Data = handle };
                 }
-                if (handle.IsValid()) Addressables.Release(handle);
+
+                if (handle.IsValid())
+                {
+                    Addressables.Release(handle);
+                }
             }
             catch (Exception e)
             {
                 LogKit.LogError($"[AddressableLoader] 同步加载异常: {path}\n{e.Message}");
-                if (handle.IsValid()) Addressables.Release(handle);
+                if (handle.IsValid())
+                {
+                    Addressables.Release(handle);
+                }
             }
 #endif
             return null;
         }
 
-        protected override async UniTask<ResData> LoadRealAsync(string path)
+        protected override async UniTask<ResData> LoadRealAsync(string path, CancellationToken cancellationToken)
         {
 #if UNITY_ADDRESSABLES
-            AsyncOperationHandle handle = default;
-            try 
+            AsyncOperationHandle<Object> genericHandle = default;
+            try
             {
-                var genericHandle = Addressables.LoadAssetAsync<Object>(path);
-                await genericHandle.Task;
-                handle = genericHandle;
+                genericHandle = Addressables.LoadAssetAsync<Object>(path);
+                Object result = await genericHandle.ToUniTask(
+                    cancellationToken: cancellationToken,
+                    autoReleaseWhenCanceled: false);
 
-                if (handle.Status == AsyncOperationStatus.Succeeded && genericHandle.Result != null)
+                if (genericHandle.Status == AsyncOperationStatus.Succeeded && result != null)
                 {
-                    return new ResData { Asset = genericHandle.Result, Data = handle };
+                    return new ResData { Asset = result, Data = genericHandle };
                 }
-                if (handle.IsValid()) Addressables.Release(handle);
+
+                if (genericHandle.IsValid())
+                {
+                    Addressables.Release(genericHandle);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                if (genericHandle.IsValid())
+                {
+                    Addressables.Release(genericHandle);
+                }
+
+                throw;
             }
             catch (Exception e)
             {
                 LogKit.LogError($"[AddressableLoader] 异步加载异常: {path}\n{e.Message}");
-                if (handle.IsValid()) Addressables.Release(handle);
+                if (genericHandle.IsValid())
+                {
+                    Addressables.Release(genericHandle);
+                }
             }
 #endif
+            await UniTask.CompletedTask;
             return null;
         }
 
@@ -76,6 +102,11 @@ namespace StellarFramework.Res
                 Addressables.Release(data.Asset);
             }
 #endif
+        }
+
+        public override void RecycleToPool()
+        {
+            Pool.PoolKit.Recycle<AddressableLoader>(this);
         }
     }
 }

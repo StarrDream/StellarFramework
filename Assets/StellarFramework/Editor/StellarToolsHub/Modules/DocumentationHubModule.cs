@@ -16,10 +16,17 @@ namespace StellarFramework.Editor.Modules
     [StellarTool("文档中心 (Docs)", "框架核心", -999)]
     public class DocumentationHubModule : ToolModule
     {
+        private sealed class DocEntry
+        {
+            public string Path;
+            public string RelativePath;
+            public string DisplayName;
+        }
+
         public override string Icon => "d_TextAsset Icon";
         public override string Description => "统一管理与查阅框架内所有 Markdown 文档 (支持富文本排版与代码块高亮)。";
 
-        private List<string> _docPaths = new List<string>();
+        private readonly List<DocEntry> _docs = new List<DocEntry>();
         private string _selectedDocPath = "";
         private string _docContent = "";
         
@@ -54,12 +61,31 @@ namespace StellarFramework.Editor.Modules
 
         private void RefreshDocs()
         {
-            _docPaths.Clear();
+            _docs.Clear();
             string rootPath = Application.dataPath + "/StellarFramework";
             if (Directory.Exists(rootPath))
             {
                 string[] files = Directory.GetFiles(rootPath, "*.md", SearchOption.AllDirectories);
-                _docPaths.AddRange(files.Select(f => f.Replace("\\", "/")).OrderBy(f => Path.GetFileName(f)));
+                string normalizedRoot = rootPath.Replace("\\", "/").TrimEnd('/');
+                foreach (string file in files)
+                {
+                    string normalizedPath = file.Replace("\\", "/");
+                    string relativePath = normalizedPath.Replace(normalizedRoot + "/", string.Empty);
+                    _docs.Add(new DocEntry
+                    {
+                        Path = normalizedPath,
+                        RelativePath = relativePath,
+                        DisplayName = BuildDisplayName(normalizedPath, relativePath)
+                    });
+                }
+
+                _docs.Sort((left, right) =>
+                {
+                    int titleCompare = string.Compare(left.DisplayName, right.DisplayName, StringComparison.OrdinalIgnoreCase);
+                    return titleCompare != 0
+                        ? titleCompare
+                        : string.Compare(left.RelativePath, right.RelativePath, StringComparison.OrdinalIgnoreCase);
+                });
             }
         }
 
@@ -89,24 +115,23 @@ namespace StellarFramework.Editor.Modules
         {
             using (new GUILayout.VerticalScope("box", GUILayout.Width(260), GUILayout.ExpandHeight(true)))
             {
-                GUILayout.Label($"文档列表 ({_docPaths.Count})", EditorStyles.boldLabel);
+                GUILayout.Label($"文档列表 ({_docs.Count})", EditorStyles.boldLabel);
                 GUILayout.Space(5);
                 
                 _leftScroll = EditorGUILayout.BeginScrollView(_leftScroll);
-                foreach (var path in _docPaths)
+                foreach (DocEntry doc in _docs)
                 {
-                    string fileName = Path.GetFileNameWithoutExtension(path);
-                    bool isSelected = _selectedDocPath == path;
+                    bool isSelected = _selectedDocPath == doc.Path;
                     
                     var oldColor = GUI.backgroundColor;
                     if (isSelected) GUI.backgroundColor = new Color(0.22f, 0.52f, 0.88f);
                     
-                    if (GUILayout.Button(fileName, Window.SidebarButtonStyle))
+                    if (GUILayout.Button(new GUIContent(doc.DisplayName, doc.RelativePath), Window.SidebarButtonStyle))
                     {
-                        if (_selectedDocPath != path)
+                        if (_selectedDocPath != doc.Path)
                         {
-                            _selectedDocPath = path;
-                            _docContent = File.ReadAllText(path);
+                            _selectedDocPath = doc.Path;
+                            _docContent = File.ReadAllText(doc.Path);
                             ParseMarkdown(_docContent); // 选中时触发解析，缓存结构
                             _rightScroll = Vector2.zero;
                             GUI.FocusControl(null);
@@ -136,7 +161,12 @@ namespace StellarFramework.Editor.Modules
 
                 using (new GUILayout.HorizontalScope())
                 {
-                    GUILayout.Label(Path.GetFileName(_selectedDocPath), EditorStyles.boldLabel);
+                    DocEntry selectedDoc = GetSelectedDoc();
+                    GUILayout.Label(selectedDoc != null ? selectedDoc.DisplayName : Path.GetFileName(_selectedDocPath),
+                        EditorStyles.boldLabel);
+                    GUILayout.Space(10);
+                    GUILayout.Label(selectedDoc != null ? selectedDoc.RelativePath : _selectedDocPath,
+                        EditorStyles.miniLabel);
                     GUILayout.FlexibleSpace();
                     if (GUILayout.Button("在外部编辑器打开", GUILayout.Width(120), GUILayout.Height(24)))
                     {
@@ -314,6 +344,55 @@ namespace StellarFramework.Editor.Modules
             {
                 _parsedBlocks.Add(new MarkdownBlock { Type = BlockType.Code, Content = codeBuilder.ToString().TrimEnd() });
             }
+        }
+
+        private DocEntry GetSelectedDoc()
+        {
+            return _docs.FirstOrDefault(doc => doc.Path == _selectedDocPath);
+        }
+
+        private static string BuildDisplayName(string path, string relativePath)
+        {
+            string headerTitle = ExtractFirstHeader(path);
+            if (!string.IsNullOrEmpty(headerTitle))
+            {
+                return headerTitle;
+            }
+
+            string fileName = Path.GetFileNameWithoutExtension(path);
+            if (string.Equals(fileName, "README", StringComparison.OrdinalIgnoreCase))
+            {
+                string folderName = Path.GetFileName(Path.GetDirectoryName(path));
+                if (string.Equals(relativePath, "README.md", StringComparison.OrdinalIgnoreCase))
+                {
+                    return "StellarFramework / 框架总览";
+                }
+
+                return $"{folderName} / 目录索引";
+            }
+
+            return fileName;
+        }
+
+        private static string ExtractFirstHeader(string path)
+        {
+            try
+            {
+                foreach (string line in File.ReadLines(path))
+                {
+                    string trimmed = line.Trim();
+                    if (trimmed.StartsWith("# "))
+                    {
+                        return trimmed.Substring(2).Trim();
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning($"[DocumentationHubModule] 读取标题失败: Path={path}, Error={e.Message}");
+            }
+
+            return string.Empty;
         }
 
         private string ParseInline(string text)

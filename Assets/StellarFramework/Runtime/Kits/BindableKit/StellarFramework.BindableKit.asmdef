@@ -1,0 +1,17 @@
+{
+    "name": "StellarFramework.BindableKit",
+    "rootNamespace": "",
+    "references": [
+        "StellarFramework.EventKit",
+        "StellarFramework.LogKit"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
