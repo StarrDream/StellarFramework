@@ -97,13 +97,16 @@ public class PropLoader : MonoBehaviour
 
 ## 4. 内存管理与严格规范 (极度重要)
 
-在 v2.1 版本中，为了彻底解决 AB 模式下的**内存镜像冗余**问题，底层卸载逻辑已从 `bundle.Unload(false)` 升级为 `bundle.Unload(true)`。
+当前默认卸载策略为 `bundle.Unload(false)`，也就是只卸载 Bundle 文件镜像，保留已经实例化或仍被引用的资源对象，避免误删正在使用的资源。需要严格释放时，可在 `ResKitRuntimeSettings.AssetBundleUnloadMode` 中切换为 `DestroyLoadedAssets`，此时会执行 `bundle.Unload(true)`。
 
-### 4.1 什么是 `Unload(true)`？
-当一个 Bundle 的引用计数归零时，框架会直接销毁该 Bundle 及其加载出来的**所有内存资产**（Texture, Mesh, Material 等）。
+### 4.1 卸载模式说明
+
+- `PreserveLoadedAssets`：默认模式，对应 `bundle.Unload(false)`，适合大多数运行时资源加载。
+- `DestroyLoadedAssets`：严格模式，对应 `bundle.Unload(true)`，会同时销毁该 Bundle 加载出的资源对象，只建议在确认没有对象仍被使用时开启。
+当一个 Bundle 的引用计数归零时，框架会按照当前配置卸载 Bundle。默认只释放 Bundle 文件镜像；只有在 `DestroyLoadedAssets` 模式下，才会销毁该 Bundle 加载出来的 Texture、Mesh、Material 等内存资产。
 
 ### 4.2 业务层强制约束 (防变粉警告)
-**严禁**在场景中还有该 Bundle 实例化的 GameObject 存活时，调用 `ResKit.Recycle`。
+如果开启 `DestroyLoadedAssets`，**严禁**在场景中还有该 Bundle 实例化的 GameObject 存活时调用 `ResKit.Recycle`。
 如果提前 Recycle 导致引用计数归零，场景中的物体会瞬间丢失材质（变粉）或丢失网格。
 
 **正确做法**：

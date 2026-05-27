@@ -1,0 +1,21 @@
+{
+  "name": "StellarFramework.UIKit.Tests",
+  "rootNamespace": "StellarFramework.Tests",
+  "references": [
+    "StellarFramework.UIKit"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": false,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false,
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ]
+}

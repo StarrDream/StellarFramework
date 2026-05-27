@@ -32,6 +32,12 @@ namespace StellarFramework.Res
         protected abstract UniTask<ResData> LoadRealAsync(string path, CancellationToken cancellationToken);
         protected abstract void UnloadReal(ResData data);
 
+        protected virtual UniTask<ResData> LoadRealAsyncTyped<T>(string path, CancellationToken cancellationToken)
+            where T : Object
+        {
+            return LoadRealAsync(path, cancellationToken);
+        }
+
         public ResLoader()
         {
             GenerateNewLoaderId();
@@ -133,7 +139,7 @@ namespace StellarFramework.Res
             {
                 ResData data = await ResMgr.LoadSharedAsync(path, LoaderName, ownerIdSnapshot, async token =>
                 {
-                    ResData loaded = await LoadRealAsync(path, token);
+                    ResData loaded = await LoadRealAsyncTyped<T>(path, token);
                     if (loaded != null)
                     {
                         loaded.Path = path;

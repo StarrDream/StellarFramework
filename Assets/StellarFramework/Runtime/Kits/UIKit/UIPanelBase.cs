@@ -3,10 +3,6 @@ using UnityEngine;
 
 namespace StellarFramework.UI
 {
-    /// <summary>
-    /// UI 面板数据基类
-    /// 我统一约束所有面板入参必须继承此基类，拒绝 object 弱类型传参，避免值类型装箱
-    /// </summary>
     public abstract class UIPanelDataBase
     {
     }
@@ -23,24 +19,30 @@ namespace StellarFramework.UI
             System = 4
         }
 
-        [Header("基础设置")] [SerializeField] protected PanelLayer layer = PanelLayer.Middle;
+        public enum PanelCanvasRole
+        {
+            Dynamic = 0,
+            Static = 1
+        }
+
+        [Header("Base")]
+        [SerializeField] protected PanelLayer layer = PanelLayer.Middle;
+        [SerializeField] protected PanelCanvasRole canvasRole = PanelCanvasRole.Dynamic;
         [SerializeField] protected bool destroyOnClose = false;
 
-        [Header("栈管理设置")] [Tooltip("是否为全屏界面。若为 true，UIStackManager 会自动隐藏其下方的所有界面以降低 DrawCall")] [SerializeField]
-        protected bool isFullScreen = false;
+        [Header("Stack")]
+        [Tooltip("Fullscreen panels pause and hide lower stack panels.")]
+        [SerializeField] protected bool isFullScreen = false;
 
         private CanvasGroup _canvasGroup;
         private RectTransform _rectTransform;
         private GameObject _rootObj;
 
         public PanelLayer Layer => layer;
+        public PanelCanvasRole CanvasRole => canvasRole;
         public bool DestroyOnClose => destroyOnClose;
         public bool IsFullScreen => isFullScreen;
 
-        /// <summary>
-        /// 全局面板关闭事件
-        /// 职责：向外广播关闭动作，供 UIStackManager 等外部模块被动监听，实现解耦
-        /// </summary>
         public static event Action<UIPanelBase> OnPanelClosedGlobal;
 
         public CanvasGroup CanvasGroup
@@ -78,10 +80,11 @@ namespace StellarFramework.UI
                     return _rootObj;
                 }
 
-                var rootTrans = transform.FindChildByName("root");
+                Transform rootTrans = transform.Find("root");
                 if (rootTrans == null)
                 {
-                    Debug.LogError($"[UIPanelBase] Root 获取失败: 面板类={GetType().Name}，物体名={name}，状态=缺少名为 root 的子节点");
+                    Debug.LogError(
+                        $"[UIPanelBase] Root not found. Panel={GetType().Name}, GameObject={name}, RequiredChild=root");
                     return null;
                 }
 
@@ -90,60 +93,38 @@ namespace StellarFramework.UI
             }
         }
 
-        /// <summary>
-        /// 我只在首次实例化后调用一次，用于做按钮绑定、组件缓存等初始化
-        /// </summary>
         public virtual void OnInit()
         {
         }
 
-        /// <summary>
-        /// 我在面板从关闭到打开时调用
-        /// </summary>
         public virtual void OnOpen(UIPanelDataBase data)
         {
         }
 
-        /// <summary>
-        /// 我在面板已打开状态下再次请求打开，或者外部主动刷新时调用
-        /// </summary>
         public virtual void OnRefresh(UIPanelDataBase data)
         {
         }
 
-        /// <summary>
-        /// 我在面板关闭时调用
-        /// </summary>
         public virtual void OnClose()
         {
             OnPanelClosedGlobal?.Invoke(this);
         }
 
-        /// <summary>
-        /// [UIStackManager 驱动] 当该面板被上方全屏面板遮挡时调用
-        /// </summary>
         public virtual void OnPause()
         {
         }
 
-        /// <summary>
-        /// [UIStackManager 驱动] 当上方全屏面板移出栈，该面板重新暴露时调用
-        /// </summary>
         public virtual void OnResume()
         {
         }
 
-        /// <summary>
-        /// 我提供统一的强类型取参入口，避免子类重复写强转和判空逻辑。
-        /// 如果数据为空或类型不匹配，我会打印详细错误并返回 false，调用方应立即 return。
-        /// </summary>
         protected bool TryGetPanelData<T>(UIPanelDataBase data, out T typedData) where T : UIPanelDataBase
         {
             typedData = null;
             if (data == null)
             {
                 Debug.LogError(
-                    $"[UIPanelBase] 面板数据为空: 面板类={GetType().Name}，物体名={name}，期望数据类型={typeof(T).Name}，当前数据=null");
+                    $"[UIPanelBase] Panel data is null. Panel={GetType().Name}, Expected={typeof(T).Name}");
                 return false;
             }
 
@@ -154,18 +135,13 @@ namespace StellarFramework.UI
             }
 
             Debug.LogError(
-                $"[UIPanelBase] 面板数据类型不匹配: 面板类={GetType().Name}，物体名={name}，期望数据类型={typeof(T).Name}，当前数据类型={data.GetType().Name}");
-            typedData = null;
+                $"[UIPanelBase] Panel data type mismatch. Panel={GetType().Name}, Expected={typeof(T).Name}, Actual={data.GetType().Name}");
             return false;
         }
 
-        /// <summary>
-        /// 我提供一个主动关闭自身的便捷入口，避免业务层直接依赖外部关闭逻辑
-        /// </summary>
         protected void CloseSelf()
         {
             UIKit.ClosePanel(GetType());
-            
         }
     }
 }

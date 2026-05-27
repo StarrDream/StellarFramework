@@ -1,130 +1,98 @@
-# HybridCLR / 热更新
+# HybridCLR / 代码热更新 Guide
 
-**适用**: StellarFramework HotUpdate 模块
+HotUpdateKit 负责启动期热更新编排：资源更新走策略，代码热更默认使用 HybridCLR。当前只保证启动期装载，不承诺运行中替换已经加载的程序集。
 
----
+## 1. 环境准备
 
-## 1. 核心理念 (Design Philosophy)
-为了保持框架的解耦，StellarFramework 提供了 `HybridCLRHook` 工具类。
+1. 安装并配置 HybridCLR。
+2. 在 Player Settings 的 Scripting Define Symbols 中添加 `HYBRIDCLR_ENABLE`。
+3. 在 HybridCLR Settings 中配置热更程序集，例如 `HotUpdate.dll`。
+4. 生成热更 dll 和 AOT metadata dll。
+5. 将产物改名为 `.dll.bytes`，作为 Addressables `TextAsset` 资源。
 
-*   **宏隔离**：通过 `#if HYBRIDCLR_ENABLE` 隔离底层 API，未安装插件时不会导致编译报错。
-*   **IO 解耦**：框架不强制指定 DLL 的下载方式。业务层只需将获取字节流的逻辑通过 `Func<string, UniTask<byte[]>>` 委托注入给 Hook。
+未启用 `HYBRIDCLR_ENABLE` 时，框架仍可编译，运行时会返回明确的不可用结果。
 
----
+## 2. Runtime Settings
 
-## 2. 环境配置 (Setup)
-1.  在项目中安装并配置好 `HybridCLR` 插件。
-2.  在 `Project Settings -> Player -> Scripting Define Symbols` 中添加宏：`HYBRIDCLR_ENABLE`。
-3.  在 `HybridCLR -> Settings` 中配置热更程序集（如 `HotUpdate.dll`）。
-4.  生成 AOT DLL 与热更 DLL，并将它们作为 `TextAsset` 或 `Bytes` 文件打包到资源系统中。
+通过 ToolHub 的 Addressables 模块点击 `创建/定位 Runtime Settings`，配置：
 
----
+- `HotUpdateAssemblyKey`：热更程序集 TextAsset address，例如 `Assets/Game/HotUpdate/HotUpdate.dll.bytes`。
+- `HotUpdateAssemblySha256`：热更 dll.bytes 的 SHA256；留空表示不校验。
+- `AotMetadataKeys`：AOT metadata TextAsset address 列表。
+- `HotUpdateEntryClass`：热更入口完整类名，例如 `HotUpdate.HotUpdateMain`。
+- `HotUpdateEntryMethod`：入口静态方法名，例如 `Main`。
+- `AddressablesDefaultHotUpdateLabels`：热更资源 label，默认 `hotupdate`。
 
-## 3. 标准接入工作流 (Workflow)
+所有 dll.bytes 和 metadata.bytes 推荐使用完整 `Assets/...` address，并打上同一组热更 label。
 
-在游戏的最早入口（如 `GameEntry.cs`，该脚本必须位于 AOT 主工程中），执行以下流程：
+## 3. 启动期 AA 闭环
 
-### 3.1 编写入口代码
+1. 把 `HotUpdate.dll.bytes` 和 AOT metadata `.dll.bytes` 放入项目。
+2. 在 ToolHub 中对这些文件执行 `应用 Address/Labels`。
+3. 回到 Addressables 官方 Groups 窗口执行完整构建，或使用官方 Content Update 流程。
+4. 上传 remote catalog、hash 和 bundle。
+5. 游戏最早入口调用：
+
 ```csharp
-using UnityEngine;
-using Cysharp.Threading.Tasks;
-using StellarFramework.HotUpdate;
-using StellarFramework.Res;
+ResKitRuntimeSettings settings = ResKitRuntimeSettings.LoadOrCreateDefault();
+HybridCLRAAHotUpdateResult result = await HybridCLRAAHotUpdateRunner.RunAsync(
+    settings,
+    progress => Debug.Log($"Hot update: {progress:P0}"),
+    destroyCancellationToken);
 
-public class GameEntry : MonoBehaviour
+if (!result.Success)
 {
-    private IResLoader _loader;
-
-    private async void Start()
-    {
-        // 1. 初始化资源系统 (以 Addressables 为例)
-        _loader = ResKit.Allocate<AddressableLoader>();
-
-        // 2. 检查并下载热更资源 (包含 DLL 和 美术资源)
-        await CheckAndDownloadUpdates();
-
-        // 3. 加载 AOT 补充元数据 (解决泛型实例化报错)
-        await HybridCLRHook.LoadMetadataForAOTAssembliesAsync(ProvideDllBytesAsync);
-
-        // 4. 读取热更程序集 DLL
-        byte[] hotUpdateBytes = await ProvideDllBytesAsync(HybridCLRHook.HotUpdateAssemblyName);
-
-        // 5. 跨域跳转，将控制权移交热更域
-        HybridCLRHook.LoadAndStartHotUpdateAssembly(hotUpdateBytes);
-    }
-
-    /// <summary>
-    /// 核心：提供给 Hook 的委托，根据 DLL 名字获取字节流
-    /// </summary>
-    private async UniTask<byte[]> ProvideDllBytesAsync(string dllName)
-    {
-        string address = $"dlls/{dllName}.bytes";
-        var textAsset = await _loader.LoadAsync<TextAsset>(address);
-        if (textAsset != null)
-        {
-            return textAsset.bytes;
-        }
-        Debug.LogError($"无法加载 DLL 资产: {address}");
-        return null;
-    }
-
-    private async UniTask CheckAndDownloadUpdates()
-    {
-        // 调用 AddressableHotUpdateManager 检查更新...
-        await UniTask.Yield();
-    }
+    Debug.LogError(result.Error);
+    return;
 }
 ```
 
-### 3.2 热更域入口规范
-在热更工程中，创建对应的入口类。类名和方法名必须与 `HybridCLRHook` 中的配置一致。
+Runner 顺序：
+
+1. 初始化 Addressables。
+2. 检查并更新 Catalog。
+3. 下载 dll.bytes 和 AOT metadata 依赖。
+4. 加载 TextAsset 字节流。
+5. 校验热更 dll SHA256。
+6. 调用 `HybridCLR.RuntimeApi.LoadMetadataForAOTAssembly`。
+7. `Assembly.Load` 热更 dll。
+8. 调用配置中的静态入口。
+
+## 4. 热更入口规范
 
 ```csharp
 namespace HotUpdate
 {
-    public class HotUpdateMain
+    public static class HotUpdateMain
     {
-        // 必须是 public static
         public static void Main()
         {
-            Debug.Log("成功进入热更域！");
-            // 在这里初始化 StellarFramework 的核心架构
-            // GameApp.Interface.Init();
+            UnityEngine.Debug.Log("Entered HotUpdate assembly.");
         }
     }
 }
 ```
 
----
+入口类名和方法名必须与 `ResKitRuntimeSettings` 一致，方法必须是 `public static`。
 
-## 4. 进阶配置 (Configuration)
-如果热更入口类名不同，或者 AOT 补充元数据列表有变化，可以在调用 Hook 之前修改静态配置：
+## 5. 产物处理
 
-```csharp
-// 修改热更入口配置
-HybridCLRHook.HotUpdateAssemblyName = "MyGameLogic.dll";
-HybridCLRHook.HotUpdateEntryClass = "MyGameLogic.AppStart";
-HybridCLRHook.HotUpdateEntryMethod = "Run";
+ToolHub 的 Addressables 模块提供 `处理 HybridCLR dll.bytes 并同步 AA`：
 
-// 修改 AOT 元数据列表 (根据 HybridCLR 生成的列表填入)
-HybridCLRHook.AOTMetaAssemblyFiles = new List<string>
-{
-    "mscorlib.dll",
-    "System.dll",
-    "System.Core.dll",
-    "UniTask.dll",
-    "Newtonsoft.Json.dll" 
-};
-```
+- 从 HybridCLR 输出目录复制 `.dll`。
+- 重命名为 `.dll.bytes`。
+- 计算 SHA256。
+- 加入 Addressables 并同步 address/labels。
+- 将第一个热更 dll 的 key 和 SHA256 写回 `ResKitRuntimeSettings`。
 
----
+真实 dll 生成、裁剪和 AOT metadata 仍以 HybridCLR 官方流程为准。
 
-## 5. 常见问题 (Troubleshooting)
+## 6. 常见错误排查
 
-### Q1: 报错 `ExecutionEngineException: metadata type not match`
-*   **原因**：在热更工程中调用了 AOT 工程中未实例化的泛型类。
-*   **解决**：确保正确生成了 AOT 补充元数据 DLL，并将其名字加入了 `HybridCLRHook.AOTMetaAssemblyFiles` 列表中，且在跳转前成功执行了 `LoadMetadataForAOTAssembliesAsync`。
-
-### Q2: 找不到入口类或方法
-*   **原因**：命名空间、类名或方法名拼写错误；或者方法不是 `public static`。
-*   **解决**：检查 `HotUpdateEntryClass` 是否包含了完整的命名空间。
+- `HYBRIDCLR_ENABLE is not enabled`：未开启宏，Runner 会直接失败退出。
+- `HotUpdateAssemblyKey is empty`：检查 `ResKitRuntimeSettings` 是否在 Resources 下并配置正确。
+- SHA256 不匹配：确认上传的 dll.bytes 与配置中的 hash 是同一个文件。
+- AOT metadata 缺失：确认 `AotMetadataKeys` 都是 Addressables 可加载的 TextAsset。
+- metadata 类型不匹配：重新生成 AOT metadata，并确认 HybridCLR Settings 与主工程一致。
+- 找不到入口类/方法：入口必须包含完整命名空间，方法必须是 `public static`。
+- Catalog 无更新：确认远端 `.hash` 文件已上传，`RemoteLoadPath` 指向正确版本。

@@ -1,5 +1,9 @@
+using System;
+using System.Text;
+using System.Threading;
 using Cysharp.Threading.Tasks;
 using StellarFramework.HotUpdate;
+using StellarFramework.Res;
 using UnityEngine;
 
 namespace StellarFramework.Examples
@@ -95,6 +99,119 @@ namespace StellarFramework.Examples
             _status = started
                 ? "热更入口调用已执行，请检查 Console 与 HotUpdate 入口逻辑。"
                 : $"热更装载失败: {HybridCLRHook.LastError}";
+        }
+    }
+
+    /// <summary>
+    /// Startup-only HybridCLR + Addressables hot update example.
+    /// Real dll.bytes and AOT metadata generation still follows the official HybridCLR workflow.
+    /// </summary>
+    public sealed class Example_HybridCLRAAStartup : MonoBehaviour
+    {
+        [SerializeField] private ResKitRuntimeSettings settingsOverride;
+        [SerializeField] private bool runOnStart;
+
+        private CancellationTokenSource _cancellationTokenSource;
+        private float _progress;
+        private string _status = "Waiting";
+
+        private void Start()
+        {
+            if (runOnStart)
+            {
+                RunStartupHotUpdateAsync().Forget();
+            }
+        }
+
+        private void OnDestroy()
+        {
+            CancelCurrentRun();
+        }
+
+        private void OnGUI()
+        {
+            GUILayout.BeginArea(new Rect(20, 300, 560, 250), GUI.skin.box);
+            GUILayout.Label("HybridCLR AA Startup Example");
+            GUILayout.Label($"Progress: {_progress:P0}");
+            GUILayout.TextArea(_status, GUILayout.Height(110));
+
+            using (new GUILayout.HorizontalScope())
+            {
+                if (GUILayout.Button("Run AA Hot Update", GUILayout.Height(32)))
+                {
+                    RunStartupHotUpdateAsync().Forget();
+                }
+
+                if (GUILayout.Button("Cancel", GUILayout.Height(32)))
+                {
+                    CancelCurrentRun();
+                    _status = "Cancelled by user.";
+                }
+            }
+
+            GUILayout.EndArea();
+        }
+
+        private async UniTaskVoid RunStartupHotUpdateAsync()
+        {
+            CancelCurrentRun();
+            _cancellationTokenSource = new CancellationTokenSource();
+            _progress = 0f;
+
+            ResKitRuntimeSettings settings =
+                settingsOverride != null ? settingsOverride : ResKitRuntimeSettings.LoadOrCreateDefault();
+            ResKitRuntimeSettingsValidationReport validation = settings.Validate(true);
+            if (!validation.IsValid)
+            {
+                _status = BuildValidationText(validation);
+                return;
+            }
+
+            try
+            {
+                _status = "Checking Addressables catalogs and downloading hot update content...";
+                HybridCLRAAHotUpdateResult result = await HybridCLRAAHotUpdateRunner.RunAsync(
+                    settings,
+                    progress => _progress = progress,
+                    _cancellationTokenSource.Token);
+
+                _status = result.Success
+                    ? $"Hot update entered.\nAssembly={result.LoadedAssemblyFullName}"
+                    : $"Hot update failed.\nState={result.State}\nError={result.Error}";
+            }
+            catch (OperationCanceledException)
+            {
+                _status = "Hot update cancelled.";
+            }
+        }
+
+        private void CancelCurrentRun()
+        {
+            if (_cancellationTokenSource == null)
+            {
+                return;
+            }
+
+            _cancellationTokenSource.Cancel();
+            _cancellationTokenSource.Dispose();
+            _cancellationTokenSource = null;
+        }
+
+        private static string BuildValidationText(ResKitRuntimeSettingsValidationReport validation)
+        {
+            StringBuilder builder = new StringBuilder();
+            builder.AppendLine("ResKitRuntimeSettings validation failed.");
+            for (int i = 0; i < validation.Errors.Count; i++)
+            {
+                builder.AppendLine("ERROR: " + validation.Errors[i]);
+            }
+
+            for (int i = 0; i < validation.Warnings.Count; i++)
+            {
+                builder.AppendLine("WARNING: " + validation.Warnings[i]);
+            }
+
+            return builder.ToString();
         }
     }
 }

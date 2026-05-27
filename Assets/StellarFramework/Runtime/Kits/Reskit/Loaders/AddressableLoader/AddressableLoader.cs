@@ -18,86 +18,95 @@ namespace StellarFramework.Res
         protected override ResData LoadRealSync(string path)
         {
 #if UNITY_ADDRESSABLES
-            AsyncOperationHandle handle = default;
-            try
-            {
-                var genericHandle = Addressables.LoadAssetAsync<Object>(path);
-                Object result = genericHandle.WaitForCompletion();
-                handle = genericHandle;
-
-                if (handle.Status == AsyncOperationStatus.Succeeded && result != null)
-                {
-                    return new ResData { Asset = result, Data = handle };
-                }
-
-                if (handle.IsValid())
-                {
-                    Addressables.Release(handle);
-                }
-            }
-            catch (Exception e)
-            {
-                LogKit.LogError($"[AddressableLoader] 同步加载异常: {path}\n{e.Message}");
-                if (handle.IsValid())
-                {
-                    Addressables.Release(handle);
-                }
-            }
+            LogKit.LogError(
+                $"[AddressableLoader] Sync load is disabled for the production Addressables backend. Use LoadAsync<T>. Path={path}");
+#else
+            LogKit.LogError("[AddressableLoader] Addressables is unavailable. Install Addressables and enable UNITY_ADDRESSABLES.");
 #endif
             return null;
         }
 
         protected override async UniTask<ResData> LoadRealAsync(string path, CancellationToken cancellationToken)
         {
+            return await LoadRealAsyncTyped<Object>(path, cancellationToken);
+        }
+
+        protected override async UniTask<ResData> LoadRealAsyncTyped<T>(string path, CancellationToken cancellationToken)
+        {
 #if UNITY_ADDRESSABLES
-            AsyncOperationHandle<Object> genericHandle = default;
+            if (string.IsNullOrEmpty(path))
+            {
+                LogKit.LogError("[AddressableLoader] Async load failed: path is empty.");
+                return null;
+            }
+
+            AsyncOperationHandle rawHandle = default;
+            AsyncOperationHandle<T> typedHandle = default;
+            bool hasHandle = false;
             try
             {
-                genericHandle = Addressables.LoadAssetAsync<Object>(path);
-                Object result = await genericHandle.ToUniTask(
+                typedHandle = Addressables.LoadAssetAsync<T>(path);
+                rawHandle = typedHandle;
+                hasHandle = true;
+
+                T result = await typedHandle.ToUniTask(
                     cancellationToken: cancellationToken,
                     autoReleaseWhenCanceled: false);
 
-                if (genericHandle.Status == AsyncOperationStatus.Succeeded && result != null)
+                if (typedHandle.Status == AsyncOperationStatus.Succeeded && result != null)
                 {
-                    return new ResData { Asset = result, Data = genericHandle };
+                    return new ResData { Asset = result, Data = rawHandle };
                 }
 
-                if (genericHandle.IsValid())
-                {
-                    Addressables.Release(genericHandle);
-                }
+                ReleaseHandleIfValid(rawHandle);
+                LogKit.LogError($"[AddressableLoader] Async load failed: Path={path}, Type={typeof(T).Name}, Status={typedHandle.Status}");
             }
             catch (OperationCanceledException)
             {
-                if (genericHandle.IsValid())
+                if (hasHandle)
                 {
-                    Addressables.Release(genericHandle);
+                    ReleaseHandleIfValid(rawHandle);
                 }
 
                 throw;
             }
             catch (Exception e)
             {
-                LogKit.LogError($"[AddressableLoader] 异步加载异常: {path}\n{e.Message}");
-                if (genericHandle.IsValid())
+                if (hasHandle)
                 {
-                    Addressables.Release(genericHandle);
+                    ReleaseHandleIfValid(rawHandle);
                 }
+
+                LogKit.LogError($"[AddressableLoader] Async load exception: Path={path}, Type={typeof(T).Name}\n{e.Message}");
             }
-#endif
+#else
             await UniTask.CompletedTask;
+            LogKit.LogError("[AddressableLoader] Addressables is unavailable. Install Addressables and enable UNITY_ADDRESSABLES.");
+#endif
             return null;
         }
 
         protected override void UnloadReal(ResData data)
         {
 #if UNITY_ADDRESSABLES
-            if (data.Data is AsyncOperationHandle handle && handle.IsValid())
+            if (data == null)
             {
-                Addressables.Release(handle);
+                return;
             }
-            else
+
+            if (data.Data is AsyncOperationHandle<Object> objectHandle)
+            {
+                ReleaseHandleIfValid(objectHandle);
+                return;
+            }
+
+            if (data.Data is AsyncOperationHandle handle)
+            {
+                ReleaseHandleIfValid(handle);
+                return;
+            }
+
+            if (data.Asset != null)
             {
                 Addressables.Release(data.Asset);
             }
@@ -108,5 +117,15 @@ namespace StellarFramework.Res
         {
             Pool.PoolKit.Recycle<AddressableLoader>(this);
         }
+
+#if UNITY_ADDRESSABLES
+        private static void ReleaseHandleIfValid(AsyncOperationHandle handle)
+        {
+            if (handle.IsValid())
+            {
+                Addressables.Release(handle);
+            }
+        }
+#endif
     }
 }

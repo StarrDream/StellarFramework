@@ -43,29 +43,13 @@ namespace StellarFramework.UI
 
         public static TPanel PushPanel<TPanel>(UIPanelDataBase data = null) where TPanel : UIPanelBase
         {
-            TPanel panel = UIKit.OpenPanel<TPanel>(data);
-            if (panel == null)
-            {
-                LogKit.LogError($"[UIStackManager] PushPanel 失败: 打开面板为空, Panel={typeof(TPanel).Name}");
-                return null;
-            }
-
-            Instance?.Push(panel);
-            return panel;
+            return UIKit.Push<TPanel>(data);
         }
 
         public static async UniTask<TPanel> PushPanelAsync<TPanel>(UIPanelDataBase data = null)
             where TPanel : UIPanelBase
         {
-            TPanel panel = await UIKit.OpenPanelAsync<TPanel>(data);
-            if (panel == null)
-            {
-                LogKit.LogError($"[UIStackManager] PushPanelAsync 失败: 打开面板为空, Panel={typeof(TPanel).Name}");
-                return null;
-            }
-
-            Instance?.Push(panel);
-            return panel;
+            return await UIKit.PushAsync<TPanel>(data);
         }
 
         public static void PopPanel()
@@ -77,13 +61,7 @@ namespace StellarFramework.UI
                 return;
             }
 
-            UIPanelBase top = mgr.Peek();
-            if (top == null)
-            {
-                return;
-            }
-
-            UIKit.ClosePanel(top.GetType());
+            mgr.TryPop();
         }
 
         public static void PopToPanel<TPanel>() where TPanel : UIPanelBase
@@ -95,24 +73,7 @@ namespace StellarFramework.UI
                 return;
             }
 
-            mgr.CleanupInvalidPanels();
-
-            for (int i = mgr._stack.Count - 1; i >= 0; i--)
-            {
-                UIPanelBase panel = mgr._stack[i];
-                if (panel == null)
-                {
-                    continue;
-                }
-
-                if (panel is TPanel)
-                {
-                    mgr.EvaluateVisibility();
-                    return;
-                }
-
-                UIKit.ClosePanel(panel.GetType());
-            }
+            mgr.TryPopTo<TPanel>();
         }
 
         public static void ClearStack()
@@ -187,6 +148,42 @@ namespace StellarFramework.UI
             }
 
             return _stack[_stack.Count - 1];
+        }
+
+        public bool TryPop()
+        {
+            UIPanelBase top = Peek();
+            if (top == null)
+            {
+                return false;
+            }
+
+            UIKit.ClosePanel(top.GetType());
+            return true;
+        }
+
+        public bool TryPopTo<TPanel>() where TPanel : UIPanelBase
+        {
+            CleanupInvalidPanels();
+
+            for (int i = _stack.Count - 1; i >= 0; i--)
+            {
+                UIPanelBase panel = _stack[i];
+                if (panel == null)
+                {
+                    continue;
+                }
+
+                if (panel is TPanel)
+                {
+                    EvaluateVisibility();
+                    return true;
+                }
+
+                UIKit.ClosePanel(panel.GetType());
+            }
+
+            return false;
         }
 
         private void HandlePanelClosed(UIPanelBase panel)

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Text;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
@@ -7,22 +8,86 @@ using UnityEngine.UI;
 
 namespace StellarFramework.UI
 {
+    public sealed class UIKitRuntimeSnapshot
+    {
+        public bool IsInitialized;
+        public bool IsInitializing;
+        public bool IsDisposed;
+        public bool HasRootCanvas;
+        public bool HasStaticCanvas;
+        public bool HasDynamicCanvas;
+        public string LoadStrategyName;
+        public readonly List<string> CachedPanels = new List<string>();
+        public readonly List<string> ActivePanels = new List<string>();
+        public readonly List<string> LoadingPanels = new List<string>();
+
+        public int CachedPanelCount => CachedPanels.Count;
+        public int ActivePanelCount => ActivePanels.Count;
+        public int LoadingPanelCount => LoadingPanels.Count;
+
+        public static UIKitRuntimeSnapshot Empty(string reason)
+        {
+            return new UIKitRuntimeSnapshot
+            {
+                LoadStrategyName = reason
+            };
+        }
+
+        public string ToMultilineString()
+        {
+            StringBuilder builder = new StringBuilder(256);
+            builder.Append("[UIKitSnapshot] ");
+            builder.Append("Initialized=").Append(IsInitialized);
+            builder.Append(", Initializing=").Append(IsInitializing);
+            builder.Append(", Disposed=").Append(IsDisposed);
+            builder.Append(", Strategy=").Append(string.IsNullOrEmpty(LoadStrategyName) ? "null" : LoadStrategyName);
+            builder.Append(", Root=").Append(HasRootCanvas);
+            builder.Append(", StaticCanvas=").Append(HasStaticCanvas);
+            builder.Append(", DynamicCanvas=").Append(HasDynamicCanvas);
+            builder.Append(", Cached=").Append(CachedPanelCount);
+            builder.Append(", Active=").Append(ActivePanelCount);
+            builder.Append(", Loading=").Append(LoadingPanelCount);
+            builder.AppendLine();
+            builder.Append("  CachedPanels: ").AppendLine(FormatList(CachedPanels));
+            builder.Append("  ActivePanels: ").AppendLine(FormatList(ActivePanels));
+            builder.Append("  LoadingPanels: ").Append(FormatList(LoadingPanels));
+            return builder.ToString();
+        }
+
+        public override string ToString()
+        {
+            return ToMultilineString();
+        }
+
+        private static string FormatList(List<string> values)
+        {
+            return values == null || values.Count == 0 ? "(none)" : string.Join(", ", values);
+        }
+    }
+
     [Singleton("Managers/UIKit", SingletonLifeCycle.Global, false)]
     public class UIKit : MonoSingleton<UIKit>
     {
         private const string UI_ROOT_NAME = "UIRoot";
 
         private IUILoadStrategy _loadStrategy;
+        private UIKitSettings _settings;
         private bool _isInitialized;
         private bool _isInitializing;
         private bool _isDisposed;
 
         public Canvas RootCanvas { get; private set; }
+        public Canvas StaticCanvas { get; private set; }
+        public Canvas DynamicCanvas { get; private set; }
         public CanvasScaler RootScaler { get; private set; }
         public Camera UICamera { get; private set; }
 
         private readonly Dictionary<UIPanelBase.PanelLayer, Transform> _layers =
             new Dictionary<UIPanelBase.PanelLayer, Transform>();
+
+        private readonly Dictionary<UIPanelBase.PanelCanvasRole, Dictionary<UIPanelBase.PanelLayer, Transform>>
+            _roleLayers =
+                new Dictionary<UIPanelBase.PanelCanvasRole, Dictionary<UIPanelBase.PanelLayer, Transform>>();
 
         private readonly Dictionary<Type, UIPanelBase> _panelCache =
             new Dictionary<Type, UIPanelBase>();
@@ -53,6 +118,18 @@ namespace StellarFramework.UI
             }
 
             _loadStrategy = loadStrategy;
+        }
+
+        public void Configure(UIKitSettings settings)
+        {
+            if (_isInitialized || _isInitializing)
+            {
+                Debug.LogError("[UIKit] Configure failed: UIKit is already initialized or initializing.");
+                return;
+            }
+
+            _settings = settings != null ? settings : UIKitSettings.LoadOrCreateDefault();
+            _loadStrategy = new ResKitUILoadStrategy(_settings);
         }
 
         public void Init()
@@ -177,7 +254,8 @@ namespace StellarFramework.UI
                 return;
             }
 
-            _loadStrategy = new ResKitUILoadStrategy();
+            _settings = _settings != null ? _settings : UIKitSettings.LoadOrCreateDefault();
+            _loadStrategy = new ResKitUILoadStrategy(_settings);
         }
 
         private bool SetupUIRoot(GameObject rootPrefab)
@@ -210,37 +288,92 @@ namespace StellarFramework.UI
                 return false;
             }
 
-            Dictionary<UIPanelBase.PanelLayer, Transform> newLayers =
-                new Dictionary<UIPanelBase.PanelLayer, Transform>();
-            foreach (UIPanelBase.PanelLayer layer in Enum.GetValues(typeof(UIPanelBase.PanelLayer)))
+            Dictionary<UIPanelBase.PanelLayer, Transform> dynamicLayers;
+            Dictionary<UIPanelBase.PanelLayer, Transform> staticLayers;
+            if (!BuildLayerMap(rootGo.transform, UIPanelBase.PanelCanvasRole.Dynamic, out dynamicLayers) ||
+                !BuildLayerMap(rootGo.transform, UIPanelBase.PanelCanvasRole.Static, out staticLayers))
             {
-                string layerName = layer.ToString();
-                Transform layerTrans = rootGo.transform.Find(layerName);
-                if (layerTrans == null)
-                {
-                    Debug.LogError(
-                        $"[UIKit] SetupUIRoot 失败: 缺少层级节点, GameObject={rootGo.name}, MissingLayer={layerName}, Prefab={rootPrefab.name}");
-                    Destroy(rootGo);
-                    return false;
-                }
-
-                newLayers[layer] = layerTrans;
+                Debug.LogError($"[UIKit] SetupUIRoot failed: UIRoot layer structure is invalid. Prefab={rootPrefab.name}");
+                Destroy(rootGo);
+                return false;
             }
 
             rootGo.transform.SetParent(null, false);
             DontDestroyOnLoad(rootGo);
 
             RootCanvas = rootCanvas;
+            DynamicCanvas = FindRoleCanvas(rootGo.transform, UIPanelBase.PanelCanvasRole.Dynamic) ?? rootCanvas;
+            StaticCanvas = FindRoleCanvas(rootGo.transform, UIPanelBase.PanelCanvasRole.Static) ?? rootCanvas;
             RootScaler = rootScaler;
             UICamera = uiCamera;
 
             _layers.Clear();
-            foreach (KeyValuePair<UIPanelBase.PanelLayer, Transform> pair in newLayers)
+            foreach (KeyValuePair<UIPanelBase.PanelLayer, Transform> pair in dynamicLayers)
             {
                 _layers[pair.Key] = pair.Value;
             }
 
+            _roleLayers.Clear();
+            _roleLayers[UIPanelBase.PanelCanvasRole.Dynamic] = dynamicLayers;
+            _roleLayers[UIPanelBase.PanelCanvasRole.Static] = staticLayers;
+
             return true;
+        }
+
+        private bool BuildLayerMap(Transform root, UIPanelBase.PanelCanvasRole role,
+            out Dictionary<UIPanelBase.PanelLayer, Transform> layerMap)
+        {
+            layerMap = new Dictionary<UIPanelBase.PanelLayer, Transform>();
+            Transform roleRoot = FindRoleRoot(root, role);
+            if (roleRoot == null)
+            {
+                roleRoot = root;
+            }
+
+            foreach (UIPanelBase.PanelLayer layer in Enum.GetValues(typeof(UIPanelBase.PanelLayer)))
+            {
+                string layerName = layer.ToString();
+                Transform layerTrans = roleRoot.Find(layerName);
+                if (layerTrans == null && roleRoot != root)
+                {
+                    layerTrans = root.Find(layerName);
+                }
+
+                if (layerTrans == null)
+                {
+                    Debug.LogError(
+                        $"[UIKit] Missing layer. Role={role}, Layer={layerName}, Root={root.gameObject.name}");
+                    return false;
+                }
+
+                layerMap[layer] = layerTrans;
+            }
+
+            return true;
+        }
+
+        private static Canvas FindRoleCanvas(Transform root, UIPanelBase.PanelCanvasRole role)
+        {
+            Transform roleRoot = FindRoleRoot(root, role);
+            return roleRoot != null ? roleRoot.GetComponent<Canvas>() : null;
+        }
+
+        private static Transform FindRoleRoot(Transform root, UIPanelBase.PanelCanvasRole role)
+        {
+            if (root == null)
+            {
+                return null;
+            }
+
+            switch (role)
+            {
+                case UIPanelBase.PanelCanvasRole.Static:
+                    return root.Find("StaticCanvas") ?? root.Find("Static");
+                case UIPanelBase.PanelCanvasRole.Dynamic:
+                    return root.Find("DynamicCanvas") ?? root.Find("Dynamic");
+                default:
+                    return null;
+            }
         }
 
         public void SetResolution(Vector2 resolution, float matchWidthOrHeight)
@@ -261,6 +394,113 @@ namespace StellarFramework.UI
         #endregion
 
         #region 静态公开 API
+
+        public static TPanel Open<TPanel>(UIPanelDataBase data = null) where TPanel : UIPanelBase
+        {
+            return OpenPanel<TPanel>(data);
+        }
+
+        public static UniTask<TPanel> OpenAsync<TPanel>(UIPanelDataBase data = null) where TPanel : UIPanelBase
+        {
+            return OpenPanelAsync<TPanel>(data);
+        }
+
+        public static TPanel Push<TPanel>(UIPanelDataBase data = null) where TPanel : UIPanelBase
+        {
+            TPanel panel = OpenPanel<TPanel>(data);
+            if (panel != null)
+            {
+                UIStackManager.Instance?.Push(panel);
+            }
+
+            return panel;
+        }
+
+        public static async UniTask<TPanel> PushAsync<TPanel>(UIPanelDataBase data = null)
+            where TPanel : UIPanelBase
+        {
+            TPanel panel = await OpenPanelAsync<TPanel>(data);
+            if (panel != null)
+            {
+                UIStackManager.Instance?.Push(panel);
+            }
+
+            return panel;
+        }
+
+        public static void Pop()
+        {
+            UIStackManager.Instance?.TryPop();
+        }
+
+        public static void PopTo<TPanel>() where TPanel : UIPanelBase
+        {
+            UIStackManager.Instance?.TryPopTo<TPanel>();
+        }
+
+        public static void Close<TPanel>() where TPanel : UIPanelBase
+        {
+            ClosePanel<TPanel>();
+        }
+
+        public static TPanel Preload<TPanel>() where TPanel : UIPanelBase
+        {
+            return PreloadPanel<TPanel>();
+        }
+
+        public static UniTask<TPanel> PreloadAsync<TPanel>() where TPanel : UIPanelBase
+        {
+            return PreloadPanelAsync<TPanel>();
+        }
+
+        public static UIKitRuntimeSnapshot TakeSnapshot()
+        {
+            return Instance != null
+                ? Instance.CreateSnapshot()
+                : UIKitRuntimeSnapshot.Empty("UIKit instance is null");
+        }
+
+        public static void LogSnapshot()
+        {
+            LogKit.Log(TakeSnapshot().ToMultilineString());
+        }
+
+        public static async UniTask<UIKitRuntimeSnapshot> StressOpenCloseAsync<TPanel>(
+            int iterations,
+            UIPanelDataBase data = null,
+            int yieldEvery = 1,
+            CancellationToken cancellationToken = default)
+            where TPanel : UIPanelBase
+        {
+            if (iterations < 0)
+            {
+                Debug.LogError($"[UIKit] StressOpenCloseAsync failed: iterations must be >= 0, Value={iterations}");
+                return TakeSnapshot();
+            }
+
+            for (int i = 0; i < iterations; i++)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                TPanel panel = await OpenAsync<TPanel>(data);
+                if (panel == null)
+                {
+                    Debug.LogError(
+                        $"[UIKit] StressOpenCloseAsync stopped: panel open failed, Panel={typeof(TPanel).Name}, Iteration={i + 1}/{iterations}");
+                    break;
+                }
+
+                Close<TPanel>();
+
+                if (yieldEvery > 0 && (i + 1) % yieldEvery == 0)
+                {
+                    await UniTask.Yield(cancellationToken);
+                }
+            }
+
+            UIKitRuntimeSnapshot snapshot = TakeSnapshot();
+            LogKit.Log(snapshot.ToMultilineString());
+            return snapshot;
+        }
 
         public static TPanel OpenPanel<TPanel>(UIPanelDataBase data = null) where TPanel : UIPanelBase
         {
@@ -661,9 +901,10 @@ namespace StellarFramework.UI
                 return null;
             }
 
-            if (!_layers.TryGetValue(panel.Layer, out Transform layerTrans) || layerTrans == null)
+            if (!TryGetLayer(panel.CanvasRole, panel.Layer, out Transform layerTrans) || layerTrans == null)
             {
-                Debug.LogError($"[UIKit] CreatePanelFromPrefab 失败: 层级不存在, Panel={panelName}, Layer={panel.Layer}");
+                Debug.LogError(
+                    $"[UIKit] CreatePanelFromPrefab 失败: 层级不存在, Panel={panelName}, CanvasRole={panel.CanvasRole}, Layer={panel.Layer}");
                 Destroy(go);
                 return null;
             }
@@ -689,6 +930,59 @@ namespace StellarFramework.UI
             _panelCache[panelType] = panel;
             _panelNames[panelType] = panelName;
             return panel;
+        }
+
+        private bool TryGetLayer(UIPanelBase.PanelCanvasRole role, UIPanelBase.PanelLayer layer, out Transform layerTrans)
+        {
+            layerTrans = null;
+            if (_roleLayers.TryGetValue(role, out Dictionary<UIPanelBase.PanelLayer, Transform> roleMap) &&
+                roleMap.TryGetValue(layer, out layerTrans) &&
+                layerTrans != null)
+            {
+                return true;
+            }
+
+            return _layers.TryGetValue(layer, out layerTrans) && layerTrans != null;
+        }
+
+        #endregion
+
+        #region 诊断
+
+        private UIKitRuntimeSnapshot CreateSnapshot()
+        {
+            UIKitRuntimeSnapshot snapshot = new UIKitRuntimeSnapshot
+            {
+                IsInitialized = _isInitialized,
+                IsInitializing = _isInitializing,
+                IsDisposed = _isDisposed,
+                HasRootCanvas = RootCanvas != null,
+                HasStaticCanvas = StaticCanvas != null,
+                HasDynamicCanvas = DynamicCanvas != null,
+                LoadStrategyName = _loadStrategy != null ? _loadStrategy.GetType().Name : "null"
+            };
+
+            foreach (KeyValuePair<Type, UIPanelBase> pair in _panelCache)
+            {
+                string panelName = pair.Key != null ? pair.Key.Name : "null";
+                snapshot.CachedPanels.Add(panelName);
+
+                UIPanelBase panel = pair.Value;
+                if (panel != null && panel.gameObject != null && panel.gameObject.activeSelf)
+                {
+                    snapshot.ActivePanels.Add(panelName);
+                }
+            }
+
+            foreach (Type loadingType in _panelLoadingTasks.Keys)
+            {
+                snapshot.LoadingPanels.Add(loadingType != null ? loadingType.Name : "null");
+            }
+
+            snapshot.CachedPanels.Sort(StringComparer.Ordinal);
+            snapshot.ActivePanels.Sort(StringComparer.Ordinal);
+            snapshot.LoadingPanels.Sort(StringComparer.Ordinal);
+            return snapshot;
         }
 
         #endregion
@@ -788,8 +1082,11 @@ namespace StellarFramework.UI
             _panelCache.Clear();
             _panelNames.Clear();
             _layers.Clear();
+            _roleLayers.Clear();
 
             RootCanvas = null;
+            StaticCanvas = null;
+            DynamicCanvas = null;
             RootScaler = null;
             UICamera = null;
 

@@ -28,5 +28,27 @@ namespace StellarFramework.Examples
                 LogKit.Log("[ExamplePanel] Opened with resolved panel data");
             }
         }
+
+        public override void OnRefresh(UIPanelDataBase data)
+        {
+            OnOpen(data);
+            LogKit.Log("[ExamplePanel] Refreshed");
+        }
+
+        public override void OnClose()
+        {
+            base.OnClose();
+            LogKit.Log("[ExamplePanel] Closed");
+        }
+
+        public override void OnPause()
+        {
+            LogKit.Log("[ExamplePanel] Paused by UI stack");
+        }
+
+        public override void OnResume()
+        {
+            LogKit.Log("[ExamplePanel] Resumed by UI stack");
+        }
     }
 }

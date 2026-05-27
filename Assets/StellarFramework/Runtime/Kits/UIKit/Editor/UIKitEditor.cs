@@ -71,12 +71,9 @@ namespace StellarFramework.Editor
             eventSystem.AddComponent<UnityEngine.EventSystems.EventSystem>();
             eventSystem.AddComponent<UnityEngine.EventSystems.StandaloneInputModule>();
             
-            // 创建层级节点
-            CreateLayerNode(root, UIPanelBase.PanelLayer.Bottom);
-            CreateLayerNode(root, UIPanelBase.PanelLayer.Middle);
-            CreateLayerNode(root, UIPanelBase.PanelLayer.Top);
-            CreateLayerNode(root, UIPanelBase.PanelLayer.Popup);
-            CreateLayerNode(root, UIPanelBase.PanelLayer.System);
+            // 创建静态/动态 Canvas。UIKit 仍兼容旧版直接挂在根节点的层级结构。
+            CreateCanvasRoleRoot(root, "StaticCanvas", 0);
+            CreateCanvasRoleRoot(root, "DynamicCanvas", 100);
 
             // 保存 Prefab
             PrefabUtility.SaveAsPrefabAsset(root, prefabPath);
@@ -187,6 +184,31 @@ namespace StellarFramework.Editor
             {
                 go.AddComponent<CanvasGroup>();
             }
+        }
+
+        private static void CreateCanvasRoleRoot(GameObject root, string roleName, int sortingOrder)
+        {
+            GameObject canvasRoot = new GameObject(roleName);
+            canvasRoot.layer = LayerMask.NameToLayer("UI");
+            canvasRoot.transform.SetParent(root.transform, false);
+
+            RectTransform rt = canvasRoot.AddComponent<RectTransform>();
+            rt.anchorMin = Vector2.zero;
+            rt.anchorMax = Vector2.one;
+            rt.offsetMin = Vector2.zero;
+            rt.offsetMax = Vector2.zero;
+
+            Canvas canvas = canvasRoot.AddComponent<Canvas>();
+            canvas.overrideSorting = true;
+            canvas.sortingOrder = sortingOrder;
+
+            canvasRoot.AddComponent<GraphicRaycaster>();
+
+            CreateLayerNode(canvasRoot, UIPanelBase.PanelLayer.Bottom);
+            CreateLayerNode(canvasRoot, UIPanelBase.PanelLayer.Middle);
+            CreateLayerNode(canvasRoot, UIPanelBase.PanelLayer.Top);
+            CreateLayerNode(canvasRoot, UIPanelBase.PanelLayer.Popup);
+            CreateLayerNode(canvasRoot, UIPanelBase.PanelLayer.System);
         }
 
         private static string GetHierarchyPath(GameObject go)

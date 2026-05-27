@@ -1,3 +1,4 @@
+using System;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using StellarFramework.Res;
@@ -6,115 +7,143 @@ using UnityEngine;
 namespace StellarFramework.UI
 {
     /// <summary>
-    /// 基于 ResKit 的默认 UI 加载策略。
+    /// Default UIKit loading strategy backed by ResKit.
+    /// Paths and backend can come from UIKitSettings/ResKitRuntimeSettings instead of hard-coded Resources paths.
     /// </summary>
     public class ResKitUILoadStrategy : IUILoadStrategy
     {
-        private const string UI_ROOT_PATH = "UIPanel/UIRoot";
-        private const string PANEL_PREFIX = "UIPanel/";
-
         private readonly IResLoader _loader;
         private readonly bool _ownsLoader;
+        private readonly bool _supportSyncLoad;
+        private readonly string _uiRootPath;
+        private readonly string _panelPathFormat;
         private bool _isReleased;
 
-        public bool SupportSyncLoad => _loader != null && !_isReleased;
+        public bool SupportSyncLoad => _loader != null && !_isReleased && _supportSyncLoad;
 
         public ResKitUILoadStrategy(IResLoader loader)
+            : this(loader, UIKitSettings.LoadOrCreateDefault(), false)
         {
-            _loader = loader;
-            _ownsLoader = false;
+        }
+
+        public ResKitUILoadStrategy(IResLoader loader, UIKitSettings settings)
+            : this(loader, settings, false)
+        {
+        }
+
+        public ResKitUILoadStrategy(UIKitSettings settings)
+        {
+            settings = settings != null ? settings : UIKitSettings.LoadOrCreateDefault();
+
+            ResLoadBackend backend = ResolveUIBackend(settings);
+            ResLoaderRequest request = backend == ResLoadBackend.Custom
+                ? ResLoaderRequest.Custom(settings.CustomLoaderKey, "UIKit")
+                : ResLoaderRequest.For(backend, "UIKit");
+
+            _loader = ResKit.Allocate(request);
+            _ownsLoader = true;
+            _supportSyncLoad = settings.AllowSyncLoad && backend != ResLoadBackend.Addressables;
+            _uiRootPath = ResolveUIRootPath(settings);
+            _panelPathFormat = ResolvePanelPathFormat(settings);
 
             if (_loader == null)
             {
-                Debug.LogError("[ResKitUILoadStrategy] Initialize failed: loader is null");
+                Debug.LogError($"[ResKitUILoadStrategy] Initialize failed: backend allocation returned null. Backend={backend}");
             }
         }
 
         public ResKitUILoadStrategy()
+            : this(UIKitSettings.LoadOrCreateDefault())
         {
-            _loader = ResKit.Allocate<ResourceLoader>();
-            _ownsLoader = true;
+        }
+
+        private ResKitUILoadStrategy(IResLoader loader, UIKitSettings settings, bool ownsLoader)
+        {
+            settings = settings != null ? settings : UIKitSettings.LoadOrCreateDefault();
+            _loader = loader;
+            _ownsLoader = ownsLoader;
+            _supportSyncLoad = settings.AllowSyncLoad && !(loader is AddressableLoader);
+            _uiRootPath = ResolveUIRootPath(settings);
+            _panelPathFormat = ResolvePanelPathFormat(settings);
 
             if (_loader == null)
             {
-                Debug.LogError("[ResKitUILoadStrategy] Initialize failed: default ResourceLoader allocation returned null");
+                Debug.LogError("[ResKitUILoadStrategy] Initialize failed: loader is null.");
             }
         }
 
         public GameObject LoadUIRoot()
         {
-            if (!EnsureLoaderAvailable(nameof(LoadUIRoot), UI_ROOT_PATH))
+            if (!EnsureLoaderAvailable(nameof(LoadUIRoot), _uiRootPath))
             {
                 return null;
             }
 
-            return _loader.Load<GameObject>(UI_ROOT_PATH);
+            if (!SupportSyncLoad)
+            {
+                Debug.LogError("[ResKitUILoadStrategy] LoadUIRoot failed: current strategy does not support sync load.");
+                return null;
+            }
+
+            return _loader.Load<GameObject>(_uiRootPath);
         }
 
         public async UniTask<GameObject> LoadUIRootAsync(CancellationToken cancellationToken = default)
         {
-            if (!EnsureLoaderAvailable(nameof(LoadUIRootAsync), UI_ROOT_PATH))
+            if (!EnsureLoaderAvailable(nameof(LoadUIRootAsync), _uiRootPath))
             {
                 return null;
             }
 
-            return await _loader.LoadAsync<GameObject>(UI_ROOT_PATH, cancellationToken);
+            return await _loader.LoadAsync<GameObject>(_uiRootPath, cancellationToken);
         }
 
         public GameObject LoadPanelPrefab(string panelName)
         {
-            if (!EnsureLoaderAvailable(nameof(LoadPanelPrefab), panelName))
+            string path = BuildPanelPath(panelName);
+            if (!EnsurePanelRequest(nameof(LoadPanelPrefab), panelName, path))
             {
                 return null;
             }
 
-            if (string.IsNullOrEmpty(panelName))
+            if (!SupportSyncLoad)
             {
-                Debug.LogError("[ResKitUILoadStrategy] LoadPanelPrefab failed: panelName is null or empty");
+                Debug.LogError(
+                    $"[ResKitUILoadStrategy] LoadPanelPrefab failed: current strategy does not support sync load. Panel={panelName}");
                 return null;
             }
 
-            return _loader.Load<GameObject>(PANEL_PREFIX + panelName);
+            return _loader.Load<GameObject>(path);
         }
 
         public async UniTask<GameObject> LoadPanelPrefabAsync(string panelName,
             CancellationToken cancellationToken = default)
         {
-            if (!EnsureLoaderAvailable(nameof(LoadPanelPrefabAsync), panelName))
+            string path = BuildPanelPath(panelName);
+            if (!EnsurePanelRequest(nameof(LoadPanelPrefabAsync), panelName, path))
             {
                 return null;
             }
 
-            if (string.IsNullOrEmpty(panelName))
-            {
-                Debug.LogError("[ResKitUILoadStrategy] LoadPanelPrefabAsync failed: panelName is null or empty");
-                return null;
-            }
-
-            return await _loader.LoadAsync<GameObject>(PANEL_PREFIX + panelName, cancellationToken);
+            return await _loader.LoadAsync<GameObject>(path, cancellationToken);
         }
 
         public void UnloadPanelPrefab(string panelName)
         {
-            if (!EnsureLoaderAvailable(nameof(UnloadPanelPrefab), panelName))
+            string path = BuildPanelPath(panelName);
+            if (!EnsurePanelRequest(nameof(UnloadPanelPrefab), panelName, path))
             {
                 return;
             }
 
-            if (string.IsNullOrEmpty(panelName))
-            {
-                Debug.LogError("[ResKitUILoadStrategy] UnloadPanelPrefab failed: panelName is null or empty");
-                return;
-            }
-
-            _loader.Unload(PANEL_PREFIX + panelName);
+            _loader.Unload(path);
         }
 
         public void ReleaseAll()
         {
             if (_loader == null)
             {
-                Debug.LogError("[ResKitUILoadStrategy] ReleaseAll failed: loader is null");
+                Debug.LogError("[ResKitUILoadStrategy] ReleaseAll failed: loader is null.");
                 return;
             }
 
@@ -133,18 +162,96 @@ namespace StellarFramework.UI
             _isReleased = true;
         }
 
+        private static ResLoadBackend ResolveUIBackend(UIKitSettings settings)
+        {
+            ResLoadBackend backend = settings != null ? settings.DefaultLoadBackend : ResLoadBackend.Default;
+            if (backend != ResLoadBackend.Default)
+            {
+                return backend;
+            }
+
+            ResKitRuntimeSettings resSettings = ResKitRuntimeSettings.LoadOrCreateDefault();
+            if (resSettings != null && resSettings.DefaultUILoadBackend != ResLoadBackend.Default)
+            {
+                return resSettings.DefaultUILoadBackend;
+            }
+
+            return ResLoadBackend.Resources;
+        }
+
+        private static string ResolveUIRootPath(UIKitSettings settings)
+        {
+            if (settings != null && !string.IsNullOrWhiteSpace(settings.UIRootPath))
+            {
+                return settings.UIRootPath.Trim();
+            }
+
+            ResKitRuntimeSettings resSettings = ResKitRuntimeSettings.LoadOrCreateDefault();
+            if (resSettings != null && !string.IsNullOrWhiteSpace(resSettings.UIRootPath))
+            {
+                return resSettings.UIRootPath.Trim();
+            }
+
+            return "UIPanel/UIRoot";
+        }
+
+        private static string ResolvePanelPathFormat(UIKitSettings settings)
+        {
+            if (settings != null && !string.IsNullOrWhiteSpace(settings.PanelPathFormat) &&
+                settings.PanelPathFormat.Contains("{0}"))
+            {
+                return settings.PanelPathFormat.Trim();
+            }
+
+            ResKitRuntimeSettings resSettings = ResKitRuntimeSettings.LoadOrCreateDefault();
+            if (resSettings != null && !string.IsNullOrWhiteSpace(resSettings.UIPanelPathFormat) &&
+                resSettings.UIPanelPathFormat.Contains("{0}"))
+            {
+                return resSettings.UIPanelPathFormat.Trim();
+            }
+
+            return "UIPanel/{0}";
+        }
+
+        private string BuildPanelPath(string panelName)
+        {
+            if (string.IsNullOrEmpty(panelName))
+            {
+                return string.Empty;
+            }
+
+            return string.Format(_panelPathFormat, panelName);
+        }
+
+        private bool EnsurePanelRequest(string apiName, string panelName, string path)
+        {
+            if (string.IsNullOrEmpty(panelName))
+            {
+                Debug.LogError($"[ResKitUILoadStrategy] {apiName} failed: panelName is null or empty.");
+                return false;
+            }
+
+            return EnsureLoaderAvailable(apiName, path);
+        }
+
         private bool EnsureLoaderAvailable(string apiName, string target)
         {
             if (_loader == null)
             {
-                Debug.LogError($"[ResKitUILoadStrategy] {apiName} failed: loader is null, Target={target}");
+                Debug.LogError($"[ResKitUILoadStrategy] {apiName} failed: loader is null. Target={target}");
                 return false;
             }
 
             if (_isReleased)
             {
                 Debug.LogError(
-                    $"[ResKitUILoadStrategy] {apiName} failed: strategy has already been released, Target={target}");
+                    $"[ResKitUILoadStrategy] {apiName} failed: strategy has already been released. Target={target}");
+                return false;
+            }
+
+            if (string.IsNullOrEmpty(target))
+            {
+                Debug.LogError($"[ResKitUILoadStrategy] {apiName} failed: target path is empty.");
                 return false;
             }
 

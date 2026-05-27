@@ -1,168 +1,109 @@
-# ResKit / 统一资源
+# ResKit / 统一资源 Guide
 
-## 定位
+ResKit 是框架的资源加载门户。业务层优先通过 `ResKit.Allocate(request)` 或兼容的 `ResKit.Allocate<TLoader>()` 获取加载器，再用统一的 `IResLoader` 加载资源。
 
-`ResKit` 是框架的统一资源加载入口。上层统一通过 `IResLoader` 工作，底层负责共享加载、引用计数、加载器池化和取消收口。
-
-## 核心特性
-
-- 统一接口：上层统一走 `IResLoader`
-- 引用计数：自动管理资源生命周期
-- 异步去重：同一资源并发加载时共享物理加载结果
-- 加载器池化：`ResLoader` 本身可回收复用
-- 可扩展：通过继承 `ResLoader` 接入自定义来源
-
-## 标准流程
-
-### 分配 -> 加载 -> 回收
+## 1. 后端选择
 
 ```csharp
-using System.Threading;
-using Cysharp.Threading.Tasks;
-using StellarFramework.Res;
-using UnityEngine;
-
-public class HeroLoader : MonoBehaviour
+IResLoader loader = ResKit.Allocate(new ResLoaderRequest
 {
-    private IResLoader _loader;
-    private CancellationToken _destroyToken;
+    Backend = ResLoadBackend.Addressables,
+    OwnerName = "BattlePreload"
+});
+```
 
-    void Start()
+可选后端：
+
+- `Resources`：本地内置资源，简单稳定，适合基础配置和兜底 UI。
+- `Addressables`：推荐生产热更后端，使用 `Assets/...` address，优先异步加载。
+- `AssetBundle`：保留自建 AB 管线，继续使用 `AssetMap` 和 ToolHub AB 构建。
+- `Custom`：通过 `ResKit.RegisterCustomLoader` 接入 YooAsset 或业务自定义加载器。
+
+旧代码继续可用：
+
+```csharp
+var loader = ResKit.Allocate<ResourceLoader>();
+var aaLoader = ResKit.Allocate<AddressableLoader>();
+var abLoader = ResKit.Allocate<AssetBundleLoader>();
+```
+
+## 2. 标准流程
+
+```csharp
+private IResLoader _loader;
+
+private async UniTaskVoid Start()
+{
+    _loader = ResKit.Allocate(ResLoadBackend.Addressables, "HeroView");
+    GameObject prefab = await _loader.LoadAsync<GameObject>(
+        "Assets/Game/Prefabs/Hero.prefab",
+        destroyCancellationToken);
+
+    if (prefab != null)
     {
-        _loader = ResKit.Allocate<ResourceLoader>();
-        _destroyToken = this.GetCancellationTokenOnDestroy();
-        LoadAvatar().Forget();
+        Instantiate(prefab);
     }
+}
 
-    async UniTaskVoid LoadAvatar()
+private void OnDestroy()
+{
+    if (_loader != null)
     {
-        var prefab = await _loader.LoadAsync<GameObject>("Characters/Hero", _destroyToken);
-        if (prefab != null)
-        {
-            Instantiate(prefab, transform);
-        }
-    }
-
-    void OnDestroy()
-    {
-        if (_loader != null)
-        {
-            ResKit.Recycle(_loader);
-            _loader = null;
-        }
+        ResKit.Recycle(_loader);
+        _loader = null;
     }
 }
 ```
 
-### 单个资源精准卸载
+## 3. 模拟加载和构建边界
+
+- AB：框架自管构建，所以 ToolHub 提供 AssetBundle 构建、AssetMap 生成和诊断。
+- AA：使用 Addressables 官方 Play Mode Script 模拟加载，使用官方 Groups 窗口构建。
+- YooAsset/其他插件：使用插件自己的构建器，ResKit 只提供自定义 loader 接入口。
+- 如果 AB 模式想在 Editor 中不构建就预览，可以注册一个 `Custom` AssetDatabase loader；不要把它混同为正式 AB 加载。
+
+## 4. 异步、取消和释放
+
+所有生产加载建议传入 `CancellationToken`：
 
 ```csharp
-_loader.Unload("Characters/Hero");
+GameObject prefab = await _loader.LoadAsync<GameObject>(path, token);
 ```
 
-### 批量预加载
+释放：
 
 ```csharp
-public async UniTask PreloadAssets(CancellationToken token)
+_loader.Unload(path);
+ResKit.Recycle(_loader);
+```
+
+规则：
+
+- 同一个 loader 多次加载同一路径，会按引用计数释放。
+- 不同 loader 加载同一资源，底层资源在全局引用计数归零后才会释放。
+- AA 加载失败或取消会释放 Addressables handle。
+- AB 默认 `bundle.Unload(false)`，严格释放可在 `ResKitRuntimeSettings` 改为 `DestroyLoadedAssets`。
+
+## 5. 自定义 loader
+
+```csharp
+ResKit.RegisterCustomLoader("YooAsset", () => new YooAssetResLoader());
+
+IResLoader loader = ResKit.Allocate(new ResLoaderRequest
 {
-    var paths = new List<string> { "Prefabs/Boss", "Textures/Bg", "Audio/BGM" };
-    var loader = ResKit.Allocate<AssetBundleLoader>();
-
-    await loader.PreloadAsync(paths, progress =>
-    {
-        Debug.Log($"加载进度: {progress * 100}%");
-    }, token);
-}
+    Backend = ResLoadBackend.Custom,
+    CustomKey = "YooAsset",
+    OwnerName = "Startup"
+});
 ```
 
-## 异步与取消
+自定义加载器继承 `ResLoader`，实现同步/异步真实加载和卸载逻辑即可。
 
-当前 `IResLoader` 的异步接口都支持 `CancellationToken`：
+## 6. 常见错误排查
 
-```csharp
-UniTask<T> LoadAsync<T>(string path, CancellationToken cancellationToken = default);
-UniTask PreloadAsync(IList<string> paths, Action<float> onProgress = null, CancellationToken cancellationToken = default);
-```
-
-建议在这些场景始终传 token：
-
-- UI 面板生命周期绑定
-- 场景切换预加载
-- 临时弹窗和短生命周期对象
-
-加载器内部会把异步请求与当前加载器实例绑定。即使加载器被回收复用，旧请求也不会把新实例的引用计数误扣掉。
-
-## 自定义加载器
-
-只需继承 `ResLoader`，提供专属的 `LoaderName`，并实现加载与卸载逻辑即可：
-
-```csharp
-using System.IO;
-using System.Threading;
-using Cysharp.Threading.Tasks;
-using UnityEngine;
-
-public class RawTextLoader : ResLoader
-{
-    public override string LoaderName => "RawText";
-
-    protected override ResData LoadRealSync(string path)
-    {
-        string fullPath = Path.Combine(Application.streamingAssetsPath, path);
-        string content = File.ReadAllText(fullPath);
-        return new ResData { Asset = new TextAsset(content) { name = path } };
-    }
-
-    protected override async UniTask<ResData> LoadRealAsync(string path, CancellationToken cancellationToken)
-    {
-        string fullPath = Path.Combine(Application.streamingAssetsPath, path);
-        using (StreamReader reader = new StreamReader(fullPath))
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            string content = await reader.ReadToEndAsync();
-            cancellationToken.ThrowIfCancellationRequested();
-            return new ResData { Asset = new TextAsset(content) { name = path } };
-        }
-    }
-
-    protected override void UnloadReal(ResData data)
-    {
-        if (data.Asset != null)
-        {
-            UnityEngine.Object.Destroy(data.Asset);
-        }
-    }
-}
-```
-
-## 常见问题
-
-### Q1: 调用 `Unload` 会不会影响别的持有者？
-不会。它只会把当前加载器对该资源的引用减 1。只要全局 `RefCount > 0`，底层就不会物理卸载。
-
-### Q2: 为什么销毁了实例，内存还没下来？
-`Destroy(gameObject)` 只销毁场景实例，不会自动释放底层资产。还需要：
-
-- `loader.Unload("路径")`
-- 或 `ResKit.Recycle(loader)`
-
-### Q3: 取消加载后会发生什么？
-- 当前调用方取消后，不会再收到结果
-- 共享加载会尽量避免重复发起物理 IO
-- 如果所有等待者都取消，底层会尝试中断共享加载，并避免把无人持有的结果长期留在缓存中
-
-### Q4: 强力清理怎么用？
-
-```csharp
-ResMgr.GarbageCollect();
-```
-
-该方法会触发 `GC.Collect()` 和 `Resources.UnloadUnusedAssets()`，不要在高频逻辑里调用。
-
-## 对应示例
-
-- 代码示例：[RawTextLoader.cs](</c:/GitProjects/StellarFramework/Assets/StellarFramework/Samples/KitSamples/Example_ResKit/RawTextLoader.cs:1>)
-- 额外文档：
-  - [ResKit-Resources-内置资源-Guide.md](</c:/GitProjects/StellarFramework/Assets/StellarFramework/Runtime/Kits/Reskit/Loaders/ResourceLoader/ResKit-Resources-内置资源-Guide.md>)
-  - [ResKit-AssetBundle-资源包-Guide.md](</c:/GitProjects/StellarFramework/Assets/StellarFramework/Runtime/Kits/Reskit/Loaders/AssetBundleLoader/ResKit-AssetBundle-资源包-Guide.md>)
-  - [ResKit-Addressables-可寻址资源-Guide.md](</c:/GitProjects/StellarFramework/Assets/StellarFramework/Runtime/Kits/Reskit/Loaders/AddressableLoader/ResKit-Addressables-可寻址资源-Guide.md>)
+- `Addressables is unavailable`：确认安装 Addressables，并让 Unity 重新编译 asmdef version define。
+- AA 同步加载返回 `null`：正常行为，生产 AA 请使用 `LoadAsync<T>`。
+- AB 未初始化：启动阶段先执行 `await AssetBundleManager.Instance.InitAsync()`。
+- AB 缺资源：确认已生成 AssetMap，且传入路径是完整 `Assets/...`。
+- 自定义 loader 分配失败：确认 `CustomKey` 已注册。
+- 释放后对象丢失：先销毁场景实例，再释放 loader 或资源依赖。

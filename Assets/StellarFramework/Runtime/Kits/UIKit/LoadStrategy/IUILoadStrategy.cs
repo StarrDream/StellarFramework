@@ -22,4 +22,49 @@ namespace StellarFramework.UI
         void UnloadPanelPrefab(string panelName);
         void ReleaseAll();
     }
+
+    [CreateAssetMenu(fileName = "UIKitSettings", menuName = "StellarFramework/UIKit Settings")]
+    public sealed class UIKitSettings : ScriptableObject
+    {
+        public const string DefaultResourcesPath = "UIKitSettings";
+
+        [Header("Loading")]
+        [SerializeField] private ResLoadBackend defaultLoadBackend = ResLoadBackend.Default;
+        [SerializeField] private string customLoaderKey = string.Empty;
+        [SerializeField] private bool allowSyncLoad = true;
+
+        [Header("Paths")]
+        [SerializeField] private string uiRootPath = "UIPanel/UIRoot";
+        [SerializeField] private string panelPathFormat = "UIPanel/{0}";
+
+        public ResLoadBackend DefaultLoadBackend => defaultLoadBackend;
+        public string CustomLoaderKey => customLoaderKey;
+        public bool AllowSyncLoad => allowSyncLoad;
+        public string UIRootPath => uiRootPath;
+        public string PanelPathFormat => panelPathFormat;
+
+        public static UIKitSettings LoadOrCreateDefault(string resourcesPath = DefaultResourcesPath)
+        {
+            UIKitSettings settings = null;
+            if (!string.IsNullOrWhiteSpace(resourcesPath))
+            {
+                settings = Resources.Load<UIKitSettings>(resourcesPath);
+            }
+
+            if (settings != null)
+            {
+                return settings;
+            }
+
+            settings = CreateInstance<UIKitSettings>();
+            settings.name = "UIKitSettings_RuntimeDefault";
+            return settings;
+        }
+
+        public string BuildPanelPath(string panelName)
+        {
+            string format = string.IsNullOrWhiteSpace(panelPathFormat) ? "UIPanel/{0}" : panelPathFormat.Trim();
+            return string.Format(format, panelName);
+        }
+    }
 }

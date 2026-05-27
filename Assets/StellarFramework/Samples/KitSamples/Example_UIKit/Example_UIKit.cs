@@ -1,49 +1,123 @@
-﻿using UnityEngine;
-using UnityEngine.UI;
 using Cysharp.Threading.Tasks;
 using StellarFramework.UI;
+using UnityEngine;
 
 namespace StellarFramework.Examples
 {
-    // 1. 定义强类型面板数据 (拒绝 object 传参)
+    // Strongly typed panel data keeps UI calls explicit and refactor-friendly.
     public class ExamplePanelData : UIPanelDataBase
     {
         public string TitleMessage;
         public int RewardCount;
     }
 
-    /// <summary>
-     /// UIKit 综合使用示例
-     /// </summary>
     public class Example_UIKit : MonoBehaviour
     {
+        private int _openIndex;
+        private bool _stressRunning;
+
         private void Start()
         {
-            // 启动异步初始化流程
             StartUIFlowAsync().Forget();
+        }
+
+        private void Update()
+        {
+            if (Input.GetKeyDown(KeyCode.O))
+            {
+                OpenPanelAsync("Open").Forget();
+            }
+
+            if (Input.GetKeyDown(KeyCode.P))
+            {
+                PushPanelAsync().Forget();
+            }
+
+            if (Input.GetKeyDown(KeyCode.Backspace))
+            {
+                UIKit.Pop();
+                UIKit.LogSnapshot();
+            }
+
+            if (Input.GetKeyDown(KeyCode.C))
+            {
+                UIKit.Close<ExamplePanel>();
+                UIKit.LogSnapshot();
+            }
+
+            if (Input.GetKeyDown(KeyCode.S))
+            {
+                RunStressAsync().Forget();
+            }
+
+            if (Input.GetKeyDown(KeyCode.D))
+            {
+                UIKit.LogSnapshot();
+            }
         }
 
         private async UniTaskVoid StartUIFlowAsync()
         {
-            // 1. 初始化 UIKit (底层会自动加载 UIRoot 并构建层级栈)
             await UIKit.Instance.InitAsync();
-            LogKit.Log("[Example_UIKit] UIKit 初始化完成");
+            LogKit.Log("[Example_UIKit] UIKit initialized");
+            UIKit.LogSnapshot();
 
-            // 2. 准备强类型数据
-            var data = new ExamplePanelData
-            {
-                TitleMessage = "恭喜通关！",
-                RewardCount = 999
-            };
+            await OpenPanelAsync("Startup");
+        }
 
-            // 3. 异步打开面板 (底层会自动通过 ResKit 加载 Prefab 并实例化)
-            // 注意：运行此代码前，请确保已通过 Tools Hub 生成了 UIRoot，并制作了 ExamplePanel.prefab
-            var panel = await UIKit.OpenPanelAsync<ExamplePanel>(data);
-
+        private async UniTask OpenPanelAsync(string reason)
+        {
+            ExamplePanel panel = await UIKit.OpenAsync<ExamplePanel>(CreatePanelData(reason));
             if (panel == null)
             {
-                LogKit.LogWarning("[Example_UIKit] 面板打开失败，请检查 Resources/UIPanel/ 目录下是否存在 ExamplePanel.prefab");
+                LogKit.LogWarning(
+                    "[Example_UIKit] Failed to open ExamplePanel. Check Resources/UIPanel/UIRoot.prefab and ExamplePanel.prefab.");
+                return;
             }
+
+            UIKit.LogSnapshot();
+        }
+
+        private async UniTask PushPanelAsync()
+        {
+            ExamplePanel panel = await UIKit.PushAsync<ExamplePanel>(CreatePanelData("Push"));
+            if (panel == null)
+            {
+                LogKit.LogWarning("[Example_UIKit] Failed to push ExamplePanel.");
+                return;
+            }
+
+            UIKit.LogSnapshot();
+        }
+
+        private async UniTaskVoid RunStressAsync()
+        {
+            if (_stressRunning)
+            {
+                LogKit.LogWarning("[Example_UIKit] UIKit stress test is already running.");
+                return;
+            }
+
+            _stressRunning = true;
+            try
+            {
+                LogKit.Log("[Example_UIKit] UIKit stress test started: 100 Open/Close loops.");
+                await UIKit.StressOpenCloseAsync<ExamplePanel>(100, CreatePanelData("Stress"), 5);
+            }
+            finally
+            {
+                _stressRunning = false;
+            }
+        }
+
+        private ExamplePanelData CreatePanelData(string reason)
+        {
+            _openIndex++;
+            return new ExamplePanelData
+            {
+                TitleMessage = $"UIKit {reason} #{_openIndex}",
+                RewardCount = 900 + _openIndex
+            };
         }
     }
 }

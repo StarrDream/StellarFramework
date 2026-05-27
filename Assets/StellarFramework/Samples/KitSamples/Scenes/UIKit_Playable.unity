@@ -235,15 +235,11 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   title: UIKit Playable
-  summary: "\u6F14\u793A UIKit \u7684\u5F02\u6B65\u521D\u59CB\u5316\u3001UIRoot \u81EA\u52A8\u52A0\u8F7D\u3001\u5F3A\u7C7B\u578B\u9762\u677F\u6570\u636E\u4F20\u5165\u4E0E\u9762\u677F\u6253\u5F00\u6D41\u7A0B\u3002"
-  controls: "\u8FDB\u5165\u573A\u666F\u540E\u4F1A\u81EA\u52A8\u6267\u884C UIKit.InitAsync()
-    \u5E76\u5C1D\u8BD5\u6253\u5F00 ExamplePanel\u3002\n\u70B9\u51FB\u9762\u677F\u4E0A\u7684\u786E\u8BA4\u6309\u94AE\u4F1A\u5173\u95ED\u8BE5\u9762\u677F\u3002"
-  setup: "\u6784\u5EFA\u5668\u5DF2\u8865\u9F50 Resources/UIPanel/ExamplePanel.prefab\uFF0C\u5E76\u590D\u7528\u73B0\u6709
-    UIRoot.prefab\u3002"
-  expected: "\u82E5\u573A\u666F\u8FD0\u884C\u6B63\u5E38\uFF0C\u4F1A\u81EA\u52A8\u5F39\u51FA
-    ExamplePanel\uFF0C\u663E\u793A\u6807\u9898\u4E0E\u5956\u52B1\u6570\u91CF\uFF0C\u5E76\u80FD\u54CD\u5E94\u5173\u95ED\u6309\u94AE\u3002"
-  notes: "\u8BE5\u573A\u666F\u9A8C\u8BC1\u7684\u662F UIKit \u63A5\u7EBF\u65B9\u5F0F\uFF0C\u4E0D\u6D89\u53CA\u590D\u6742\u5BFC\u822A\u6808\u548C\u591A\u5C42
-    UI \u4E1A\u52A1\u3002"
+  summary: 演示 UIKit 的异步初始化、统一入口、堆栈导航、运行时快照与 Open/Close 压力测试。
+  controls: "O: 异步打开 ExamplePanel\nP: Push ExamplePanel 到 UI 栈\nBackspace: Pop\nC: Close ExamplePanel\nS: 100 次 Open/Close 压力测试\nD: 打印 UIKit 快照"
+  setup: 构建器会补齐 Resources/UIPanel/UIRoot.prefab 与 ExamplePanel.prefab。UIRoot 包含 StaticCanvas 和 DynamicCanvas 两套层级。
+  expected: 运行后会自动打开 ExamplePanel。按键操作应能正常触发生命周期日志，压力测试结束后 Snapshot 中 Loading=0。
+  notes: 该场景用于验证 UIKit 入口和层级接线。AA/AB UI 加载需要在 UIKitSettings 中切换 ResKit 后端后另行构建资源。
   anchorRight: 0
   area:
     serializedVersion: 2

@@ -114,6 +114,7 @@ namespace StellarFramework.Editor
             _defaultAudioMixer = AssetDatabase.LoadAssetAtPath<AudioMixer>(
                 "Assets/StellarFramework/Runtime/Kits/AudioKit/DefaultAudioMixer.mixer");
 
+            EnsureUIRootPrefab();
             EnsureExamplePanelPrefab();
             EnsureConfigFiles();
             EnsureRawTextFile();
@@ -498,11 +499,11 @@ namespace StellarFramework.Editor
             runner.AddComponent<Example_UIKit>();
 
             AddGuide("UIKit Playable",
-                "演示 UIKit 的异步初始化、UIRoot 自动加载、强类型面板数据传入与面板打开流程。",
-                "进入场景后会自动执行 UIKit.InitAsync() 并尝试打开 ExamplePanel。\n点击面板上的确认按钮会关闭该面板。",
-                "构建器已补齐 Resources/UIPanel/ExamplePanel.prefab，并复用现有 UIRoot.prefab。",
-                "若场景运行正常，会自动弹出 ExamplePanel，显示标题与奖励数量，并能响应关闭按钮。",
-                "该场景验证的是 UIKit 接线方式，不涉及复杂导航栈和多层 UI 业务。");
+                "演示 UIKit 的异步初始化、统一入口、堆栈导航、运行时快照与 Open/Close 压力测试。",
+                "O: 异步打开 ExamplePanel\nP: Push ExamplePanel 到 UI 栈\nBackspace: Pop\nC: Close ExamplePanel\nS: 100 次 Open/Close 压力测试\nD: 打印 UIKit 快照",
+                "构建器会补齐 Resources/UIPanel/UIRoot.prefab 与 ExamplePanel.prefab。UIRoot 包含 StaticCanvas 和 DynamicCanvas 两套层级。",
+                "运行后会自动打开 ExamplePanel。按键操作应能正常触发生命周期日志，压力测试结束后 Snapshot 中 Loading=0。",
+                "该场景用于验证 UIKit 入口和层级接线。AA/AB UI 加载需要在 UIKitSettings 中切换 ResKit 后端后另行构建资源。");
 
             SaveScene(scene, "UIKit_Playable");
         }
@@ -617,6 +618,72 @@ namespace StellarFramework.Editor
             rect.anchorMax = Vector2.one;
             rect.offsetMin = offsetMin;
             rect.offsetMax = offsetMax;
+        }
+
+        private static void EnsureUIRootPrefab()
+        {
+            const string path = GeneratedUiFolder + "/UIRoot.prefab";
+            GameObject root = new GameObject("UIRoot", typeof(RectTransform));
+            root.layer = LayerMask.NameToLayer("UI");
+
+            Canvas canvas = root.AddComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvas.sortingOrder = 0;
+
+            CanvasScaler scaler = root.AddComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1920f, 1080f);
+            scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
+            scaler.matchWidthOrHeight = 0.5f;
+
+            root.AddComponent<GraphicRaycaster>();
+
+            GameObject eventSystem = new GameObject("EventSystem");
+            eventSystem.transform.SetParent(root.transform, false);
+            eventSystem.AddComponent<UnityEngine.EventSystems.EventSystem>();
+            eventSystem.AddComponent<UnityEngine.EventSystems.StandaloneInputModule>();
+
+            CreateUiRoleCanvas(root.transform, "StaticCanvas", 0);
+            CreateUiRoleCanvas(root.transform, "DynamicCanvas", 100);
+
+            PrefabUtility.SaveAsPrefabAsset(root, path);
+            Object.DestroyImmediate(root);
+            AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceUpdate);
+        }
+
+        private static void CreateUiRoleCanvas(Transform parent, string name, int sortingOrder)
+        {
+            GameObject roleRoot = new GameObject(name, typeof(RectTransform));
+            roleRoot.layer = LayerMask.NameToLayer("UI");
+            roleRoot.transform.SetParent(parent, false);
+
+            RectTransform rect = roleRoot.GetComponent<RectTransform>();
+            Stretch(rect, Vector2.zero, Vector2.zero);
+
+            Canvas canvas = roleRoot.AddComponent<Canvas>();
+            canvas.overrideSorting = true;
+            canvas.sortingOrder = sortingOrder;
+            roleRoot.AddComponent<GraphicRaycaster>();
+
+            foreach (UIPanelBase.PanelLayer layer in Enum.GetValues(typeof(UIPanelBase.PanelLayer)))
+            {
+                CreateUiLayerNode(roleRoot.transform, layer);
+            }
+        }
+
+        private static void CreateUiLayerNode(Transform parent, UIPanelBase.PanelLayer layer)
+        {
+            GameObject layerObject = new GameObject(layer.ToString(), typeof(RectTransform));
+            layerObject.layer = LayerMask.NameToLayer("UI");
+            layerObject.transform.SetParent(parent, false);
+
+            RectTransform rect = layerObject.GetComponent<RectTransform>();
+            Stretch(rect, Vector2.zero, Vector2.zero);
+
+            if (layer == UIPanelBase.PanelLayer.Popup || layer == UIPanelBase.PanelLayer.System)
+            {
+                layerObject.AddComponent<CanvasGroup>();
+            }
         }
 
         private static void EnsureExamplePanelPrefab()

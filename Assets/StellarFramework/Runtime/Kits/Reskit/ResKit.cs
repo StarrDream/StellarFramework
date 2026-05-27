@@ -1,15 +1,72 @@
-﻿using StellarFramework.Pool;
+using System;
+using System.Collections.Generic;
+using StellarFramework.Pool;
 
 namespace StellarFramework.Res
 {
+    public enum ResLoadBackend
+    {
+        Default = 0,
+        Resources = 1,
+        Addressables = 2,
+        AssetBundle = 3,
+        Custom = 100
+    }
+
+    public struct ResLoaderRequest
+    {
+        public ResLoadBackend Backend;
+        public string OwnerName;
+        public string CustomKey;
+
+        public static ResLoaderRequest Default(string ownerName = null)
+        {
+            return new ResLoaderRequest
+            {
+                Backend = ResLoadBackend.Default,
+                OwnerName = ownerName
+            };
+        }
+
+        public static ResLoaderRequest For(ResLoadBackend backend, string ownerName = null)
+        {
+            return new ResLoaderRequest
+            {
+                Backend = backend,
+                OwnerName = ownerName
+            };
+        }
+
+        public static ResLoaderRequest Custom(string customKey, string ownerName = null)
+        {
+            return new ResLoaderRequest
+            {
+                Backend = ResLoadBackend.Custom,
+                CustomKey = customKey,
+                OwnerName = ownerName
+            };
+        }
+    }
+
+    public delegate IResLoader ResLoaderFactory(ResLoaderRequest request);
+
     /// <summary>
-    /// ResKit 门面
-    /// 我统一管理加载器的分配与回收，避免业务层直接操作池与资源生命周期细节。
+    /// ResKit unified loading portal.
+    /// Keeps typed loader allocation while adding backend-based allocation for production projects.
     /// </summary>
     public static class ResKit
     {
+        private static readonly Dictionary<ResLoadBackend, ResLoaderFactory> _backendFactories =
+            new Dictionary<ResLoadBackend, ResLoaderFactory>();
+
+        private static readonly Dictionary<string, ResLoaderFactory> _customFactories =
+            new Dictionary<string, ResLoaderFactory>(StringComparer.Ordinal);
+
+        private static ResLoadBackend _configuredDefaultBackend = ResLoadBackend.Default;
+        private static ResKitRuntimeSettings _configuredRuntimeSettings;
+
         /// <summary>
-        /// 我从对象池申请一个加载器，保持 0 GC 的常驻使用体验。
+        /// Allocates a typed loader from PoolKit. This is kept for backward compatibility.
         /// </summary>
         public static T Allocate<T>() where T : ResLoader, new()
         {
@@ -17,14 +74,109 @@ namespace StellarFramework.Res
         }
 
         /// <summary>
-        /// 我回收强类型加载器。
-        /// 资源释放逻辑交给对象池回收流程中的 OnRecycled 统一处理，避免重复 ReleaseAll。
+        /// Configures the default backend used by Allocate(ResLoaderRequest.Default()).
+        /// Passing ResLoadBackend.Default lets ResKitRuntimeSettings decide, then falls back to Resources.
+        /// </summary>
+        public static void Configure(ResLoadBackend defaultBackend = ResLoadBackend.Default,
+            ResKitRuntimeSettings runtimeSettings = null)
+        {
+            _configuredDefaultBackend = defaultBackend;
+            _configuredRuntimeSettings = runtimeSettings;
+        }
+
+        public static void RegisterLoaderFactory(ResLoadBackend backend, ResLoaderFactory factory)
+        {
+            if (backend == ResLoadBackend.Default || backend == ResLoadBackend.Custom)
+            {
+                LogKit.LogError($"[ResKit] RegisterLoaderFactory failed: backend cannot be {backend}.");
+                return;
+            }
+
+            if (factory == null)
+            {
+                _backendFactories.Remove(backend);
+                return;
+            }
+
+            _backendFactories[backend] = factory;
+        }
+
+        public static void RegisterCustomLoader(string customKey, ResLoaderFactory factory)
+        {
+            string key = NormalizeCustomKey(customKey);
+            if (string.IsNullOrEmpty(key))
+            {
+                LogKit.LogError("[ResKit] RegisterCustomLoader failed: customKey is empty.");
+                return;
+            }
+
+            if (factory == null)
+            {
+                _customFactories.Remove(key);
+                return;
+            }
+
+            _customFactories[key] = factory;
+        }
+
+        public static void UnregisterCustomLoader(string customKey)
+        {
+            string key = NormalizeCustomKey(customKey);
+            if (!string.IsNullOrEmpty(key))
+            {
+                _customFactories.Remove(key);
+            }
+        }
+
+        /// <summary>
+        /// Allocates a loader by backend request. This is the recommended production entry.
+        /// </summary>
+        public static IResLoader Allocate(ResLoaderRequest request)
+        {
+            ResLoadBackend backend = ResolveBackend(request.Backend);
+            IResLoader loader = null;
+
+            if (backend == ResLoadBackend.Custom)
+            {
+                loader = AllocateCustom(request);
+            }
+            else if (_backendFactories.TryGetValue(backend, out ResLoaderFactory factory))
+            {
+                loader = factory.Invoke(request);
+            }
+            else
+            {
+                loader = AllocateBuiltin(backend);
+            }
+
+            if (loader == null)
+            {
+                LogKit.LogError(
+                    $"[ResKit] Allocate failed: Backend={backend}, CustomKey={request.CustomKey ?? "null"}");
+                return null;
+            }
+
+            if (!string.IsNullOrWhiteSpace(request.OwnerName) && loader is ResLoader resLoader)
+            {
+                resLoader.SetOwnerName(request.OwnerName);
+            }
+
+            return loader;
+        }
+
+        public static IResLoader Allocate(ResLoadBackend backend, string ownerName = null)
+        {
+            return Allocate(ResLoaderRequest.For(backend, ownerName));
+        }
+
+        /// <summary>
+        /// Recycles a typed loader. Resource release is handled by the pool recycle hook.
         /// </summary>
         public static void Recycle<T>(T loader) where T : ResLoader, new()
         {
             if (loader == null)
             {
-                LogKit.LogError("[ResKit] Recycle 失败: loader 为空");
+                LogKit.LogError("[ResKit] Recycle failed: loader is null.");
                 return;
             }
 
@@ -32,18 +184,78 @@ namespace StellarFramework.Res
         }
 
         /// <summary>
-        /// 我回收接口类型加载器。
-        /// 这里不穷举具体子类，而是交给对象池系统按运行时真实类型回收，保持对扩展开放、对修改关闭。
+        /// Recycles an interface loader through its runtime implementation.
         /// </summary>
         public static void Recycle(IResLoader loader)
         {
             if (loader == null)
             {
-                LogKit.LogError("[ResKit] Recycle(IResLoader) 失败: loader 为空");
+                LogKit.LogError("[ResKit] Recycle(IResLoader) failed: loader is null.");
                 return;
             }
 
             loader.RecycleToPool();
+        }
+
+        private static ResLoadBackend ResolveBackend(ResLoadBackend requestedBackend)
+        {
+            if (requestedBackend != ResLoadBackend.Default)
+            {
+                return requestedBackend;
+            }
+
+            if (_configuredDefaultBackend != ResLoadBackend.Default)
+            {
+                return _configuredDefaultBackend;
+            }
+
+            ResKitRuntimeSettings settings = _configuredRuntimeSettings ??
+                                             ResKitRuntimeSettings.LoadOrCreateDefault();
+            if (settings != null && settings.DefaultLoadBackend != ResLoadBackend.Default)
+            {
+                return settings.DefaultLoadBackend;
+            }
+
+            return ResLoadBackend.Resources;
+        }
+
+        private static IResLoader AllocateBuiltin(ResLoadBackend backend)
+        {
+            switch (backend)
+            {
+                case ResLoadBackend.Resources:
+                    return Allocate<ResourceLoader>();
+                case ResLoadBackend.Addressables:
+                    return Allocate<AddressableLoader>();
+                case ResLoadBackend.AssetBundle:
+                    return Allocate<AssetBundleLoader>();
+                default:
+                    LogKit.LogError($"[ResKit] Unsupported builtin backend: {backend}");
+                    return null;
+            }
+        }
+
+        private static IResLoader AllocateCustom(ResLoaderRequest request)
+        {
+            string key = NormalizeCustomKey(request.CustomKey);
+            if (string.IsNullOrEmpty(key))
+            {
+                LogKit.LogError("[ResKit] Custom loader allocation failed: CustomKey is empty.");
+                return null;
+            }
+
+            if (!_customFactories.TryGetValue(key, out ResLoaderFactory factory))
+            {
+                LogKit.LogError($"[ResKit] Custom loader allocation failed: factory is not registered. Key={key}");
+                return null;
+            }
+
+            return factory.Invoke(request);
+        }
+
+        private static string NormalizeCustomKey(string customKey)
+        {
+            return string.IsNullOrWhiteSpace(customKey) ? string.Empty : customKey.Trim();
         }
     }
 }

@@ -21,7 +21,7 @@ namespace StellarFramework.Examples
         public string assetBundlePath = "Assets/StellarFramework/Samples/KitSamples/Example_ResKit/Art/AssetBundle/TestCapsule_AB.prefab";
 
         [Tooltip("Addressables 的 Address Name")]
-        public string addressablePath = "TestSphere_AA";
+        public string addressablePath = "Assets/StellarFramework/Samples/KitSamples/Example_ResKit/Addressables/TestSphere_AA.prefab";
 
         [Tooltip("StreamingAssets 下的相对路径")] public string customRawFilePath = "StellarFramework/Samples/KitSamples/Example_ResKit/TestText.txt";
 
