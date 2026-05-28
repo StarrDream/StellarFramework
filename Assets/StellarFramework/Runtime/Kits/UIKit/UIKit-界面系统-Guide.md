@@ -117,12 +117,24 @@ await UIKit.StressOpenCloseAsync<ExamplePanel>(100, data, yieldEvery: 5);
 
 首次运行前可通过 Example Playable Scene Builder 重新生成示例资源，它会补齐 `UIRoot.prefab` 和 `ExamplePanel.prefab`。
 
-## 7. 常见错误排查
+## 7. 自动绑定
+
+推荐流程：
+
+1. 在 UI 节点上挂 `UIAutoBind`。
+2. 在 Inspector 中确认 Target，默认会自动推断常用 UI 组件。
+3. 对 Prefab 执行 `Assets/UIKit/生成 UI 绑定代码` 或 `GameObject/UIKit/生成 UI 绑定代码`。
+4. 编译完成后，生成器会把字段自动赋值到 Prefab。
+
+生成字段是 `[SerializeField] private`，会显示在 Inspector 中，方便定位和排错。字段带有 Tooltip，说明它们由 UIKit 自动绑定。正常情况下不要手动修改这些引用；如果字段为空，说明自动绑定没有找到节点或 Target，需要检查 `UIAutoBind` 和 Prefab 结构后重新生成。
+
+## 8. 常见错误排查
 
 - `UIKit 未初始化`：先执行 `await UIKit.Instance.InitAsync()`。
 - `当前加载策略不支持同步加载`：AA/UI 热更场景请改用 `OpenAsync/PushAsync`。
 - `UIRoot 结构非法`：确认 StaticCanvas/DynamicCanvas 或根节点下存在 `Bottom/Middle/Top/Popup/System`。
 - `Prefab 加载为空`：确认 `UIKitSettings` 的路径格式和 ResKit 后端一致。
 - `预制体缺少目标组件`：Prefab 文件名、脚本类名和 `UIPanelBase` 子类必须对应。
+- `自动绑定字段为空`：确认对应节点挂了 `UIAutoBind`，Target 不为空，并重新执行 Generate & Bind。
 - UI 打开但不能点击：检查 EventSystem、GraphicRaycaster、CanvasGroup 的 `interactable/blocksRaycasts`。
 - Stack 下层没有隐藏：目标 Panel 的 `Is Full Screen` 需要勾选。

@@ -1,6 +1,6 @@
 # KitSamples / 模块样例
 
-`Assets/StellarFramework/Samples/KitSamples` 存放各 Kit 的最小可运行样例。推荐先运行 `Scenes/*.unity`，再回头看对应的 `Example_*/*.cs`。
+`Assets/StellarFramework/Samples/KitSamples` 存放各个 Kit 的最小可运行样例。推荐先运行 `Scenes/*.unity`，再回头阅读对应 `Example_*/*.cs` 文件头注释。
 
 ## 目录
 
@@ -9,13 +9,25 @@
 - `Common/`：多个样例共用的辅助脚本。
 - `Generated/`：样例构建器生成的资源。
 - `Editor/`：样例场景构建器与触发器。
+- `Samples_Index.md`：按验收目标组织的总索引。
 
 ## 推荐入口
 
+- `../../GETTING_STARTED.md`：新人先看这个，按主路径跑通框架。
+- `Samples_Index.md`：先看这个，了解哪些场景可直接跑，哪些依赖 AB/AA/网络/HybridCLR。
+- `FrameworkValidation_Playable.unity`：集中检查 ResKit、UIKit、HotUpdateKit 的运行状态、加载链路和诊断输出。
 - `ResKit_Playable.unity`：Resources、AB、AA、RawText 四条加载链路。
 - `UIKit_Playable.unity`：UIRoot、Open/Push/Pop/Close、运行时快照和压力测试。
 - `HotUpdateKit_Playable.unity`：热更新门户与 HybridCLR AA 启动链路示例。
 - `SettingsKit_Playable.unity`：设置定义、存储、应用策略和示例 UI。
+
+## 单个 Kit 说明
+
+`Example_*` 目录不再放独立 README，避免样例目录过碎。
+
+- 总览、顺序和前置条件看 `Samples_Index.md` 与 `Scenes/README.md`。
+- 单个样例的按键、操作方式和通过标准写在对应 `Example_*.cs` 文件头注释里。
+- 场景内还会挂 `ExampleSceneGuide`，运行时可直接在 Game 视图看到核心提示。
 
 ## 重新生成样例
 
@@ -25,10 +37,13 @@
 - `Resources/UIPanel/ExamplePanel.prefab`
 - ResKit 示例资源和 AB 示例产物
 - 各 Kit 的可播放场景
+- `FrameworkValidation_Playable.unity` 集中验证场景
 
 ## 验收建议
 
 - 先跑 Editor，再跑目标平台真机。
-- ResKit AA 的构建/模拟使用 Addressables 官方窗口。
-- UIKit 在 `UIKit_Playable.unity` 中按 `S` 执行 100 次 Open/Close 压力测试，结束后确认 Snapshot 的 `Loading=0`。
+- ResKit 的 AB 构建使用本框架 Tools Hub，因为 AB 没有官方统一构建界面。
+- Addressables 的模拟、构建和内容更新使用 Addressables 官方 Groups、Profiles、Build 和 Content Update，不在 Tools Hub 中重复做构建面板。
+- UIKit 在 `UIKit_Playable.unity` 或 `FrameworkValidation_Playable.unity` 中执行 100 次 Open/Close 压力测试，结束后确认 Snapshot 的 `Loading=0`。
+- HotUpdateKit 的真实代码热更需要 HybridCLR 产物和 AA 远端资源，本地样例只验证入口和失败诊断。
 - 修改示例资源后重新生成样例，避免手动资源和文档步骤不一致。

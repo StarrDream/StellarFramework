@@ -7,10 +7,11 @@ namespace StellarFramework.Examples
     /// <summary>
     /// ConfigKit 综合使用示例
     /// 职责: 演示配置的异步加载、普通配置的读写存档、网络配置的参数化路由拼接
-    /// 使用说明:
-    /// 1. 在 ConfigKit Dashboard 中创建一个 Normal 配置 (如 TestGameConfig.json) 和一个 Net 配置 (如 TestApiConfig.json)。
-    /// 2. 将此脚本挂载到场景中的任意 GameObject 上。
-    /// 3. 运行游戏并查看 Console 日志，或点击 Game 视图中的 GUI 按钮进行交互测试。
+    ///
+    /// 场景: Scenes/ConfigKit_Playable.unity
+    /// 前置: 样例构建器会生成 StreamingAssets/Configs 下的 TestGameConfig.json 与 TestApiConfig.json。
+    /// 操作: 运行后查看 OnGUI 面板，可修改并保存 BGMVolume。
+    /// 通过标准: Console 输出配置加载结果，保存后再次运行能读取 PersistentDataPath overlay。
     /// </summary>
     public class Example_ConfigKit : MonoBehaviour
     {

@@ -18,10 +18,7 @@
         "StellarFramework.SingletonKit",
         "StellarFramework.UIKit",
         "StellarFramework.UIKit.Editor",
-        "StellarFramework.Singleton.Editor",
-        "Unity.Addressables",
-        "Unity.Addressables.Editor",
-        "Unity.ResourceManager"
+        "StellarFramework.Singleton.Editor"
     ],
     "includePlatforms": [
         "Editor"
@@ -32,12 +29,6 @@
     "precompiledReferences": [],
     "autoReferenced": true,
     "defineConstraints": [],
-    "versionDefines": [
-        {
-            "name": "com.unity.addressables",
-            "expression": "1.0.0",
-            "define": "UNITY_ADDRESSABLES"
-        }
-    ],
+    "versionDefines": [],
     "noEngineReferences": false
 }

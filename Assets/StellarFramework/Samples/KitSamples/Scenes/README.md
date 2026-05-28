@@ -2,6 +2,8 @@
 
 `Assets/StellarFramework/Samples/KitSamples/Scenes` 存放各个模块对应的可运行场景。
 
+更完整的学习和验收顺序见上级目录的 `Samples_Index.md`。单个样例的操作说明写在对应 `Example_*.cs` 文件头注释里。
+
 ## 场景列表
 
 | 场景 | 说明 | 备注 |
@@ -17,9 +19,10 @@
 | `HttpKit_Playable.unity` | 登录、请求、图片加载 | 可直接运行，联网时信息更完整 |
 | `LogKit_Playable.unity` | 日志与性能输出 | 可直接运行 |
 | `PoolKit_Playable.unity` | 对象池与工厂对象池 | 可直接运行 |
-| `ResKit_Playable.unity` | Resources、AB、AA、RawText | `Resources / AB / RawText` 可直接验证，`AA` 需 Addressables |
+| `ResKit_Playable.unity` | Resources、AB、AA、RawText | `Resources / AB / RawText` 可直接验证，`AA` 依赖 Addressables |
 | `SingletonKit_Playable.unity` | 全局单例与场景单例 | 可直接运行 |
-| `UIKit_Playable.unity` | UIRoot 与面板打开流程 | 可直接运行 |
+| `UIKit_Playable.unity` | UIRoot、面板打开、堆栈与压力测试 | 可直接运行 |
+| `FrameworkValidation_Playable.unity` | ResKit、UIKit、HotUpdateKit 集中验证 | 推荐作为回归与真机前检查入口 |
 
 ## 建议顺序
 
@@ -35,12 +38,14 @@
 10. `PoolKit_Playable.unity`
 11. `UIKit_Playable.unity`
 12. `ResKit_Playable.unity`
-13. `HttpKit_Playable.unity`
-14. `HotUpdateKit_Playable.unity`
+13. `HotUpdateKit_Playable.unity`
+14. `FrameworkValidation_Playable.unity`
+15. `HttpKit_Playable.unity`
 
 ## 已补齐的公共资源
 
 - `Assets/StellarFramework/Resources/UIPanel/ExamplePanel.prefab`
+- `Assets/StellarFramework/Resources/UIPanel/UIRoot.prefab`
 - `Assets/StellarFramework/Resources/Audio/BGM/MainTheme.wav`
 - `Assets/StellarFramework/Resources/Audio/BGM/BattleTheme.wav`
 - `Assets/StellarFramework/Resources/Audio/SFX/UI_Click.wav`
@@ -49,6 +54,8 @@
 - `Assets/StellarFramework/Samples/KitSamples/Generated/Animations/Example_FSM.controller`
 - `Assets/StellarFramework/Samples/KitSamples/Generated/Prefabs/ExampleBullet.prefab`
 - `Assets/StellarFramework/Samples/KitSamples/Example_ResKit/Resources/ResKitTest/TestCube_Res.prefab`
+- `Assets/StellarFramework/Samples/KitSamples/Example_ResKit/Art/AssetBundle/TestCapsule_AB.prefab`
+- `Assets/StellarFramework/Samples/KitSamples/Example_ResKit/Addressables/TestSphere_AA.prefab`
 - `Assets/StreamingAssets/Configs/Normal/TestGameConfig.json`
 - `Assets/StreamingAssets/Configs/Net/TestApiConfig.json`
 - `Assets/StreamingAssets/StellarFramework/Samples/KitSamples/Example_ResKit/TestText.txt`
@@ -56,6 +63,7 @@
 ## 说明
 
 - `SettingsKit_Playable.unity` 会自动安装默认设置页，并附带一个 `Example Extensions` 扩展页。
-- `ResKit_Playable.unity` 的 `Addressables` 部分依赖本地安装和构建结果。
+- `ResKit_Playable.unity` 的 Addressables 部分依赖本地安装和构建结果；AA 模拟与构建请使用 Addressables 官方界面。
 - `HotUpdateKit_Playable.unity` 只验证入口，不包含完整热更产物。
+- `FrameworkValidation_Playable.unity` 是集中验收入口，适合每次框架重构后快速检查主链路。
 - `HttpKit_Playable.unity` 离线也能看到本地逻辑，联网时信息更完整。

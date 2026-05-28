@@ -7,6 +7,10 @@ namespace StellarFramework.Examples
     /// <summary>
     /// ActionKit 综合使用示例
     /// 演示链式动画、并行任务、生命周期绑定与手动取消
+    ///
+    /// 场景: Scenes/ActionKit_Playable.unity
+    /// 操作: A 播放动作序列，S 取消当前动作。
+    /// 通过标准: 方块完成移动/缩放，UI 面板淡出；取消后 Console 输出取消日志且不报错。
     /// </summary>
     public class Example_ActionKit : MonoBehaviour
     {

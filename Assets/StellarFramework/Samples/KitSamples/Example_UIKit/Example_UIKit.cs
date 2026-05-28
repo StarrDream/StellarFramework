@@ -11,6 +11,14 @@ namespace StellarFramework.Examples
         public int RewardCount;
     }
 
+    /// <summary>
+    /// UIKit 综合使用示例。
+    ///
+    /// 场景: Scenes/UIKit_Playable.unity
+    /// 操作: O 打开面板，P Push，Backspace Pop，C Close，S 执行 100 次压力测试，D 打印 Snapshot。
+    /// 前置: 样例构建器会生成 Resources/UIPanel/UIRoot.prefab 与 ExamplePanel.prefab。
+    /// 通过标准: 面板可打开/关闭，压力测试结束后 UIKitRuntimeSnapshot 中 Loading=0。
+    /// </summary>
     public class Example_UIKit : MonoBehaviour
     {
         private int _openIndex;

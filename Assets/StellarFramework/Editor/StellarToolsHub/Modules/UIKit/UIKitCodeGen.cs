@@ -202,8 +202,8 @@ namespace StellarFramework.Editor
                     IsGameObject = isGo
                 });
 
-                designerCode.AppendLine(
-                    $"        [SerializeField] [HideInInspector] private {typeName} m_{fieldName};");
+                designerCode.AppendLine("        [Tooltip(\"由 StellarFramework UIKit 自动绑定。仅在修复绑定时手动修改。\")]");
+                designerCode.AppendLine($"        [SerializeField] private {typeName} m_{fieldName};");
                 designerCode.AppendLine($"        public {typeName} {fieldName} => m_{fieldName};");
                 designerCode.AppendLine();
             }
@@ -297,20 +297,35 @@ namespace StellarFramework.Editor
                     Transform childTrans = prefab.transform.Find(node.TransformPath);
                     if (childTrans == null && node.TransformPath == "") childTrans = prefab.transform; // 根节点
 
-                    if (childTrans == null) continue;
+                    string nodePath = string.IsNullOrEmpty(node.TransformPath) ? "<root>" : node.TransformPath;
+
+                    if (childTrans == null)
+                    {
+                        Debug.LogError(
+                            $"[UIKitCodeGen] 自动绑定失败：找不到节点。Prefab={bindData.PrefabPath}, Class={bindData.ClassName}, Field={node.FieldName}, NodePath={nodePath}, ComponentType={node.ComponentTypeName}");
+                        continue;
+                    }
 
                     Object targetObj = node.IsGameObject
                         ? childTrans.gameObject
                         : childTrans.GetComponent(node.ComponentTypeName);
-                    if (targetObj != null)
+                    if (targetObj == null)
                     {
-                        SerializedProperty prop = serializedObject.FindProperty(node.FieldName);
-                        if (prop != null)
-                        {
-                            prop.objectReferenceValue = targetObj;
-                            bindCount++;
-                        }
+                        Debug.LogError(
+                            $"[UIKitCodeGen] 自动绑定失败：节点缺少目标组件。Prefab={bindData.PrefabPath}, Class={bindData.ClassName}, Field={node.FieldName}, NodePath={nodePath}, ComponentType={node.ComponentTypeName}, IsGameObject={node.IsGameObject}");
+                        continue;
                     }
+
+                    SerializedProperty prop = serializedObject.FindProperty(node.FieldName);
+                    if (prop == null)
+                    {
+                        Debug.LogError(
+                            $"[UIKitCodeGen] 自动绑定失败：找不到序列化字段。Prefab={bindData.PrefabPath}, Class={bindData.ClassName}, Field={node.FieldName}, NodePath={nodePath}, ComponentType={node.ComponentTypeName}");
+                        continue;
+                    }
+
+                    prop.objectReferenceValue = targetObj;
+                    bindCount++;
                 }
 
                 serializedObject.ApplyModifiedProperties();

@@ -193,6 +193,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   layer: 1
+  canvasRole: 0
   destroyOnClose: 0
   isFullScreen: 0
   TitleText: {fileID: 5059119370409665780}

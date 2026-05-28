@@ -122,7 +122,7 @@ NavMeshSettings:
     debug:
       m_Flags: 0
   m_NavMeshData: {fileID: 0}
---- !u!1 &691173164
+--- !u!1 &28581126
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -130,138 +130,38 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 691173166}
-  - component: {fileID: 691173165}
+  - component: {fileID: 28581128}
+  - component: {fileID: 28581127}
   m_Layer: 0
-  m_Name: Main Camera
-  m_TagString: MainCamera
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!20 &691173165
-Camera:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 691173164}
-  m_Enabled: 1
-  serializedVersion: 2
-  m_ClearFlags: 2
-  m_BackGroundColor: {r: 0.11, g: 0.13, b: 0.17, a: 1}
-  m_projectionMatrixMode: 1
-  m_GateFitMode: 2
-  m_FOVAxisMode: 0
-  m_Iso: 200
-  m_ShutterSpeed: 0.005
-  m_Aperture: 16
-  m_FocusDistance: 10
-  m_FocalLength: 50
-  m_BladeCount: 5
-  m_Curvature: {x: 2, y: 11}
-  m_BarrelClipping: 0.25
-  m_Anamorphism: 0
-  m_SensorSize: {x: 36, y: 24}
-  m_LensShift: {x: 0, y: 0}
-  m_NormalizedViewPortRect:
-    serializedVersion: 2
-    x: 0
-    y: 0
-    width: 1
-    height: 1
-  near clip plane: 0.3
-  far clip plane: 1000
-  field of view: 60
-  orthographic: 0
-  orthographic size: 5
-  m_Depth: 0
-  m_CullingMask:
-    serializedVersion: 2
-    m_Bits: 4294967295
-  m_RenderingPath: -1
-  m_TargetTexture: {fileID: 0}
-  m_TargetDisplay: 0
-  m_TargetEye: 3
-  m_HDR: 1
-  m_AllowMSAA: 1
-  m_AllowDynamicResolution: 0
-  m_ForceIntoRT: 0
-  m_OcclusionCulling: 1
-  m_StereoConvergence: 10
-  m_StereoSeparation: 0.022
---- !u!4 &691173166
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 691173164}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0.15643448, y: 0, z: 0, w: 0.98768836}
-  m_LocalPosition: {x: 0, y: 4.2, z: -9}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &693414972
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 693414974}
-  - component: {fileID: 693414973}
-  m_Layer: 0
-  m_Name: ExampleSceneGuide
+  m_Name: Example_ResKit_Runner
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &693414973
+--- !u!114 &28581127
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 693414972}
+  m_GameObject: {fileID: 28581126}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: a96a7f51a8870bc43bb997d0f0d22170, type: 3}
+  m_Script: {fileID: 11500000, guid: 8384da2f40f347f3be1fd1244c6909fd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  title: ResKit Playable
-  summary: "\u6F14\u793A Resources\u3001AssetBundle\u3001Addressables \u4E0E\u81EA\u5B9A\u4E49
-    RawTextLoader \u7684\u7EDF\u4E00\u52A0\u8F7D\u5165\u53E3\u3002"
-  controls: "\u8FD0\u884C\u540E\u4F7F\u7528 OnGUI \u9762\u677F\uFF1A\n1. \u521D\u59CB\u5316
-    AB \u7BA1\u7406\u5668\n2. \u52A0\u8F7D AssetBundle \u8D44\u6E90\n3. \u52A0\u8F7D
-    Addressables \u8D44\u6E90\n4. \u52A0\u8F7D Resources \u8D44\u6E90\n5. \u52A0\u8F7D
-    RawText\n6. \u6E05\u7406\u5B9E\u4F8B\u548C\u52A0\u8F7D\u5668"
-  setup: "\u6784\u5EFA\u5668\u5DF2\u8865\u9F50 Example_ResKit \u76EE\u5F55\u4E2D\u7684
-    Resources / AssetBundle / Addressables \u6E90\u8D44\u6E90\uFF0C\u5E76\u5728 StreamingAssets/StellarFramework/Samples/KitSamples/Example_ResKit/
-    \u4E0B\u751F\u6210 RawText \u6D4B\u8BD5\u6587\u4EF6\u3002\nAddressables \u4ECD\u53D6\u51B3\u4E8E\u5DE5\u7A0B\u662F\u5426\u5B89\u88C5\u4E86\u5BF9\u5E94\u5305\u3002"
-  expected: "Resources\u3001RawText \u4E0E AB \u6D4B\u8BD5\u53EF\u76F4\u63A5\u9A8C\u8BC1\u3002AA
-    \u4ECD\u9700\u8981\u4F60\u5148\u5B89\u88C5\u5E76\u6784\u5EFA Addressables\u3002"
-  notes: "\u8BE5\u793A\u4F8B\u5F3A\u8C03\u771F\u5B9E\u7269\u7406\u6784\u5EFA\u73AF\u5883\uFF0C\u800C\u4E0D\u662F
-    Editor \u4E0B\u7684\u5047\u52A0\u8F7D\u3002"
-  anchorRight: 1
-  area:
-    serializedVersion: 2
-    x: 12
-    y: 12
-    width: 470
-    height: 690
---- !u!4 &693414974
+  resourcesPath: ResKitTest/TestCube_Res
+  assetBundlePath: Assets/StellarFramework/Samples/KitSamples/Example_ResKit/Art/AssetBundle/TestCapsule_AB.prefab
+  addressablePath: Assets/StellarFramework/Samples/KitSamples/Example_ResKit/Addressables/TestSphere_AA.prefab
+  customRawFilePath: StellarFramework/Samples/KitSamples/Example_ResKit/TestText.txt
+--- !u!4 &28581128
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 693414972}
+  m_GameObject: {fileID: 28581126}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
@@ -270,7 +170,7 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &1588492375
+--- !u!1 &1063989396
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -278,8 +178,8 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 1588492377}
-  - component: {fileID: 1588492376}
+  - component: {fileID: 1063989398}
+  - component: {fileID: 1063989397}
   m_Layer: 0
   m_Name: Directional Light
   m_TagString: Untagged
@@ -287,13 +187,13 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!108 &1588492376
+--- !u!108 &1063989397
 Light:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1588492375}
+  m_GameObject: {fileID: 1063989396}
   m_Enabled: 1
   serializedVersion: 10
   m_Type: 1
@@ -349,13 +249,13 @@ Light:
   m_UseViewFrustumForShadowCasterCull: 1
   m_ShadowRadius: 0
   m_ShadowAngle: 0
---- !u!4 &1588492377
+--- !u!4 &1063989398
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1588492375}
+  m_GameObject: {fileID: 1063989396}
   serializedVersion: 2
   m_LocalRotation: {x: 0.36964384, y: -0.23911762, z: 0.09904577, w: 0.89239913}
   m_LocalPosition: {x: 0, y: 0, z: 0}
@@ -364,7 +264,7 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &1874022632
+--- !u!1 &1482750463
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -372,41 +272,141 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 1874022634}
-  - component: {fileID: 1874022633}
+  - component: {fileID: 1482750465}
+  - component: {fileID: 1482750464}
   m_Layer: 0
-  m_Name: Example_ResKit_Runner
+  m_Name: ExampleSceneGuide
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &1874022633
+--- !u!114 &1482750464
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1874022632}
+  m_GameObject: {fileID: 1482750463}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 8384da2f40f347f3be1fd1244c6909fd, type: 3}
+  m_Script: {fileID: 11500000, guid: a96a7f51a8870bc43bb997d0f0d22170, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  resourcesPath: ResKitTest/TestCube_Res
-  assetBundlePath: Assets/StellarFramework/Samples/KitSamples/Example_ResKit/Art/AssetBundle/TestCapsule_AB.prefab
-  addressablePath: TestSphere_AA
-  customRawFilePath: StellarFramework/Samples/KitSamples/Example_ResKit/TestText.txt
---- !u!4 &1874022634
+  title: ResKit Playable
+  summary: "\u6F14\u793A Resources\u3001AssetBundle\u3001Addressables \u4E0E\u81EA\u5B9A\u4E49
+    RawTextLoader \u7684\u7EDF\u4E00\u52A0\u8F7D\u5165\u53E3\u3002"
+  controls: "\u8FD0\u884C\u540E\u4F7F\u7528 OnGUI \u9762\u677F\uFF1A\n1. \u521D\u59CB\u5316
+    AB \u7BA1\u7406\u5668\n2. \u52A0\u8F7D AssetBundle \u8D44\u6E90\n3. \u52A0\u8F7D
+    Addressables \u8D44\u6E90\n4. \u52A0\u8F7D Resources \u8D44\u6E90\n5. \u52A0\u8F7D
+    RawText\n6. \u6E05\u7406\u5B9E\u4F8B\u548C\u52A0\u8F7D\u5668"
+  setup: "\u6784\u5EFA\u5668\u5DF2\u8865\u9F50 Example_ResKit \u76EE\u5F55\u4E2D\u7684
+    Resources / AssetBundle / Addressables \u6E90\u8D44\u6E90\uFF0C\u5E76\u5728 StreamingAssets/StellarFramework/Samples/KitSamples/Example_ResKit/
+    \u4E0B\u751F\u6210 RawText \u6D4B\u8BD5\u6587\u4EF6\u3002\nAddressables \u4ECD\u53D6\u51B3\u4E8E\u5DE5\u7A0B\u662F\u5426\u5B89\u88C5\u4E86\u5BF9\u5E94\u5305\u3002"
+  expected: "Resources\u3001RawText \u4E0E AB \u6D4B\u8BD5\u53EF\u76F4\u63A5\u9A8C\u8BC1\u3002AA
+    \u4ECD\u9700\u8981\u4F60\u5148\u5B89\u88C5\u5E76\u6784\u5EFA Addressables\u3002"
+  notes: "\u8BE5\u793A\u4F8B\u5F3A\u8C03\u771F\u5B9E\u7269\u7406\u6784\u5EFA\u73AF\u5883\uFF0C\u800C\u4E0D\u662F
+    Editor \u4E0B\u7684\u5047\u52A0\u8F7D\u3002"
+  anchorRight: 1
+  area:
+    serializedVersion: 2
+    x: 12
+    y: 12
+    width: 470
+    height: 690
+--- !u!4 &1482750465
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1874022632}
+  m_GameObject: {fileID: 1482750463}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &2000549106
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2000549108}
+  - component: {fileID: 2000549107}
+  m_Layer: 0
+  m_Name: Main Camera
+  m_TagString: MainCamera
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!20 &2000549107
+Camera:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2000549106}
+  m_Enabled: 1
+  serializedVersion: 2
+  m_ClearFlags: 2
+  m_BackGroundColor: {r: 0.11, g: 0.13, b: 0.17, a: 1}
+  m_projectionMatrixMode: 1
+  m_GateFitMode: 2
+  m_FOVAxisMode: 0
+  m_Iso: 200
+  m_ShutterSpeed: 0.005
+  m_Aperture: 16
+  m_FocusDistance: 10
+  m_FocalLength: 50
+  m_BladeCount: 5
+  m_Curvature: {x: 2, y: 11}
+  m_BarrelClipping: 0.25
+  m_Anamorphism: 0
+  m_SensorSize: {x: 36, y: 24}
+  m_LensShift: {x: 0, y: 0}
+  m_NormalizedViewPortRect:
+    serializedVersion: 2
+    x: 0
+    y: 0
+    width: 1
+    height: 1
+  near clip plane: 0.3
+  far clip plane: 1000
+  field of view: 60
+  orthographic: 0
+  orthographic size: 5
+  m_Depth: 0
+  m_CullingMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_RenderingPath: -1
+  m_TargetTexture: {fileID: 0}
+  m_TargetDisplay: 0
+  m_TargetEye: 3
+  m_HDR: 1
+  m_AllowMSAA: 1
+  m_AllowDynamicResolution: 0
+  m_ForceIntoRT: 0
+  m_OcclusionCulling: 1
+  m_StereoConvergence: 10
+  m_StereoSeparation: 0.022
+--- !u!4 &2000549108
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2000549106}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0.15643448, y: 0, z: 0, w: 0.98768836}
+  m_LocalPosition: {x: 0, y: 4.2, z: -9}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -416,7 +416,7 @@ Transform:
 SceneRoots:
   m_ObjectHideFlags: 0
   m_Roots:
-  - {fileID: 1588492377}
-  - {fileID: 691173166}
-  - {fileID: 1874022634}
-  - {fileID: 693414974}
+  - {fileID: 1063989398}
+  - {fileID: 2000549108}
+  - {fileID: 28581128}
+  - {fileID: 1482750465}

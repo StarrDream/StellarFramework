@@ -45,6 +45,11 @@ namespace StellarFramework.Examples
     /// <summary>
     /// PoolKit 综合使用场景演示
     /// 包含纯 C# 对象的全局门面调度，以及 GameObject 的局部工厂池调度。
+    ///
+    /// 场景: Scenes/PoolKit_Playable.unity
+    /// 操作: Space 分配/回收纯 C# 消息，F 发射一个子弹对象，R 回收所有活跃子弹。
+    /// 前置: 样例构建器会生成 ExampleBullet.prefab 并绑定到场景。
+    /// 通过标准: 高频对象复用无 error，R 后场上子弹被回收并隐藏。
     /// </summary>
     public class Example_PoolKit : MonoBehaviour
     {

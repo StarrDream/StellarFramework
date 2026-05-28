@@ -139,6 +139,7 @@ namespace StellarFramework.Editor
             BuildResKitScene();
             BuildSingletonKitScene();
             BuildUIKitScene();
+            BuildFrameworkValidationScene();
         }
 
         private static void BuildActionKitScene()
@@ -506,6 +507,26 @@ namespace StellarFramework.Editor
                 "该场景用于验证 UIKit 入口和层级接线。AA/AB UI 加载需要在 UIKitSettings 中切换 ResKit 后端后另行构建资源。");
 
             SaveScene(scene, "UIKit_Playable");
+        }
+
+        private static void BuildFrameworkValidationScene()
+        {
+            Scene scene = NewScene("FrameworkValidation_Playable");
+
+            CreateGround("ValidationGround", Vector3.zero, new Vector3(12f, 0.1f, 8f), _greenMaterial);
+
+            GameObject runner = new GameObject("Example_FrameworkValidation_Runner");
+            runner.AddComponent<FrameworkValidationRunner>();
+
+            AddGuide("Framework Validation Playable",
+                "集中验证 ResKit、UIKit、HotUpdateKit 的生产接线状态。它不是替代单个 Kit 示例，而是用于快速回归和真机前检查。",
+                "左侧 OnGUI 面板逐项执行：\n1. Settings / HotUpdate 配置检查\n2. Resources / AB / AA / RawText 加载\n3. UIKit 初始化、打开面板、压力测试\n4. 清理生成对象和报告",
+                "运行前建议先通过 Example Builder 生成样例资源。AB 使用本框架 Tools Hub 构建；AA 使用 Addressables 官方 Groups/Profiles/Build 或 Play Mode Script 模拟。",
+                "Resources、RawText、UIKit 应能直接验收。AB 若缺少构建产物会在 Editor 下回退到源 prefab 并给出 Warning。AA 取决于 Addressables 是否安装、address 是否为 Assets/... 以及内容是否已构建或模拟。",
+                "远端 AA、真机下载和 HybridCLR dll.bytes 属于发布链路验收，本场景只提供入口、诊断和失败可读性，不伪造热更产物。",
+                true);
+
+            SaveScene(scene, "FrameworkValidation_Playable");
         }
 
         private static Scene NewScene(string sceneName)

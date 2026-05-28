@@ -7,6 +7,14 @@ using UnityEngine.Audio;
 
 namespace StellarFramework.Examples
 {
+    /// <summary>
+    /// SettingsKit 综合使用示例。
+    ///
+    /// 场景: Scenes/SettingsKit_Playable.unity
+    /// 操作: F10 显示/隐藏设置面板，1/2 播放测试音效，F5 保存，F9 重置。
+    /// 前置: 样例构建器会生成预览物体、默认设置页和 Example Extensions 扩展页。
+    /// 通过标准: 修改设置会立即影响预览，保存后再次运行能恢复上次设置。
+    /// </summary>
     public class Example_SettingsKit : MonoBehaviour
     {
         [Header("Optional Runtime Adapters")]

@@ -189,6 +189,11 @@ namespace StellarFramework.Examples
     /// <summary>
     /// FSMKit 宿主服务类
     /// 我负责组装 MSV 架构，并驱动状态机运转。
+    ///
+    /// 场景: Scenes/FSMKit_Playable.unity
+    /// 操作: 运行后移动目标进入/离开感知范围，观察 Idle/Chase 切换。
+    /// 前置: 样例构建器会生成 Example_FSM.controller。
+    /// 通过标准: 角色会在 Idle 与 Run 动画间切换，Console 输出进入状态和目标丢失日志。
     /// </summary>
     public class ExampleService : MonoBehaviour
     {

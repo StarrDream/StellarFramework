@@ -1,0 +1,21 @@
+{
+  "name": "StellarFramework.FrameworkValidation.Tests",
+  "rootNamespace": "StellarFramework.Tests",
+  "references": [
+    "StellarFramework.Samples.Runtime"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": false,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false,
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ]
+}

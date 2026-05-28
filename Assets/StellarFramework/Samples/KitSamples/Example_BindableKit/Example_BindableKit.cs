@@ -6,6 +6,10 @@ namespace StellarFramework.Examples
     /// <summary>
     /// BindableKit 综合使用示例
     /// 演示 0GC 数据绑定的标准工作流
+    ///
+    /// 场景: Scenes/BindableKit_Playable.unity
+    /// 操作: Q 修改 HP，W 往背包添加物品，E 更新任务状态。
+    /// 通过标准: 每次输入都能在 Console 看到对应绑定回调，销毁对象后监听会自动注销。
     /// </summary>
     public class Example_BindableKit : MonoBehaviour
     {

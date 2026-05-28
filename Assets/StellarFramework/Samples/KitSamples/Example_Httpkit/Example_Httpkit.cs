@@ -39,6 +39,11 @@ namespace StellarFramework.Examples
 
     /// <summary>
     /// HttpKit example scene entry.
+    ///
+    /// 场景: Scenes/HttpKit_Playable.unity
+    /// 操作: 运行后自动执行 dummyjson 登录、鉴权请求和图片下载；离线时显示本地 fallback preview。
+    /// 前置: 联网时结果更完整，离线也应无 error。
+    /// 通过标准: Console 输出登录/用户信息或离线 fallback，UI 图片位能显示默认预览或下载结果。
     /// </summary>
     public class Example_HttpKit : MonoBehaviour
     {

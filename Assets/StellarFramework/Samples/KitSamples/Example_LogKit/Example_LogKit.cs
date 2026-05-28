@@ -7,6 +7,10 @@ namespace StellarFramework.Examples
     /// <summary>
     /// LogKit 与 PerformanceKit 标准使用示例
     /// 演示日志分级输出、性能耗时测量与内存监控的标准调用方式
+    ///
+    /// 场景: Scenes/LogKit_Playable.unity
+    /// 操作: Space 触发防御性错误日志，G 手动 GC 并打印内存快照。
+    /// 通过标准: Console 输出普通/警告/错误日志、耗时统计和内存信息。
     /// </summary>
     public class Example_LogKit : MonoBehaviour
     {

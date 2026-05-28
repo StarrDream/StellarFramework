@@ -19,6 +19,10 @@ namespace StellarFramework.Examples
 
     /// <summary>
     /// EventKit 综合使用示例
+    ///
+    /// 场景: Scenes/EventKit_Playable.unity
+    /// 操作: Z 广播枚举事件，X 广播结构体事件。
+    /// 通过标准: Console 输出 LevelUp 和 PlayerHit 的接收日志，GameObject 销毁后监听自动注销。
     /// </summary>
     public class Example_EventKit : MonoBehaviour
     {

@@ -11,11 +11,13 @@
 
 ## 建议顺序
 
-1. `ArchitectureDemo/README.md`
-2. `ArchitectureDemo/Scene/Demo.unity`
-3. `KitSamples/README.md`
-4. `KitSamples/Scenes/README.md`
-5. 对应模块目录下的 `English-中文-Guide.md`
+1. `../GETTING_STARTED.md`
+2. `KitSamples/Scenes/FrameworkValidation_Playable.unity`
+3. `ArchitectureDemo/README.md`
+4. `ArchitectureDemo/Scene/Demo.unity`
+5. `KitSamples/README.md`
+6. `KitSamples/Scenes/README.md`
+7. 对应模块目录下的 `English-中文-Guide.md`
 
 ## 说明
 
@@ -23,3 +25,4 @@
 - `KitSamples` 适合按模块查 API、看资源组织方式和验证最小闭环。
 - `KitSamples/Editor` 里的构建器会补齐样例场景、测试配置和依赖资源。
 - `SettingsKit_Playable.unity` 已加入 `KitSamples`，可直接验证设置系统的默认页、扩展页、存储和即时应用。
+- `FrameworkValidation_Playable.unity` 是推荐的新人第一站和真机前冒烟入口。

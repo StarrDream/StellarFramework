@@ -5,6 +5,7 @@
 ## 文档快速跳转
 
 - [仓库入口 / Repository README](../../README.md)
+- [新人上手路线 / Getting Started](GETTING_STARTED.md)
 - [示例总览 / Samples Overview](Samples/README.md)
 - [Architecture 示例 / Architecture Demo](Samples/ArchitectureDemo/README.md)
 - [Kit 示例 / Kit Samples](Samples/KitSamples/README.md)
@@ -109,6 +110,12 @@
   专题文档。
 
 ## 快速开始
+
+第一次接触框架时，建议先按 [新人上手路线](GETTING_STARTED.md) 执行：
+
+1. 运行样例构建器。
+2. 打开 `FrameworkValidation_Playable.unity`。
+3. 再进入 `UIKit_Playable.unity` 和 `ResKit_Playable.unity`。
 
 初始化架构：
 

@@ -55,6 +55,11 @@ namespace StellarFramework.Examples
 
     /// <summary>
     /// SingletonKit 综合调用示例
+    ///
+    /// 场景: Scenes/SingletonKit_Playable.unity
+    /// 操作: 运行后自动访问 Global、Scene、Pure C# 三类单例。
+    /// 前置: Scene 单例 LevelDirector 需要挂在当前场景，样例构建器会补齐。
+    /// 通过标准: Console 输出全局单例初始化、伤害计算和场景单例初始化日志。
     /// </summary>
     public class Example_SingletonKit : MonoBehaviour
     {

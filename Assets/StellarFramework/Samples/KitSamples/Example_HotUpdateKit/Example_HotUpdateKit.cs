@@ -12,6 +12,11 @@ namespace StellarFramework.Examples
     /// HotUpdateKit 最小示例
     /// 职责：提供一个可挂载的场景入口，用于观察当前 HybridCLRHook 状态与接入参数。
     /// 说明：真正的热更装载仍依赖外部 DLL 字节流提供方，本示例不伪造完整热更资源环境。
+    ///
+    /// 场景: Scenes/HotUpdateKit_Playable.unity
+    /// 操作: 点击 OnGUI 按钮打印配置；可手动拖入 TextAsset 验证本地 dll.bytes 装载链路。
+    /// 前置: 完整代码热更需要 HybridCLR 官方流程生成 hot update dll 与 AOT metadata。
+    /// 通过标准: 未开启 HYBRIDCLR_ENABLE 时返回明确不可用信息；开启后能阻断缺失/校验失败路径。
     /// </summary>
     public class Example_HotUpdateKit : MonoBehaviour
     {

@@ -11,6 +11,11 @@ namespace StellarFramework.Examples
     /// <summary>
     /// ResKit 真实物理构建环境测试用例 (GUI 交互版)
     /// 职责：严格验证从物理文件 (StreamingAssets / 本地 Bundle) 加载资源的完整闭环。
+    ///
+    /// 场景: Scenes/ResKit_Playable.unity
+    /// 操作: 先初始化 AB 管理器，再分别点击 Resources、AB、AA、RawText 按钮。
+    /// 前置: AB 用 StellarFramework Tools Hub 构建；AA 用 Addressables 官方 Play Mode Script 或 Build。
+    /// 通过标准: Resources/RawText 可直接加载；AB/AA 在对应构建或模拟配置正确时能实例化 prefab。
     /// </summary>
     public class Example_ResKit : MonoBehaviour
     {

@@ -10,6 +10,11 @@ namespace StellarFramework.Examples
 {
     /// <summary>
     /// AudioKit 综合使用场景演示
+    ///
+    /// 场景: Scenes/AudioKit_Playable.unity
+    /// 操作: 1 播放 2D 音效，2 播放定点 3D 音效，3 播放跟随音效，4 切 BGM，5 静音音效，6 调整 BGM 音量。
+    /// 前置: 样例构建器会生成测试音频和绑定 DefaultAudioMixer。
+    /// 通过标准: 能听到 BGM/SFX 变化，Console 无 AudioMixer 或资源缺失 error。
     /// </summary>
     public class Example_AudioKit : MonoBehaviour
     {

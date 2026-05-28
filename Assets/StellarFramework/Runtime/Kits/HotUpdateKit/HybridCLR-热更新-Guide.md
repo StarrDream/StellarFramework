@@ -14,7 +14,7 @@ HotUpdateKit 负责启动期热更新编排：资源更新走策略，代码热�
 
 ## 2. Runtime Settings
 
-通过 ToolHub 的 Addressables 模块点击 `创建/定位 Runtime Settings`，配置：
+创建或打开 `Resources/ResKitRuntimeSettings.asset`，配置：
 
 - `HotUpdateAssemblyKey`：热更程序集 TextAsset address，例如 `Assets/Game/HotUpdate/HotUpdate.dll.bytes`。
 - `HotUpdateAssemblySha256`：热更 dll.bytes 的 SHA256；留空表示不校验。
@@ -28,8 +28,8 @@ HotUpdateKit 负责启动期热更新编排：资源更新走策略，代码热�
 ## 3. 启动期 AA 闭环
 
 1. 把 `HotUpdate.dll.bytes` 和 AOT metadata `.dll.bytes` 放入项目。
-2. 在 ToolHub 中对这些文件执行 `应用 Address/Labels`。
-3. 回到 Addressables 官方 Groups 窗口执行完整构建，或使用官方 Content Update 流程。
+2. 在 Addressables 官方 Groups 窗口把这些文件加入 Group，address 设置为完整 `Assets/...` 路径，并添加热更 label。
+3. 在 Addressables 官方 Groups 窗口执行完整构建，或使用官方 Content Update 流程。
 4. 上传 remote catalog、hash 和 bundle。
 5. 游戏最早入口调用：
 
@@ -77,15 +77,16 @@ namespace HotUpdate
 
 ## 5. 产物处理
 
-ToolHub 的 Addressables 模块提供 `处理 HybridCLR dll.bytes 并同步 AA`：
+StellarFramework 不在 ToolHub 中处理 AA 或第三方资源插件的构建配置。推荐在项目流水线中完成：
 
 - 从 HybridCLR 输出目录复制 `.dll`。
 - 重命名为 `.dll.bytes`。
 - 计算 SHA256。
-- 加入 Addressables 并同步 address/labels。
-- 将第一个热更 dll 的 key 和 SHA256 写回 `ResKitRuntimeSettings`。
+- 将 `.dll.bytes` 和 AOT metadata 放入项目热更资源目录。
+- 在 Addressables 官方 Groups 中配置 address/labels，或由项目自己的自动化脚本完成。
+- 将热更 dll 的 key 和 SHA256 写回 `ResKitRuntimeSettings`。
 
-真实 dll 生成、裁剪和 AOT metadata 仍以 HybridCLR 官方流程为准。
+真实 dll 生成、裁剪和 AOT metadata 以 HybridCLR 官方流程为准。
 
 ## 6. 常见错误排查
 
