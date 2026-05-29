@@ -102,3 +102,67 @@ GlobalTypeEvent.Broadcast(new PlayerDamageEvent {
 
 ### Q3: 运行时事件链路追踪
 在 Editor 环境下，可通过 `StellarFramework -> Tools Hub -> EventKit 链路追踪` 面板，实时监控当前内存中活跃的事件与监听者，辅助排查事件泄漏问题。
+
+## 4. 可复制模板
+
+### 4.1 最小枚举事件模板
+
+```csharp
+using StellarFramework;
+using UnityEngine;
+
+public enum GameEvent
+{
+    PlayerDead,
+    ScoreChanged
+}
+
+public sealed class ScoreView : MonoBehaviour
+{
+    private void OnEnable()
+    {
+        GlobalEnumEvent.Register<GameEvent, int>(GameEvent.ScoreChanged, OnScoreChanged)
+            .UnRegisterWhenDisabled(this);
+    }
+
+    private void OnScoreChanged(int score)
+    {
+        Debug.Log($"分数变化: {score}");
+    }
+}
+
+public sealed class ScoreService
+{
+    public void AddScore(int score)
+    {
+        GlobalEnumEvent.Broadcast(GameEvent.ScoreChanged, score);
+    }
+}
+```
+
+### 4.2 结构体事件模板
+
+```csharp
+using StellarFramework;
+using UnityEngine;
+
+public struct PlayerDamageEvent : ITypeEvent
+{
+    public int Damage;
+    public Vector3 HitPoint;
+}
+
+public sealed class DamageListener : MonoBehaviour
+{
+    private void Start()
+    {
+        GlobalTypeEvent.Register<PlayerDamageEvent>(OnDamage)
+            .UnRegisterWhenGameObjectDestroyed(this);
+    }
+
+    private void OnDamage(PlayerDamageEvent e)
+    {
+        Debug.Log($"受到伤害: {e.Damage}, 命中点: {e.HitPoint}");
+    }
+}
+```

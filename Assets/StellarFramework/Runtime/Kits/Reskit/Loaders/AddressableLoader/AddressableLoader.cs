@@ -1,4 +1,5 @@
 using System;
+using System;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
@@ -19,7 +20,7 @@ namespace StellarFramework.Res
         {
 #if UNITY_ADDRESSABLES
             LogKit.LogError(
-                $"[AddressableLoader] Sync load is disabled for the production Addressables backend. Use LoadAsync<T>. Path={path}");
+                $"[AddressableLoader] Sync load is disabled for the production Addressables backend. Use LoadAsync<T>. Path={path}. If this is UI or hot-update content, keep it on the async path.");
 #else
             LogKit.LogError("[AddressableLoader] Addressables is unavailable. Install Addressables and enable UNITY_ADDRESSABLES.");
 #endif
@@ -38,6 +39,12 @@ namespace StellarFramework.Res
             {
                 LogKit.LogError("[AddressableLoader] Async load failed: path is empty.");
                 return null;
+            }
+
+            if (!path.StartsWith("Assets/", StringComparison.Ordinal))
+            {
+                LogKit.LogWarning(
+                    $"[AddressableLoader] Recommended address format is full Assets/... path for AB/AA compatibility. CurrentPath={path}");
             }
 
             AsyncOperationHandle rawHandle = default;

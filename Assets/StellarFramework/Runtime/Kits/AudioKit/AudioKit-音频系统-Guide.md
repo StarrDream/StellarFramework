@@ -82,3 +82,52 @@ AudioKit.SoundOn = false;    // 静音 SFX 并停止当前所有音效
 4.  `Critical`: 剧情对白、Boss 技能。
 
 当同时播放的音效超过最大限制（默认 64）时，系统会优先停止 `Low` 级别的音效来腾出空位，以保证关键反馈的播放。
+
+## 4. 可复制模板
+
+### 4.1 最小初始化模板
+
+```csharp
+using StellarFramework.Audio;
+using StellarFramework.Res;
+using UnityEngine;
+using UnityEngine.Audio;
+
+public sealed class AudioEntry : MonoBehaviour
+{
+    [SerializeField] private AudioMixer _mixer;
+
+    private void Start()
+    {
+        AudioKit.Init<ResourceLoader>(_mixer);
+        AudioKit.PlayMusic("Audio/BGM/MainTheme", fadeDuration: 1.0f);
+    }
+}
+```
+
+### 4.2 常用播放模板
+
+```csharp
+using StellarFramework.Audio;
+using UnityEngine;
+
+public sealed class AudioActions : MonoBehaviour
+{
+    [SerializeField] private Transform _enemy;
+
+    public void PlayClick()
+    {
+        AudioKit.PlaySound("Audio/SFX/UI_Click", SoundPriority.Normal);
+    }
+
+    public void PlayExplosion()
+    {
+        AudioKit.PlaySound3D("Audio/SFX/Explosion", _enemy.position, SoundPriority.High);
+    }
+
+    public void SetMusicVolume(float value)
+    {
+        AudioKit.MusicVolume = value;
+    }
+}
+```

@@ -4,16 +4,16 @@
 
 ## 分层定位
 
-- `Example_*`：教学入口，展示这个 Kit 的推荐用法；具体操作写在主 `Example_*.cs` 文件头注释中。
-- `Scenes/*_Playable.unity`：手动验收入口，适合 Editor 和真机冒烟。
-- `FrameworkValidation_Playable.unity`：集中检查 ResKit、UIKit、HotUpdateKit 主链路。
-- EditMode/PlayMode Test：只保护核心逻辑和容易回归的边界，不追求覆盖每个教学步骤。
+- `Example_*`：教学入口，展示这个 Kit 的推荐用法；具体操作写在主 `Example_*.cs` 文件头注释中
+- `Scenes/*_Playable.unity`：手动验收入口，适合 Editor 和真机冒烟
+- `FrameworkValidation_Playable.unity`：集中检查 ResKit、UIKit、HotUpdateKit 主链路
+- EditMode/PlayMode Test：只保护核心逻辑和容易回归的边界，不追求覆盖每个教学步骤
 
 ## 快速路径
 
 | 目标 | 推荐入口 | 前置条件 |
 | :--- | :--- | :--- |
-| 第一次了解框架 | `Scenes/FrameworkValidation_Playable.unity` | 先运行样例构建器 |
+| 第一次了解框架 | `Start Here -> Quick Start` + `Scenes/FrameworkValidation_Playable.unity` | 先运行样例构建器 |
 | 基础 Kit 学习 | `ActionKit / BindableKit / EventKit / LogKit / SingletonKit` | 无 |
 | 资源与 UI 验收 | `ResKit_Playable.unity`、`UIKit_Playable.unity` | AB/AA 按需构建 |
 | 设置系统验收 | `SettingsKit_Playable.unity` | 样例构建器生成资源 |
@@ -22,17 +22,18 @@
 
 ## 运行顺序建议
 
-1. 运行 `StellarFramework -> Tools Hub -> 样例支持 -> 样例构建`。
-2. 先跑 `FrameworkValidation_Playable.unity`，确认总入口无 error。
-3. 再按 `Scenes/README.md` 的顺序跑单个 Kit 场景。
-4. 涉及 AB 的场景先用 ToolHub 构建 AB。
-5. 涉及 AA 的场景使用 Addressables 官方 Groups/Profiles/Build 或 Play Mode Script。
-6. 涉及 HybridCLR 的场景只做入口检查，真实 dll.bytes 走 HybridCLR 官方流程。
+1. 打开 `StellarFramework -> Tools Hub -> Start Here -> Quick Start`
+2. 点击“构建样例”
+3. 先跑 `FrameworkValidation_Playable.unity`，确认总入口无 error
+4. 再按 `Scenes/README.md` 的顺序跑单个 Kit 场景
+5. 涉及 AB 的场景先用 ToolHub 构建 AB
+6. 涉及 AA 的场景使用 Addressables 官方 `Groups / Profiles / Build` 或 Play Mode Script
+7. 涉及 HybridCLR 的场景只做入口检查，真实 dll.bytes 走 HybridCLR 官方流程
 
 ## 不继续堆文档/脚本的规则
 
-- 只有当某个 Kit 没有可运行闭环时，才新增 Sample 脚本。
-- 能用总索引、场景提示或脚本头注释说清楚的验收步骤，不新增 MonoBehaviour。
-- 每个 `Example_*` 目录不再放独立 README，避免新人在文档之间跳转。
-- 能用 `FrameworkValidation_Playable` 集中冒烟的，不重复给每个 Kit 写压力脚本。
-- 自动化测试只补纯逻辑和高风险边界，例如事件注销、状态切换、对象池回收、资源引用计数。
+- 只有当某个 Kit 没有可运行闭环时，才新增 Sample 脚本
+- 能用总索引、场景提示或脚本头注释说清楚的验收步骤，不新增 MonoBehaviour
+- 每个 `Example_*` 目录不再放独立 README，避免新人在文档之间跳转
+- 能用 `FrameworkValidation_Playable` 集中冒烟的，不重复给每个 Kit 写压力脚本
+- 自动化测试只补纯逻辑和高风险边界，例如事件注销、状态切换、对象池回收、资源引用计数

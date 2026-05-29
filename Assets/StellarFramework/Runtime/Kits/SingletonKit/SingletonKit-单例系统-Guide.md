@@ -111,3 +111,46 @@ int result = DataHelper.Instance.Add(1, 2);
 *   **原因**：Global 单例通常由代码自动创建。如果手动将其拖入场景，代码又创建了一个，会产生冲突。
 *   **机制**：框架会保留先注册的实例，并销毁后注册的实例。
 *   **建议**：Global 单例尽量由代码自动生成，避免手动拖入场景。
+
+## 5. 可复制模板
+
+### 5.1 全局单例模板
+
+```csharp
+using StellarFramework;
+
+[Singleton(lifeCycle: SingletonLifeCycle.Global)]
+public sealed class NetworkManager : MonoSingleton<NetworkManager>
+{
+    public override void OnSingletonInit()
+    {
+        base.OnSingletonInit();
+        LogKit.Log("网络管理器初始化");
+    }
+
+    public void Connect()
+    {
+    }
+}
+```
+
+### 5.2 纯 C# 单例模板
+
+```csharp
+using StellarFramework;
+using UnityEngine;
+
+[Singleton]
+public sealed class DamageCalculator : Singleton<DamageCalculator>
+{
+    public int Calculate(int attack, int defense)
+    {
+        return Mathf.Max(1, attack - defense);
+    }
+}
+```
+
+```csharp
+NetworkManager.Instance.Connect();
+int damage = DamageCalculator.Instance.Calculate(100, 35);
+```

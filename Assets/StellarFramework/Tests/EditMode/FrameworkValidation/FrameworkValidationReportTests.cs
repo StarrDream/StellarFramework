@@ -41,8 +41,8 @@ namespace StellarFramework.Tests.FrameworkValidation
 
             string summary = report.ToSummaryString();
 
-            Assert.That(summary, Does.Contain("Passed=1"));
-            Assert.That(summary, Does.Contain("Warning=1"));
+            Assert.That(summary, Does.Contain("通过=1"));
+            Assert.That(summary, Does.Contain("警告=1"));
             Assert.That(summary, Does.Contain("ResKit"));
             Assert.That(summary, Does.Contain("Run stress test on device."));
         }

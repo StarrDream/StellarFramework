@@ -13,7 +13,7 @@ namespace StellarFramework.Examples
             if (ConfirmBtn == null || TitleText == null)
             {
                 LogKit.LogError(
-                    $"[ExamplePanel] Init failed: missing UI refs, ConfirmBtn={ConfirmBtn}, TitleText={TitleText}");
+                    $"[ExamplePanel] 初始化失败：缺少 UI 引用，ConfirmBtn={ConfirmBtn}, TitleText={TitleText}");
                 return;
             }
 
@@ -24,31 +24,31 @@ namespace StellarFramework.Examples
         {
             if (TryGetPanelData<ExamplePanelData>(data, out var panelData))
             {
-                TitleText.text = $"{panelData.TitleMessage}\nReward Count: {panelData.RewardCount}";
-                LogKit.Log("[ExamplePanel] Opened with resolved panel data");
+                TitleText.text = $"{panelData.TitleMessage}\n奖励数量: {panelData.RewardCount}";
+                LogKit.Log("[ExamplePanel] 已使用解析后的面板数据打开");
             }
         }
 
         public override void OnRefresh(UIPanelDataBase data)
         {
             OnOpen(data);
-            LogKit.Log("[ExamplePanel] Refreshed");
+            LogKit.Log("[ExamplePanel] 已刷新");
         }
 
         public override void OnClose()
         {
             base.OnClose();
-            LogKit.Log("[ExamplePanel] Closed");
+            LogKit.Log("[ExamplePanel] 已关闭");
         }
 
         public override void OnPause()
         {
-            LogKit.Log("[ExamplePanel] Paused by UI stack");
+            LogKit.Log("[ExamplePanel] 已被 UI 栈暂停");
         }
 
         public override void OnResume()
         {
-            LogKit.Log("[ExamplePanel] Resumed by UI stack");
+            LogKit.Log("[ExamplePanel] 已从 UI 栈恢复");
         }
     }
 }

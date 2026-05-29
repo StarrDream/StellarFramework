@@ -2,9 +2,9 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
+using StellarFramework.Res;
 using UnityEditor;
 using UnityEngine;
-using StellarFramework.Res;
 
 namespace StellarFramework.Editor.Modules
 {
@@ -15,7 +15,7 @@ namespace StellarFramework.Editor.Modules
     public class ResKitAuditHubModule : ToolModule
     {
         public override string Icon => "d_SettingsIcon";
-        public override string Description => "实时监控 ResKit 内存中的资源驻留状态、引用计数与具体持有者，用于排查内存泄漏。";
+        public override string Description => "实时监控 ResKit 资源驻留状态、引用计数与持有者，用于排查资源泄漏。";
 
         private const double RefreshInterval = 1.0;
 
@@ -68,14 +68,14 @@ namespace StellarFramework.Editor.Modules
             Type resMgrType = typeof(ResKit).Assembly.GetType("StellarFramework.Res.ResMgr");
             if (resMgrType == null)
             {
-                Debug.LogError("[ResKitAuditHubModule] 初始化失败: 无法通过反射获取 StellarFramework.Res.ResMgr 类型，请检查命名空间或类名是否变更。");
+                Debug.LogError("[ResKitAuditHubModule] 初始化失败：无法通过反射获取 StellarFramework.Res.ResMgr 类型，请检查命名空间或类名是否变更。");
                 return;
             }
 
             _sharedCacheField = resMgrType.GetField("_sharedCache", BindingFlags.NonPublic | BindingFlags.Static);
             if (_sharedCacheField == null)
             {
-                Debug.LogError("[ResKitAuditHubModule] 初始化失败: 无法获取 _sharedCache 字段。");
+                Debug.LogError("[ResKitAuditHubModule] 初始化失败：无法获取 _sharedCache 字段。");
                 return;
             }
 
@@ -98,7 +98,7 @@ namespace StellarFramework.Editor.Modules
 
                 GUILayout.Label($"驻留总数: {_snapshotList.Count}", EditorStyles.miniLabel);
 
-                if (GUILayout.Button("强制 GC 与卸载", EditorStyles.toolbarButton, GUILayout.Width(100)))
+                if (GUILayout.Button("强制 GC 与卸载", EditorStyles.toolbarButton, GUILayout.Width(110)))
                 {
                     ExecuteGarbageCollect();
                 }
@@ -233,7 +233,7 @@ namespace StellarFramework.Editor.Modules
                     EditorGUI.indentLevel++;
                     if (snap.Owners.Count == 0)
                     {
-                        EditorGUILayout.LabelField("无明确持有者 (可能存在泄漏或处于对象池游离态)", Window.DangerButtonStyle);
+                        EditorGUILayout.LabelField("无明确持有者（可能存在泄漏或处于对象池游离状态）", Window.DangerButtonStyle);
                     }
                     else
                     {

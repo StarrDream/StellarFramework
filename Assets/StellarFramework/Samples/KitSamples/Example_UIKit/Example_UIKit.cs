@@ -15,9 +15,9 @@ namespace StellarFramework.Examples
     /// UIKit 综合使用示例。
     ///
     /// 场景: Scenes/UIKit_Playable.unity
+    /// 前置条件: 样例构建器会生成 Resources/UIPanel/UIRoot.prefab 与 ExamplePanel.prefab。
     /// 操作: O 打开面板，P Push，Backspace Pop，C Close，S 执行 100 次压力测试，D 打印 Snapshot。
-    /// 前置: 样例构建器会生成 Resources/UIPanel/UIRoot.prefab 与 ExamplePanel.prefab。
-    /// 通过标准: 面板可打开/关闭，压力测试结束后 UIKitRuntimeSnapshot 中 Loading=0。
+    /// 通过标准: 面板可以打开/关闭；压力测试结束后 UIKitRuntimeSnapshot 中 Loading=0。
     /// </summary>
     public class Example_UIKit : MonoBehaviour
     {
@@ -67,7 +67,7 @@ namespace StellarFramework.Examples
         private async UniTaskVoid StartUIFlowAsync()
         {
             await UIKit.Instance.InitAsync();
-            LogKit.Log("[Example_UIKit] UIKit initialized");
+            LogKit.Log("[Example_UIKit] UIKit 初始化完成");
             UIKit.LogSnapshot();
 
             await OpenPanelAsync("Startup");
@@ -79,7 +79,7 @@ namespace StellarFramework.Examples
             if (panel == null)
             {
                 LogKit.LogWarning(
-                    "[Example_UIKit] Failed to open ExamplePanel. Check Resources/UIPanel/UIRoot.prefab and ExamplePanel.prefab.");
+                    "[Example_UIKit] 打开 ExamplePanel 失败，请检查 Resources/UIPanel/UIRoot.prefab 和 ExamplePanel.prefab。");
                 return;
             }
 
@@ -91,7 +91,7 @@ namespace StellarFramework.Examples
             ExamplePanel panel = await UIKit.PushAsync<ExamplePanel>(CreatePanelData("Push"));
             if (panel == null)
             {
-                LogKit.LogWarning("[Example_UIKit] Failed to push ExamplePanel.");
+                LogKit.LogWarning("[Example_UIKit] Push ExamplePanel 失败。");
                 return;
             }
 
@@ -102,14 +102,14 @@ namespace StellarFramework.Examples
         {
             if (_stressRunning)
             {
-                LogKit.LogWarning("[Example_UIKit] UIKit stress test is already running.");
+                LogKit.LogWarning("[Example_UIKit] UIKit 压力测试正在运行，请等待结束。");
                 return;
             }
 
             _stressRunning = true;
             try
             {
-                LogKit.Log("[Example_UIKit] UIKit stress test started: 100 Open/Close loops.");
+                LogKit.Log("[Example_UIKit] UIKit 压力测试开始：执行 100 次打开/关闭循环。");
                 await UIKit.StressOpenCloseAsync<ExamplePanel>(100, CreatePanelData("Stress"), 5);
             }
             finally

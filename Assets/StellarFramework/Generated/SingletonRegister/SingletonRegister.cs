@@ -15,8 +15,6 @@ namespace StellarFramework.Generated
         {
             SingletonFactory.ClearMetadata();
             SingletonFactory.ClearPureSingletonCreators();
-            SingletonFactory.RegisterMetadata(typeof(StellarFramework.UI.UIStackManager), new SingletonMetadata { ResourcePath = "", LifeCycle = SingletonLifeCycle.Global, UseContainer = true });
-            SingletonFactory.RegisterPureSingletonCreator(typeof(StellarFramework.UI.UIStackManager), static () => new StellarFramework.UI.UIStackManager());
             SingletonFactory.RegisterMetadata(typeof(StellarFramework.CoroutineRunner), new SingletonMetadata { ResourcePath = "", LifeCycle = SingletonLifeCycle.Global, UseContainer = true });
             SingletonFactory.RegisterMetadata(typeof(StellarFramework.Audio.AudioManager), new SingletonMetadata { ResourcePath = "", LifeCycle = SingletonLifeCycle.Global, UseContainer = true });
             SingletonFactory.RegisterMetadata(typeof(StellarFramework.UI.UIKit), new SingletonMetadata { ResourcePath = "Managers/UIKit", LifeCycle = SingletonLifeCycle.Global, UseContainer = false });

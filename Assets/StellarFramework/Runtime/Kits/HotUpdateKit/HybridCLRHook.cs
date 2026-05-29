@@ -482,7 +482,18 @@ namespace StellarFramework.HotUpdate
                 });
             }
 
-            return _resourceStrategy.CheckResourceUpdatesAsync(keys ?? Settings.BuildAddressablesDefaultUpdateKeys(),
+            List<object> resolvedKeys = keys != null ? new List<object>(keys) : Settings.BuildAddressablesDefaultUpdateKeys();
+            if (resolvedKeys.Count == 0)
+            {
+                return UniTask.FromResult(new HotUpdateCheckResult
+                {
+                    Success = false,
+                    Status = HotUpdateOperationStatus.InvalidKeys,
+                    Error = "Resource hot update keys are empty. Configure Addressables labels/keys in ResKitRuntimeSettings or pass explicit keys."
+                });
+            }
+
+            return _resourceStrategy.CheckResourceUpdatesAsync(resolvedKeys,
                 updateCatalogs, cancellationToken);
         }
 
@@ -499,7 +510,18 @@ namespace StellarFramework.HotUpdate
                 });
             }
 
-            return _resourceStrategy.DownloadResourceUpdatesAsync(keys ?? Settings.BuildAddressablesDefaultUpdateKeys(),
+            List<object> resolvedKeys = keys != null ? new List<object>(keys) : Settings.BuildAddressablesDefaultUpdateKeys();
+            if (resolvedKeys.Count == 0)
+            {
+                return UniTask.FromResult(new HotUpdateDownloadResult
+                {
+                    Success = false,
+                    Status = HotUpdateOperationStatus.InvalidKeys,
+                    Error = "Resource hot update keys are empty. Configure Addressables labels/keys in ResKitRuntimeSettings or pass explicit keys."
+                });
+            }
+
+            return _resourceStrategy.DownloadResourceUpdatesAsync(resolvedKeys,
                 onProgress, cancellationToken);
         }
 
@@ -525,7 +547,20 @@ namespace StellarFramework.HotUpdate
                 return UniTask.FromResult(FailCodeResult("Code hot update strategy is null."));
             }
 
-            return _codeStrategy.RunCodeHotUpdateAsync(settings ?? Settings, progress, cancellationToken);
+            ResKitRuntimeSettings resolvedSettings = settings ?? Settings;
+            if (resolvedSettings == null)
+            {
+                return UniTask.FromResult(FailCodeResult("ResKitRuntimeSettings is null."));
+            }
+
+            ResKitRuntimeSettingsValidationReport validation = resolvedSettings.Validate(true);
+            if (!validation.IsValid)
+            {
+                return UniTask.FromResult(FailCodeResult(
+                    "ResKitRuntimeSettings validation failed: " + string.Join(" | ", validation.Errors)));
+            }
+
+            return _codeStrategy.RunCodeHotUpdateAsync(resolvedSettings, progress, cancellationToken);
         }
 
         public static UniTask<HybridCLRAAHotUpdateResult> RunStartupHotUpdateAsync(

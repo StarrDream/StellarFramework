@@ -285,3 +285,99 @@ public class IdleState : FSMState<CharacterService>
 
 ### 优势总结
 通过此架构，FSMKit 彻底与 Unity 表现层解耦。不仅杜绝了 Animator 连线地狱，还使得逻辑代码完全可进行无头（Headless）单元测试，极大地提升了代码的可维护性与复用性。
+
+## 7. 可复制模板
+
+### 7.1 最小状态机模板
+
+```csharp
+using StellarFramework.FSM;
+using UnityEngine;
+
+public sealed class EnemyController : MonoBehaviour
+{
+    public Transform Target;
+    private FSM<EnemyController> _fsm;
+
+    private void Start()
+    {
+        _fsm = new FSM<EnemyController>(this);
+        _fsm.AddState<EnemyIdleState>();
+        _fsm.AddState<EnemyChaseState>();
+        _fsm.ChangeState<EnemyIdleState>();
+    }
+
+    private void Update()
+    {
+        _fsm?.OnUpdate();
+    }
+
+    private void OnDestroy()
+    {
+        _fsm?.Clear();
+    }
+}
+
+public sealed class EnemyIdleState : FSMState<EnemyController>
+{
+    public override void OnUpdate()
+    {
+        if (Owner.Target != null && Vector3.Distance(Owner.transform.position, Owner.Target.position) < 5f)
+        {
+            FSM.ChangeState<EnemyChaseState>();
+        }
+    }
+}
+
+public sealed class EnemyChaseState : FSMState<EnemyController>
+{
+    public override void OnUpdate()
+    {
+        if (Owner.Target == null)
+        {
+            FSM.RevertToPreviousState();
+            return;
+        }
+
+        Vector3 direction = (Owner.Target.position - Owner.transform.position).normalized;
+        Owner.transform.position += direction * 3f * Time.deltaTime;
+    }
+}
+```
+
+### 7.2 带参数切换模板
+
+```csharp
+using StellarFramework.FSM;
+using UnityEngine;
+
+public struct ChasePayload
+{
+    public Transform Target;
+    public float Speed;
+}
+
+public sealed class EnemyChaseWithPayloadState : FSMState<EnemyController>, IPayloadState<ChasePayload>
+{
+    private Transform _target;
+    private float _speed;
+
+    public void OnEnter(ChasePayload payload)
+    {
+        _target = payload.Target;
+        _speed = payload.Speed;
+    }
+
+    public override void OnUpdate()
+    {
+        if (_target == null)
+        {
+            FSM.RevertToPreviousState();
+            return;
+        }
+
+        Vector3 direction = (_target.position - Owner.transform.position).normalized;
+        Owner.transform.position += direction * _speed * Time.deltaTime;
+    }
+}
+```

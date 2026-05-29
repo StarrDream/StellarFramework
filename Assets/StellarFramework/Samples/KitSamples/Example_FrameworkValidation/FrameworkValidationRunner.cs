@@ -35,7 +35,22 @@ namespace StellarFramework.Examples
 
         public override string ToString()
         {
-            return $"[{Timestamp:HH:mm:ss}] {Status}: {Name} - {Message}";
+            return $"[{Timestamp:HH:mm:ss}] {FormatStatus(Status)}: {Name} - {Message}";
+        }
+
+        public static string FormatStatus(FrameworkValidationStatus status)
+        {
+            switch (status)
+            {
+                case FrameworkValidationStatus.Passed:
+                    return "通过";
+                case FrameworkValidationStatus.Warning:
+                    return "警告";
+                case FrameworkValidationStatus.Failed:
+                    return "失败";
+                default:
+                    return status.ToString();
+            }
         }
     }
 
@@ -73,15 +88,15 @@ namespace StellarFramework.Examples
         public string ToSummaryString()
         {
             StringBuilder builder = new StringBuilder(512);
-            builder.Append("Framework Validation Report ");
-            builder.Append("Passed=").Append(Count(FrameworkValidationStatus.Passed));
-            builder.Append(", Warning=").Append(Count(FrameworkValidationStatus.Warning));
-            builder.Append(", Failed=").Append(Count(FrameworkValidationStatus.Failed));
+            builder.Append("框架验收报告 ");
+            builder.Append("通过=").Append(Count(FrameworkValidationStatus.Passed));
+            builder.Append(", 警告=").Append(Count(FrameworkValidationStatus.Warning));
+            builder.Append(", 失败=").Append(Count(FrameworkValidationStatus.Failed));
             builder.AppendLine();
 
             if (_entries.Count == 0)
             {
-                builder.AppendLine("No entries yet.");
+                builder.AppendLine("还没有验收记录。");
                 return builder.ToString();
             }
 
@@ -131,13 +146,13 @@ namespace StellarFramework.Examples
         private CancellationTokenSource _destroyCts;
         private Vector2 _scroll;
         private bool _isRunning;
-        private string _lastAction = "Ready.";
+        private string _lastAction = "等待操作。";
 
         private void Awake()
         {
             _destroyCts = new CancellationTokenSource();
             AllocateLoaders();
-            Add(FrameworkValidationStatus.Passed, "FrameworkValidation", "Runner initialized.");
+            Add(FrameworkValidationStatus.Passed, "FrameworkValidation", "验收入口已初始化。");
         }
 
         private void OnDestroy()
@@ -153,42 +168,42 @@ namespace StellarFramework.Examples
             GUILayout.BeginArea(new Rect(20f, 20f, 520f, Screen.height - 40f), GUI.skin.box);
             _scroll = GUILayout.BeginScrollView(_scroll);
 
-            GUILayout.Label("Framework Validation Pack", TitleStyle());
+            GUILayout.Label("框架集中验收包", TitleStyle());
             GUILayout.Label(_lastAction);
 
-            DrawSection("Safe Checks");
-            Button("Validate ResKitRuntimeSettings", ValidateSettings);
-            Button("Validate HotUpdate Settings", ValidateHotUpdateSettings);
+            DrawSection("安全检查");
+            Button("检查 ResKitRuntimeSettings", ValidateSettings);
+            Button("检查 HotUpdate 配置", ValidateHotUpdateSettings);
             Button("UIKit Snapshot", CaptureUIKitSnapshot);
 
-            DrawSection("ResKit Runtime");
-            ButtonAsync("Load Resources Prefab", LoadResourcesAsync);
-            ButtonAsync("Init AssetBundle Manager", InitAssetBundleAsync);
-            ButtonAsync("Load AssetBundle Prefab", LoadAssetBundleAsync);
+            DrawSection("ResKit 运行时");
+            ButtonAsync("加载 Resources Prefab", LoadResourcesAsync);
+            ButtonAsync("初始化 AssetBundle Manager", InitAssetBundleAsync);
+            ButtonAsync("加载 AssetBundle Prefab", LoadAssetBundleAsync);
 #if UNITY_ADDRESSABLES
             ButtonAsync("AA Catalog Dry Run", CheckAddressablesCatalogAsync);
-            ButtonAsync("Load Addressables Prefab", LoadAddressablesAsync);
+            ButtonAsync("加载 Addressables Prefab", LoadAddressablesAsync);
 #else
-            GUILayout.Label("Addressables buttons are hidden because UNITY_ADDRESSABLES is not enabled.");
+            GUILayout.Label("未启用 UNITY_ADDRESSABLES，Addressables 按钮已隐藏。");
 #endif
-            ButtonAsync("Load RawText", LoadRawTextAsync);
+            ButtonAsync("加载 RawText", LoadRawTextAsync);
 
-            DrawSection("UIKit Runtime");
-            ButtonAsync("Init UIKit", InitUIKitAsync);
-            ButtonAsync("Open UIKit Panel", OpenUIKitPanelAsync);
-            ButtonAsync($"UIKit Stress {uiStressIterations}", RunUIKitStressAsync);
+            DrawSection("UIKit 运行时");
+            ButtonAsync("初始化 UIKit", InitUIKitAsync);
+            ButtonAsync("打开 UIKit 面板", OpenUIKitPanelAsync);
+            ButtonAsync($"UIKit 压力测试 {uiStressIterations} 次", RunUIKitStressAsync);
 
-            DrawSection("Maintenance");
-            if (GUILayout.Button("Clear Spawned Objects", GUILayout.Height(28f)))
+            DrawSection("维护操作");
+            if (GUILayout.Button("清理生成物体", GUILayout.Height(28f)))
             {
                 ClearSpawnedObjects();
-                Add(FrameworkValidationStatus.Passed, "Cleanup", "Spawned validation objects cleared.");
+                Add(FrameworkValidationStatus.Passed, "Cleanup", "已清理验收过程中生成的物体。");
             }
 
-            if (GUILayout.Button("Clear Report", GUILayout.Height(28f)))
+            if (GUILayout.Button("清空报告", GUILayout.Height(28f)))
             {
                 _report.Clear();
-                _lastAction = "Report cleared.";
+                _lastAction = "报告已清空。";
             }
 
             GUILayout.Space(8f);
@@ -213,7 +228,7 @@ namespace StellarFramework.Examples
             if (report.IsValid)
             {
                 Add(FrameworkValidationStatus.Warning, "HotUpdateKit",
-                    "Settings shape is valid. Real HybridCLR validation still requires dll.bytes and AOT metadata assets.");
+                    "配置结构有效。真实 HybridCLR 验证仍需要 dll.bytes 与 AOT metadata 资源。");
             }
         }
 
@@ -222,12 +237,12 @@ namespace StellarFramework.Examples
             GameObject prefab = await _resourcesLoader.LoadAsync<GameObject>(resourcesPath, _destroyCts.Token);
             if (prefab == null)
             {
-                Add(FrameworkValidationStatus.Failed, "Resources", $"Load failed. Path={resourcesPath}");
+                Add(FrameworkValidationStatus.Failed, "Resources", $"加载失败。Path={resourcesPath}");
                 return;
             }
 
             Spawn(prefab, resourcesSpawnPosition, "Resources_Instance");
-            Add(FrameworkValidationStatus.Passed, "Resources", $"Loaded and spawned {resourcesPath}");
+            Add(FrameworkValidationStatus.Passed, "Resources", $"已加载并实例化 {resourcesPath}");
         }
 
         private async UniTask InitAssetBundleAsync()
@@ -236,7 +251,7 @@ namespace StellarFramework.Examples
             if (success)
             {
                 Add(FrameworkValidationStatus.Passed, "AssetBundle",
-                    $"Manager initialized. State={AssetBundleManager.Instance.State}");
+                    $"管理器初始化完成。State={AssetBundleManager.Instance.State}");
                 return;
             }
 
@@ -255,7 +270,7 @@ namespace StellarFramework.Examples
                 {
                     Spawn(prefab, assetBundleSpawnPosition, "AssetBundle_EditorFallback_Instance");
                     Add(FrameworkValidationStatus.Warning, "AssetBundle",
-                        "Runtime AB product was not loaded; Editor fallback prefab loaded. Build AB products before device validation.");
+                        "运行时 AB 产物未命中，已在 Editor 下回退加载源 Prefab。真机验证前请先构建 AB 产物。");
                     return;
                 }
             }
@@ -263,12 +278,12 @@ namespace StellarFramework.Examples
             if (prefab == null)
             {
                 Add(FrameworkValidationStatus.Failed, "AssetBundle",
-                    $"Load failed. Path={assetBundlePath}, LastError={AssetBundleManager.Instance.LastError ?? "None"}");
+                    $"加载失败。Path={assetBundlePath}, LastError={AssetBundleManager.Instance.LastError ?? "None"}");
                 return;
             }
 
             Spawn(prefab, assetBundleSpawnPosition, "AssetBundle_Instance");
-            Add(FrameworkValidationStatus.Passed, "AssetBundle", $"Loaded and spawned {assetBundlePath}");
+            Add(FrameworkValidationStatus.Passed, "AssetBundle", $"已加载并实例化 {assetBundlePath}");
         }
 
 #if UNITY_ADDRESSABLES
@@ -298,12 +313,12 @@ namespace StellarFramework.Examples
             if (prefab == null)
             {
                 Add(FrameworkValidationStatus.Failed, "Addressables",
-                    $"Load failed. Address={addressablePath}. Make sure the entry address is Assets/... and Addressables content is built or simulated.");
+                    $"加载失败。Address={addressablePath}。请确认 entry address 为 Assets/...，并且 Addressables 已构建或已启用模拟模式。");
                 return;
             }
 
             Spawn(prefab, addressableSpawnPosition, "Addressables_Instance");
-            Add(FrameworkValidationStatus.Passed, "Addressables", $"Loaded and spawned {addressablePath}");
+            Add(FrameworkValidationStatus.Passed, "Addressables", $"已加载并实例化 {addressablePath}");
         }
 #endif
 
@@ -312,7 +327,7 @@ namespace StellarFramework.Examples
             TextAsset textAsset = await _rawTextLoader.LoadAsync<TextAsset>(rawTextPath, _destroyCts.Token);
             if (textAsset == null)
             {
-                Add(FrameworkValidationStatus.Failed, "RawText", $"Load failed. Path={rawTextPath}");
+                Add(FrameworkValidationStatus.Failed, "RawText", $"加载失败。Path={rawTextPath}");
                 return;
             }
 
@@ -322,7 +337,7 @@ namespace StellarFramework.Examples
                 preview = preview.Substring(0, 120) + "...";
             }
 
-            Add(FrameworkValidationStatus.Passed, "RawText", $"Loaded {rawTextPath}: {preview}");
+            Add(FrameworkValidationStatus.Passed, "RawText", $"已读取 {rawTextPath}: {preview}");
         }
 
         private async UniTask InitUIKitAsync()
@@ -339,13 +354,13 @@ namespace StellarFramework.Examples
             await UIKit.Instance.InitAsync();
             ExamplePanel panel = await UIKit.OpenAsync<ExamplePanel>(new ExamplePanelData
             {
-                TitleMessage = "Framework Validation",
+                TitleMessage = "框架验收",
                 RewardCount = _report.Entries.Count + 1
             });
 
             Add(panel != null ? FrameworkValidationStatus.Passed : FrameworkValidationStatus.Failed,
                 "UIKit Open",
-                panel != null ? "ExamplePanel opened through UIKit.OpenAsync." : "ExamplePanel failed to open.");
+                panel != null ? "已通过 UIKit.OpenAsync 打开 ExamplePanel。" : "ExamplePanel 打开失败。");
         }
 
         private async UniTask RunUIKitStressAsync()
@@ -355,7 +370,7 @@ namespace StellarFramework.Examples
                 Mathf.Max(0, uiStressIterations),
                 new ExamplePanelData
                 {
-                    TitleMessage = "Framework Validation Stress",
+                    TitleMessage = "框架验收压力测试",
                     RewardCount = uiStressIterations
                 },
                 yieldEvery: 5,
@@ -380,7 +395,7 @@ namespace StellarFramework.Examples
         {
             if (report == null)
             {
-                Add(FrameworkValidationStatus.Failed, name, "Validation report is null.");
+                Add(FrameworkValidationStatus.Failed, name, "校验报告为空。");
                 return;
             }
 
@@ -396,7 +411,7 @@ namespace StellarFramework.Examples
 
             if (report.Errors.Count == 0 && report.Warnings.Count == 0)
             {
-                Add(FrameworkValidationStatus.Passed, name, "No validation errors or warnings.");
+                Add(FrameworkValidationStatus.Passed, name, "未发现错误或警告。");
             }
         }
 
@@ -485,14 +500,14 @@ namespace StellarFramework.Examples
             }
 
             _isRunning = true;
-            _lastAction = $"Running: {label}";
+            _lastAction = $"正在执行：{label}";
             try
             {
                 await action.Invoke();
             }
             catch (OperationCanceledException)
             {
-                Add(FrameworkValidationStatus.Warning, label, "Operation cancelled.");
+                Add(FrameworkValidationStatus.Warning, label, "操作已取消。");
             }
             catch (Exception ex)
             {
@@ -500,7 +515,7 @@ namespace StellarFramework.Examples
             }
             finally
             {
-                _lastAction = $"Finished: {label}";
+                _lastAction = $"执行完成：{label}";
                 _isRunning = false;
             }
         }
@@ -508,8 +523,9 @@ namespace StellarFramework.Examples
         private void Add(FrameworkValidationStatus status, string name, string message)
         {
             _report.Add(name, status, message);
-            _lastAction = $"{status}: {name}";
-            Debug.Log($"[FrameworkValidation] {status}: {name} - {message}");
+            string displayStatus = FrameworkValidationEntry.FormatStatus(status);
+            _lastAction = $"{displayStatus}: {name}";
+            Debug.Log($"[FrameworkValidation] {displayStatus}: {name} - {message}");
         }
 
         private void DrawSection(string title)

@@ -172,3 +172,71 @@ ActionKit.Sequence(gameObject)
 3.  **报错 "当前链条已回收"**
     *   原因：尝试复用了一个已经执行完毕或被取消的 `UniActionChain` 变量。
     *   解决：每次播放动画时，请重新调用 `ActionKit.Sequence(...)`。
+
+## 7. 可复制模板
+
+### 7.1 最小可用模板
+
+```csharp
+using StellarFramework;
+using UnityEngine;
+
+public sealed class RewardFlyAnimation : MonoBehaviour
+{
+    [SerializeField] private Transform _icon;
+    [SerializeField] private CanvasGroup _group;
+
+    private UniActionChain _chain;
+
+    public void Play()
+    {
+        _chain?.Cancel();
+        _group.alpha = 0f;
+
+        _chain = ActionKit.Sequence(gameObject)
+            .SetUpdate(true)
+            .Parallel(
+                _ => ActionKit.Sequence(gameObject).FadeTo(_group, 1f, 0.2f).Await(),
+                _ => ActionKit.Sequence(gameObject).ScaleTo(_icon, Vector3.one, 0.25f, Ease.OutBack).Await())
+            .Delay(0.5f)
+            .FadeTo(_group, 0f, 0.2f)
+            .OnComplete(() => _chain = null)
+            .OnCancel(() => _chain = null)
+            .Start();
+    }
+
+    private void OnDestroy()
+    {
+        _chain?.Cancel();
+    }
+}
+```
+
+### 7.2 技能前摇模板
+
+```csharp
+using StellarFramework;
+using UnityEngine;
+
+public sealed class SkillCaster : MonoBehaviour
+{
+    private UniActionChain _currentAction;
+
+    public void CastSkill()
+    {
+        _currentAction?.Cancel();
+
+        _currentAction = ActionKit.Sequence(gameObject)
+            .Delay(0.3f)
+            .Callback(FireProjectile)
+            .OnComplete(() => _currentAction = null)
+            .OnCancel(() => _currentAction = null)
+            .Start();
+    }
+
+    private void FireProjectile()
+    {
+        Debug.Log("发射技能");
+    }
+}
+```

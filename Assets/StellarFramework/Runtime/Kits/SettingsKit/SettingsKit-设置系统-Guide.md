@@ -194,3 +194,79 @@ overlay.toggleKey = KeyCode.F10;
 - 云端同步策略
 
 这部分刻意没有写死，目的是让框架保持横向扩展能力。
+
+## 9. 可复制模板
+
+### 9.1 最小安装模板
+
+```csharp
+using StellarFramework.Settings;
+using UnityEngine;
+
+public sealed class SettingsEntry : MonoBehaviour
+{
+    private void Awake()
+    {
+        SettingsKit.ConfigureStorage(new PlayerPrefsSettingsStorage());
+        SettingsKit.InstallDefaultProviders(new DefaultSettingsInstallOptions());
+        SettingsKit.Init();
+    }
+}
+```
+
+### 9.2 修改并保存一个设置
+
+```csharp
+using StellarFramework.Settings;
+using UnityEngine;
+
+public sealed class SettingsActions : MonoBehaviour
+{
+    public void SetMasterVolume(float volume)
+    {
+        if (!SettingsKit.TrySetValue(SettingsKeys.AudioMasterVolume, volume, out string error))
+        {
+            Debug.LogError(error);
+            return;
+        }
+
+        if (!SettingsKit.ApplyPending(out error))
+        {
+            Debug.LogError(error);
+            return;
+        }
+
+        if (!SettingsKit.Save(out error))
+        {
+            Debug.LogError(error);
+        }
+    }
+}
+```
+
+### 9.3 自定义设置页模板
+
+```csharp
+using StellarFramework.Settings;
+
+public sealed class BattleSettingsProvider : ISettingsPageProvider
+{
+    public string ProviderName => "Battle";
+
+    public void Register(SettingsRegistry registry)
+    {
+        registry.RegisterPage(new SettingsPageDefinition(
+            "battle",
+            "Battle / 战斗设置",
+            "战斗相关开关。",
+            50));
+
+        registry.RegisterSetting(new BoolSettingDefinition(
+            "battle.show_damage_number",
+            "battle",
+            "Show Damage Number / 显示伤害数字",
+            "开启后在战斗中显示浮动伤害数字。",
+            true));
+    }
+}
+```

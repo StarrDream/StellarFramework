@@ -5,7 +5,7 @@
 ## 文档快速跳转
 
 - [仓库入口 / Repository README](../../README.md)
-- [新人上手路线 / Getting Started](GETTING_STARTED.md)
+- [快速开始 / Quick Start](快速开始.md)
 - [示例总览 / Samples Overview](Samples/README.md)
 - [Architecture 示例 / Architecture Demo](Samples/ArchitectureDemo/README.md)
 - [Kit 示例 / Kit Samples](Samples/KitSamples/README.md)
@@ -29,7 +29,6 @@
 - [SettingsKit / 设置系统](Runtime/Kits/SettingsKit/SettingsKit-设置系统-Guide.md)
 - [SingletonKit / 单例系统](Runtime/Kits/SingletonKit/SingletonKit-单例系统-Guide.md)
 - [UIKit / 界面系统](Runtime/Kits/UIKit/UIKit-界面系统-Guide.md)
-- [UIStackManager / 堆栈管理](Runtime/Kits/UIKit/UIStackManager-堆栈管理-Guide.md)
 - [UniTask / 异步任务](Runtime/Kits/StellarFramework-UniTask-异步任务-Guide.md)
 
 ## 目录结构
@@ -56,7 +55,7 @@
 - `ResKit`
   `Resources / AssetBundle / Addressables` 统一加载接口。
 - `UIKit`
-  面板加载、层级管理与导航能力。
+  唯一 UI 门户，内建面板加载、层级管理与堆栈导航能力。
 - `EventKit`
   枚举事件与结构体事件。
 - `BindableKit`
@@ -111,11 +110,14 @@
 
 ## 快速开始
 
-第一次接触框架时，建议先按 [新人上手路线](GETTING_STARTED.md) 执行：
+第一次接触框架时，建议先按 [快速开始](快速开始.md) 执行：
 
-1. 运行样例构建器。
-2. 打开 `FrameworkValidation_Playable.unity`。
-3. 再进入 `UIKit_Playable.unity` 和 `ResKit_Playable.unity`。
+1. 打开 `StellarFramework -> Tools Hub -> Start Here -> Quick Start`。
+2. 先执行“构建样例”。
+3. 打开 `FrameworkValidation_Playable.unity`。
+4. 再进入 `UIKit_Playable.unity` 和 `ResKit_Playable.unity`。
+
+`快速开始.md` 按业务场景整理了 UIKit、ResKit、HotUpdateKit、SettingsKit、EventKit 等常用模板，适合新人先复制代码跑起来。
 
 初始化架构：
 

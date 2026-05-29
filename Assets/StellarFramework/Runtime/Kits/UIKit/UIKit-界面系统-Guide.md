@@ -1,11 +1,11 @@
 # UIKit / 界面系统 Guide
 
-UIKit 是框架的唯一 UI 入口。业务层优先使用 `UIKit.Open/OpenAsync/Push/PushAsync/Pop/Close`，旧的 `UIStackManager` API 保留为兼容层。
+UIKit 是框架的唯一 UI 入口。业务层优先使用 `UIKit.Open/OpenAsync/Push/PushAsync/Pop/Close/ClearStack`。
 
 ## 1. 生产定位
 
-- `UIKit` 负责初始化 UIRoot、加载 Panel、挂载层级、打开/关闭、预加载和运行时诊断。
-- `UIStackManager` 只做内部导航服务，推荐从 `UIKit.Push/Pop/PopTo` 进入。
+- `UIKit` 负责初始化 UIRoot、加载 Panel、挂载层级、打开/关闭、预加载、堆栈导航和运行时诊断。
+- `Push / PushAsync / Pop / PopTo / ClearStack` 都是 `UIKit` 的内建能力，不再拆成第二个入口类型。
 - UI 加载通过 ResKit 后端完成，默认 `Resources`，也可以在 `UIKitSettings` 中切换到 `Addressables` 或 `AssetBundle`。
 - 生产项目推荐 UI 使用异步加载；同步加载只适合本地 `Resources` 或已经明确支持同步的后端。
 
@@ -42,6 +42,7 @@ UIKit.Pop();
 UIKit.PopTo<MainMenuPanel>();
 
 await UIKit.PreloadPanelAsync<RewardPanel>();
+UIKit.ClearStack();
 UIKit.DestroyAllPanels();
 ```
 
@@ -112,6 +113,7 @@ await UIKit.StressOpenCloseAsync<ExamplePanel>(100, data, yieldEvery: 5);
 - `P`：Push 到 UI 栈
 - `Backspace`：Pop
 - `C`：Close
+- `X`：ClearStack
 - `S`：执行 100 次 Open/Close 压力测试
 - `D`：打印 `UIKitRuntimeSnapshot`
 
@@ -138,3 +140,132 @@ await UIKit.StressOpenCloseAsync<ExamplePanel>(100, data, yieldEvery: 5);
 - `自动绑定字段为空`：确认对应节点挂了 `UIAutoBind`，Target 不为空，并重新执行 Generate & Bind。
 - UI 打开但不能点击：检查 EventSystem、GraphicRaycaster、CanvasGroup 的 `interactable/blocksRaycasts`。
 - Stack 下层没有隐藏：目标 Panel 的 `Is Full Screen` 需要勾选。
+
+## 9. 可复制模板
+
+### 9.1 最小可用模板
+
+适合：先把一个面板打开出来。
+
+```csharp
+using Cysharp.Threading.Tasks;
+using StellarFramework.UI;
+using UnityEngine;
+
+public sealed class LoginPanelData : UIPanelDataBase
+{
+    public string DefaultAccount;
+}
+
+public sealed class LoginPanel : UIPanelBase
+{
+    public override void OnOpen(UIPanelDataBase data)
+    {
+        if (TryGetPanelData<LoginPanelData>(data, out LoginPanelData loginData))
+        {
+            Debug.Log($"默认账号: {loginData.DefaultAccount}");
+        }
+    }
+
+    public void OnClickClose()
+    {
+        CloseSelf();
+    }
+}
+
+public sealed class UIEntry : MonoBehaviour
+{
+    private async UniTaskVoid Start()
+    {
+        await UIKit.Instance.InitAsync();
+        await UIKit.OpenAsync<LoginPanel>(new LoginPanelData
+        {
+            DefaultAccount = "player01"
+        });
+    }
+}
+```
+
+### 9.2 页面栈模板
+
+适合：主菜单 -> 背包 -> 设置页这种页面导航。
+
+```csharp
+using Cysharp.Threading.Tasks;
+using StellarFramework.UI;
+using UnityEngine;
+
+public sealed class MenuFlow : MonoBehaviour
+{
+    private async UniTaskVoid Start()
+    {
+        await UIKit.Instance.InitAsync();
+        await UIKit.PushAsync<MainMenuPanel>();
+    }
+
+    public async void OpenInventory()
+    {
+        await UIKit.PushAsync<InventoryPanel>();
+    }
+
+    public void Back()
+    {
+        UIKit.Pop();
+    }
+
+    public void BackToMainMenu()
+    {
+        UIKit.PopTo<MainMenuPanel>();
+    }
+
+    public void LeaveMenu()
+    {
+        UIKit.ClearStack();
+    }
+}
+```
+
+### 9.3 常驻 HUD 模板
+
+适合：血条、摇杆、任务追踪这种不走页面栈的常驻 UI。
+
+```csharp
+using Cysharp.Threading.Tasks;
+using StellarFramework.UI;
+using UnityEngine;
+
+public sealed class HudBootstrap : MonoBehaviour
+{
+    private async UniTaskVoid Start()
+    {
+        await UIKit.Instance.InitAsync();
+        await UIKit.OpenAsync<HudPanel>();
+    }
+}
+```
+
+`HudPanel` 建议在 Prefab 上配置：
+
+- `Canvas Role = Static`
+- `Layer = Top` 或 `Middle`
+- `Destroy On Close = false`
+- `Is Full Screen = false`
+
+### 9.4 预加载模板
+
+适合：战斗前先把奖励弹窗或结算页预热。
+
+```csharp
+using Cysharp.Threading.Tasks;
+using StellarFramework.UI;
+using UnityEngine;
+
+public sealed class UIPreloadEntry : MonoBehaviour
+{
+    private async UniTaskVoid Start()
+    {
+        await UIKit.Instance.InitAsync();
+        await UIKit.PreloadAsync<RewardPanel>();
+    }
+}
+```

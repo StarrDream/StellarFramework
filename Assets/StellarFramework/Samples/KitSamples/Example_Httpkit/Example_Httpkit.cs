@@ -79,7 +79,7 @@ namespace StellarFramework.Examples
 
         private async UniTaskVoid ExecuteLoginFlowAsync()
         {
-            LogKit.Log("[Example_HttpKit] Starting login flow.");
+            LogKit.Log("[Example_HttpKit] 开始执行登录流程。");
 
             DemoLoginRequest loginReq = new DemoLoginRequest
             {
@@ -99,19 +99,19 @@ namespace StellarFramework.Examples
             if (!rawResponse.isSuccess || loginRes == null)
             {
                 LogKit.LogError(
-                    $"[Example_HttpKit] Login failed | Code={rawResponse.responseCode} | Error={rawResponse.error}");
-                ApplyOfflineFallback("login request failed");
+                    $"[Example_HttpKit] 登录失败 | Code={rawResponse.responseCode} | Error={rawResponse.error}");
+                ApplyOfflineFallback("登录请求失败");
                 return;
             }
 
             if (string.IsNullOrEmpty(loginRes.accessToken))
             {
-                LogKit.LogError("[Example_HttpKit] Login failed: accessToken is empty.");
-                ApplyOfflineFallback("login response missing token");
+                LogKit.LogError("[Example_HttpKit] 登录失败：accessToken 为空。");
+                ApplyOfflineFallback("登录响应缺少 token");
                 return;
             }
 
-            LogKit.Log($"[Example_HttpKit] Login success: {loginRes.username}");
+            LogKit.Log($"[Example_HttpKit] 登录成功: {loginRes.username}");
             HttpKit.SetAuthToken(loginRes.accessToken);
 
             string profileUrl = $"{apiBaseUrl}/auth/me";
@@ -127,11 +127,11 @@ namespace StellarFramework.Examples
             {
                 LogKit.LogError(
                     $"[Example_HttpKit] Profile fetch failed | Code={profileResponse.responseCode} | Error={profileResponse.error}");
-                ApplyOfflineFallback("profile request failed");
+                ApplyOfflineFallback("用户信息请求失败");
                 return;
             }
 
-            LogKit.Log($"[Example_HttpKit] Profile loaded: {profile.firstName} {profile.lastName}");
+            LogKit.Log($"[Example_HttpKit] 用户信息加载完成: {profile.firstName} {profile.lastName}");
             RefreshUI(profile);
         }
 
@@ -139,7 +139,7 @@ namespace StellarFramework.Examples
         {
             if (profile == null)
             {
-                LogKit.LogError("[Example_HttpKit] RefreshUI failed: profile is null.");
+                LogKit.LogError("[Example_HttpKit] 刷新 UI 失败：profile 为空。");
                 return;
             }
 
@@ -161,16 +161,16 @@ namespace StellarFramework.Examples
             if (string.IsNullOrEmpty(patchUrl) || string.IsNullOrEmpty(savePath))
             {
                 LogKit.LogError(
-                    $"[Example_HttpKit] DownloadGamePatchAsync failed: PatchUrl={patchUrl}, SavePath={savePath}");
+                    $"[Example_HttpKit] 下载补丁失败：PatchUrl={patchUrl}, SavePath={savePath}");
                 return;
             }
 
-            LogKit.Log($"[Example_HttpKit] Start downloading patch: {patchUrl}");
+            LogKit.Log($"[Example_HttpKit] 开始下载补丁: {patchUrl}");
 
             bool success = await HttpKit.DownloadFileAsync(
                 url: patchUrl,
                 savePath: savePath,
-                onProgress: progress => { LogKit.Log($"[Example_HttpKit] Download progress: {progress * 100f:F1}%"); },
+                onProgress: progress => { LogKit.Log($"[Example_HttpKit] 下载进度: {progress * 100f:F1}%"); },
                 timeout: 120);
 
             if (_isDisposed || this == null)
@@ -180,11 +180,11 @@ namespace StellarFramework.Examples
 
             if (success)
             {
-                LogKit.Log($"[Example_HttpKit] Patch download completed: {savePath}");
+                LogKit.Log($"[Example_HttpKit] 补丁下载完成: {savePath}");
             }
             else
             {
-                LogKit.LogError("[Example_HttpKit] Patch download failed.");
+                LogKit.LogError("[Example_HttpKit] 补丁下载失败。");
             }
         }
 
@@ -205,14 +205,14 @@ namespace StellarFramework.Examples
 
         private void ApplyOfflineFallback(string reason)
         {
-            LogKit.LogWarning($"[Example_HttpKit] Using offline preview because {reason}.");
+            LogKit.LogWarning($"[Example_HttpKit] 使用离线预览，原因: {reason}.");
 
             RefreshUI(new DemoUserProfile
             {
                 id = -1,
                 username = "offline.demo",
-                firstName = "Offline",
-                lastName = "Preview",
+                firstName = "离线",
+                lastName = "预览",
                 email = "offline@example.local",
                 image = string.Empty
             });

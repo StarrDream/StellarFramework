@@ -132,7 +132,8 @@ namespace StellarFramework.Editor
         private static bool ShouldSkipType(Type type)
         {
             string namespaceName = type.Namespace ?? string.Empty;
-            return namespaceName.StartsWith("StellarFramework.Examples", StringComparison.Ordinal);
+            return namespaceName.StartsWith("StellarFramework.Examples", StringComparison.Ordinal) ||
+                   string.Equals(type.FullName, "StellarFramework.UI.UIStackManager", StringComparison.Ordinal);
         }
     }
 }

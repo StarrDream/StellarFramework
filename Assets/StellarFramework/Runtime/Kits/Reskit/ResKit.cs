@@ -240,13 +240,13 @@ namespace StellarFramework.Res
             string key = NormalizeCustomKey(request.CustomKey);
             if (string.IsNullOrEmpty(key))
             {
-                LogKit.LogError("[ResKit] Custom loader allocation failed: CustomKey is empty.");
+                LogKit.LogError("[ResKit] Custom loader allocation failed: CustomKey is empty. Register your custom backend first, then pass a non-empty CustomKey.");
                 return null;
             }
 
             if (!_customFactories.TryGetValue(key, out ResLoaderFactory factory))
             {
-                LogKit.LogError($"[ResKit] Custom loader allocation failed: factory is not registered. Key={key}");
+                LogKit.LogError($"[ResKit] Custom loader allocation failed: factory is not registered. Key={key}. Call ResKit.RegisterCustomLoader before Allocate(ResLoaderRequest.Custom(...)).");
                 return null;
             }
 

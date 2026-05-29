@@ -157,3 +157,57 @@ string itemUrl = apiConfig.GetUrl("Item.Detail", ("id", 1001));
 - 代码示例：[Example_ConfigKit.cs](</c:/GitProjects/StellarFramework/Assets/StellarFramework/Samples/KitSamples/Example_ConfigKit/Example_ConfigKit.cs:1>)
 - 样例配置：`Assets/StreamingAssets/Configs/Normal/TestGameConfig.json`
 - 样例配置：`Assets/StreamingAssets/Configs/Net/TestApiConfig.json`
+
+## 可复制模板
+
+### 1. 最小加载模板
+
+```csharp
+using Cysharp.Threading.Tasks;
+using StellarFramework;
+using UnityEngine;
+
+public sealed class ConfigEntry : MonoBehaviour
+{
+    private NormalConfig _gameConfig;
+    private NetConfig _apiConfig;
+
+    private async UniTaskVoid Start()
+    {
+        _gameConfig = await ConfigKit.LoadNormalConfigAsync(
+            "GameConfig",
+            "Configs/Normal/GameConfig.json");
+
+        _apiConfig = await ConfigKit.LoadNetConfigAsync(
+            "ApiConfig",
+            "Configs/Net/ApiConfig.json");
+
+        int maxPlayer = _gameConfig.GetInt("MaxPlayers", 100);
+        string loginUrl = _apiConfig.GetUrl("Auth.Login");
+
+        Debug.Log($"最大人数: {maxPlayer}, 登录地址: {loginUrl}");
+    }
+}
+```
+
+### 2. 修改并保存模板
+
+```csharp
+using StellarFramework;
+
+public sealed class ConfigActions
+{
+    private readonly NormalConfig _gameConfig;
+
+    public ConfigActions(NormalConfig gameConfig)
+    {
+        _gameConfig = gameConfig;
+    }
+
+    public void SaveVolume(float volume)
+    {
+        _gameConfig.Set("GameSettings.MasterVolume", volume);
+        _gameConfig.Save();
+    }
+}
+```

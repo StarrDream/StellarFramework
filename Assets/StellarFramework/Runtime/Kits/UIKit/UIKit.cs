@@ -98,7 +98,9 @@ namespace StellarFramework.UI
         private readonly Dictionary<Type, UniTaskCompletionSource<UIPanelBase>> _panelLoadingTasks =
             new Dictionary<Type, UniTaskCompletionSource<UIPanelBase>>();
 
+        private readonly List<UIPanelBase> _panelStack = new List<UIPanelBase>(16);
         private CancellationTokenSource _destroyCts = new CancellationTokenSource();
+        private bool _stackCallbacksRegistered;
 
         #region 配置与初始化
 
@@ -179,6 +181,7 @@ namespace StellarFramework.UI
 
             _isInitialized = true;
             _isInitializing = false;
+            RegisterStackCallbacks();
             LogKit.Log($"[UIKit] 同步初始化完成, Strategy={_loadStrategy.GetType().Name}");
         }
 
@@ -232,6 +235,7 @@ namespace StellarFramework.UI
                 }
 
                 _isInitialized = true;
+                RegisterStackCallbacks();
                 LogKit.Log($"[UIKit] 异步初始化完成, Strategy={_loadStrategy.GetType().Name}");
             }
             catch (OperationCanceledException)
@@ -408,9 +412,9 @@ namespace StellarFramework.UI
         public static TPanel Push<TPanel>(UIPanelDataBase data = null) where TPanel : UIPanelBase
         {
             TPanel panel = OpenPanel<TPanel>(data);
-            if (panel != null)
+            if (panel != null && TryGetRuntimeInstance(nameof(Push), typeof(TPanel), out UIKit instance))
             {
-                UIStackManager.Instance?.Push(panel);
+                instance.PushToStack(panel);
             }
 
             return panel;
@@ -420,9 +424,9 @@ namespace StellarFramework.UI
             where TPanel : UIPanelBase
         {
             TPanel panel = await OpenPanelAsync<TPanel>(data);
-            if (panel != null)
+            if (panel != null && TryGetRuntimeInstance(nameof(PushAsync), typeof(TPanel), out UIKit instance))
             {
-                UIStackManager.Instance?.Push(panel);
+                instance.PushToStack(panel);
             }
 
             return panel;
@@ -430,12 +434,32 @@ namespace StellarFramework.UI
 
         public static void Pop()
         {
-            UIStackManager.Instance?.TryPop();
+            if (!TryGetRuntimeInstance(nameof(Pop), null, out UIKit instance))
+            {
+                return;
+            }
+
+            instance.TryPop();
         }
 
         public static void PopTo<TPanel>() where TPanel : UIPanelBase
         {
-            UIStackManager.Instance?.TryPopTo<TPanel>();
+            if (!TryGetRuntimeInstance(nameof(PopTo), typeof(TPanel), out UIKit instance))
+            {
+                return;
+            }
+
+            instance.TryPopTo<TPanel>();
+        }
+
+        public static void ClearStack()
+        {
+            if (!TryGetRuntimeInstance(nameof(ClearStack), null, out UIKit instance))
+            {
+                return;
+            }
+
+            instance.ClearStackInternal();
         }
 
         public static void Close<TPanel>() where TPanel : UIPanelBase
@@ -820,6 +844,8 @@ namespace StellarFramework.UI
                 panel.gameObject.SetActive(false);
             }
 
+            RemoveFromStack(panel);
+
             if (!panel.DestroyOnClose)
             {
                 return;
@@ -947,6 +973,228 @@ namespace StellarFramework.UI
 
         #endregion
 
+        #region 内部逻辑 - 堆栈
+
+        private void RegisterStackCallbacks()
+        {
+            if (_stackCallbacksRegistered)
+            {
+                return;
+            }
+
+            UIPanelBase.OnPanelClosedGlobal += HandlePanelClosed;
+            _stackCallbacksRegistered = true;
+        }
+
+        private void UnregisterStackCallbacks()
+        {
+            if (!_stackCallbacksRegistered)
+            {
+                return;
+            }
+
+            UIPanelBase.OnPanelClosedGlobal -= HandlePanelClosed;
+            _stackCallbacksRegistered = false;
+        }
+
+        private void PushToStack(UIPanelBase panel)
+        {
+            if (panel == null)
+            {
+                LogKit.LogError("[UIKit] PushToStack 失败: panel 为空");
+                return;
+            }
+
+            CleanupInvalidStackPanels();
+
+            int existedIndex = _panelStack.IndexOf(panel);
+            if (existedIndex >= 0)
+            {
+                _panelStack.RemoveAt(existedIndex);
+            }
+
+            _panelStack.Add(panel);
+            EvaluateStackVisibility();
+        }
+
+        private void RemoveFromStack(UIPanelBase panel)
+        {
+            if (panel == null)
+            {
+                return;
+            }
+
+            CleanupInvalidStackPanels();
+
+            if (_panelStack.Remove(panel))
+            {
+                EvaluateStackVisibility();
+            }
+        }
+
+        private UIPanelBase PeekStack()
+        {
+            CleanupInvalidStackPanels();
+
+            if (_panelStack.Count == 0)
+            {
+                return null;
+            }
+
+            return _panelStack[_panelStack.Count - 1];
+        }
+
+        private bool TryPop()
+        {
+            UIPanelBase top = PeekStack();
+            if (top == null)
+            {
+                LogKit.LogWarning("[UIKit] Pop skipped: stack is empty.");
+                return false;
+            }
+
+            ClosePanel(top.GetType());
+            return true;
+        }
+
+        private bool TryPopTo<TPanel>() where TPanel : UIPanelBase
+        {
+            CleanupInvalidStackPanels();
+
+            if (_panelStack.Count == 0)
+            {
+                LogKit.LogWarning($"[UIKit] PopTo skipped: stack is empty, TargetPanel={typeof(TPanel).Name}");
+                return false;
+            }
+
+            for (int i = _panelStack.Count - 1; i >= 0; i--)
+            {
+                UIPanelBase panel = _panelStack[i];
+                if (panel == null)
+                {
+                    continue;
+                }
+
+                if (panel is TPanel)
+                {
+                    EvaluateStackVisibility();
+                    return true;
+                }
+
+                ClosePanel(panel.GetType());
+            }
+
+            LogKit.LogWarning($"[UIKit] PopTo failed: target panel was not found in stack. TargetPanel={typeof(TPanel).Name}");
+            return false;
+        }
+
+        private void ClearStackInternal()
+        {
+            CleanupInvalidStackPanels();
+
+            if (_panelStack.Count == 0)
+            {
+                LogKit.LogWarning("[UIKit] ClearStack skipped: stack is empty.");
+                return;
+            }
+
+            for (int i = _panelStack.Count - 1; i >= 0; i--)
+            {
+                UIPanelBase panel = _panelStack[i];
+                if (panel == null)
+                {
+                    continue;
+                }
+
+                ClosePanel(panel.GetType());
+            }
+
+            _panelStack.Clear();
+        }
+
+        private void HandlePanelClosed(UIPanelBase panel)
+        {
+            RemoveFromStack(panel);
+        }
+
+        private void EvaluateStackVisibility()
+        {
+            CleanupInvalidStackPanels();
+
+            int topFullscreenIndex = -1;
+            for (int i = _panelStack.Count - 1; i >= 0; i--)
+            {
+                UIPanelBase panel = _panelStack[i];
+                if (panel == null)
+                {
+                    continue;
+                }
+
+                if (panel.IsFullScreen)
+                {
+                    topFullscreenIndex = i;
+                    break;
+                }
+            }
+
+            for (int i = 0; i < _panelStack.Count; i++)
+            {
+                UIPanelBase panel = _panelStack[i];
+                if (panel == null)
+                {
+                    continue;
+                }
+
+                bool visible = topFullscreenIndex < 0 || i >= topFullscreenIndex;
+                ApplyStackVisible(panel, visible);
+            }
+        }
+
+        private void ApplyStackVisible(UIPanelBase panel, bool visible)
+        {
+            if (panel == null)
+            {
+                return;
+            }
+
+            CanvasGroup group = panel.CanvasGroup;
+            if (group == null)
+            {
+                LogKit.LogError(
+                    $"[UIKit] ApplyStackVisible 失败: CanvasGroup 为空, Panel={panel.GetType().Name}, TriggerObject={panel.gameObject.name}, Visible={visible}");
+                return;
+            }
+
+            bool wasVisible = group.alpha > 0.01f;
+
+            group.alpha = visible ? 1f : 0f;
+            group.interactable = visible;
+            group.blocksRaycasts = visible;
+
+            if (visible && !wasVisible)
+            {
+                panel.OnResume();
+            }
+            else if (!visible && wasVisible)
+            {
+                panel.OnPause();
+            }
+        }
+
+        private void CleanupInvalidStackPanels()
+        {
+            for (int i = _panelStack.Count - 1; i >= 0; i--)
+            {
+                UIPanelBase panel = _panelStack[i];
+                if (panel == null || panel.gameObject == null)
+                {
+                    _panelStack.RemoveAt(i);
+                }
+            }
+        }
+
+        #endregion
+
         #region 诊断
 
         private UIKitRuntimeSnapshot CreateSnapshot()
@@ -1047,11 +1295,7 @@ namespace StellarFramework.UI
         protected override void OnDestroy()
         {
             _isDisposed = true;
-
-            if (SingletonFactory.TryGetRegisteredSingleton<UIStackManager>(out UIStackManager stackManager))
-            {
-                stackManager.Dispose();
-            }
+            UnregisterStackCallbacks();
 
             if (_destroyCts != null)
             {
@@ -1081,6 +1325,7 @@ namespace StellarFramework.UI
             _panelLoadingTasks.Clear();
             _panelCache.Clear();
             _panelNames.Clear();
+            _panelStack.Clear();
             _layers.Clear();
             _roleLayers.Clear();
 

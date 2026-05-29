@@ -1,4 +1,4 @@
-# Samples / 样例总览
+﻿# Samples / 样例总览
 
 `Assets/StellarFramework/Samples` 是样例入口，分为完整业务示范和单模块最小样例两部分。
 
@@ -11,7 +11,7 @@
 
 ## 建议顺序
 
-1. `../GETTING_STARTED.md`
+1. `../快速开始.md`
 2. `KitSamples/Scenes/FrameworkValidation_Playable.unity`
 3. `ArchitectureDemo/README.md`
 4. `ArchitectureDemo/Scene/Demo.unity`
@@ -26,3 +26,4 @@
 - `KitSamples/Editor` 里的构建器会补齐样例场景、测试配置和依赖资源。
 - `SettingsKit_Playable.unity` 已加入 `KitSamples`，可直接验证设置系统的默认页、扩展页、存储和即时应用。
 - `FrameworkValidation_Playable.unity` 是推荐的新人第一站和真机前冒烟入口。
+

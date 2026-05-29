@@ -33,9 +33,9 @@ namespace StellarFramework.Examples
 
         private readonly Dictionary<string, string> _languageLabels = new Dictionary<string, string>
         {
-            { "zh-CN", "Simplified Chinese" },
+            { "zh-CN", "简体中文" },
             { "en-US", "English" },
-            { "ja-JP", "Japanese" }
+            { "ja-JP", "日语" }
         };
 
         private bool _showSubtitles = true;
@@ -46,7 +46,7 @@ namespace StellarFramework.Examples
         private string _crosshairStyle = "dot";
         private string _accentTheme = "stellar_blue";
         private string _currentLanguage = "zh-CN";
-        private string _currentLanguageLabel = "Simplified Chinese";
+        private string _currentLanguageLabel = "简体中文";
         private string _jumpBinding = "Space";
         private string _dashBinding = "LeftShift";
         private Color _accentColor = new Color(0.27f, 0.55f, 0.92f);
@@ -104,7 +104,7 @@ namespace StellarFramework.Examples
             {
                 if (SettingsKit.Save(out string error))
                 {
-                    Debug.Log("[Example_SettingsKit] Settings saved.");
+                    Debug.Log("[Example_SettingsKit] 设置已保存。");
                 }
                 else
                 {
@@ -276,21 +276,21 @@ namespace StellarFramework.Examples
             Rect area = new Rect(Screen.width - 330f, 16f, 314f, 252f);
             GUILayout.BeginArea(area, GUI.skin.box);
 
-            GUILayout.Label("SettingsKit Preview");
+            GUILayout.Label("SettingsKit 预览");
             GUILayout.Space(6f);
-            GUILayout.Label($"Language: {_currentLanguageLabel}");
-            GUILayout.Label($"Jump: {_jumpBinding}");
-            GUILayout.Label($"Dash: {_dashBinding}");
-            GUILayout.Label($"Subtitles: {FormatToggle(_showSubtitles)}");
-            GUILayout.Label($"Camera Sensitivity: {_cameraSensitivity:0.00}");
-            GUILayout.Label($"Screen Shake: {_screenShake:0.00}");
-            GUILayout.Label($"HUD Scale: {_hudScale:0.00}");
-            GUILayout.Label($"Crosshair: {_crosshairStyle}");
-            GUILayout.Label($"Accent: {_accentTheme}");
+            GUILayout.Label($"语言: {_currentLanguageLabel}");
+            GUILayout.Label($"跳跃: {_jumpBinding}");
+            GUILayout.Label($"冲刺: {_dashBinding}");
+            GUILayout.Label($"字幕: {FormatToggle(_showSubtitles)}");
+            GUILayout.Label($"镜头灵敏度: {_cameraSensitivity:0.00}");
+            GUILayout.Label($"屏幕震动: {_screenShake:0.00}");
+            GUILayout.Label($"HUD 缩放: {_hudScale:0.00}");
+            GUILayout.Label($"准星: {_crosshairStyle}");
+            GUILayout.Label($"主题色: {_accentTheme}");
             GUILayout.Space(6f);
-            GUILayout.Label("F10 Toggle Menu");
-            GUILayout.Label("F5 Save / F9 Reset All");
-            GUILayout.Label("1 Play UI Click / 2 Play Explosion");
+            GUILayout.Label("F10 显示/隐藏设置菜单");
+            GUILayout.Label("F5 保存 / F9 重置全部");
+            GUILayout.Label("1 播放 UI 点击音效 / 2 播放爆炸音效");
 
             GUILayout.EndArea();
         }
@@ -349,7 +349,7 @@ namespace StellarFramework.Examples
             GUI.Box(area, GUIContent.none);
             GUI.Label(
                 new Rect(area.x + 14f, area.y + 16f, area.width - 28f, 24f),
-                $"Subtitle Preview ({_currentLanguage})");
+                $"字幕预览 ({_currentLanguage})");
         }
 
         private void DrawDamageNumberPreview()
@@ -390,15 +390,15 @@ namespace StellarFramework.Examples
         {
             return new[]
             {
-                new SettingChoiceOption("zh-CN", "Simplified Chinese"),
+                new SettingChoiceOption("zh-CN", "简体中文"),
                 new SettingChoiceOption("en-US", "English"),
-                new SettingChoiceOption("ja-JP", "Japanese")
+                new SettingChoiceOption("ja-JP", "日语")
             };
         }
 
         private static string FormatToggle(bool value)
         {
-            return value ? "On" : "Off";
+            return value ? "开启" : "关闭";
         }
     }
 }

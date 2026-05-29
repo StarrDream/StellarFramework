@@ -93,3 +93,89 @@ public class BulletManager : MonoBehaviour
 1.  **脏数据残留**：纯 C# 对象若不实现 `IPoolable.OnRecycled` 清理内部的引用类型字段，可能导致逻辑异常。
 2.  **游离引用**：调用 `Recycle` 后，原变量依然指向该内存地址。若后续逻辑继续修改该变量，将污染池内对象。建议回收后将变量置为 null。
 3.  **双重回收拦截**：在 Editor 或 Development Build 环境下，`FactoryObjectPool` 会通过 `HashSet` 检查同一对象是否被多次 `Recycle`，若触发将通过 `LogKit.Assert` 报错。
+
+## 4. 可复制模板
+
+### 4.1 纯 C# 对象池模板
+
+```csharp
+using StellarFramework.Pool;
+using UnityEngine;
+
+public sealed class DamageTextData : IPoolable
+{
+    public int Damage;
+    public Vector3 WorldPosition;
+
+    public void OnAllocated()
+    {
+        Damage = 0;
+        WorldPosition = Vector3.zero;
+    }
+
+    public void OnRecycled()
+    {
+        Damage = 0;
+        WorldPosition = Vector3.zero;
+    }
+}
+
+public sealed class DamageTextService
+{
+    public void ShowDamage(int damage, Vector3 position)
+    {
+        DamageTextData data = PoolKit.Allocate<DamageTextData>();
+        data.Damage = damage;
+        data.WorldPosition = position;
+
+        Debug.Log($"显示伤害: {data.Damage}");
+
+        PoolKit.Recycle(data);
+    }
+}
+```
+
+### 4.2 GameObject 工厂池模板
+
+```csharp
+using StellarFramework.Pool;
+using UnityEngine;
+
+public sealed class BulletManager : MonoBehaviour
+{
+    [SerializeField] private Bullet _bulletPrefab;
+    private FactoryObjectPool<Bullet> _pool;
+
+    private void Start()
+    {
+        _pool = new FactoryObjectPool<Bullet>(
+            factoryMethod: () => Instantiate(_bulletPrefab),
+            allocateMethod: bullet => bullet.gameObject.SetActive(true),
+            recycleMethod: bullet =>
+            {
+                bullet.gameObject.SetActive(false);
+                bullet.transform.position = Vector3.zero;
+            },
+            destroyMethod: bullet =>
+            {
+                if (bullet != null)
+                {
+                    Destroy(bullet.gameObject);
+                }
+            },
+            maxCount: 100);
+    }
+
+    public Bullet Fire(Vector3 position)
+    {
+        Bullet bullet = _pool.Allocate();
+        bullet.transform.position = position;
+        return bullet;
+    }
+
+    public void Recycle(Bullet bullet)
+    {
+        _pool.Recycle(bullet);
+    }
+}
+```

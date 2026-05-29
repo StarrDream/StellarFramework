@@ -186,3 +186,54 @@ async UniTaskVoid OnClickAsync()
 除了 Unity 事件回调（如 Start, Update, ButtonClick），**尽量避免**使用 `async void`。
 *   **请使用**：`async UniTaskVoid` (无等待发后即忘) 或 `async UniTask` (可等待)。
 *   **原因**：`async void` 发生的异常无法被 try-catch 捕获，可能导致程序状态异常且难以定位。
+
+## 6. 可复制模板
+
+### 6.1 最小异步模板
+
+```csharp
+using System;
+using Cysharp.Threading.Tasks;
+using UnityEngine;
+
+public sealed class AsyncExample : MonoBehaviour
+{
+    private async UniTaskVoid Start()
+    {
+        try
+        {
+            await UniTask.Delay(TimeSpan.FromSeconds(1), cancellationToken: destroyCancellationToken);
+            Debug.Log("1 秒后执行");
+        }
+        catch (OperationCanceledException)
+        {
+            Debug.Log("对象销毁，异步任务已取消");
+        }
+    }
+}
+```
+
+### 6.2 按钮异步模板
+
+```csharp
+using Cysharp.Threading.Tasks;
+using UnityEngine;
+using UnityEngine.UI;
+
+public sealed class LoginButtonBinder : MonoBehaviour
+{
+    [SerializeField] private Button _loginButton;
+
+    private void Start()
+    {
+        _loginButton.onClick.AddListener(() => OnClickLoginAsync().Forget());
+    }
+
+    private async UniTaskVoid OnClickLoginAsync()
+    {
+        _loginButton.interactable = false;
+        await UniTask.Delay(1000, cancellationToken: destroyCancellationToken);
+        _loginButton.interactable = true;
+    }
+}
+```

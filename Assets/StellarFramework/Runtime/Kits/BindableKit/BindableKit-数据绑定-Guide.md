@@ -149,3 +149,61 @@ Stats.Remove("STR");   // 触发 Remove
 ```csharp
 prop.Register(OnValueChanged); // 使用方法组传递，避免闭包
 ```
+
+## 5. 可复制模板
+
+### 5.1 最小属性绑定模板
+
+```csharp
+using StellarFramework.Bindable;
+using UnityEngine;
+
+public sealed class PlayerWallet : MonoBehaviour
+{
+    public readonly BindableProperty<int> Gold = new BindableProperty<int>(0);
+
+    private void Start()
+    {
+        Gold.RegisterWithInitValue(OnGoldChanged)
+            .UnRegisterWhenGameObjectDestroyed(gameObject);
+    }
+
+    public void AddGold(int value)
+    {
+        Gold.Value += value;
+    }
+
+    private void OnGoldChanged(int gold)
+    {
+        Debug.Log($"金币: {gold}");
+    }
+}
+```
+
+### 5.2 列表绑定模板
+
+```csharp
+using StellarFramework.Bindable;
+using UnityEngine;
+
+public sealed class InventoryView : MonoBehaviour
+{
+    public readonly BindableList<string> Items = new BindableList<string>();
+
+    private void Start()
+    {
+        Items.Register(OnItemsChanged)
+            .UnRegisterWhenGameObjectDestroyed(gameObject);
+    }
+
+    public void AddItem(string itemName)
+    {
+        Items.Add(itemName);
+    }
+
+    private void OnItemsChanged(ListEvent<string> e)
+    {
+        Debug.Log($"背包变化: {e.Type}, 物品: {e.Item}");
+    }
+}
+```

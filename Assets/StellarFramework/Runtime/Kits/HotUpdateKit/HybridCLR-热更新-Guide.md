@@ -97,3 +97,135 @@ StellarFramework 不在 ToolHub 中处理 AA 或第三方资源插件的构建�
 - metadata 类型不匹配：重新生成 AOT metadata，并确认 HybridCLR Settings 与主工程一致。
 - 找不到入口类/方法：入口必须包含完整命名空间，方法必须是 `public static`。
 - Catalog 无更新：确认远端 `.hash` 文件已上传，`RemoteLoadPath` 指向正确版本。
+
+## 7. 可复制模板
+
+### 7.1 资源热更检查与下载
+
+适合：启动时先检查 catalog 和资源包更新，再决定是否进入大厅。
+
+```csharp
+using Cysharp.Threading.Tasks;
+using StellarFramework.HotUpdate;
+using UnityEngine;
+
+public sealed class StartupResourceUpdate : MonoBehaviour
+{
+    private async UniTaskVoid Start()
+    {
+        HotUpdateOperationResult init = await HotUpdateKit.InitializeAsync(destroyCancellationToken);
+        if (!init.Success)
+        {
+            Debug.LogError($"热更初始化失败: {init.Error}");
+            return;
+        }
+
+        HotUpdateCheckResult check = await HotUpdateKit.CheckResourceUpdatesAsync(
+            keys: new object[] { "hotupdate" },
+            updateCatalogs: true,
+            cancellationToken: destroyCancellationToken);
+
+        if (!check.Success)
+        {
+            Debug.LogError($"热更检查失败: {check.Error}");
+            return;
+        }
+
+        if (!check.HasUpdate)
+        {
+            Debug.Log("当前没有资源更新");
+            return;
+        }
+
+        HotUpdateDownloadResult download = await HotUpdateKit.DownloadResourceUpdatesAsync(
+            check.Keys,
+            progress => Debug.Log($"下载进度: {progress.Percent:P0}"),
+            destroyCancellationToken);
+
+        if (!download.Success)
+        {
+            Debug.LogError($"热更下载失败: {download.Error}");
+            return;
+        }
+
+        Debug.Log("资源热更完成，可以进入游戏");
+    }
+}
+```
+
+### 7.2 启动期代码热更
+
+适合：使用 HybridCLR 加载 `dll.bytes` 和 AOT metadata。
+
+```csharp
+using Cysharp.Threading.Tasks;
+using StellarFramework.HotUpdate;
+using StellarFramework.Res;
+using UnityEngine;
+
+public sealed class StartupCodeUpdate : MonoBehaviour
+{
+    private async UniTaskVoid Start()
+    {
+        ResKitRuntimeSettings settings = ResKitRuntimeSettings.LoadOrCreateDefault();
+        HybridCLRAAHotUpdateResult result = await HotUpdateKit.RunCodeHotUpdateAsync(
+            settings,
+            progress => Debug.Log($"代码热更进度: {progress:P0}"),
+            destroyCancellationToken);
+
+        if (!result.Success)
+        {
+            Debug.LogError($"代码热更失败: {result.Error}");
+            return;
+        }
+
+        Debug.Log("代码热更入口执行完成");
+    }
+}
+```
+
+### 7.3 一次跑完整启动链路
+
+适合：资源热更和代码热更都由统一入口在启动阶段完成。
+
+```csharp
+using Cysharp.Threading.Tasks;
+using StellarFramework.HotUpdate;
+using StellarFramework.Res;
+using UnityEngine;
+
+public sealed class StartupHotUpdateEntry : MonoBehaviour
+{
+    private async UniTaskVoid Start()
+    {
+        ResKitRuntimeSettings settings = ResKitRuntimeSettings.LoadOrCreateDefault();
+        HybridCLRAAHotUpdateResult result = await HotUpdateKit.RunStartupHotUpdateAsync(
+            settings,
+            progress => Debug.Log($"启动热更进度: {progress:P0}"),
+            destroyCancellationToken);
+
+        if (!result.Success)
+        {
+            Debug.LogError($"启动热更失败: {result.Error}");
+            return;
+        }
+
+        Debug.Log("启动热更完成，继续进入游戏逻辑");
+    }
+}
+```
+
+### 7.4 热更入口程序集模板
+
+```csharp
+namespace HotUpdate
+{
+    public static class HotUpdateMain
+    {
+        public static void Main()
+        {
+            UnityEngine.Debug.Log("进入热更程序集入口");
+        }
+    }
+}
+```

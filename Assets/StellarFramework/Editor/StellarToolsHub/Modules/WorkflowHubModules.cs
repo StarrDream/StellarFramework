@@ -35,7 +35,7 @@ namespace StellarFramework.Editor.Modules
         public override void OnGUI()
         {
             EditorGUILayout.HelpBox(
-                "样例场景构建器已收口到 Tools Hub。执行后会补齐 KitSamples 场景、测试资源和相关依赖。",
+                "样例场景构建器已经收口到 Tools Hub。执行后会补齐 KitSamples 场景、测试资源和相关依赖。",
                 MessageType.Info);
 
             if (PrimaryButton("构建 KitSamples 场景", GUILayout.Height(34)))

@@ -116,3 +116,78 @@ HttpImageDownload.ClearCache("https://cdn.example.com/avatar.png");
 
 - 代码示例：[Example_Httpkit.cs](</c:/GitProjects/StellarFramework/Assets/StellarFramework/Samples/KitSamples/Example_Httpkit/Example_Httpkit.cs:1>)
   示例入口类为 `Example_HttpKit`。
+
+## 可复制模板
+
+### 1. 最小登录模板
+
+```csharp
+using Cysharp.Threading.Tasks;
+using StellarFramework.Http;
+using UnityEngine;
+
+public sealed class LoginRequest
+{
+    public string account;
+    public string password;
+}
+
+public sealed class LoginResponse
+{
+    public string token;
+    public int uid;
+}
+
+public sealed class LoginService : MonoBehaviour
+{
+    public async UniTask<bool> LoginAsync(string account, string password)
+    {
+        var request = new LoginRequest
+        {
+            account = account,
+            password = password
+        };
+
+        (LoginResponse data, HttpResponse response) = await HttpKit.PostJsonAsync<LoginRequest, LoginResponse>(
+            "https://api.example.com/login",
+            request,
+            cancellationToken: destroyCancellationToken);
+
+        if (!response.isSuccess || data == null)
+        {
+            Debug.LogError($"登录失败: {response.error}");
+            return false;
+        }
+
+        HttpKit.SetAuthToken(data.token);
+        Debug.Log($"登录成功: uid={data.uid}");
+        return true;
+    }
+}
+```
+
+### 2. GET 拉配置模板
+
+```csharp
+using Cysharp.Threading.Tasks;
+using StellarFramework.Http;
+using UnityEngine;
+
+public sealed class ConfigPuller : MonoBehaviour
+{
+    private async UniTaskVoid Start()
+    {
+        HttpResponse response = await HttpKit.GetAsync(
+            "https://api.example.com/config",
+            cancellationToken: destroyCancellationToken);
+
+        if (!response.isSuccess)
+        {
+            Debug.LogError(response.error);
+            return;
+        }
+
+        Debug.Log(response.responseText);
+    }
+}
+```

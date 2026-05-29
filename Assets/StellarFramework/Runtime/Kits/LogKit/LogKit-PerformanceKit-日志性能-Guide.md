@@ -67,3 +67,46 @@ PerformanceUtil.ForceGarbageCollection();
 1. **前置拦截**：统一使用 `if` 进行参数与状态检查，减少深层嵌套。
 2. **异常处理**：常规业务逻辑中尽量避免使用 `try-catch` 掩盖错误。
 3. **日志内容**：`LogError` 的字符串建议包含：`[所在类/模块]`、`触发对象名`、`关键变量当前状态`。
+
+## 5. 可复制模板
+
+### 5.1 最小日志模板
+
+```csharp
+using StellarFramework;
+using UnityEngine;
+
+public sealed class BattleBootstrap : MonoBehaviour
+{
+    private void Start()
+    {
+        LogKit.Log("[BattleBootstrap] 战斗初始化开始");
+        LogKit.LogWarning("[BattleBootstrap] 使用默认配置继续启动");
+    }
+}
+```
+
+### 5.2 性能测量模板
+
+```csharp
+using StellarFramework;
+using UnityEngine;
+
+public sealed class PerfExample : MonoBehaviour
+{
+    private void Start()
+    {
+        PerformanceUtil.MeasureExecutionTime(() =>
+        {
+            LoadBattleData();
+        }, "LoadBattleData");
+
+        PerformanceUtil.LogMemoryUsage();
+    }
+
+    private void LoadBattleData()
+    {
+        LogKit.AssertNotNull(gameObject, "PerfExample 所在对象不能为空");
+    }
+}
+```

@@ -1,4 +1,4 @@
-﻿#if UNITY_EDITOR
+#if UNITY_EDITOR
 using System;
 using System.IO;
 using System.Text;
@@ -518,7 +518,7 @@ namespace StellarFramework.Editor
             GameObject runner = new GameObject("Example_FrameworkValidation_Runner");
             runner.AddComponent<FrameworkValidationRunner>();
 
-            AddGuide("Framework Validation Playable",
+            AddGuide("框架集中验收场景",
                 "集中验证 ResKit、UIKit、HotUpdateKit 的生产接线状态。它不是替代单个 Kit 示例，而是用于快速回归和真机前检查。",
                 "左侧 OnGUI 面板逐项执行：\n1. Settings / HotUpdate 配置检查\n2. Resources / AB / AA / RawText 加载\n3. UIKit 初始化、打开面板、压力测试\n4. 清理生成对象和报告",
                 "运行前建议先通过 Example Builder 生成样例资源。AB 使用本框架 Tools Hub 构建；AA 使用 Addressables 官方 Groups/Profiles/Build 或 Play Mode Script 模拟。",
