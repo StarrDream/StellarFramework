@@ -27,7 +27,7 @@ namespace StellarFramework.Editor
 
         public static void Generate()
         {
-            List<Type> types = TypeCache.GetTypesWithAttribute<SingletonAttribute>()
+            List<Type> types = GetSingletonTypes()
                 .Where(type => type != null)
                 .OrderBy(type => type.FullName, StringComparer.Ordinal)
                 .ToList();
@@ -135,6 +135,31 @@ namespace StellarFramework.Editor
             return namespaceName.StartsWith("StellarFramework.Examples", StringComparison.Ordinal) ||
                    string.Equals(type.FullName, "StellarFramework.UI.UIStackManager", StringComparison.Ordinal);
         }
+
+        private static IEnumerable<Type> GetSingletonTypes()
+        {
+#if UNITY_2019_2_OR_NEWER
+            return TypeCache.GetTypesWithAttribute<SingletonAttribute>();
+#else
+            return AppDomain.CurrentDomain.GetAssemblies()
+                .SelectMany(GetLoadableTypes)
+                .Where(type => type != null && type.GetCustomAttribute<SingletonAttribute>() != null);
+#endif
+        }
+
+#if !UNITY_2019_2_OR_NEWER
+        private static IEnumerable<Type> GetLoadableTypes(Assembly assembly)
+        {
+            try
+            {
+                return assembly.GetTypes();
+            }
+            catch (ReflectionTypeLoadException exception)
+            {
+                return exception.Types.Where(type => type != null);
+            }
+        }
+#endif
     }
 }
 #endif

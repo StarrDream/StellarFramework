@@ -175,13 +175,14 @@ GlobalEnumEvent.Register(GameEvent.Start, OnGameStart)
 
 主要运行入口：
 
-- `Assets/StellarFramework/Samples/ArchitectureDemo/Scene/Demo.unity`
+- `Assets/StellarFramework/Samples/ArchitectureDemo/Scene/FrameworkArchitecture_Playable.unity`
 - `Assets/StellarFramework/Samples/KitSamples/Scenes/*.unity`
 
 其中 `SettingsKit_Playable.unity` 专门用于验证设置系统的完整链路。
 
 ## 使用建议
 
-- 先从 `ArchitectureDemo` 跑通完整链路。
+- 先从 `FrameworkValidation_Playable.unity` 做集中冒烟。
 - 再按模块查看 `KitSamples`。
+- 需要理解架构分层时，再打开 `ArchitectureDemo/Scene/FrameworkArchitecture_Playable.unity`。
 - 最后回到对应模块目录下的 `English-中文-Guide.md` 对照接入细节。

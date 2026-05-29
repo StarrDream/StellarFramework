@@ -162,8 +162,8 @@ namespace StellarFramework.Editor.Modules
         {
             if (_typeEventBoxGeneric == null) return;
 
-            // TypeCache 极速获取所有实现了 ITypeEvent 的结构体
-            var eventTypes = TypeCache.GetTypesDerivedFrom<ITypeEvent>();
+            // Unity 2019.2+ 使用 TypeCache；Unity 2018 使用反射回退。
+            var eventTypes = GetTypeEventTypes();
 
             foreach (var type in eventTypes)
             {
@@ -203,6 +203,31 @@ namespace StellarFramework.Editor.Modules
                 }
             }
         }
+
+        private static IEnumerable<Type> GetTypeEventTypes()
+        {
+#if UNITY_2019_2_OR_NEWER
+            return TypeCache.GetTypesDerivedFrom<ITypeEvent>();
+#else
+            return AppDomain.CurrentDomain.GetAssemblies()
+                .SelectMany(GetLoadableTypes)
+                .Where(type => type != null && typeof(ITypeEvent).IsAssignableFrom(type));
+#endif
+        }
+
+#if !UNITY_2019_2_OR_NEWER
+        private static IEnumerable<Type> GetLoadableTypes(Assembly assembly)
+        {
+            try
+            {
+                return assembly.GetTypes();
+            }
+            catch (ReflectionTypeLoadException exception)
+            {
+                return exception.Types.Where(type => type != null);
+            }
+        }
+#endif
 
         private void ScanEnumEvents()
         {

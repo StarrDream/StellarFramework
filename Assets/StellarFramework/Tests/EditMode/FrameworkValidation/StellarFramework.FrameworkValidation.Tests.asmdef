@@ -2,7 +2,8 @@
   "name": "StellarFramework.FrameworkValidation.Tests",
   "rootNamespace": "StellarFramework.Tests",
   "references": [
-    "StellarFramework.Samples.Runtime"
+    "StellarFramework.Samples.Runtime",
+    "StellarFramework.ToolsHub.Editor"
   ],
   "includePlatforms": [
     "Editor"

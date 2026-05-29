@@ -78,8 +78,8 @@ namespace StellarFramework.Editor
             _allModules.Clear();
             _groupedModules.Clear();
 
-            // 1. 获取所有程序集中的类型 (使用 TypeCache 优化性能，Unity 2019.2+)
-            var derivedTypes = TypeCache.GetTypesDerivedFrom<ToolModule>();
+            // 1. 获取所有程序集中的类型。Unity 2019.2+ 使用 TypeCache；Unity 2018 使用反射回退。
+            var derivedTypes = GetToolModuleTypes();
 
             foreach (var type in derivedTypes)
             {
@@ -132,6 +132,31 @@ namespace StellarFramework.Editor
 
             Debug.Log($"[StellarFrameworkTools] 已加载 {_allModules.Count} 个工具模块");
         }
+
+        private static IEnumerable<Type> GetToolModuleTypes()
+        {
+#if UNITY_2019_2_OR_NEWER
+            return TypeCache.GetTypesDerivedFrom<ToolModule>();
+#else
+            return AppDomain.CurrentDomain.GetAssemblies()
+                .SelectMany(GetLoadableTypes)
+                .Where(type => type != null && typeof(ToolModule).IsAssignableFrom(type));
+#endif
+        }
+
+#if !UNITY_2019_2_OR_NEWER
+        private static IEnumerable<Type> GetLoadableTypes(Assembly assembly)
+        {
+            try
+            {
+                return assembly.GetTypes();
+            }
+            catch (ReflectionTypeLoadException exception)
+            {
+                return exception.Types.Where(type => type != null);
+            }
+        }
+#endif
 
         private void OnGUI()
         {

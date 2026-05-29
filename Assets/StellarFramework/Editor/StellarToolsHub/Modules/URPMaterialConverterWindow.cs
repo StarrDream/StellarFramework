@@ -167,7 +167,7 @@ namespace StellarFramework.Editor
             var scene = SceneManager.GetActiveScene();
             Debug.Log($"[URPMaterialConverterWindow] 开始替换材质槽：Scene={scene.name}");
 
-            var renderers = Object.FindObjectsOfType<Renderer>(true);
+            Renderer[] renderers = FindSceneRenderers();
 
             Undo.SetCurrentGroupName("StellarTools - Replace Scene Material Slots");
             int group = Undo.GetCurrentGroup();
@@ -225,6 +225,26 @@ namespace StellarFramework.Editor
 
             Debug.Log($"[URPMaterialConverterWindow] 替换完成：RendererChanged={changedRendererCount}, SlotChanged={changedSlotCount}");
             ShowNotification(new GUIContent($"替换槽位 {changedSlotCount}"));
+        }
+
+        private static Renderer[] FindSceneRenderers()
+        {
+#if UNITY_2020_1_OR_NEWER
+            return Object.FindObjectsOfType<Renderer>(true);
+#else
+            var result = new List<Renderer>();
+            Renderer[] renderers = Resources.FindObjectsOfTypeAll<Renderer>();
+            for (int i = 0; i < renderers.Length; i++)
+            {
+                Renderer renderer = renderers[i];
+                if (renderer == null) continue;
+                if (!renderer.gameObject.scene.IsValid()) continue;
+                if (EditorUtility.IsPersistent(renderer)) continue;
+                result.Add(renderer);
+            }
+
+            return result.ToArray();
+#endif
         }
 
         private static string GetHierarchyPath(GameObject go)
