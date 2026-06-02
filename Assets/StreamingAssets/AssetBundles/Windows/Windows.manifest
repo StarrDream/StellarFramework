@@ -1,0 +1,10 @@
+ManifestFileVersion: 0
+CRC: 663827697
+AssetBundleManifest:
+  AssetBundleInfos:
+    Info_0:
+      Name: stellarframework_example_example_reskit_resources_reskittest
+      Dependencies: {}
+    Info_1:
+      Name: art
+      Dependencies: {}

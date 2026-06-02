@@ -6,6 +6,8 @@
         "StellarFramework.SingletonKit",
         "StellarFramework.PoolKit",
         "StellarFramework.ResKit",
+        "StellarFramework.HttpKit",
+        "HybridCLR.Runtime",
         "GUID:f51ebe6a0ceec4240a699833d6309b23"
     ],
     "includePlatforms": [],

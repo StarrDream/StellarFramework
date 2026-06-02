@@ -1,0 +1,14 @@
+﻿{
+    "version": 1,
+    "buildTarget": "StandaloneWindows64",
+    "hotUpdateAssemblyKey": "Assets/GameHotUpdate/Code/HotUpdate.dll.bytes",
+    "hotUpdateAssemblySha256": "06236198303236dbfe51c7d2ec6dffce78b34c9a0148501ad69b73eb78652be9",
+    "hotUpdateEntryClass": "HotUpdate.HotUpdateMain",
+    "hotUpdateEntryMethod": "Main",
+    "aotMetadataKeys": [
+        "Assets/GameHotUpdate/Metadata/mscorlib.dll.bytes",
+        "Assets/GameHotUpdate/Metadata/System.dll.bytes",
+        "Assets/GameHotUpdate/Metadata/System.Core.dll.bytes",
+        "Assets/GameHotUpdate/Metadata/UnityEngine.CoreModule.dll.bytes"
+    ]
+}

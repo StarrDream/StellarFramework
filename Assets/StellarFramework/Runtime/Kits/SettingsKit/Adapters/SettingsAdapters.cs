@@ -48,8 +48,8 @@ namespace StellarFramework.Settings
         {
             return Screen.resolutions
                 .Select(resolution => new SettingChoiceOption(
-                    $"{resolution.width}x{resolution.height}@{resolution.refreshRate}",
-                    $"{resolution.width} x {resolution.height} @ {resolution.refreshRate}Hz"))
+                    $"{resolution.width}x{resolution.height}@{GetRefreshRateValue(resolution)}",
+                    $"{resolution.width} x {resolution.height} @ {GetRefreshRateValue(resolution)}Hz"))
                 .Distinct(new OptionValueComparer())
                 .ToList();
         }
@@ -57,7 +57,7 @@ namespace StellarFramework.Settings
         public string GetCurrentResolutionValue()
         {
             Resolution current = Screen.currentResolution;
-            return $"{current.width}x{current.height}@{current.refreshRate}";
+            return $"{current.width}x{current.height}@{GetRefreshRateValue(current)}";
         }
 
         public bool ApplyResolution(string value, out string error)
@@ -68,7 +68,15 @@ namespace StellarFramework.Settings
                 return false;
             }
 
+#if UNITY_2022_2_OR_NEWER
+            Screen.SetResolution(width, height, Screen.fullScreenMode, new RefreshRate
+            {
+                numerator = (uint)Mathf.Max(1, refreshRate),
+                denominator = 1
+            });
+#else
             Screen.SetResolution(width, height, Screen.fullScreen, refreshRate);
+#endif
             error = null;
             return true;
         }
@@ -152,6 +160,21 @@ namespace StellarFramework.Settings
             Application.targetFrameRate = targetFrameRate;
             error = null;
             return true;
+        }
+
+        private static int GetRefreshRateValue(Resolution resolution)
+        {
+#if UNITY_2022_2_OR_NEWER
+            RefreshRate ratio = resolution.refreshRateRatio;
+            if (ratio.denominator == 0)
+            {
+                return 60;
+            }
+
+            return Mathf.Max(1, Mathf.RoundToInt((float)ratio.numerator / ratio.denominator));
+#else
+            return resolution.refreshRate;
+#endif
         }
 
         private static bool TryParseResolution(string token, out int width, out int height, out int refreshRate)

@@ -1,0 +1,8 @@
+{
+    "Port": 7080,
+    "RequestTimeoutSeconds": 10,
+    "AutoStartServer": true,
+    "EnableInfoLogs": true,
+    "NpmExecutablePath": "stellarframework",
+    "AllowRemoteConnections": true
+}

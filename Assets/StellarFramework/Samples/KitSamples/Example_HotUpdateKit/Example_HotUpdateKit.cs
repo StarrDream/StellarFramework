@@ -180,7 +180,7 @@ namespace StellarFramework.Examples
                     _cancellationTokenSource.Token);
 
                 _status = result.Success
-                    ? $"已进入热更入口。\nAssembly={result.LoadedAssemblyFullName}"
+                    ? $"Hot update entered.\nManifest={result.ManifestSource}\nAssembly={result.LoadedAssemblyFullName}\nKey={result.Manifest?.hotUpdateAssemblyKey}"
                     : $"热更失败。\nState={result.State}\nError={result.Error}";
             }
             catch (OperationCanceledException)

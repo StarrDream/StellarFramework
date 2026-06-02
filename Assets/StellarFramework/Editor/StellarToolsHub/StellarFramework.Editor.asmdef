@@ -18,7 +18,8 @@
         "StellarFramework.SingletonKit",
         "StellarFramework.UIKit",
         "StellarFramework.UIKit.Editor",
-        "StellarFramework.Singleton.Editor"
+        "StellarFramework.Singleton.Editor",
+        "Unity.Addressables.Editor"
     ],
     "includePlatforms": [
         "Editor"

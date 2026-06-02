@@ -1,0 +1,60 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bbb281ee3bf0b054c82ac2347e9e782c, type: 3}
+  m_Name: StellarFramework Hot Update Code
+  m_EditorClassIdentifier: 
+  m_GroupName: StellarFramework Hot Update Code
+  m_Data:
+    m_SerializedData: []
+  m_GUID: defb5250cd2649941bef3c9c9de8653d
+  m_SerializeEntries:
+  - m_GUID: 3be0aea5c2abe534a90b106ccb50577d
+    m_Address: Assets/GameHotUpdate/Metadata/UnityEngine.CoreModule.dll.bytes
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - codehotfix
+    - hotupdate
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 79221cd9a5b171b49a1ced0d6511b6c5
+    m_Address: Assets/GameHotUpdate/Code/HotUpdate.dll.bytes
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - codehotfix
+    - hotupdate
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 81540d2562712f046bb25946b53c5658
+    m_Address: Assets/GameHotUpdate/Metadata/mscorlib.dll.bytes
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - codehotfix
+    - hotupdate
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 8aaab98cf6e59ca43aeee724307bd284
+    m_Address: Assets/GameHotUpdate/Metadata/System.Core.dll.bytes
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - codehotfix
+    - hotupdate
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 91ad0b84184654e479271043cf6bbc2f
+    m_Address: Assets/GameHotUpdate/Metadata/System.dll.bytes
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - codehotfix
+    - hotupdate
+    FlaggedDuringContentUpdateRestriction: 0
+  m_ReadOnly: 0
+  m_Settings: {fileID: 11400000, guid: 2bc0240c0c1b50d47b0db83fc93ebc91, type: 2}
+  m_SchemaSet:
+    m_Schemas:
+    - {fileID: 11400000, guid: d92e1a449bccae445b8c0dbf2b2b3964, type: 2}
+    - {fileID: 11400000, guid: 4126f9c8c3da02c45bc8f6ffdc338068, type: 2}

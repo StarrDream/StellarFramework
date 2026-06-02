@@ -21,6 +21,8 @@ namespace StellarFramework.Editor.Modules
             public string Path;
             public string RelativePath;
             public string DisplayName;
+            public string Category;
+            public int SortOrder;
         }
 
         public override string Icon => "d_TextAsset Icon";
@@ -75,12 +77,26 @@ namespace StellarFramework.Editor.Modules
                     {
                         Path = normalizedPath,
                         RelativePath = relativePath,
-                        DisplayName = BuildDisplayName(normalizedPath, relativePath)
+                        DisplayName = BuildDisplayName(normalizedPath, relativePath),
+                        Category = BuildCategory(relativePath),
+                        SortOrder = BuildSortOrder(relativePath)
                     });
                 }
 
                 _docs.Sort((left, right) =>
                 {
+                    int categoryCompare = GetCategoryOrder(left.Category).CompareTo(GetCategoryOrder(right.Category));
+                    if (categoryCompare != 0)
+                    {
+                        return categoryCompare;
+                    }
+
+                    int orderCompare = left.SortOrder.CompareTo(right.SortOrder);
+                    if (orderCompare != 0)
+                    {
+                        return orderCompare;
+                    }
+
                     int titleCompare = string.Compare(left.DisplayName, right.DisplayName, StringComparison.OrdinalIgnoreCase);
                     return titleCompare != 0
                         ? titleCompare
@@ -119,8 +135,16 @@ namespace StellarFramework.Editor.Modules
                 GUILayout.Space(5);
                 
                 _leftScroll = EditorGUILayout.BeginScrollView(_leftScroll);
+                string currentCategory = null;
                 foreach (DocEntry doc in _docs)
                 {
+                    if (!string.Equals(currentCategory, doc.Category, StringComparison.Ordinal))
+                    {
+                        currentCategory = doc.Category;
+                        GUILayout.Space(6);
+                        GUILayout.Label(currentCategory, EditorStyles.miniBoldLabel);
+                    }
+
                     bool isSelected = _selectedDocPath == doc.Path;
                     
                     var oldColor = GUI.backgroundColor;
@@ -372,6 +396,127 @@ namespace StellarFramework.Editor.Modules
             }
 
             return fileName;
+        }
+
+        private static string BuildCategory(string relativePath)
+        {
+            string normalized = relativePath.Replace("\\", "/");
+            string fileName = Path.GetFileName(normalized);
+            string fileNameWithoutExtension = Path.GetFileNameWithoutExtension(normalized);
+
+            if (string.Equals(normalized, "README.md", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(fileName, "快速开始.md", StringComparison.OrdinalIgnoreCase))
+            {
+                return "快速开始和 README";
+            }
+
+            if (normalized.StartsWith("Runtime/Kits/", StringComparison.OrdinalIgnoreCase)
+                && fileNameWithoutExtension.Contains("说明文档"))
+            {
+                return "Kit 说明文档";
+            }
+
+            if (normalized.StartsWith("Runtime/Kits/", StringComparison.OrdinalIgnoreCase)
+                && fileNameWithoutExtension.Contains("源码文档"))
+            {
+                return "Kit 源码文档";
+            }
+
+            if ((normalized.StartsWith("Runtime/Core/", StringComparison.OrdinalIgnoreCase)
+                    || normalized.StartsWith("Runtime/Extensions/", StringComparison.OrdinalIgnoreCase))
+                && fileNameWithoutExtension.Contains("源码文档"))
+            {
+                return "架构/Runtime 源码文档";
+            }
+
+            if (normalized.StartsWith("Editor/StellarToolsHub/", StringComparison.OrdinalIgnoreCase))
+            {
+                return "ToolsHub 文档";
+            }
+
+            if (normalized.StartsWith("Samples/", StringComparison.OrdinalIgnoreCase)
+                || normalized.StartsWith("Tests/", StringComparison.OrdinalIgnoreCase)
+                || normalized.StartsWith("Generated/", StringComparison.OrdinalIgnoreCase)
+                || normalized.StartsWith("Resources/", StringComparison.OrdinalIgnoreCase))
+            {
+                return "Samples/Tests/Generated/Resources 文档";
+            }
+
+            if (normalized.StartsWith("Runtime/Core/", StringComparison.OrdinalIgnoreCase))
+            {
+                return "架构/Runtime 源码文档";
+            }
+
+            return "其他专题文档";
+        }
+
+        private static int GetCategoryOrder(string category)
+        {
+            switch (category)
+            {
+                case "快速开始和 README":
+                    return 0;
+                case "Kit 说明文档":
+                    return 10;
+                case "Kit 源码文档":
+                    return 20;
+                case "架构/Runtime 源码文档":
+                    return 30;
+                case "ToolsHub 文档":
+                    return 40;
+                case "Samples/Tests/Generated/Resources 文档":
+                    return 50;
+                default:
+                    return 100;
+            }
+        }
+
+        private static int BuildSortOrder(string relativePath)
+        {
+            string normalized = relativePath.Replace("\\", "/");
+            string fileName = Path.GetFileName(normalized);
+
+            if (string.Equals(normalized, "README.md", StringComparison.OrdinalIgnoreCase))
+            {
+                return 0;
+            }
+
+            if (string.Equals(fileName, "快速开始.md", StringComparison.OrdinalIgnoreCase))
+            {
+                return 1;
+            }
+
+            if (fileName.Contains("StellarToolsHub-使用手册"))
+            {
+                return 2;
+            }
+
+            if (fileName.Contains("Architecture-MSV-架构源码文档"))
+            {
+                return 3;
+            }
+
+            if (fileName.Contains("ResKit-统一资源"))
+            {
+                return 4;
+            }
+
+            if (fileName.Contains("HotUpdateKit-热更新"))
+            {
+                return 5;
+            }
+
+            if (fileName.Contains("说明文档"))
+            {
+                return 20;
+            }
+
+            if (fileName.Contains("源码文档"))
+            {
+                return 30;
+            }
+
+            return 80;
         }
 
         private static string ExtractFirstHeader(string path)

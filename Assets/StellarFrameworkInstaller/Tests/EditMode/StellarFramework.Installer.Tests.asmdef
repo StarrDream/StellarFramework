@@ -1,0 +1,21 @@
+{
+  "name": "StellarFramework.Installer.Tests",
+  "rootNamespace": "StellarFrameworkInstaller.Tests",
+  "references": [
+    "StellarFrameworkInstaller.Editor"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": false,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false,
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ]
+}

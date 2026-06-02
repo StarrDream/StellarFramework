@@ -189,6 +189,8 @@ namespace StellarFramework.HotUpdate
         public HybridCLRAAHotUpdateRunnerState State;
         public string Error;
         public string LoadedAssemblyFullName;
+        public HotUpdateManifest Manifest;
+        public string ManifestSource;
     }
 
     public enum HotUpdateOperationStatus
@@ -622,7 +624,25 @@ namespace StellarFramework.HotUpdate
                 return Fail("ResKitRuntimeSettings is null.");
             }
 
-            if (string.IsNullOrWhiteSpace(settings.HotUpdateAssemblyKey))
+            HotUpdateManifestLoadResult manifestLoadResult = await HotUpdateManifestSourceChain.LoadAsync(
+                HotUpdateManifestSourceChain.BuildDefaultSources(settings),
+                cancellationToken);
+
+            if (!manifestLoadResult.Success || manifestLoadResult.Manifest == null)
+            {
+                return Fail(manifestLoadResult.Error);
+            }
+
+            HotUpdateManifest manifest = manifestLoadResult.Manifest;
+            HotUpdateManifestValidationReport manifestValidation = manifest.Validate();
+            if (!manifestValidation.IsValid)
+            {
+                return Fail("HotUpdateManifest validation failed: " + string.Join(" | ", manifestValidation.Errors));
+            }
+
+            LogKit.Log($"[HybridCLRAAHotUpdateRunner] Manifest loaded from {manifestLoadResult.Source}");
+
+            if (string.IsNullOrWhiteSpace(manifest.hotUpdateAssemblyKey))
             {
                 return Fail("HotUpdateAssemblyKey is empty.");
             }
@@ -638,7 +658,7 @@ namespace StellarFramework.HotUpdate
 
             progress?.Report(0.1f);
 
-            List<object> hotUpdateKeys = settings.BuildHotUpdateDownloadKeys();
+            List<object> hotUpdateKeys = manifest.BuildDownloadKeys();
 
             State = HybridCLRAAHotUpdateRunnerState.CheckingCatalogs;
             UpdateCheckResult checkResult = await aaManager.CheckCatalogUpdatesAsync(
@@ -674,24 +694,24 @@ namespace StellarFramework.HotUpdate
                 State = HybridCLRAAHotUpdateRunnerState.LoadingBytes;
                 Dictionary<string, byte[]> metadataBytes = await LoadMetadataBytesAsync(
                     loader,
-                    settings.AotMetadataKeys,
+                    manifest.aotMetadataKeys,
                     cancellationToken);
 
                 TextAsset hotUpdateAsset = await loader.LoadAsync<TextAsset>(
-                    settings.HotUpdateAssemblyKey,
+                    manifest.hotUpdateAssemblyKey,
                     cancellationToken);
 
                 if (hotUpdateAsset == null || hotUpdateAsset.bytes == null || hotUpdateAsset.bytes.Length == 0)
                 {
-                    return Fail($"Hot update dll.bytes load failed: {settings.HotUpdateAssemblyKey}");
+                    return Fail($"Hot update dll.bytes load failed: {manifest.hotUpdateAssemblyKey}");
                 }
 
                 byte[] hotUpdateBytes = hotUpdateAsset.bytes;
                 string actualSha256;
-                if (!VerifySha256(hotUpdateBytes, settings.HotUpdateAssemblySha256, out actualSha256))
+                if (!VerifySha256(hotUpdateBytes, manifest.hotUpdateAssemblySha256, out actualSha256))
                 {
                     return Fail(
-                        $"Hot update dll SHA256 mismatch. Key={settings.HotUpdateAssemblyKey}, Expected={settings.HotUpdateAssemblySha256}, Actual={actualSha256}");
+                        $"Hot update dll SHA256 mismatch. Key={manifest.hotUpdateAssemblyKey}, Expected={manifest.hotUpdateAssemblySha256}, Actual={actualSha256}");
                 }
 
                 progress?.Report(0.65f);
@@ -713,17 +733,17 @@ namespace StellarFramework.HotUpdate
                 progress?.Report(0.82f);
 
                 State = HybridCLRAAHotUpdateRunnerState.LoadingAssembly;
-                if (!string.IsNullOrWhiteSpace(settings.HotUpdateEntryClass))
+                if (!string.IsNullOrWhiteSpace(manifest.hotUpdateEntryClass))
                 {
-                    HybridCLRHook.HotUpdateEntryClass = settings.HotUpdateEntryClass.Trim();
+                    HybridCLRHook.HotUpdateEntryClass = manifest.hotUpdateEntryClass.Trim();
                 }
 
-                if (!string.IsNullOrWhiteSpace(settings.HotUpdateEntryMethod))
+                if (!string.IsNullOrWhiteSpace(manifest.hotUpdateEntryMethod))
                 {
-                    HybridCLRHook.HotUpdateEntryMethod = settings.HotUpdateEntryMethod.Trim();
+                    HybridCLRHook.HotUpdateEntryMethod = manifest.hotUpdateEntryMethod.Trim();
                 }
 
-                HybridCLRHook.HotUpdateAssemblyName = settings.HotUpdateAssemblyKey.Trim();
+                HybridCLRHook.HotUpdateAssemblyName = manifest.hotUpdateAssemblyKey.Trim();
 
                 bool assemblyLoaded = HybridCLRHook.LoadAndStartHotUpdateAssembly(hotUpdateBytes);
                 if (!assemblyLoaded)
@@ -737,7 +757,9 @@ namespace StellarFramework.HotUpdate
                 {
                     Success = true,
                     State = State,
-                    LoadedAssemblyFullName = HybridCLRHook.LoadedAssemblyFullName
+                    LoadedAssemblyFullName = HybridCLRHook.LoadedAssemblyFullName,
+                    Manifest = manifest,
+                    ManifestSource = manifestLoadResult.Source
                 };
             }
             catch (OperationCanceledException)

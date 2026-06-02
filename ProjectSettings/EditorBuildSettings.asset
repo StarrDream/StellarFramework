@@ -1,0 +1,12 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1045 &1
+EditorBuildSettings:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Scenes:
+  - enabled: 1
+    path: Assets/StellarFramework/Samples/KitSamples/Scenes/HotUpdateKit_Playable.unity
+    guid: 5f02b260455af154088b62fd4342403a
+  m_configObjects:
+    com.unity.addressableassets: {fileID: 11400000, guid: 23ce5dd63fb426e4186b44cb5f6ca12d, type: 2}

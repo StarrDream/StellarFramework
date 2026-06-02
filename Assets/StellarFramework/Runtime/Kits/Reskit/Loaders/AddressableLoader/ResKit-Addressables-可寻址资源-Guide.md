@@ -1,13 +1,14 @@
 # ResKit Addressables / 可寻址资源 Guide
 
-Addressables 是 ResKit 推荐的生产热更资源后端。ResKit 负责统一加载入口、运行时 Catalog 检查、依赖下载和释放；Addressables 的资源分组、Profile、构建、Analyze、Content Update 都继续使用 Unity 官方 Addressables 窗口。
+Addressables 是 ResKit 推荐的生产热更资源后端。ResKit 负责统一加载入口、运行时 Catalog 检查、依赖下载和释放；ToolsHub 的 `AA 配置与发布` 负责常用本地内置 AA 与远端热更 AA 工作流；Addressables 的 Groups、Analyze、Play Mode Script、Content Update 和 catalog/hash/bundle 机制仍以 Unity 官方流程为准。
 
 ## 1. 边界约定
 
 - AB 没有官方统一业务构建面板，StellarFramework 的 ToolHub 可以提供 AB 构建。
-- AA 使用 Unity Addressables 官方 Groups、Profiles、Analyze、Build、Content Update。
+- AA 的底层资源组织使用 Unity Addressables 官方 Groups、Profiles、Analyze、Build、Content Update。
+- ToolsHub 提供 `AA 配置与发布`，用于写入 Profile、切换 Remote Catalog、导出 Manifest、Build Addressables、复制发布目录和校验产物。
 - YooAsset 或其他第三方资源插件使用插件自己的构建界面和流水线。
-- StellarFramework 不在 ToolHub 中提供 AA 或第三方资源插件的配置/构建面板。
+- StellarFramework 不接管第三方资源插件的构建面板，只通过 `ResKit.RegisterCustomLoader` 接入第三方 loader。
 - 业务代码建议统一使用完整 `Assets/...` address。这样 AB 和 AA 可以共享资源 key。
 
 ## 2. 本地 AA 加载闭环
@@ -22,7 +23,7 @@ Addressables 是 ResKit 推荐的生产热更资源后端。ResKit 负责统一�
    - 编辑器快速验证：`Use Asset Database`
    - 模拟构建加载：`Simulate Groups`
    - 生产验收：`Use Existing Build`
-7. 如使用 `Use Existing Build`，在 Addressables 官方窗口执行 `Build -> New Build -> Default Build Script`。
+7. 如只是验证 Addressables 原生构建，可在官方窗口执行 `Build -> New Build -> Default Build Script`；如要走框架本地内置闭环，使用 ToolsHub 的 `AA 配置与发布 -> 本地内置 AA -> 一键本地内置构建`。
 8. 运行场景，通过 `AddressableLoader` 异步加载：
 
 ```csharp
@@ -36,13 +37,13 @@ GameObject prefab = await loader.LoadAsync<GameObject>(
 
 ## 3. 远端 AA 热更闭环
 
-1. 在 Addressables Settings 开启 `Build Remote Catalog`。
-2. 配置 Profile：
+1. 打开 `StellarFramework -> Tools Hub -> 热更新 -> AA 配置与发布`，选择 `远端热更 AA`。
+2. 配置远端发布目录和远端加载路径/URL。D 盘模拟可以留空 URL，让工具从发布目录推导 `file:///` 地址。
+3. 工具会写入 Addressables Profile：
    - `RemoteBuildPath`：本机输出目录。
    - `RemoteLoadPath`：客户端可访问的 CDN/文件服务器 URL。
-3. 在官方 Groups 中确认热更资源使用完整 `Assets/...` address，并设置对应 label。
-4. 在 Addressables 官方 Groups 窗口执行完整构建。
-5. 上传 remote catalog、hash 和 bundle 文件。
+4. 在官方 Groups 中确认热更资源使用完整 `Assets/...` address，并设置对应 label。
+5. 点击 `一键远端热更发布`，工具会开启 `Build Remote Catalog`、构建 Addressables、发布 catalog/hash/bundle 和 `HotUpdateManifest.json`。
 6. 启动时执行：
 
 ```csharp

@@ -373,10 +373,11 @@ namespace StellarFramework.Editor
             Scene scene = NewScene("HotUpdateKit_Playable");
             GameObject runner = new GameObject("Example_HotUpdateKit_Runner");
             runner.AddComponent<Example_HotUpdateKit>();
+            runner.AddComponent<Example_HybridCLRAAStartup>();
 
             AddGuide("HotUpdateKit Playable",
                 "演示 HybridCLRHook 当前状态读取、入口配置打印，以及基于 TextAsset 的热更加载链路验证。",
-                "运行后使用 OnGUI 面板：\n打印当前配置\n尝试用 TextAsset 验证装载链路",
+                "运行后使用 OnGUI 面板：\n打印当前配置\n尝试用 TextAsset 验证装载链路\n运行 AA 热更",
                 "该场景不会伪造热更 DLL。若要走完整流程，你仍需手动提供 HotUpdate DLL 与 AOT 元数据 TextAsset。",
                 "在未提供 DLL 的情况下，场景会明确告诉你当前只能验证配置与入口状态展示。",
                 "这是接入辅助示例，不代表完整热更发布流程。",

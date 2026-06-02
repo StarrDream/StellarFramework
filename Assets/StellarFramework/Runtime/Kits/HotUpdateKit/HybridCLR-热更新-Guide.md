@@ -27,10 +27,10 @@ HotUpdateKit 负责启动期热更新编排：资源更新走策略，代码热�
 
 ## 3. 启动期 AA 闭环
 
-1. 把 `HotUpdate.dll.bytes` 和 AOT metadata `.dll.bytes` 放入项目。
+1. 使用 ToolsHub 的 `HybridCLR DLL 导出` 把 `HotUpdate.dll` 和 AOT metadata 复制成 `.dll.bytes`，并生成 `HotUpdateManifest.json`。
 2. 在 Addressables 官方 Groups 窗口把这些文件加入 Group，address 设置为完整 `Assets/...` 路径，并添加热更 label。
-3. 在 Addressables 官方 Groups 窗口执行完整构建，或使用官方 Content Update 流程。
-4. 上传 remote catalog、hash 和 bundle。
+3. 使用 ToolsHub 的 `AA 配置与发布` 执行 `一键本地内置构建` 或 `一键远端热更发布`；需要官方 Content Update 时仍走 Addressables 官方流程。
+4. 远端模式上传或发布 remote catalog、hash、bundle 和同批次 Manifest。
 5. 游戏最早入口调用：
 
 ```csharp
@@ -46,6 +46,100 @@ if (!result.Success)
     return;
 }
 ```
+
+## 8. HotUpdateManifest.json code update flow
+
+Code hot update must not depend on a SHA value baked into the Player. `HotUpdateManifest.json`
+is the runtime source of truth for the hot-update DLL key, SHA256, AOT metadata keys, and entry
+method.
+
+The ToolHub item `HybridCLR DLL 导出` copies HybridCLR generated DLLs into `.dll.bytes` assets
+and writes two manifest copies:
+
+- `Assets/GameHotUpdate/Manifest/HotUpdateManifest.json`
+- `Assets/StreamingAssets/aa/HotUpdateManifest.json`
+
+The manifest shape is:
+
+```json
+{
+  "version": 1,
+  "buildTarget": "StandaloneWindows64",
+  "hotUpdateAssemblyKey": "Assets/GameHotUpdate/Code/HotUpdate.dll.bytes",
+  "hotUpdateAssemblySha256": "82bb7e922f887a9460e44c5c2a282239ac5d9722dca1f0a7bf2e0536b18cb77c",
+  "hotUpdateEntryClass": "HotUpdate.HotUpdateMain",
+  "hotUpdateEntryMethod": "Main",
+  "aotMetadataKeys": [
+    "Assets/GameHotUpdate/Metadata/mscorlib.dll.bytes",
+    "Assets/GameHotUpdate/Metadata/System.dll.bytes",
+    "Assets/GameHotUpdate/Metadata/System.Core.dll.bytes",
+    "Assets/GameHotUpdate/Metadata/UnityEngine.CoreModule.dll.bytes"
+  ]
+}
+```
+
+Runtime manifest source order:
+
+1. `ResKitRuntimeSettings.HotUpdateManifestPathOrUrl`, if set.
+2. `Application.streamingAssetsPath/aa/HotUpdateManifest.json`, if StreamingAssets fallback is enabled.
+   The old `aa/<BuildTarget>/HotUpdateManifest.json` path is still tried as a compatibility fallback.
+3. The old `ResKitRuntimeSettings` DLL fields, if Resources fallback is enabled.
+
+For local AA mode, rebuild Addressables and replace the Player's `StreamingAssets/aa`
+folder. That folder should contain `HotUpdateManifest.json`, Addressables `settings.json`,
+the local catalog, and bundles under the Addressables platform folder such as
+`Windows/StandaloneWindows64`.
+
+For no-webserver remote testing, copy the AA output and manifest to a folder such as
+`D:/HotUpdate/StandaloneWindows64`, then set:
+
+```text
+HotUpdateManifestPathOrUrl = file:///D:/HotUpdate/StandaloneWindows64/HotUpdateManifest.json
+```
+
+ToolsHub provides `热更新 / AA 配置与发布` for this workflow. The default remote workflow publishes
+to `D:/HotUpdate/<BuildTarget>`, writes the matching manifest URL into
+`ResKitRuntimeSettings.asset`, and validates the manifest/catalog/hash/bundle files. Developers can
+edit local or remote workflow configs in the tool. The config asset lives under
+`Editor/StellarToolsHub/Configs`, while the currently selected item is kept per developer.
+
+For custom Addressables publishing, enable `Apply AA Profile` in the tool and optionally let it set
+`Remote.BuildPath`, `Remote.LoadPath`, and `Build Remote Catalog` before running Addressables build.
+This keeps official Addressables profiles as the source of AA layout decisions while still giving a
+single button for export, build, publish, and manifest configuration.
+
+For production HTTP/HTTPS, set the same field to an HTTP URL. The HTTP manifest source uses
+the framework `HttpKit` internally:
+
+```text
+HotUpdateManifestPathOrUrl = https://example.com/hotupdate/StandaloneWindows64/HotUpdateManifest.json
+```
+
+FTP or authenticated private delivery should implement `IHotUpdateManifestSource` and register a
+custom code hot-update strategy or runner wrapper. Keep protocol-specific credentials, retries,
+and platform behavior outside the default HTTP/file sources.
+
+Minimal startup call:
+
+```csharp
+ResKitRuntimeSettings settings = ResKitRuntimeSettings.LoadOrCreateDefault();
+HybridCLRAAHotUpdateResult result = await HotUpdateKit.RunStartupHotUpdateAsync(
+    settings,
+    progress => Debug.Log($"Hot update: {progress:P0}"),
+    destroyCancellationToken);
+
+if (!result.Success)
+{
+    Debug.LogError(result.Error);
+    return;
+}
+
+Debug.Log($"Manifest={result.ManifestSource}");
+```
+
+When a manifest is available, the runner verifies `HotUpdate.dll.bytes` against the manifest SHA.
+Changing the DLL only requires publishing the new `.dll.bytes`, its Addressables catalog/bundle
+content, and the matching `HotUpdateManifest.json`.
 
 Runner 顺序：
 
@@ -77,14 +171,14 @@ namespace HotUpdate
 
 ## 5. 产物处理
 
-StellarFramework 不在 ToolHub 中处理 AA 或第三方资源插件的构建配置。推荐在项目流水线中完成：
+当前推荐把“导出 DLL、生成 Manifest、构建和发布 AA”交给 ToolsHub 的热更新工具完成；底层 Addressables 资源分组、Analyze、Content Update 和 HybridCLR 裁剪流程仍按官方工具执行。手动或 CI 流水线需要完成同样的产物闭环：
 
 - 从 HybridCLR 输出目录复制 `.dll`。
 - 重命名为 `.dll.bytes`。
 - 计算 SHA256。
 - 将 `.dll.bytes` 和 AOT metadata 放入项目热更资源目录。
 - 在 Addressables 官方 Groups 中配置 address/labels，或由项目自己的自动化脚本完成。
-- 将热更 dll 的 key 和 SHA256 写回 `ResKitRuntimeSettings`。
+- 生成同批次 `HotUpdateManifest.json`，并确保 Manifest、catalog、hash、bundle 一起发布。
 
 真实 dll 生成、裁剪和 AOT metadata 以 HybridCLR 官方流程为准。
 

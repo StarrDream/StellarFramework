@@ -58,8 +58,8 @@ private void OnDestroy()
 ## 3. 模拟加载和构建边界
 
 - AB：框架自管构建，所以 ToolHub 提供 AssetBundle 构建、AssetMap 生成和诊断。
-- AA：使用 Addressables 官方 Play Mode Script 模拟加载，使用官方 Groups 窗口构建。
-- YooAsset/其他插件：使用插件自己的构建器，ResKit 只提供自定义 loader 接入口。
+- AA：使用 Addressables 官方 Groups、Analyze、Play Mode Script 和 Content Update；ToolsHub 的 `AA 配置与发布` 提供本地内置 AA 与远端热更 AA 的配置、构建、发布和 Manifest 校验闭环。
+- YooAsset/其他插件：使用插件自己的构建器，ResKit 只提供自定义 loader 接入口，不改变业务层 `ResKit.Allocate(...)` 调用。
 - 如果 AB 模式想在 Editor 中不构建就预览，可以注册一个 `Custom` AssetDatabase loader；不要把它混同为正式 AB 加载。
 
 ## 4. 异步、取消和释放
@@ -87,7 +87,7 @@ ResKit.Recycle(_loader);
 ## 5. 自定义 loader
 
 ```csharp
-ResKit.RegisterCustomLoader("YooAsset", () => new YooAssetResLoader());
+ResKit.RegisterCustomLoader("YooAsset", request => new YooAssetResLoader());
 
 IResLoader loader = ResKit.Allocate(new ResLoaderRequest
 {
@@ -97,7 +97,7 @@ IResLoader loader = ResKit.Allocate(new ResLoaderRequest
 });
 ```
 
-自定义加载器继承 `ResLoader`，实现同步/异步真实加载和卸载逻辑即可。
+自定义加载器继承 `ResLoader`，实现同步/异步真实加载和卸载逻辑即可。第三方系统只在启动阶段注册 loader，业务层仍然通过 `IResLoader` 和 `ResKit.Allocate(...)` 使用资源。
 
 ## 6. 常见错误排查
 

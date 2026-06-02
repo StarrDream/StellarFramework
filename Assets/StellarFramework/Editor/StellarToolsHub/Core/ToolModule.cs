@@ -50,9 +50,14 @@ namespace StellarFramework.Editor
 
         protected bool PrimaryButton(string label, params GUILayoutOption[] options)
         {
+            return PrimaryButton(new GUIContent(label), options);
+        }
+
+        protected bool PrimaryButton(GUIContent content, params GUILayoutOption[] options)
+        {
             var old = GUI.backgroundColor;
             GUI.backgroundColor = new Color(0.22f, 0.52f, 0.88f); // AccentDark
-            bool clicked = GUILayout.Button(label, Window.PrimaryButtonStyle, options);
+            bool clicked = GUILayout.Button(content, Window.PrimaryButtonStyle, options);
             GUI.backgroundColor = old;
             return clicked;
         }

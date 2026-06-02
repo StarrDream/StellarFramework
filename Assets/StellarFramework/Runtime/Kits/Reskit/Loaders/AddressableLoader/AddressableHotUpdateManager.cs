@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading;
@@ -266,7 +267,7 @@ namespace StellarFramework.Res
 
                 if (downloadKeys.Count > 0)
                 {
-                    sizeHandle = Addressables.GetDownloadSizeAsync(downloadKeys);
+                    sizeHandle = Addressables.GetDownloadSizeAsync((IEnumerable)downloadKeys);
                     result.TotalDownloadSize = await sizeHandle.ToUniTask(cancellationToken: cancellationToken);
 
                     if (sizeHandle.Status != AsyncOperationStatus.Succeeded)
@@ -369,7 +370,7 @@ namespace StellarFramework.Res
             try
             {
                 downloadHandle = Addressables.DownloadDependenciesAsync(
-                    downloadKeys,
+                    (IEnumerable)downloadKeys,
                     Addressables.MergeMode.Union,
                     false);
 

@@ -43,7 +43,7 @@
 
 - 先跑 Editor，再跑目标平台真机
 - ResKit 的 AB 构建使用本框架 Tools Hub，因为 AB 没有官方统一构建界面
-- Addressables 的模拟、构建和内容更新使用 Addressables 官方 `Groups / Profiles / Build / Content Update`，不在 Tools Hub 中重复做构建面板
+- Addressables 的 Groups、Analyze、Play Mode Script 和 Content Update 使用官方窗口；框架的本地内置 AA、远端热更 AA、Manifest 与发布目录闭环使用 ToolsHub 的 `AA 配置与发布`
 - UIKit 在 `UIKit_Playable.unity` 或 `FrameworkValidation_Playable.unity` 中执行 100 次 Open/Close 压力测试，结束后确认 Snapshot 的 `Loading=0`
 - HotUpdateKit 的真实代码热更需要 HybridCLR 产物和 AA 远端资源，本地样例只验证入口和失败诊断
 - 修改示例资源后重新生成样例，避免手动资源和文档步骤不一致

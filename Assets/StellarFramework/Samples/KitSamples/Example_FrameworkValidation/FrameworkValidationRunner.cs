@@ -123,8 +123,10 @@ namespace StellarFramework.Examples
         [SerializeField] private string resourcesPath = "ResKitTest/TestCube_Res";
         [SerializeField] private string assetBundlePath =
             "Assets/StellarFramework/Samples/KitSamples/Example_ResKit/Art/AssetBundle/TestCapsule_AB.prefab";
+#if UNITY_ADDRESSABLES
         [SerializeField] private string addressablePath =
             "Assets/StellarFramework/Samples/KitSamples/Example_ResKit/Addressables/TestSphere_AA.prefab";
+#endif
         [SerializeField] private string rawTextPath =
             "StellarFramework/Samples/KitSamples/Example_ResKit/TestText.txt";
 
@@ -297,9 +299,9 @@ namespace StellarFramework.Examples
 
             if (result.IsSuccess)
             {
-                Add(result.HasUpdate ? FrameworkValidationStatus.Warning : FrameworkValidationStatus.Passed,
-                    "Addressables Catalog",
-                    $"HasUpdate={result.HasUpdate}, Size={FormatBytes(result.TotalDownloadSize)}, Keys={result.Keys?.Count ?? 0}, Elapsed={result.ElapsedMilliseconds}ms");
+            Add(result.HasUpdate ? FrameworkValidationStatus.Warning : FrameworkValidationStatus.Passed,
+                "Addressables Catalog",
+                $"Address={addressablePath}, HasUpdate={result.HasUpdate}, Size={FormatBytes(result.TotalDownloadSize)}, Keys={result.Keys?.Count ?? 0}, Elapsed={result.ElapsedMilliseconds}ms");
                 return;
             }
 

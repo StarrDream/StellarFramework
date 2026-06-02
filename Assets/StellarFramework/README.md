@@ -1,188 +1,86 @@
-# StellarFramework / 框架总览
+# StellarFramework
 
-`Assets/StellarFramework` 是框架主目录，包含运行时代码、编辑器工具、样例、生成代码和共用资源。
+`Assets/StellarFramework` 是框架主目录，包含 Runtime Kit、MSV 架构、ToolsHub 编辑器工具、Samples、Tests、Generated 和框架默认资源。
 
-## 文档快速跳转
+这份 README 只做总入口。第一次接触框架先读快速开始；要接功能读说明文档；要维护源码读源码文档。
 
-- [仓库入口 / Repository README](../../README.md)
-- [快速开始 / Quick Start](快速开始.md)
-- [示例总览 / Samples Overview](Samples/README.md)
-- [Architecture 示例 / Architecture Demo](Samples/ArchitectureDemo/README.md)
-- [Kit 示例 / Kit Samples](Samples/KitSamples/README.md)
-- [Playable 场景入口 / Scene Index](Samples/KitSamples/Scenes/README.md)
-- [Tools Hub 文档 / Tools Hub Guide](Editor/StellarToolsHub/StellarToolsHub-工具中心-Guide.md)
+## 文档入口
 
-## 按模块跳转
+- [快速开始](快速开始.md)
+- [ToolsHub 使用手册](Editor/StellarToolsHub/StellarToolsHub-使用手册-Guide.md)
+- [ToolsHub 扩展开发手册](Editor/StellarToolsHub/StellarToolsHub-扩展开发-Guide.md)
+- [ToolsHub 源码文档](Editor/StellarToolsHub/StellarToolsHub-源码文档-Guide.md)
+- [架构说明文档](Runtime/Core/Architecture/Architecture-MSV-架构说明文档-Guide.md)
+- [架构源码文档](Runtime/Core/Architecture/Architecture-MSV-架构源码文档-Guide.md)
+- [Runtime 扩展源码文档](Runtime/Extensions/RuntimeExtensions-源码文档-Guide.md)
+- [Samples 源码文档](Samples/Samples-源码文档-Guide.md)
+- [Tests 源码文档](Tests/Tests-源码文档-Guide.md)
+- [Generated 源码文档](Generated/Generated-源码文档-Guide.md)
+- [Resources 说明与源码文档](Resources/Resources-说明与源码文档-Guide.md)
 
-- [Architecture / 架构指南](Runtime/Core/Architecture/Architecture-MSV-架构指南-Guide.md)
-- [ActionKit / 动作系统](Runtime/Kits/ActionKit/ActionKit-动作系统-Guide.md)
-- [AudioKit / 音频系统](Runtime/Kits/AudioKit/AudioKit-音频系统-Guide.md)
-- [BindableKit / 数据绑定](Runtime/Kits/BindableKit/BindableKit-数据绑定-Guide.md)
-- [ConfigKit / 配置系统](Runtime/Kits/ConfigKit/ConfigKit-配置系统-Guide.md)
-- [EventKit / 事件系统](Runtime/Kits/EventKit/EventKit-事件系统-Guide.md)
-- [FSMKit / 状态机](Runtime/Kits/FSMKit/FSMKit-状态机-Guide.md)
-- [HotUpdateKit / 热更新](Runtime/Kits/HotUpdateKit/HybridCLR-热更新-Guide.md)
-- [HttpKit / 网络请求](Runtime/Kits/HttpKit/HttpKit-网络请求-Guide.md)
-- [LogKit / 日志性能](Runtime/Kits/LogKit/LogKit-PerformanceKit-日志性能-Guide.md)
-- [PoolKit / 对象池](Runtime/Kits/PoolKit/PoolKit-对象池-Guide.md)
-- [ResKit / 统一资源](Runtime/Kits/Reskit/ResKit-统一资源-Guide.md)
-- [SettingsKit / 设置系统](Runtime/Kits/SettingsKit/SettingsKit-设置系统-Guide.md)
-- [SingletonKit / 单例系统](Runtime/Kits/SingletonKit/SingletonKit-单例系统-Guide.md)
-- [UIKit / 界面系统](Runtime/Kits/UIKit/UIKit-界面系统-Guide.md)
-- [UniTask / 异步任务](Runtime/Kits/StellarFramework-UniTask-异步任务-Guide.md)
+## Kit 说明文档
 
-## 目录结构
+说明文档讲“怎么用”：定位、入口 API、最小模板、ToolsHub 关联、样例和常见问题。
 
-- `Runtime/`
-  运行时代码与核心扩展。
-- `Editor/`
-  编辑器工具与 `Tools Hub`。
-- `Samples/`
-  示例场景、示例脚本和示例资源。
-- `Generated/`
-  代码生成产物。
-- `Resources/`
-  框架与示例共用资源。
-- `GameApp.cs`
-  默认架构入口示例。
-- `GameEntry.cs`
-  默认场景入口示例。
+- [ActionKit 说明文档](Runtime/Kits/ActionKit/ActionKit-动作系统-说明文档-Guide.md)
+- [AudioKit 说明文档](Runtime/Kits/AudioKit/AudioKit-音频系统-说明文档-Guide.md)
+- [BindableKit 说明文档](Runtime/Kits/BindableKit/BindableKit-数据绑定-说明文档-Guide.md)
+- [ConfigKit 说明文档](Runtime/Kits/ConfigKit/ConfigKit-配置系统-说明文档-Guide.md)
+- [EventKit 说明文档](Runtime/Kits/EventKit/EventKit-事件系统-说明文档-Guide.md)
+- [FSMKit 说明文档](Runtime/Kits/FSMKit/FSMKit-状态机-说明文档-Guide.md)
+- [HotUpdateKit 说明文档](Runtime/Kits/HotUpdateKit/HotUpdateKit-热更新-说明文档-Guide.md)
+- [HttpKit 说明文档](Runtime/Kits/HttpKit/HttpKit-网络请求-说明文档-Guide.md)
+- [LogKit / PerformanceKit 说明文档](Runtime/Kits/LogKit/LogKit-PerformanceKit-说明文档-Guide.md)
+- [PoolKit 说明文档](Runtime/Kits/PoolKit/PoolKit-对象池-说明文档-Guide.md)
+- [ResKit 说明文档](Runtime/Kits/Reskit/ResKit-统一资源-说明文档-Guide.md)
+- [SettingsKit 说明文档](Runtime/Kits/SettingsKit/SettingsKit-设置系统-说明文档-Guide.md)
+- [SingletonKit 说明文档](Runtime/Kits/SingletonKit/SingletonKit-单例系统-说明文档-Guide.md)
+- [UIKit 说明文档](Runtime/Kits/UIKit/UIKit-界面系统-说明文档-Guide.md)
 
-## 主要模块
+## Kit 源码文档
 
-- `Architecture`
-  MSV 架构容器与模块注册入口。
-- `ResKit`
-  `Resources / AssetBundle / Addressables` 统一加载接口。
-- `UIKit`
-  唯一 UI 门户，内建面板加载、层级管理与堆栈导航能力。
-- `EventKit`
-  枚举事件与结构体事件。
-- `BindableKit`
-  属性、列表和字典绑定。
-- `PoolKit`
-  纯 C# 对象池与工厂对象池。
-- `AudioKit`
-  BGM、音效与 Mixer 管理。
-- `ConfigKit`
-  配置加载、覆盖与保存。
-- `SettingsKit`
-  设置定义、存储、即时应用、扩展页和参考菜单。
-- `HttpKit`
-  HTTP 请求与图片下载封装。
-- `FSMKit`
-  轻量状态机。
-- `SingletonKit`
-  全局单例与场景单例管理。
+源码文档讲“怎么实现”：源码位置、核心类型、关键方法、数据流、依赖关系、扩展点和测试入口。
 
-## 程序集结构
+- [ActionKit 源码文档](Runtime/Kits/ActionKit/ActionKit-动作系统-源码文档-Guide.md)
+- [AudioKit 源码文档](Runtime/Kits/AudioKit/AudioKit-音频系统-源码文档-Guide.md)
+- [BindableKit 源码文档](Runtime/Kits/BindableKit/BindableKit-数据绑定-源码文档-Guide.md)
+- [ConfigKit 源码文档](Runtime/Kits/ConfigKit/ConfigKit-配置系统-源码文档-Guide.md)
+- [EventKit 源码文档](Runtime/Kits/EventKit/EventKit-事件系统-源码文档-Guide.md)
+- [FSMKit 源码文档](Runtime/Kits/FSMKit/FSMKit-状态机-源码文档-Guide.md)
+- [HotUpdateKit 源码文档](Runtime/Kits/HotUpdateKit/HotUpdateKit-热更新-源码文档-Guide.md)
+- [HttpKit 源码文档](Runtime/Kits/HttpKit/HttpKit-网络请求-源码文档-Guide.md)
+- [LogKit / PerformanceKit 源码文档](Runtime/Kits/LogKit/LogKit-PerformanceKit-源码文档-Guide.md)
+- [PoolKit 源码文档](Runtime/Kits/PoolKit/PoolKit-对象池-源码文档-Guide.md)
+- [ResKit 源码文档](Runtime/Kits/Reskit/ResKit-统一资源-源码文档-Guide.md)
+- [SettingsKit 源码文档](Runtime/Kits/SettingsKit/SettingsKit-设置系统-源码文档-Guide.md)
+- [SingletonKit 源码文档](Runtime/Kits/SingletonKit/SingletonKit-单例系统-源码文档-Guide.md)
+- [UIKit 源码文档](Runtime/Kits/UIKit/UIKit-界面系统-源码文档-Guide.md)
 
-- 基础运行时：
-  `StellarFramework.Runtime`
-- 按 Kit 拆分：
-  `ActionKit / AudioKit / BindableKit / ConfigKit / EventKit / FSMKit / HotUpdateKit / HttpKit / LogKit / PoolKit / ResKit / SettingsKit / SingletonKit / UIKit`
-- 示例运行时：
-  `StellarFramework.Samples.Runtime`
-- 生成代码：
-  `Generated/AssetMap/AssetMap.cs`
-  `Generated/SingletonRegister/SingletonRegister.cs`
+## 专题文档
 
-## 依赖
+- [ResKit Resources 后端](Runtime/Kits/Reskit/Loaders/ResourceLoader/ResKit-Resources-内置资源-Guide.md)
+- [ResKit Addressables 后端](Runtime/Kits/Reskit/Loaders/AddressableLoader/ResKit-Addressables-可寻址资源-Guide.md)
+- [ResKit AssetBundle 后端](Runtime/Kits/Reskit/Loaders/AssetBundleLoader/ResKit-AssetBundle-资源包-Guide.md)
+- [AA 本地内置](Runtime/Kits/HotUpdateKit/AA-LocalBuiltIn-Guide.md)
+- [AA 远端热更](Runtime/Kits/HotUpdateKit/AA-RemoteHotUpdate-Guide.md)
+- [HotUpdateManifest](Runtime/Kits/HotUpdateKit/HotUpdateManifest-Guide.md)
+- [HybridCLR 热更新](Runtime/Kits/HotUpdateKit/HybridCLR-热更新-Guide.md)
+- [UniTask 异步任务规范](Runtime/Kits/StellarFramework-UniTask-异步任务-Guide.md)
 
-必选：
+## 推荐阅读顺序
 
-- `UniTask`
-- `Newtonsoft.Json`
+1. 新人跑通项目：读 [快速开始](快速开始.md)，打开 ToolsHub 的 `Quick Start`，构建并运行样例。
+2. 接业务功能：按 Kit 说明文档复制最小模板。
+3. 接资源和热更：读 ResKit、HotUpdateKit、AA 本地内置和 AA 远端热更。
+4. 读源码和改框架：按对应模块源码文档定位关键类型、数据流和测试入口。
+5. 扩展编辑器工具：读 ToolsHub 使用手册，再读 ToolsHub 扩展开发手册和源码文档。
 
-可选：
+## 目录职责
 
-- `Addressables`
-  使用前请添加宏 `UNITY_ADDRESSABLES`
-- `HybridCLR`
-  使用前请添加宏 `HYBRIDCLR_ENABLE`
-
-## 文档命名
-
-- `README.md`
-  目录索引文件。
-- `English-中文-Guide.md`
-  专题文档。
-
-## 快速开始
-
-第一次接触框架时，建议先按 [快速开始](快速开始.md) 执行：
-
-1. 打开 `StellarFramework -> Tools Hub -> Start Here -> Quick Start`。
-2. 先执行“构建样例”。
-3. 打开 `FrameworkValidation_Playable.unity`。
-4. 再进入 `UIKit_Playable.unity` 和 `ResKit_Playable.unity`。
-
-`快速开始.md` 按业务场景整理了 UIKit、ResKit、HotUpdateKit、SettingsKit、EventKit 等常用模板，适合新人先复制代码跑起来。
-
-初始化架构：
-
-```csharp
-using StellarFramework;
-
-public class GameApp : Architecture<GameApp>
-{
-    protected override void InitModules()
-    {
-    }
-}
-```
-
-```csharp
-using UnityEngine;
-
-public class GameEntry : MonoBehaviour
-{
-    private void Start()
-    {
-        GameApp.Interface.Init();
-    }
-}
-```
-
-初始化 `UIKit`：
-
-```csharp
-await UIKit.Instance.InitAsync();
-```
-
-加载资源：
-
-```csharp
-var loader = ResKit.Allocate<ResourceLoader>();
-var prefab = await loader.LoadAsync<GameObject>("Hero");
-ResKit.Recycle(loader);
-```
-
-注册事件：
-
-```csharp
-GlobalEnumEvent.Register(GameEvent.Start, OnGameStart)
-    .UnRegisterWhenGameObjectDestroyed(gameObject);
-```
-
-## 示例入口
-
-优先查看：
-
-1. `Samples/README.md`
-2. `Samples/ArchitectureDemo/README.md`
-3. `Samples/KitSamples/README.md`
-
-主要运行入口：
-
-- `Assets/StellarFramework/Samples/ArchitectureDemo/Scene/FrameworkArchitecture_Playable.unity`
-- `Assets/StellarFramework/Samples/KitSamples/Scenes/*.unity`
-
-其中 `SettingsKit_Playable.unity` 专门用于验证设置系统的完整链路。
-
-## 使用建议
-
-- 先从 `FrameworkValidation_Playable.unity` 做集中冒烟。
-- 再按模块查看 `KitSamples`。
-- 需要理解架构分层时，再打开 `ArchitectureDemo/Scene/FrameworkArchitecture_Playable.unity`。
-- 最后回到对应模块目录下的 `English-中文-Guide.md` 对照接入细节。
+- `Runtime/Core`：MSV 架构、CoroutineRunner、Runtime 扩展方法。
+- `Runtime/Kits`：框架功能 Kit，每个 Kit 保持说明文档和源码文档双轨。
+- `Editor/StellarToolsHub`：统一编辑器工具入口、工具模块和文档中心。
+- `Samples`：可运行样例、样例构建器生成的场景与资源。
+- `Tests`：EditMode 策略测试、文档测试、运行链路测试。
+- `Generated`：工具生成的代码，例如 AssetMap 和 SingletonRegister。
+- `Resources`：框架默认设置、UIRoot、示例配置和 Resources 后端示例资源。
