@@ -1,0 +1,13 @@
+# Track only Unity project source/config folders.
+/*
+!/.gitignore
+
+!/Assets/
+!/Assets/**
+
+!/ProjectSettings/
+!/ProjectSettings/**
+
+!/Packages/
+!/Packages/**
+
