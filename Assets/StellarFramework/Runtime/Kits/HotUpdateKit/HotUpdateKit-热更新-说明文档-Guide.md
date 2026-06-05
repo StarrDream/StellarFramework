@@ -9,9 +9,11 @@ HotUpdateKit 负责把资源热更新和 HybridCLR 代码热更新串成启动�
 - `HotUpdateKit.CheckResourceUpdatesAsync(keys)`：检查 Addressables catalog 和下载大小。
 - `HotUpdateKit.DownloadResourceUpdatesAsync(keys, progress)`：下载资源依赖。
 - `HotUpdateKit.RunCodeHotUpdateAsync(...)`：运行 HybridCLR 代码热更。
-- `HotUpdateKit.RunStartupHotUpdateAsync(...)`：启动期完整热更流程。
+- `HotUpdateKit.RunStartupHotUpdateAsync(...)`：启动期代码热更快捷入口；当前等价于调用 `RunCodeHotUpdateAsync(...)`。
 - `HybridCLRHook.LoadMetadataForAOTAssembliesAsync(...)`：加载 AOT metadata。
 - `HybridCLRHook.LoadAndStartHotUpdateAssembly(bytes)`：加载热更 DLL 并调用入口。
+
+资源热更检查、catalog 更新和下载仍需显式调用 `InitializeAsync`、`CheckResourceUpdatesAsync`、`DownloadResourceUpdatesAsync`。
 
 ## ToolsHub 流程
 

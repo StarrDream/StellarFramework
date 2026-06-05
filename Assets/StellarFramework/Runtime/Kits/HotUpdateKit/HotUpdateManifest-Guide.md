@@ -59,14 +59,25 @@ Assets/StreamingAssets/aa/HotUpdateManifest.json
 }
 ```
 
+## Manifest 主 DLL 选择规则
+
+导出器会优先读取 `Resources/HotUpdateSettings.asset` 里的 `HotUpdateAssemblyKey`，并在本次导出的热更 DLL 列表中优先选择与该 key 匹配的 `.dll.bytes` 写入 `hotUpdateAssemblyKey` 和 `hotUpdateAssemblySha256`。
+
+如果当前配置为空，或本次导出列表里没有匹配项，才会退回到第一条热更 DLL 记录。
+
+这意味着：
+
+- 推荐把 `HotUpdateSettings.HotUpdateAssemblyKey` 配成最终运行时真正要加载的那个 `Assets/.../*.dll.bytes` address。
+- 如果同时导出多个热更 DLL，不要默认认为 Manifest 一定会取列表第一项。
+
 ## 运行时加载顺序
 
 `HybridCLRAAHotUpdateRunner` 会按下面顺序找 Manifest：
 
-1. `ResKitRuntimeSettings.HotUpdateManifestPathOrUrl`，如果配置了远端地址。
+1. `HotUpdateSettings.HotUpdateManifestPathOrUrl`，如果配置了远端地址。
 2. `Application.streamingAssetsPath/aa/HotUpdateManifest.json`，如果允许 StreamingAssets fallback。
    旧的 `aa/<BuildTarget>/HotUpdateManifest.json` 会作为兼容路径再尝试一次。
-3. `ResKitRuntimeSettings` 旧字段，如果允许 Resources fallback。
+3. `HotUpdateSettings` 中的旧 DLL 字段，如果允许 Resources fallback。
 
 本地内置 AA 通常走第 2 条。远端热更 AA 应该走第 1 条，并默认关闭 fallback，避免远端失败时误以为热更成功。
 
@@ -125,14 +136,13 @@ Hot update dll SHA256 mismatch
 ```csharp
 using Cysharp.Threading.Tasks;
 using StellarFramework.HotUpdate;
-using StellarFramework.Res;
 using UnityEngine;
 
 public sealed class StartupHotUpdate : MonoBehaviour
 {
     private async UniTaskVoid Start()
     {
-        ResKitRuntimeSettings settings = ResKitRuntimeSettings.LoadOrCreateDefault();
+        HotUpdateSettings settings = HotUpdateSettings.LoadOrCreateDefault();
         HybridCLRAAHotUpdateResult result = await HotUpdateKit.RunStartupHotUpdateAsync(
             settings,
             progress => Debug.Log($"Hot update: {progress:P0}"),

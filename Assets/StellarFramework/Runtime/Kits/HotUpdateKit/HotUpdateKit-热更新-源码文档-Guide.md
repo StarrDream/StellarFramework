@@ -21,7 +21,7 @@
 - `HybridCLRCodeHotUpdateStrategy`：用 `HybridCLRHook` 实现代码热更。
 - `HotUpdateManifest`：记录 DLL key、SHA256、入口类、入口方法、metadata keys、catalog 地址。
 - `IHotUpdateManifestSource`：Manifest 来源接口。
-- `RemoteHotUpdateManifestSource`、`StreamingAssetsHotUpdateManifestSource`、`AddressablesHotUpdateManifestSource`：Manifest 来源实现。
+- `FileUriHotUpdateManifestSource`、`HttpHotUpdateManifestSource`、`StreamingAssetsHotUpdateManifestSource`、`ResourcesHotUpdateManifestSource`：Manifest 来源实现。
 - `HotUpdateManifestSourceChain`：按优先级读取 Manifest。
 
 ## 关键方法
@@ -31,7 +31,7 @@
 - `HotUpdateKit.CheckResourceUpdatesAsync(...)`：调用资源策略检查 catalog 和下载大小。
 - `HotUpdateKit.DownloadResourceUpdatesAsync(...)`：下载资源依赖。
 - `HotUpdateKit.RunCodeHotUpdateAsync(...)`：运行代码热更策略。
-- `HotUpdateKit.RunStartupHotUpdateAsync(...)`：启动期检查、下载、加载代码的组合流程。
+- `HotUpdateKit.RunStartupHotUpdateAsync(...)`：启动期代码热更快捷入口；当前直接转到 `RunCodeHotUpdateAsync(...)`。
 - `HybridCLRHook.LoadMetadataForAOTAssembliesAsync(...)`：加载 AOT metadata。
 - `HybridCLRHook.LoadAndStartHotUpdateAssembly(...)`：加载 DLL，反射入口类和入口方法并执行。
 - `HybridCLRAAHotUpdateRunner.RunAsync(...)`：AA 代码热更完整 Runner。
@@ -39,7 +39,7 @@
 
 ## 数据流
 
-1. Player 启动读取 `ResKitRuntimeSettings`，获得 Manifest 地址和 fallback 策略。
+1. Player 启动读取 `HotUpdateSettings`，获得 Manifest 地址、fallback 策略、DLL key、SHA256 和 metadata keys。
 2. `HotUpdateManifestSourceChain` 优先读远端 Manifest，也可按配置回退到 StreamingAssets 或 Addressables。
 3. `HotUpdateKit.InitializeAsync` 初始化 Addressables。
 4. `AddressableHotUpdateManager` 检查 catalog/hash，必要时 `UpdateCatalogs`。
@@ -51,7 +51,7 @@
 
 - 资源热更依赖 Addressables。
 - 代码热更依赖 HybridCLR。
-- Manifest 和运行时配置依赖 ResKit 的 `ResKitRuntimeSettings`。
+- Manifest 和代码热更运行时配置依赖 `HotUpdateSettings`；资源层 loader 配置仍由 `ResKitRuntimeSettings` 负责。
 - 发布流程依赖 ToolsHub 的 AA 和 HybridCLR 导出工具。
 
 ## 扩展点

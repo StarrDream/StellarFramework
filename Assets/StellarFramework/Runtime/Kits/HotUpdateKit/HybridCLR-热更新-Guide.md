@@ -14,7 +14,7 @@ HotUpdateKit 负责启动期热更新编排：资源更新走策略，代码热�
 
 ## 2. Runtime Settings
 
-创建或打开 `Resources/ResKitRuntimeSettings.asset`，配置：
+创建或打开 `Resources/HotUpdateSettings.asset`，配置：
 
 - `HotUpdateAssemblyKey`：热更程序集 TextAsset address，例如 `Assets/Game/HotUpdate/HotUpdate.dll.bytes`。
 - `HotUpdateAssemblySha256`：热更 dll.bytes 的 SHA256；留空表示不校验。
@@ -34,7 +34,7 @@ HotUpdateKit 负责启动期热更新编排：资源更新走策略，代码热�
 5. 游戏最早入口调用：
 
 ```csharp
-ResKitRuntimeSettings settings = ResKitRuntimeSettings.LoadOrCreateDefault();
+HotUpdateSettings settings = HotUpdateSettings.LoadOrCreateDefault();
 HybridCLRAAHotUpdateResult result = await HybridCLRAAHotUpdateRunner.RunAsync(
     settings,
     progress => Debug.Log($"Hot update: {progress:P0}"),
@@ -78,12 +78,16 @@ The manifest shape is:
 }
 ```
 
+The exporter prefers the DLL whose destination asset path matches `HotUpdateSettings.HotUpdateAssemblyKey`.
+If no configured key matches the exported DLL list, it falls back to the first exported hot-update DLL.
+When multiple hot-update DLLs exist, set `HotUpdateAssemblyKey` explicitly instead of relying on list order.
+
 Runtime manifest source order:
 
-1. `ResKitRuntimeSettings.HotUpdateManifestPathOrUrl`, if set.
+1. `HotUpdateSettings.HotUpdateManifestPathOrUrl`, if set.
 2. `Application.streamingAssetsPath/aa/HotUpdateManifest.json`, if StreamingAssets fallback is enabled.
    The old `aa/<BuildTarget>/HotUpdateManifest.json` path is still tried as a compatibility fallback.
-3. The old `ResKitRuntimeSettings` DLL fields, if Resources fallback is enabled.
+3. The old `HotUpdateSettings` DLL fields, if Resources fallback is enabled.
 
 For local AA mode, rebuild Addressables and replace the Player's `StreamingAssets/aa`
 folder. That folder should contain `HotUpdateManifest.json`, Addressables `settings.json`,
@@ -99,7 +103,7 @@ HotUpdateManifestPathOrUrl = file:///D:/HotUpdate/StandaloneWindows64/HotUpdateM
 
 ToolsHub provides `热更新 / AA 配置与发布` for this workflow. The default remote workflow publishes
 to `D:/HotUpdate/<BuildTarget>`, writes the matching manifest URL into
-`ResKitRuntimeSettings.asset`, and validates the manifest/catalog/hash/bundle files. Developers can
+`HotUpdateSettings.asset`, and validates the manifest/catalog/hash/bundle files. Developers can
 edit local or remote workflow configs in the tool. The config asset lives under
 `Editor/StellarToolsHub/Configs`, while the currently selected item is kept per developer.
 
@@ -122,7 +126,7 @@ and platform behavior outside the default HTTP/file sources.
 Minimal startup call:
 
 ```csharp
-ResKitRuntimeSettings settings = ResKitRuntimeSettings.LoadOrCreateDefault();
+HotUpdateSettings settings = HotUpdateSettings.LoadOrCreateDefault();
 HybridCLRAAHotUpdateResult result = await HotUpdateKit.RunStartupHotUpdateAsync(
     settings,
     progress => Debug.Log($"Hot update: {progress:P0}"),
@@ -167,7 +171,7 @@ namespace HotUpdate
 }
 ```
 
-入口类名和方法名必须与 `ResKitRuntimeSettings` 一致，方法必须是 `public static`。
+入口类名和方法名必须与 `HotUpdateSettings` 一致，方法必须是 `public static`。
 
 ## 5. 产物处理
 
@@ -185,7 +189,7 @@ namespace HotUpdate
 ## 6. 常见错误排查
 
 - `HYBRIDCLR_ENABLE is not enabled`：未开启宏，Runner 会直接失败退出。
-- `HotUpdateAssemblyKey is empty`：检查 `ResKitRuntimeSettings` 是否在 Resources 下并配置正确。
+- `HotUpdateAssemblyKey is empty`：检查 `HotUpdateSettings` 是否在 Resources 下并配置正确。
 - SHA256 不匹配：确认上传的 dll.bytes 与配置中的 hash 是同一个文件。
 - AOT metadata 缺失：确认 `AotMetadataKeys` 都是 Addressables 可加载的 TextAsset。
 - metadata 类型不匹配：重新生成 AOT metadata，并确认 HybridCLR Settings 与主工程一致。
@@ -254,14 +258,13 @@ public sealed class StartupResourceUpdate : MonoBehaviour
 ```csharp
 using Cysharp.Threading.Tasks;
 using StellarFramework.HotUpdate;
-using StellarFramework.Res;
 using UnityEngine;
 
 public sealed class StartupCodeUpdate : MonoBehaviour
 {
     private async UniTaskVoid Start()
     {
-        ResKitRuntimeSettings settings = ResKitRuntimeSettings.LoadOrCreateDefault();
+        HotUpdateSettings settings = HotUpdateSettings.LoadOrCreateDefault();
         HybridCLRAAHotUpdateResult result = await HotUpdateKit.RunCodeHotUpdateAsync(
             settings,
             progress => Debug.Log($"代码热更进度: {progress:P0}"),
@@ -280,19 +283,18 @@ public sealed class StartupCodeUpdate : MonoBehaviour
 
 ### 7.3 一次跑完整启动链路
 
-适合：资源热更和代码热更都由统一入口在启动阶段完成。
+适合：把代码热更放到启动入口统一执行。注意 `RunStartupHotUpdateAsync(...)` 当前只封装代码热更，资源热更仍需显式调用 `InitializeAsync`、`CheckResourceUpdatesAsync` 和 `DownloadResourceUpdatesAsync`。
 
 ```csharp
 using Cysharp.Threading.Tasks;
 using StellarFramework.HotUpdate;
-using StellarFramework.Res;
 using UnityEngine;
 
 public sealed class StartupHotUpdateEntry : MonoBehaviour
 {
     private async UniTaskVoid Start()
     {
-        ResKitRuntimeSettings settings = ResKitRuntimeSettings.LoadOrCreateDefault();
+        HotUpdateSettings settings = HotUpdateSettings.LoadOrCreateDefault();
         HybridCLRAAHotUpdateResult result = await HotUpdateKit.RunStartupHotUpdateAsync(
             settings,
             progress => Debug.Log($"启动热更进度: {progress:P0}"),

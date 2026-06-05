@@ -31,6 +31,18 @@
 *   构建产物会输出到 `StreamingAssets/AssetBundles/[平台名称]` 目录下。
 *   工具会自动清理旧的、不再使用的冗余 Bundle 文件。
 
+### 步骤 5：运行时根目录配置
+
+默认情况下，`AssetBundleManager` 会从 `Application.streamingAssetsPath/AssetBundles/[平台名称]` 加载 Manifest 和 Bundle。
+
+如果需要改成别的运行时根目录，可在 `Resources/ResKitRuntimeSettings.asset` 中设置 `AssetBundleRootPath`：
+
+- 留空：使用默认目录 `StreamingAssets/AssetBundles`
+- 相对路径：相对于 `Application.streamingAssetsPath` 解析，例如 `CustomBundles` 会解析到 `StreamingAssets/CustomBundles`
+- 绝对路径：直接使用该绝对目录，例如 `D:/ABOutput`
+
+无论使用哪种形式，运行时最终都会在 `AssetBundleRootPath/[平台名称]` 下查找平台 Manifest 和 Bundle。
+
 ---
 
 ## 3. 运行时代码编写 (Runtime Coding)
