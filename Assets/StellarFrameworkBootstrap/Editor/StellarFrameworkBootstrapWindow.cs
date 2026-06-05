@@ -5,7 +5,6 @@ namespace StellarFrameworkBootstrap
 {
     internal sealed class StellarFrameworkBootstrapWindow : EditorWindow
     {
-        private readonly StellarFrameworkBootstrapInstaller _installer = new StellarFrameworkBootstrapInstaller();
         private Vector2 _scroll;
 
         [MenuItem("StellarFramework/单包安装器")]
@@ -18,8 +17,8 @@ namespace StellarFrameworkBootstrap
 
         private void Update()
         {
-            _installer.Tick();
-            if (_installer.IsBusy)
+            StellarFrameworkBootstrapInstaller.Tick();
+            if (StellarFrameworkBootstrapInstaller.IsBusy)
             {
                 Repaint();
             }
@@ -42,31 +41,31 @@ namespace StellarFrameworkBootstrap
                 MessageType.Info);
         }
 
-        private void DrawInstallActions()
+        private static void DrawInstallActions()
         {
             using (new GUILayout.VerticalScope("box"))
             {
-                using (new EditorGUI.DisabledScope(_installer.IsBusy))
+                using (new EditorGUI.DisabledScope(StellarFrameworkBootstrapInstaller.IsBusy))
                 {
                     if (GUILayout.Button("一键安装 StellarFramework", GUILayout.Height(40)))
                     {
-                        _installer.StartSinglePackageInstall();
+                        StellarFrameworkBootstrapInstaller.StartSinglePackageInstall();
                     }
                 }
             }
         }
 
-        private void DrawStatus()
+        private static void DrawStatus()
         {
             GUILayout.Space(12f);
             EditorGUILayout.LabelField("安装状态", EditorStyles.boldLabel);
 
-            foreach (string message in _installer.Messages)
+            foreach (string message in StellarFrameworkBootstrapInstaller.Messages)
             {
                 EditorGUILayout.HelpBox(message, MessageType.Info);
             }
 
-            foreach (string error in _installer.Errors)
+            foreach (string error in StellarFrameworkBootstrapInstaller.Errors)
             {
                 EditorGUILayout.HelpBox(error, MessageType.Error);
             }

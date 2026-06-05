@@ -160,6 +160,7 @@ namespace StellarFramework.Editor.Modules
         private bool _sampleBuildQueued;
         private bool _sampleBuildRunning;
         private EditorApplication.CallbackFunction _pendingSampleBuildAction;
+        private EditorApplication.CallbackFunction _pendingEnvironmentRefreshAction;
 
         public override string Icon => "d_UnityEditor.ConsoleWindow";
         public override string Description => "新人第一入口：构建样例、打开主链路场景、查看推荐路线并检查环境。";
@@ -168,7 +169,7 @@ namespace StellarFramework.Editor.Modules
         {
             _entries.Clear();
             _entries.AddRange(FrameworkQuickStartCatalog.BuildDefaultEntries().OrderBy(entry => entry.Order));
-            RefreshEnvironmentChecks();
+            _checks.Clear();
             _showWelcomePortal = true;
         }
 
@@ -178,6 +179,12 @@ namespace StellarFramework.Editor.Modules
             {
                 EditorApplication.delayCall -= _pendingSampleBuildAction;
                 _pendingSampleBuildAction = null;
+            }
+
+            if (_pendingEnvironmentRefreshAction != null)
+            {
+                EditorApplication.delayCall -= _pendingEnvironmentRefreshAction;
+                _pendingEnvironmentRefreshAction = null;
             }
         }
 
@@ -292,15 +299,34 @@ namespace StellarFramework.Editor.Modules
                     GUILayout.Label(entry.Description, EditorStyles.wordWrappedMiniLabel);
                     GUILayout.Space(4f);
 
+                    bool sampleSceneMissing = entry.ActionKind == QuickStartActionKind.OpenScene &&
+                                              !File.Exists(ToAbsoluteProjectPath(entry.TargetPath));
                     bool disableAction = entry.ActionKind == QuickStartActionKind.BuildSamples &&
                                          (_sampleBuildQueued || _sampleBuildRunning);
                     using (new EditorGUI.DisabledScope(disableAction))
                     {
-                        string actionLabel = disableAction
-                            ? (_sampleBuildRunning ? "构建中..." : "已排队")
-                            : GetActionLabel(entry.ActionKind);
+                        string actionLabel;
+                        if (sampleSceneMissing)
+                        {
+                            actionLabel = "先构建样例";
+                        }
+                        else if (disableAction)
+                        {
+                            actionLabel = _sampleBuildRunning ? "构建中..." : "已排队";
+                        }
+                        else
+                        {
+                            actionLabel = GetActionLabel(entry.ActionKind);
+                        }
+
                         if (PrimaryButton(actionLabel, GUILayout.Height(28)))
                         {
+                            if (sampleSceneMissing)
+                            {
+                                QueueSampleBuild();
+                                continue;
+                            }
+
                             ExecuteEntry(entry);
                         }
                     }
@@ -312,10 +338,16 @@ namespace StellarFramework.Editor.Modules
         {
             if (PrimaryButton("刷新环境检查", GUILayout.Height(28)))
             {
-                RefreshEnvironmentChecks();
+                QueueEnvironmentCheckRefresh();
             }
 
             GUILayout.Space(6f);
+
+            if (_checks.Count == 0)
+            {
+                EditorGUILayout.HelpBox("点击“刷新环境检查”或先进入 30 分钟上手后等待一帧，即可加载当前工程的只读环境检查结果。", MessageType.Info);
+                return;
+            }
 
             foreach (EnvironmentCheckResult check in _checks)
             {
@@ -361,7 +393,7 @@ namespace StellarFramework.Editor.Modules
                     return;
 
                 case QuickStartActionKind.ValidateEnvironment:
-                    RefreshEnvironmentChecks();
+                    QueueEnvironmentCheckRefresh();
                     return;
             }
         }
@@ -399,14 +431,32 @@ namespace StellarFramework.Editor.Modules
                     return;
                 }
 
-                RefreshEnvironmentChecks();
-                Window.ShowNotification(new GUIContent("KitSamples 构建完成"));
+                QueueEnvironmentCheckRefresh();
+                Window.ShowNotification(new GUIContent("全部样例构建完成"));
             }
             finally
             {
                 _sampleBuildRunning = false;
                 Window.Repaint();
             }
+        }
+
+        private void QueueEnvironmentCheckRefresh()
+        {
+            if (_pendingEnvironmentRefreshAction != null)
+            {
+                return;
+            }
+
+            _pendingEnvironmentRefreshAction = () =>
+            {
+                EditorApplication.delayCall -= _pendingEnvironmentRefreshAction;
+                _pendingEnvironmentRefreshAction = null;
+                RefreshEnvironmentChecks();
+                Window.Repaint();
+            };
+
+            EditorApplication.delayCall += _pendingEnvironmentRefreshAction;
         }
 
         private void RefreshEnvironmentChecks()
@@ -420,26 +470,25 @@ namespace StellarFramework.Editor.Modules
                 "Assets/StellarFramework/Resources/UIPanel/ExamplePanel.prefab",
                 "UIKit_Playable 与自动绑定示例都会用到这个 Panel。");
 
-            ResKitRuntimeSettings settings = ResKitRuntimeSettings.LoadOrCreateDefault();
-            bool hasRuntimeSettingsAsset = Resources.Load<ResKitRuntimeSettings>(ResKitRuntimeSettings.DefaultResourcesPath) != null;
+            string resKitSettingsAssetPath = FindResourcesAssetPath("ResKitRuntimeSettings");
+            bool hasRuntimeSettingsAsset = !string.IsNullOrEmpty(resKitSettingsAssetPath);
             _checks.Add(new EnvironmentCheckResult
             {
                 Name = "ResKitRuntimeSettings 可读取",
-                Passed = settings != null,
+                Passed = hasRuntimeSettingsAsset,
                 Details = hasRuntimeSettingsAsset
-                    ? "已找到 Resources/ResKitRuntimeSettings.asset，可直接驱动 ResKit 默认资源配置。"
-                    : "当前使用 ResKit 运行时默认值。建议创建 Resources/ResKitRuntimeSettings.asset 固化资源配置。"
+                    ? $"已找到 {resKitSettingsAssetPath}，可直接驱动 ResKit 默认资源配置。"
+                    : "当前未找到 Resources/ResKitRuntimeSettings.asset。请按需创建该配置资产。"
             });
 
-            Type hotUpdateSettingsType = Type.GetType("StellarFramework.HotUpdate.HotUpdateSettings, StellarFramework.HotUpdateKit");
-            bool hasHotUpdateSettingsAsset = hotUpdateSettingsType != null &&
-                                            Resources.Load("HotUpdateSettings", hotUpdateSettingsType) != null;
+            string hotUpdateSettingsAssetPath = FindResourcesAssetPath("HotUpdateSettings");
+            bool hasHotUpdateSettingsAsset = !string.IsNullOrEmpty(hotUpdateSettingsAssetPath);
             _checks.Add(new EnvironmentCheckResult
             {
                 Name = "HotUpdateSettings 可读取",
                 Passed = true,
                 Details = hasHotUpdateSettingsAsset
-                    ? "已找到 Resources/HotUpdateSettings.asset，可驱动热更 Manifest、SHA 与 AOT metadata 默认配置。"
+                    ? $"已找到 {hotUpdateSettingsAssetPath}，可驱动热更 Manifest、SHA 与 AOT metadata 默认配置。"
                     : "当前未找到 HotUpdateSettings 资产。安装器或 AA 初始化器会自动补齐；不影响基础 ResKit / UIKit 上手。"
             });
 
@@ -546,6 +595,42 @@ namespace StellarFramework.Editor.Modules
             string projectRoot = Directory.GetParent(Application.dataPath)?.FullName ?? Application.dataPath;
             string normalizedPath = assetPath.Replace('/', Path.DirectorySeparatorChar);
             return Path.Combine(projectRoot, normalizedPath);
+        }
+
+        private static string FindResourcesAssetPath(string assetNameWithoutExtension)
+        {
+            if (string.IsNullOrWhiteSpace(assetNameWithoutExtension))
+            {
+                return string.Empty;
+            }
+
+            string[] guids = AssetDatabase.FindAssets(assetNameWithoutExtension);
+            for (int i = 0; i < guids.Length; i++)
+            {
+                string assetPath = AssetDatabase.GUIDToAssetPath(guids[i]);
+                if (string.IsNullOrWhiteSpace(assetPath))
+                {
+                    continue;
+                }
+
+                string normalizedPath = assetPath.Replace('\\', '/');
+                if (!normalizedPath.Contains("/Resources/", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                if (!string.Equals(
+                        Path.GetFileNameWithoutExtension(normalizedPath),
+                        assetNameWithoutExtension,
+                        StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                return normalizedPath;
+            }
+
+            return string.Empty;
         }
 
         private static bool TryInvokeSampleSceneBuilder(out string error)

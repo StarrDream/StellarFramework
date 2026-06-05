@@ -39,6 +39,31 @@ namespace StellarFramework.Tests.FrameworkValidation
         }
 
         [Test]
+        public void QuickStartEnvironmentChecksStayReadOnly()
+        {
+            string source = ReadQuickStartSource();
+
+            Assert.That(source, Does.Not.Contain("ResKitRuntimeSettings.LoadOrCreateDefault()"));
+            Assert.That(source, Does.Not.Contain("UIKitSettings.LoadOrCreateDefault()"));
+            Assert.That(source, Does.Not.Contain("HotUpdateSettings.LoadOrCreateDefault()"));
+            Assert.That(source, Does.Not.Contain("Resources.Load<ResKitRuntimeSettings>"));
+            Assert.That(source, Does.Not.Contain("Resources.Load(\"HotUpdateSettings\""));
+            Assert.That(source, Does.Contain("AssetDatabase.FindAssets"));
+        }
+
+        [Test]
+        public void QuickStartWelcomePortalDoesNotAutoRefreshEnvironmentChecks()
+        {
+            string source = ReadQuickStartSource();
+            int methodStart = source.IndexOf("private void DrawWelcomePortal()", System.StringComparison.Ordinal);
+            int nextMethod = source.IndexOf("private void DrawGroupedEntries", methodStart, System.StringComparison.Ordinal);
+            string methodSource = source.Substring(methodStart, nextMethod - methodStart);
+
+            Assert.That(methodSource, Does.Not.Contain("QueueEnvironmentCheckRefresh()"));
+            Assert.That(methodSource, Does.Contain("_showWelcomePortal = false;"));
+        }
+
+        [Test]
         public void ToolsHubDefinesExplicitPreferredGroupOrder()
         {
             string source = ReadAssetText("Assets/StellarFramework/Editor/StellarToolsHub/Core/StellarFrameworkTools.cs");

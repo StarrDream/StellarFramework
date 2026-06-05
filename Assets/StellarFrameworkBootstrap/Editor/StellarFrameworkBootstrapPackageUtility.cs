@@ -11,7 +11,8 @@ namespace StellarFrameworkBootstrap
     [InitializeOnLoad]
     internal static class StellarFrameworkBootstrapPackageUtility
     {
-        private const string BootstrapAssetRoot = "Assets/StellarFrameworkBootstrap";
+        internal const string BootstrapAssetRoot = "Assets/StellarFrameworkBootstrap";
+
         private const string DevelopmentProjectPackagingMarkerAssetPath =
             "Assets/StellarFramework/Editor/StellarToolsHub/Modules/Packaging/StellarFrameworkPackagePublisher.cs";
         private const string EnableLogDefineSymbol = "ENABLE_LOG";
@@ -22,6 +23,7 @@ namespace StellarFrameworkBootstrap
         private const string PendingOpenToolsHubAttemptKey = "StellarFrameworkBootstrap.PendingOpenToolsHubAttempt";
         private const string PendingCleanupBootstrapSessionKey = "StellarFrameworkBootstrap.PendingCleanupBootstrap";
         private const string PendingCleanupBootstrapAttemptKey = "StellarFrameworkBootstrap.PendingCleanupBootstrapAttempt";
+        private const string PendingWindowCloseSessionKey = "StellarFrameworkBootstrap.PendingCloseBootstrapWindows";
         private const int MaxOpenToolsHubAttempts = 300;
         private const int MaxCleanupBootstrapAttempts = 30;
 
@@ -61,8 +63,8 @@ namespace StellarFrameworkBootstrap
 
         public static string GetProjectRootPath()
         {
-            return Directory.GetParent(UnityEngine.Application.dataPath)?.FullName
-                   ?? UnityEngine.Application.dataPath;
+            return Directory.GetParent(Application.dataPath)?.FullName
+                   ?? Application.dataPath;
         }
 
         public static string GetManifestPath()
@@ -83,7 +85,8 @@ namespace StellarFrameworkBootstrap
                 return string.Empty;
             }
 
-            string tempPackagePath = Path.Combine(Path.GetTempPath(),
+            string tempPackagePath = Path.Combine(
+                Path.GetTempPath(),
                 "StellarFramework-" + Guid.NewGuid().ToString("N") + ".unitypackage");
             File.Copy(payloadPath, tempPackagePath, true);
             return tempPackagePath;
@@ -146,6 +149,7 @@ namespace StellarFrameworkBootstrap
         {
             SessionState.SetBool(PendingCleanupBootstrapSessionKey, true);
             SessionState.SetInt(PendingCleanupBootstrapAttemptKey, 0);
+            SessionState.SetBool(PendingWindowCloseSessionKey, true);
         }
 
         public static bool EnsureLogKitDefine(out string message)
@@ -163,6 +167,34 @@ namespace StellarFrameworkBootstrap
             File.Delete(path);
         }
 
+        public static void CloseAllOpenWindows()
+        {
+            StellarFrameworkBootstrapWindow[] windows =
+                Resources.FindObjectsOfTypeAll<StellarFrameworkBootstrapWindow>();
+            for (int i = 0; i < windows.Length; i++)
+            {
+                StellarFrameworkBootstrapWindow window = windows[i];
+                if (window != null)
+                {
+                    window.Close();
+                }
+            }
+        }
+
+        public static bool HasPendingPostInstallRequests()
+        {
+            return SessionState.GetBool(PendingOpenToolsHubSessionKey, false) ||
+                   SessionState.GetBool(PendingCleanupBootstrapSessionKey, false) ||
+                   SessionState.GetBool(PendingWindowCloseSessionKey, false);
+        }
+
+        public static void ClearPendingPostInstallRequests()
+        {
+            ClearPendingToolsHubRequest();
+            ClearPendingBootstrapCleanupRequest();
+            SessionState.EraseBool(PendingWindowCloseSessionKey);
+        }
+
         internal static Type FindType(string fullName)
         {
             foreach (Assembly assembly in AppDomain.CurrentDomain.GetAssemblies())
@@ -175,6 +207,13 @@ namespace StellarFrameworkBootstrap
             }
 
             return null;
+        }
+
+        internal static bool IsFrameworkDevelopmentProject()
+        {
+            return File.Exists(Path.Combine(
+                GetProjectRootPath(),
+                DevelopmentProjectPackagingMarkerAssetPath.Replace('/', Path.DirectorySeparatorChar)));
         }
 
         private static void TryOpenToolsHubFromSession()
@@ -233,12 +272,21 @@ namespace StellarFrameworkBootstrap
             if (IsFrameworkDevelopmentProject())
             {
                 ClearPendingBootstrapCleanupRequest();
+                BootstrapInstallerSafeComplete();
                 return;
             }
 
             if (!AssetDatabase.IsValidFolder(BootstrapAssetRoot))
             {
                 ClearPendingBootstrapCleanupRequest();
+                BootstrapInstallerSafeComplete();
+                return;
+            }
+
+            if (SessionState.GetBool(PendingWindowCloseSessionKey, false))
+            {
+                CloseAllOpenWindows();
+                SessionState.SetBool(PendingWindowCloseSessionKey, false);
                 return;
             }
 
@@ -246,6 +294,7 @@ namespace StellarFrameworkBootstrap
             {
                 ClearPendingBootstrapCleanupRequest();
                 AssetDatabase.Refresh();
+                BootstrapInstallerSafeComplete();
                 return;
             }
 
@@ -258,19 +307,14 @@ namespace StellarFrameworkBootstrap
 
             ClearPendingBootstrapCleanupRequest();
             Debug.LogWarning("StellarFrameworkBootstrap: 安装后未能自动删除 Assets/StellarFrameworkBootstrap，请手动清理该目录。");
+            BootstrapInstallerSafeComplete();
         }
 
         private static void ClearPendingBootstrapCleanupRequest()
         {
             SessionState.EraseBool(PendingCleanupBootstrapSessionKey);
             SessionState.EraseInt(PendingCleanupBootstrapAttemptKey);
-        }
-
-        private static bool IsFrameworkDevelopmentProject()
-        {
-            return File.Exists(Path.Combine(
-                GetProjectRootPath(),
-                DevelopmentProjectPackagingMarkerAssetPath.Replace('/', Path.DirectorySeparatorChar)));
+            SessionState.EraseBool(PendingWindowCloseSessionKey);
         }
 
         private static bool TryAddDefineForSelectedBuildTarget(string define, out string message)
@@ -345,6 +389,11 @@ namespace StellarFrameworkBootstrap
             }
 
             return string.Join(";", symbols);
+        }
+
+        private static void BootstrapInstallerSafeComplete()
+        {
+            StellarFrameworkBootstrapInstaller.MarkCleanupCompleted();
         }
     }
 }

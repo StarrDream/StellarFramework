@@ -34,14 +34,14 @@
 
 - `Resources/UIPanel/UIRoot.prefab`
 - `Resources/UIPanel/ExamplePanel.prefab`
-- ResKit 示例资源和 AB 示例产物
+- ResKit 示例资源与 AB 示例源 Prefab
 - 各 Kit 的可播放场景
 - 外置验证区会单独维护 `FrameworkValidation` 场景与发布前检查工具
 
 ## 验收建议
 
 - 先跑 Editor，再跑目标平台真机
-- ResKit 的 AB 构建使用本框架 Tools Hub，因为 AB 没有官方统一构建界面
+- ResKit 的 AB 物理构建请单独使用本框架 Tools Hub 的 `资源打包 (AssetBundle)`，样例构建器不会自动生成 `StreamingAssets/AssetBundles` 产物
 - Addressables 的 Groups、Analyze、Play Mode Script 和 Content Update 使用官方窗口；框架的本地内置 AA、远端热更 AA、Manifest 与发布目录闭环使用 ToolsHub 的 `AA 配置与发布`
 - UIKit 在 `UIKit_Playable.unity` 中执行 100 次 Open/Close 压力测试，结束后确认 Snapshot 的 `Loading=0`
 - HotUpdateKit 的真实代码热更需要 HybridCLR 产物和 AA 远端资源，本地样例只验证入口和失败诊断。新人建议先跑通基础框架，再进入热更扩展路径。

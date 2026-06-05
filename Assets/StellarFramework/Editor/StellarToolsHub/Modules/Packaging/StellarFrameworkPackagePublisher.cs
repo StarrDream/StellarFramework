@@ -197,12 +197,24 @@ namespace StellarFramework.Editor.Modules
         private static readonly string[] FullPayloadExcludedPrefixes =
         {
             "Assets/StellarFramework/Editor/StellarToolsHub/Modules/Packaging",
+            "Assets/StellarFramework/Samples/KitSamples/Scenes",
+            "Assets/StellarFramework/Samples/KitSamples/Generated",
+            "Assets/StellarFramework/Samples/KitSamples/Example_ResKit/Addressables",
+            "Assets/StellarFramework/Samples/KitSamples/Example_ResKit/Art",
+            "Assets/StellarFramework/Samples/KitSamples/Example_ResKit/Resources",
+            "Assets/StellarFramework/Samples/ArchitectureDemo/Scene",
+            "Assets/StellarFramework/Samples/ArchitectureDemo/Resources",
+            "Assets/StellarFramework/Resources/Audio",
             "Assets/StellarFramework/Tests",
             "Assets/StellarFrameworkBootstrap",
             "Assets/StellarFrameworkVerification"
         };
 
-        private static readonly HashSet<string> FullPayloadExcludedExactPaths = new HashSet<string>();
+        private static readonly HashSet<string> FullPayloadExcludedExactPaths = new HashSet<string>
+        {
+            "Assets/StellarFramework/Resources/UIPanel/UIRoot.prefab",
+            "Assets/StellarFramework/Resources/UIPanel/ExamplePanel.prefab"
+        };
 
         private static readonly string[] LegacySplitPackageArtifacts =
         {
@@ -223,9 +235,21 @@ namespace StellarFramework.Editor.Modules
             "Assets/StellarFramework/Runtime/Kits/HotUpdateKit",
             "Assets/StellarFramework/Runtime/Kits/Reskit/Loaders/AddressableLoader",
             "Assets/StellarFramework/Editor/StellarToolsHub/Modules/Addressables",
+            "Assets/StellarFramework/Samples/KitSamples/Scenes",
+            "Assets/StellarFramework/Samples/KitSamples/Generated",
+            "Assets/StellarFramework/Samples/KitSamples/Example_ResKit/Addressables",
+            "Assets/StellarFramework/Samples/KitSamples/Example_ResKit/Art",
+            "Assets/StellarFramework/Samples/KitSamples/Example_ResKit/Resources",
+            "Assets/StellarFramework/Samples/ArchitectureDemo/Scene",
+            "Assets/StellarFramework/Samples/ArchitectureDemo/Resources",
+            "Assets/StellarFramework/Resources/Audio",
             "Assets/StellarFramework/Tests"
         };
 
-        private static readonly HashSet<string> BasePackageExcludedExactPaths = new HashSet<string>();
+        private static readonly HashSet<string> BasePackageExcludedExactPaths = new HashSet<string>
+        {
+            "Assets/StellarFramework/Resources/UIPanel/UIRoot.prefab",
+            "Assets/StellarFramework/Resources/UIPanel/ExamplePanel.prefab"
+        };
     }
 }

@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -8,16 +8,8 @@ namespace StellarFramework.Editor
 {
     public class URPMaterialConverterWindow : EditorWindow
     {
-        // Hub 调用入口，不再挂菜单
-        public static void Open()
-        {
-            var wnd = GetWindow<URPMaterialConverterWindow>("URP Material Converter");
-            wnd.minSize = new Vector2(860, 580);
-            wnd.Show();
-        }
-
-        private Shader _urpLit;
-        private Material _defaultUrpMaterial;
+        private Shader _targetLitShader;
+        private Material _defaultPipelineMaterial;
         private Vector2 _scroll;
 
         private bool _logEachMaterial;
@@ -26,21 +18,49 @@ namespace StellarFramework.Editor
 
         private readonly List<Material> _scannedMaterials = new List<Material>(2048);
 
+        public static void Open()
+        {
+            URPMaterialConverterWindow window =
+                GetWindow<URPMaterialConverterWindow>("Render Pipeline Material Converter");
+            window.minSize = new Vector2(860, 580);
+            window.Show();
+        }
+
         private void OnEnable()
         {
-            _urpLit = Shader.Find("Universal Render Pipeline/Lit");
-            Debug.Log($"[URPMaterialConverterWindow] OnEnable, URP Lit Shader: {(_urpLit ? _urpLit.name : "null")}");
+            RefreshTargetShader();
         }
 
         private void OnGUI()
         {
+            FrameworkRenderPipelineFamily family = StellarFramework.RenderPipelineCompatibility.CurrentFamily;
+            bool requiresConversion = family != FrameworkRenderPipelineFamily.BuiltIn;
+
             EditorGUILayout.Space(8);
-            EditorGUILayout.LabelField("URP 材质转换工具", EditorStyles.boldLabel);
+            EditorGUILayout.LabelField("渲染管线材质转换工具", EditorStyles.boldLabel);
+            EditorGUILayout.HelpBox(
+                requiresConversion
+                    ? $"当前渲染管线: {family}。工具会将 Standard 材质迁移到当前管线默认 Lit Shader。"
+                    : "当前项目使用 Built-in 管线，无需执行 SRP 材质迁移。若后续切到 URP/HDRP，可重新打开此工具执行转换。",
+                MessageType.Info);
 
             using (new GUILayout.VerticalScope(EditorStyles.helpBox))
             {
-                _urpLit = (Shader)EditorGUILayout.ObjectField("URP Lit Shader", _urpLit, typeof(Shader), false);
-                _defaultUrpMaterial = (Material)EditorGUILayout.ObjectField("默认 URP 材质(可选)", _defaultUrpMaterial, typeof(Material), false);
+                using (new GUILayout.HorizontalScope())
+                {
+                    _targetLitShader =
+                        (Shader)EditorGUILayout.ObjectField("目标 Lit Shader", _targetLitShader, typeof(Shader), false);
+                    if (GUILayout.Button("重新检测", GUILayout.Width(90)))
+                    {
+                        RefreshTargetShader();
+                    }
+                }
+
+                _defaultPipelineMaterial = (Material)EditorGUILayout.ObjectField(
+                    "默认目标材质(可选)",
+                    _defaultPipelineMaterial,
+                    typeof(Material),
+                    false);
 
                 _logEachMaterial = EditorGUILayout.Toggle("逐条输出转换日志", _logEachMaterial);
                 _replaceDefaultMaterialSlots = EditorGUILayout.Toggle("替换 Default-Material 槽", _replaceDefaultMaterialSlots);
@@ -54,10 +74,10 @@ namespace StellarFramework.Editor
                     ScanProjectMaterials();
                 }
 
-                GUI.enabled = _scannedMaterials.Count > 0;
-                if (GUILayout.Button("批量转换到 URP Lit", GUILayout.Height(30)))
+                GUI.enabled = _scannedMaterials.Count > 0 && requiresConversion;
+                if (GUILayout.Button("批量转换到当前管线 Lit", GUILayout.Height(30)))
                 {
-                    ConvertScannedToUrp();
+                    ConvertScannedToCurrentPipeline();
                 }
 
                 GUI.enabled = true;
@@ -65,7 +85,7 @@ namespace StellarFramework.Editor
 
             using (new GUILayout.HorizontalScope())
             {
-                GUI.enabled = _defaultUrpMaterial != null;
+                GUI.enabled = _defaultPipelineMaterial != null;
                 if (GUILayout.Button("替换场景材质槽(Default/Missing)", GUILayout.Height(30)))
                 {
                     ReplaceSceneMaterialSlots();
@@ -78,7 +98,7 @@ namespace StellarFramework.Editor
             using (new GUILayout.VerticalScope(EditorStyles.helpBox))
             {
                 GUILayout.Label($"扫描结果：{_scannedMaterials.Count} 个材质", EditorStyles.miniBoldLabel);
-                GUILayout.Label("提示：这里只列出所有材质，你可以在 Project 里进一步过滤/分组。", EditorStyles.miniLabel);
+                GUILayout.Label("提示：这里只列出所有材质，你可以在 Project 里进一步过滤或分组。", EditorStyles.miniLabel);
             }
 
             _scroll = EditorGUILayout.BeginScrollView(_scroll);
@@ -90,6 +110,13 @@ namespace StellarFramework.Editor
             EditorGUILayout.EndScrollView();
         }
 
+        private void RefreshTargetShader()
+        {
+            _targetLitShader = StellarFramework.RenderPipelineCompatibility.FindPreferredLitShader();
+            Debug.Log(
+                $"[URPMaterialConverterWindow] Pipeline={StellarFramework.RenderPipelineCompatibility.CurrentFamily}, TargetShader={(_targetLitShader ? _targetLitShader.name : "null")}");
+        }
+
         private void ScanProjectMaterials()
         {
             _scannedMaterials.Clear();
@@ -98,23 +125,26 @@ namespace StellarFramework.Editor
             for (int i = 0; i < guids.Length; i++)
             {
                 string path = AssetDatabase.GUIDToAssetPath(guids[i]);
-                var mat = AssetDatabase.LoadAssetAtPath<Material>(path);
-                if (mat) _scannedMaterials.Add(mat);
+                Material material = AssetDatabase.LoadAssetAtPath<Material>(path);
+                if (material != null)
+                {
+                    _scannedMaterials.Add(material);
+                }
             }
 
             Debug.Log($"[URPMaterialConverterWindow] 扫描完成：{_scannedMaterials.Count} 个材质");
             ShowNotification(new GUIContent($"扫描到 {_scannedMaterials.Count} 个材质"));
         }
 
-        private void ConvertScannedToUrp()
+        private void ConvertScannedToCurrentPipeline()
         {
-            if (_urpLit == null)
+            if (_targetLitShader == null)
             {
-                Debug.LogError("[URPMaterialConverterWindow] URP Lit Shader 为空（确认项目已启用 URP 且 Shader 可用）");
+                Debug.LogError("[URPMaterialConverterWindow] 目标 Lit Shader 为空，无法执行转换。");
                 return;
             }
 
-            Undo.SetCurrentGroupName("StellarTools - Convert Materials To URP");
+            Undo.SetCurrentGroupName("StellarTools - Convert Materials To Current Pipeline");
             int group = Undo.GetCurrentGroup();
 
             int converted = 0;
@@ -124,22 +154,23 @@ namespace StellarFramework.Editor
 
             for (int i = 0; i < _scannedMaterials.Count; i++)
             {
-                var mat = _scannedMaterials[i];
-                if (!mat)
+                Material material = _scannedMaterials[i];
+                if (material == null)
                 {
                     skipped++;
                     continue;
                 }
 
-                // 只转换 Standard，避免误伤其它自定义 Shader
-                if (mat.shader != null && mat.shader.name == "Standard")
+                if (material.shader != null && material.shader.name == "Standard")
                 {
-                    mat.shader = _urpLit;
-                    EditorUtility.SetDirty(mat);
+                    material.shader = _targetLitShader;
+                    EditorUtility.SetDirty(material);
                     converted++;
 
                     if (_logEachMaterial)
-                        Debug.Log($"[URPMaterialConverterWindow] Converted: {AssetDatabase.GetAssetPath(mat)}");
+                    {
+                        Debug.Log($"[URPMaterialConverterWindow] Converted: {AssetDatabase.GetAssetPath(material)}");
+                    }
                 }
                 else
                 {
@@ -151,20 +182,20 @@ namespace StellarFramework.Editor
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
 
-            Debug.Log($"[URPMaterialConverterWindow] 转换完成：converted={converted}, skipped={skipped}, total={_scannedMaterials.Count}");
+            Debug.Log(
+                $"[URPMaterialConverterWindow] 转换完成：converted={converted}, skipped={skipped}, total={_scannedMaterials.Count}");
             ShowNotification(new GUIContent($"转换 {converted}/{_scannedMaterials.Count}"));
         }
 
         private void ReplaceSceneMaterialSlots()
         {
-            if (_defaultUrpMaterial == null)
+            if (_defaultPipelineMaterial == null)
             {
-                Debug.LogError("[URPMaterialConverterWindow] 默认 URP 材质为空，无法替换材质槽");
+                Debug.LogError("[URPMaterialConverterWindow] 默认目标材质为空，无法替换材质槽。");
                 return;
             }
 
-            // 标记场景脏，方便用户保存
-            var scene = SceneManager.GetActiveScene();
+            Scene scene = SceneManager.GetActiveScene();
             Debug.Log($"[URPMaterialConverterWindow] 开始替换材质槽：Scene={scene.name}");
 
             Renderer[] renderers = FindSceneRenderers();
@@ -177,53 +208,63 @@ namespace StellarFramework.Editor
 
             for (int i = 0; i < renderers.Length; i++)
             {
-                var r = renderers[i];
-                if (!r) continue;
+                Renderer renderer = renderers[i];
+                if (renderer == null)
+                {
+                    continue;
+                }
 
-                var mats = r.sharedMaterials;
-                if (mats == null || mats.Length == 0) continue;
+                Material[] materials = renderer.sharedMaterials;
+                if (materials == null || materials.Length == 0)
+                {
+                    continue;
+                }
 
                 bool changed = false;
 
-                for (int k = 0; k < mats.Length; k++)
+                for (int k = 0; k < materials.Length; k++)
                 {
-                    var m = mats[k];
+                    Material material = materials[k];
 
-                    // Missing：m == null
-                    if (_replaceMissingMaterialSlots && m == null)
+                    if (_replaceMissingMaterialSlots && material == null)
                     {
-                        mats[k] = _defaultUrpMaterial;
+                        materials[k] = _defaultPipelineMaterial;
                         changed = true;
                         changedSlotCount++;
                         continue;
                     }
 
-                    // Default-Material：Unity 内置默认材质的常见 name
-                    if (_replaceDefaultMaterialSlots && m != null && (m.name == "Default-Material" || m.name == "Default Material"))
+                    if (_replaceDefaultMaterialSlots &&
+                        material != null &&
+                        (material.name == "Default-Material" || material.name == "Default Material"))
                     {
-                        mats[k] = _defaultUrpMaterial;
+                        materials[k] = _defaultPipelineMaterial;
                         changed = true;
                         changedSlotCount++;
                     }
                 }
 
-                if (changed)
+                if (!changed)
                 {
-                    Undo.RecordObject(r, "Replace Renderer Materials");
-                    r.sharedMaterials = mats;
-                    EditorUtility.SetDirty(r);
-                    changedRendererCount++;
+                    continue;
+                }
 
-                    if (_logEachMaterial)
-                        Debug.Log($"[URPMaterialConverterWindow] Replaced slots: {GetHierarchyPath(r.gameObject)}");
+                Undo.RecordObject(renderer, "Replace Renderer Materials");
+                renderer.sharedMaterials = materials;
+                EditorUtility.SetDirty(renderer);
+                changedRendererCount++;
+
+                if (_logEachMaterial)
+                {
+                    Debug.Log($"[URPMaterialConverterWindow] Replaced slots: {GetHierarchyPath(renderer.gameObject)}");
                 }
             }
 
             Undo.CollapseUndoOperations(group);
-
             EditorSceneManager.MarkSceneDirty(scene);
 
-            Debug.Log($"[URPMaterialConverterWindow] 替换完成：RendererChanged={changedRendererCount}, SlotChanged={changedSlotCount}");
+            Debug.Log(
+                $"[URPMaterialConverterWindow] 替换完成：RendererChanged={changedRendererCount}, SlotChanged={changedSlotCount}");
             ShowNotification(new GUIContent($"替换槽位 {changedSlotCount}"));
         }
 
@@ -237,9 +278,16 @@ namespace StellarFramework.Editor
             for (int i = 0; i < renderers.Length; i++)
             {
                 Renderer renderer = renderers[i];
-                if (renderer == null) continue;
-                if (!renderer.gameObject.scene.IsValid()) continue;
-                if (EditorUtility.IsPersistent(renderer)) continue;
+                if (renderer == null)
+                {
+                    continue;
+                }
+
+                if (!renderer.gameObject.scene.IsValid() || EditorUtility.IsPersistent(renderer))
+                {
+                    continue;
+                }
+
                 result.Add(renderer);
             }
 
@@ -249,13 +297,17 @@ namespace StellarFramework.Editor
 
         private static string GetHierarchyPath(GameObject go)
         {
-            if (!go) return "(null)";
-            var stack = new Stack<string>();
-            var t = go.transform;
-            while (t != null)
+            if (go == null)
             {
-                stack.Push(t.name);
-                t = t.parent;
+                return "(null)";
+            }
+
+            var stack = new Stack<string>();
+            Transform transform = go.transform;
+            while (transform != null)
+            {
+                stack.Push(transform.name);
+                transform = transform.parent;
             }
 
             return string.Join("/", stack);

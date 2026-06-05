@@ -40,13 +40,31 @@ namespace StellarFramework.Tests.FrameworkValidation
         }
 
         [Test]
-        public void PackagePublisherNoLongerExcludesHotUpdateKitSampleSceneFromBasePayload()
+        public void PackagePublisherExcludesGeneratedSamplesFromPayloads()
         {
             string source = ReadAssetText(
                 "Assets/StellarFramework/Editor/StellarToolsHub/Modules/Packaging/StellarFrameworkPackagePublisher.cs");
 
-            Assert.That(source, Does.Not.Contain("Assets/StellarFramework/Samples/KitSamples/Example_HotUpdateKit"));
-            Assert.That(source, Does.Not.Contain("Assets/StellarFramework/Samples/KitSamples/Scenes/HotUpdateKit_Playable.unity"));
+            Assert.That(source, Does.Contain("Assets/StellarFramework/Samples/KitSamples/Scenes"));
+            Assert.That(source, Does.Contain("Assets/StellarFramework/Samples/KitSamples/Generated"));
+            Assert.That(source, Does.Contain("Assets/StellarFramework/Samples/KitSamples/Example_ResKit/Addressables"));
+            Assert.That(source, Does.Contain("Assets/StellarFramework/Samples/KitSamples/Example_ResKit/Art"));
+            Assert.That(source, Does.Contain("Assets/StellarFramework/Samples/KitSamples/Example_ResKit/Resources"));
+            Assert.That(source, Does.Contain("Assets/StellarFramework/Samples/ArchitectureDemo/Scene"));
+            Assert.That(source, Does.Contain("Assets/StellarFramework/Samples/ArchitectureDemo/Resources"));
+            Assert.That(source, Does.Contain("Assets/StellarFramework/Resources/UIPanel/UIRoot.prefab"));
+            Assert.That(source, Does.Contain("Assets/StellarFramework/Resources/UIPanel/ExamplePanel.prefab"));
+            Assert.That(source, Does.Contain("Assets/StellarFramework/Resources/Audio"));
+        }
+
+        [Test]
+        public void PackagePublisherExcludesGeneratedSampleScenesFromBasePayload()
+        {
+            string source = ReadAssetText(
+                "Assets/StellarFramework/Editor/StellarToolsHub/Modules/Packaging/StellarFrameworkPackagePublisher.cs");
+
+            Assert.That(source, Does.Contain("Assets/StellarFramework/Samples/KitSamples/Scenes"));
+            Assert.That(source, Does.Contain("Assets/StellarFramework/Samples/ArchitectureDemo/Scene"));
         }
 
         [Test]

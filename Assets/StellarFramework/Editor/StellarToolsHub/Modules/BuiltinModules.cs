@@ -277,13 +277,31 @@ namespace StellarFramework.Editor.Modules
                 string path = System.IO.Path.GetDirectoryName(AssetDatabase.GetAssetPath(group.First()));
                 string matPath = $"{path}/{baseName}_Mat.mat";
 
-                Material mat = new Material(Shader.Find("Standard"));
+                Shader shader = StellarFramework.RenderPipelineCompatibility.FindPreferredLitShader();
+                if (shader == null)
+                {
+                    Debug.LogWarning("[SmartMaterialModule] Could not resolve a preferred lit shader.");
+                    continue;
+                }
+
+                Material mat = new Material(shader);
                 foreach (var tex in group)
                 {
                     string lower = tex.name.ToLower();
-                    if (_albedoKeys.Any(k => lower.Contains(k))) mat.SetTexture("_MainTex", tex);
-                    else if (_normalKeys.Any(k => lower.Contains(k))) mat.SetTexture("_BumpMap", tex);
-                    else if (_maskKeys.Any(k => lower.Contains(k))) mat.SetTexture("_MetallicGlossMap", tex);
+                    if (_albedoKeys.Any(k => lower.Contains(k)))
+                    {
+                        if (mat.HasProperty("_BaseMap")) mat.SetTexture("_BaseMap", tex);
+                        if (mat.HasProperty("_MainTex")) mat.SetTexture("_MainTex", tex);
+                    }
+                    else if (_normalKeys.Any(k => lower.Contains(k)))
+                    {
+                        if (mat.HasProperty("_BumpMap")) mat.SetTexture("_BumpMap", tex);
+                        if (mat.HasProperty("_NormalMap")) mat.SetTexture("_NormalMap", tex);
+                    }
+                    else if (_maskKeys.Any(k => lower.Contains(k)) && mat.HasProperty("_MetallicGlossMap"))
+                    {
+                        mat.SetTexture("_MetallicGlossMap", tex);
+                    }
                 }
 
                 AssetDatabase.CreateAsset(mat, matPath);
@@ -589,11 +607,11 @@ namespace StellarFramework.Editor.Modules
         }
     }
 
-    [StellarTool("URP 材质转换", "框架核心", 20)]
+    [StellarTool("管线材质转换", "框架核心", 20)]
     public class URPConverterHubModule : ToolModule
     {
         public override string Icon => "d_Material Icon";
-        public override string Description => "打开 URPMaterialConverterWindow。";
+        public override string Description => "打开渲染管线材质转换工具。";
 
         public override void OnGUI()
         {

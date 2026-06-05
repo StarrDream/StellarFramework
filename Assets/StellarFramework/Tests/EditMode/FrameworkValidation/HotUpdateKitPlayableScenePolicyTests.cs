@@ -35,14 +35,18 @@ namespace StellarFramework.Tests.FrameworkValidation
         }
 
         [Test]
-        public void HotUpdateSceneBuilderAddsHybridClrAaStartupComponent()
+        public void HotUpdateSceneBuilderUsesTemplateBackedHybridClrAaStartupScene()
         {
             string builder = File.ReadAllText(ToAbsoluteAssetPath(
                 "Assets/StellarFramework/Samples/KitSamples/Editor/ExamplePlayableSceneBuilder.cs"));
+            string template = File.ReadAllText(ToAbsoluteAssetPath(
+                "Assets/StellarFramework/Samples/KitSamples/Editor/SampleTemplates/KitSamples/HotUpdateKit_Playable.unity.txt"));
 
-            Assert.That(builder, Does.Contain("TryAddOptionalComponent("));
-            Assert.That(builder, Does.Contain("Example_HybridCLRAAStartup, StellarFramework.Samples.HotUpdate.Runtime"));
-            Assert.That(builder, Does.Contain("运行 AA 热更"));
+            Assert.That(builder, Does.Contain("MaterializeTemplateFolder("));
+            Assert.That(builder, Does.Contain("KitSampleTemplateFolder"));
+            Assert.That(template, Does.Contain("m_Name: Example_HotUpdateKit_Runner"));
+            Assert.That(template, Does.Contain("settingsOverride:"));
+            Assert.That(template, Does.Contain("runOnStart:"));
         }
 
         private static string ToAbsoluteAssetPath(string assetPath)
