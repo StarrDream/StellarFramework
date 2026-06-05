@@ -177,6 +177,8 @@ namespace StellarFramework.Tests.FrameworkValidation
                 "StellarFramework/Editor/StellarToolsHub/Modules/Addressables/AAWorkflowWorkspaceInitializer.cs"));
 
             Assert.That(source, Does.Contain("HYBRIDCLR_ENABLE"));
+            Assert.That(source, Does.Contain("TryEnsureIl2CppScriptingBackend"));
+            Assert.That(source, Does.Contain("ScriptingImplementation.IL2CPP"));
             Assert.That(source, Does.Contain("HybridCLR.Editor.Installer.InstallerController"));
             Assert.That(source, Does.Contain("InstallDefaultHybridCLR"));
             Assert.That(source, Does.Contain("HybridCLR.Editor.Commands.PrebuildCommand"));

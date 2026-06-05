@@ -768,6 +768,12 @@ namespace StellarFramework.Editor.Modules
                 return true;
             }
 
+            if (!TryEnsureIl2CppScriptingBackend(target, messages, out string scriptingBackendError))
+            {
+                errors.Add(scriptingBackendError);
+                return false;
+            }
+
             if (!TryGenerateHybridClr(messages, out string generateError))
             {
                 errors.Add(generateError);
@@ -838,6 +844,55 @@ namespace StellarFramework.Editor.Modules
 #endif
             message = "已为当前 BuildTarget 写入 HYBRIDCLR_ENABLE。";
             return true;
+        }
+
+        private static bool TryEnsureIl2CppScriptingBackend(
+            BuildTarget target,
+            List<string> messages,
+            out string error)
+        {
+            error = string.Empty;
+            BuildTargetGroup group = BuildPipeline.GetBuildTargetGroup(target);
+            if (group == BuildTargetGroup.Unknown)
+            {
+                error = "当前 BuildTargetGroup 未知，无法自动切换到 IL2CPP。";
+                return false;
+            }
+
+            try
+            {
+#if UNITY_2021_2_OR_NEWER
+                UnityEditor.Build.NamedBuildTarget namedBuildTarget =
+                    UnityEditor.Build.NamedBuildTarget.FromBuildTargetGroup(group);
+                ScriptingImplementation current = PlayerSettings.GetScriptingBackend(namedBuildTarget);
+                if (current == ScriptingImplementation.IL2CPP)
+                {
+                    return true;
+                }
+
+                PlayerSettings.SetScriptingBackend(namedBuildTarget, ScriptingImplementation.IL2CPP);
+#else
+                ScriptingImplementation current = PlayerSettings.GetScriptingBackend(group);
+                if (current == ScriptingImplementation.IL2CPP)
+                {
+                    return true;
+                }
+
+                PlayerSettings.SetScriptingBackend(group, ScriptingImplementation.IL2CPP);
+#endif
+                if (messages != null)
+                {
+                    messages.Add(
+                        $"已将当前 ScriptingBackend 从 {current} 切换为 IL2CPP，供 HybridCLR Generate/All 使用。");
+                }
+
+                return true;
+            }
+            catch (Exception exception)
+            {
+                error = "自动切换 ScriptingBackend 到 IL2CPP 失败: " + exception.GetBaseException().Message;
+                return false;
+            }
         }
 
         private static string MergeDefineSymbols(string currentSymbols, params string[] requiredSymbols)
