@@ -28,6 +28,17 @@ namespace StellarFramework.Tests.FrameworkValidation
         }
 
         [Test]
+        public void QuickStartBuildSamplesIsQueuedOutsideOnGui()
+        {
+            string source = ReadQuickStartSource();
+
+            Assert.That(source, Does.Contain("QueueSampleBuild()"));
+            Assert.That(source, Does.Contain("EditorApplication.delayCall"));
+            Assert.That(source, Does.Contain("_sampleBuildQueued"));
+            Assert.That(source, Does.Contain("_sampleBuildRunning"));
+        }
+
+        [Test]
         public void ToolsHubDefinesExplicitPreferredGroupOrder()
         {
             string source = ReadAssetText("Assets/StellarFramework/Editor/StellarToolsHub/Core/StellarFrameworkTools.cs");

@@ -11,12 +11,19 @@ namespace StellarFrameworkBootstrap
     [InitializeOnLoad]
     internal static class StellarFrameworkBootstrapPackageUtility
     {
+        private const string BootstrapAssetRoot = "Assets/StellarFrameworkBootstrap";
+        private const string DevelopmentProjectPackagingMarkerAssetPath =
+            "Assets/StellarFramework/Editor/StellarToolsHub/Modules/Packaging/StellarFrameworkPackagePublisher.cs";
+        private const string EnableLogDefineSymbol = "ENABLE_LOG";
         private const string EmbeddedPayloadRelativePath =
             "Assets/StellarFrameworkBootstrap/Payloads/StellarFramework-FullHotUpdate-Payload.unitypackage.bytes";
         private const string ToolsHubMenuPath = "StellarFramework/Tools Hub";
         private const string PendingOpenToolsHubSessionKey = "StellarFrameworkBootstrap.PendingOpenToolsHub";
         private const string PendingOpenToolsHubAttemptKey = "StellarFrameworkBootstrap.PendingOpenToolsHubAttempt";
+        private const string PendingCleanupBootstrapSessionKey = "StellarFrameworkBootstrap.PendingCleanupBootstrap";
+        private const string PendingCleanupBootstrapAttemptKey = "StellarFrameworkBootstrap.PendingCleanupBootstrapAttempt";
         private const int MaxOpenToolsHubAttempts = 300;
+        private const int MaxCleanupBootstrapAttempts = 30;
 
         static StellarFrameworkBootstrapPackageUtility()
         {
@@ -135,6 +142,17 @@ namespace StellarFrameworkBootstrap
             SessionState.SetInt(PendingOpenToolsHubAttemptKey, 0);
         }
 
+        public static void RequestCleanupBootstrapArtifacts()
+        {
+            SessionState.SetBool(PendingCleanupBootstrapSessionKey, true);
+            SessionState.SetInt(PendingCleanupBootstrapAttemptKey, 0);
+        }
+
+        public static bool EnsureLogKitDefine(out string message)
+        {
+            return TryAddDefineForSelectedBuildTarget(EnableLogDefineSymbol, out message);
+        }
+
         public static void TryDeleteFile(string path)
         {
             if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
@@ -161,37 +179,172 @@ namespace StellarFrameworkBootstrap
 
         private static void TryOpenToolsHubFromSession()
         {
-            if (!SessionState.GetBool(PendingOpenToolsHubSessionKey, false))
-            {
-                return;
-            }
-
             if (EditorApplication.isCompiling || EditorApplication.isUpdating)
             {
                 return;
             }
 
+            if (!TryOpenToolsHub())
+            {
+                return;
+            }
+
+            TryCleanupBootstrapArtifacts();
+        }
+
+        private static bool TryOpenToolsHub()
+        {
+            if (!SessionState.GetBool(PendingOpenToolsHubSessionKey, false))
+            {
+                return true;
+            }
+
             if (EditorApplication.ExecuteMenuItem(ToolsHubMenuPath))
             {
                 ClearPendingToolsHubRequest();
-                return;
+                return true;
             }
 
             int attempts = SessionState.GetInt(PendingOpenToolsHubAttemptKey, 0) + 1;
             SessionState.SetInt(PendingOpenToolsHubAttemptKey, attempts);
             if (attempts < MaxOpenToolsHubAttempts)
             {
-                return;
+                return false;
             }
 
             ClearPendingToolsHubRequest();
             Debug.LogWarning("StellarFrameworkBootstrap: Tools Hub 菜单尚不可用，已停止自动打开尝试。");
+            return true;
         }
 
         private static void ClearPendingToolsHubRequest()
         {
             SessionState.EraseBool(PendingOpenToolsHubSessionKey);
             SessionState.EraseInt(PendingOpenToolsHubAttemptKey);
+        }
+
+        private static void TryCleanupBootstrapArtifacts()
+        {
+            if (!SessionState.GetBool(PendingCleanupBootstrapSessionKey, false))
+            {
+                return;
+            }
+
+            if (IsFrameworkDevelopmentProject())
+            {
+                ClearPendingBootstrapCleanupRequest();
+                return;
+            }
+
+            if (!AssetDatabase.IsValidFolder(BootstrapAssetRoot))
+            {
+                ClearPendingBootstrapCleanupRequest();
+                return;
+            }
+
+            if (AssetDatabase.DeleteAsset(BootstrapAssetRoot))
+            {
+                ClearPendingBootstrapCleanupRequest();
+                AssetDatabase.Refresh();
+                return;
+            }
+
+            int attempts = SessionState.GetInt(PendingCleanupBootstrapAttemptKey, 0) + 1;
+            SessionState.SetInt(PendingCleanupBootstrapAttemptKey, attempts);
+            if (attempts < MaxCleanupBootstrapAttempts)
+            {
+                return;
+            }
+
+            ClearPendingBootstrapCleanupRequest();
+            Debug.LogWarning("StellarFrameworkBootstrap: 安装后未能自动删除 Assets/StellarFrameworkBootstrap，请手动清理该目录。");
+        }
+
+        private static void ClearPendingBootstrapCleanupRequest()
+        {
+            SessionState.EraseBool(PendingCleanupBootstrapSessionKey);
+            SessionState.EraseInt(PendingCleanupBootstrapAttemptKey);
+        }
+
+        private static bool IsFrameworkDevelopmentProject()
+        {
+            return File.Exists(Path.Combine(
+                GetProjectRootPath(),
+                DevelopmentProjectPackagingMarkerAssetPath.Replace('/', Path.DirectorySeparatorChar)));
+        }
+
+        private static bool TryAddDefineForSelectedBuildTarget(string define, out string message)
+        {
+            message = string.Empty;
+            if (string.IsNullOrWhiteSpace(define))
+            {
+                return false;
+            }
+
+            BuildTargetGroup group = EditorUserBuildSettings.selectedBuildTargetGroup;
+            if (group == BuildTargetGroup.Unknown)
+            {
+                message = "当前 BuildTargetGroup 未知，无法自动写入 " + define + "。";
+                return false;
+            }
+
+#if UNITY_2021_2_OR_NEWER
+            UnityEditor.Build.NamedBuildTarget namedBuildTarget =
+                UnityEditor.Build.NamedBuildTarget.FromBuildTargetGroup(group);
+            string current = PlayerSettings.GetScriptingDefineSymbols(namedBuildTarget);
+            string merged = MergeDefineSymbols(current, define);
+            if (string.Equals(current, merged, StringComparison.Ordinal))
+            {
+                message = define + " 已存在于当前 BuildTarget。";
+                return true;
+            }
+
+            PlayerSettings.SetScriptingDefineSymbols(namedBuildTarget, merged);
+#else
+            string current = PlayerSettings.GetScriptingDefineSymbolsForGroup(group);
+            string merged = MergeDefineSymbols(current, define);
+            if (string.Equals(current, merged, StringComparison.Ordinal))
+            {
+                message = define + " 已存在于当前 BuildTarget。";
+                return true;
+            }
+
+            PlayerSettings.SetScriptingDefineSymbolsForGroup(group, merged);
+#endif
+            message = "已为当前 BuildTarget 写入 " + define + "。";
+            return true;
+        }
+
+        private static string MergeDefineSymbols(string currentSymbols, params string[] requiredSymbols)
+        {
+            var symbols = string.IsNullOrWhiteSpace(currentSymbols)
+                ? new System.Collections.Generic.List<string>()
+                : currentSymbols
+                    .Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries)
+                    .Select(item => item.Trim())
+                    .Where(item => !string.IsNullOrWhiteSpace(item))
+                    .Distinct(StringComparer.Ordinal)
+                    .ToList();
+
+            if (requiredSymbols != null)
+            {
+                for (int i = 0; i < requiredSymbols.Length; i++)
+                {
+                    string symbol = requiredSymbols[i];
+                    if (string.IsNullOrWhiteSpace(symbol))
+                    {
+                        continue;
+                    }
+
+                    string trimmed = symbol.Trim();
+                    if (!symbols.Contains(trimmed))
+                    {
+                        symbols.Add(trimmed);
+                    }
+                }
+            }
+
+            return string.Join(";", symbols);
         }
     }
 }

@@ -157,6 +157,9 @@ namespace StellarFramework.Editor.Modules
         private readonly List<QuickStartEntry> _entries = new List<QuickStartEntry>();
         private readonly List<EnvironmentCheckResult> _checks = new List<EnvironmentCheckResult>();
         private bool _showWelcomePortal = true;
+        private bool _sampleBuildQueued;
+        private bool _sampleBuildRunning;
+        private EditorApplication.CallbackFunction _pendingSampleBuildAction;
 
         public override string Icon => "d_UnityEditor.ConsoleWindow";
         public override string Description => "新人第一入口：构建样例、打开主链路场景、查看推荐路线并检查环境。";
@@ -167,6 +170,15 @@ namespace StellarFramework.Editor.Modules
             _entries.AddRange(FrameworkQuickStartCatalog.BuildDefaultEntries().OrderBy(entry => entry.Order));
             RefreshEnvironmentChecks();
             _showWelcomePortal = true;
+        }
+
+        public override void OnDisable()
+        {
+            if (_pendingSampleBuildAction != null)
+            {
+                EditorApplication.delayCall -= _pendingSampleBuildAction;
+                _pendingSampleBuildAction = null;
+            }
         }
 
         public override void OnGUI()
@@ -189,6 +201,14 @@ namespace StellarFramework.Editor.Modules
             }
 
             Section("30 分钟上手");
+            if (_sampleBuildQueued || _sampleBuildRunning)
+            {
+                EditorGUILayout.HelpBox(
+                    _sampleBuildRunning
+                        ? "样例构建正在执行，请等待当前任务完成。"
+                        : "样例构建已加入队列，稍后会在编辑器空闲时执行。",
+                    MessageType.Info);
+            }
             DrawGroupedEntries("30 分钟上手");
 
             Section("官方推荐路线");
@@ -272,9 +292,17 @@ namespace StellarFramework.Editor.Modules
                     GUILayout.Label(entry.Description, EditorStyles.wordWrappedMiniLabel);
                     GUILayout.Space(4f);
 
-                    if (PrimaryButton(GetActionLabel(entry.ActionKind), GUILayout.Height(28)))
+                    bool disableAction = entry.ActionKind == QuickStartActionKind.BuildSamples &&
+                                         (_sampleBuildQueued || _sampleBuildRunning);
+                    using (new EditorGUI.DisabledScope(disableAction))
                     {
-                        ExecuteEntry(entry);
+                        string actionLabel = disableAction
+                            ? (_sampleBuildRunning ? "构建中..." : "已排队")
+                            : GetActionLabel(entry.ActionKind);
+                        if (PrimaryButton(actionLabel, GUILayout.Height(28)))
+                        {
+                            ExecuteEntry(entry);
+                        }
                     }
                 }
             }
@@ -302,15 +330,7 @@ namespace StellarFramework.Editor.Modules
             switch (entry.ActionKind)
             {
                 case QuickStartActionKind.BuildSamples:
-                    if (!TryInvokeSampleSceneBuilder(out string error))
-                    {
-                        Debug.LogError(error);
-                        Window.ShowNotification(new GUIContent("样例构建器不可用"));
-                        return;
-                    }
-
-                    RefreshEnvironmentChecks();
-                    Window.ShowNotification(new GUIContent("KitSamples 构建完成"));
+                    QueueSampleBuild();
                     return;
 
                 case QuickStartActionKind.OpenScene:
@@ -343,6 +363,49 @@ namespace StellarFramework.Editor.Modules
                 case QuickStartActionKind.ValidateEnvironment:
                     RefreshEnvironmentChecks();
                     return;
+            }
+        }
+
+        private void QueueSampleBuild()
+        {
+            if (_sampleBuildQueued || _sampleBuildRunning)
+            {
+                return;
+            }
+
+            _sampleBuildQueued = true;
+            _pendingSampleBuildAction = () =>
+            {
+                EditorApplication.delayCall -= _pendingSampleBuildAction;
+                _pendingSampleBuildAction = null;
+                _sampleBuildQueued = false;
+                RunSampleBuild();
+            };
+
+            EditorApplication.delayCall += _pendingSampleBuildAction;
+            Window.ShowNotification(new GUIContent("样例构建已排队"));
+            Window.Repaint();
+        }
+
+        private void RunSampleBuild()
+        {
+            _sampleBuildRunning = true;
+            try
+            {
+                if (!TryInvokeSampleSceneBuilder(out string error))
+                {
+                    Debug.LogError(error);
+                    Window.ShowNotification(new GUIContent("样例构建器不可用"));
+                    return;
+                }
+
+                RefreshEnvironmentChecks();
+                Window.ShowNotification(new GUIContent("KitSamples 构建完成"));
+            }
+            finally
+            {
+                _sampleBuildRunning = false;
+                Window.Repaint();
             }
         }
 

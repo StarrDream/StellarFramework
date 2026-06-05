@@ -173,9 +173,23 @@ namespace StellarFrameworkBootstrap
 
             AssetDatabase.ImportPackage(unityPackagePath, false);
             AssetDatabase.Refresh();
+
+            if (StellarFrameworkBootstrapPackageUtility.EnsureLogKitDefine(out string logKitDefineMessage))
+            {
+                if (!string.IsNullOrWhiteSpace(logKitDefineMessage))
+                {
+                    _messages.Add(logKitDefineMessage);
+                }
+            }
+            else if (!string.IsNullOrWhiteSpace(logKitDefineMessage))
+            {
+                _errors.Add(logKitDefineMessage);
+            }
+
             StellarFrameworkBootstrapPackageUtility.RequestOpenToolsHub();
+            StellarFrameworkBootstrapPackageUtility.RequestCleanupBootstrapArtifacts();
             _messages.Add("完整框架导入完成：" + Path.GetFileName(unityPackagePath));
-            _messages.Add("安装成功后将自动打开 Tools Hub。");
+            _messages.Add("安装成功后将自动打开 Tools Hub；若当前不是框架开发工程，会清理单包安装器资源。");
         }
 
         private void CleanupPendingPayload()

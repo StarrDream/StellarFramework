@@ -30,6 +30,16 @@ namespace StellarFramework.Tests.FrameworkValidation
         }
 
         [Test]
+        public void PackagePublisherExcludesPackagingToolsFromFullPayload()
+        {
+            string source = ReadAssetText(
+                "Assets/StellarFramework/Editor/StellarToolsHub/Modules/Packaging/StellarFrameworkPackagePublisher.cs");
+
+            Assert.That(source, Does.Contain("Assets/StellarFramework/Editor/StellarToolsHub/Modules/Packaging"));
+            Assert.That(source, Does.Contain("FullPayloadExcludedPrefixes"));
+        }
+
+        [Test]
         public void PackagePublisherNoLongerExcludesHotUpdateKitSampleSceneFromBasePayload()
         {
             string source = ReadAssetText(
@@ -110,12 +120,20 @@ namespace StellarFramework.Tests.FrameworkValidation
             Assert.That(bootstrapInstaller, Does.Contain("ImportPackage"));
             Assert.That(bootstrapInstaller, Does.Not.Contain("OpenFilePanel"));
             Assert.That(bootstrapInstaller, Does.Contain("EnsureDefaultAddressablesSettings"));
+            Assert.That(bootstrapInstaller, Does.Contain("EnsureLogKitDefine"));
             Assert.That(bootstrapInstaller, Does.Contain("RequestOpenToolsHub"));
+            Assert.That(bootstrapInstaller, Does.Contain("RequestCleanupBootstrapArtifacts"));
             Assert.That(bootstrapUtility, Does.Contain("Payloads"));
             Assert.That(bootstrapUtility, Does.Contain("AddressableAssetSettingsDefaultObject"));
             Assert.That(bootstrapUtility, Does.Contain("GetSettings"));
             Assert.That(bootstrapUtility, Does.Contain("StellarFramework/Tools Hub"));
             Assert.That(bootstrapUtility, Does.Contain("SessionState"));
+            Assert.That(bootstrapUtility, Does.Contain("Assets/StellarFrameworkBootstrap"));
+            Assert.That(bootstrapUtility, Does.Contain("DeleteAsset"));
+            Assert.That(bootstrapUtility, Does.Contain("StellarFrameworkPackagePublisher.cs"));
+            Assert.That(bootstrapUtility, Does.Contain("IsFrameworkDevelopmentProject"));
+            Assert.That(bootstrapUtility, Does.Contain("ENABLE_LOG"));
+            Assert.That(bootstrapUtility, Does.Contain("TryAddDefineForSelectedBuildTarget"));
         }
 
         [Test]

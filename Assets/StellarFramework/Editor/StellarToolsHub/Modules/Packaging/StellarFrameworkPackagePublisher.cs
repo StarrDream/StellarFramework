@@ -196,6 +196,7 @@ namespace StellarFramework.Editor.Modules
 
         private static readonly string[] FullPayloadExcludedPrefixes =
         {
+            "Assets/StellarFramework/Editor/StellarToolsHub/Modules/Packaging",
             "Assets/StellarFramework/Tests",
             "Assets/StellarFrameworkBootstrap",
             "Assets/StellarFrameworkVerification"
