@@ -53,13 +53,14 @@ namespace StellarFramework.Res.AB
 
         private AssetBundleManagerState _state = AssetBundleManagerState.Uninitialized;
         private string _lastError;
+        private string _basePath = Application.streamingAssetsPath.Replace('\\', '/') + "/AssetBundles";
         private AssetBundleUnloadMode _unloadMode = AssetBundleUnloadMode.PreserveLoadedAssets;
 
         public AssetBundleManagerState State => _state;
         public string LastError => _lastError;
         public AssetBundleUnloadMode UnloadMode => _unloadMode;
 
-        private string BasePath => Application.streamingAssetsPath + "/AssetBundles";
+        private string BasePath => _basePath;
 
         private string PlatformName
         {
@@ -92,7 +93,31 @@ namespace StellarFramework.Res.AB
                 settings = ResKitRuntimeSettings.LoadOrCreateDefault();
             }
 
+            _basePath = ResolveBasePath(settings);
             Configure(settings.AssetBundleUnloadMode);
+        }
+
+        private static string ResolveBasePath(ResKitRuntimeSettings settings)
+        {
+            string defaultPath = (Application.streamingAssetsPath + "/AssetBundles").Replace('\\', '/');
+            if (settings == null)
+            {
+                return defaultPath;
+            }
+
+            string configuredPath = settings.AssetBundleRootPath;
+            if (string.IsNullOrWhiteSpace(configuredPath))
+            {
+                return defaultPath;
+            }
+
+            string normalizedPath = configuredPath.Trim().Replace('\\', '/').TrimEnd('/');
+            if (Path.IsPathRooted(normalizedPath))
+            {
+                return normalizedPath;
+            }
+
+            return (Application.streamingAssetsPath.TrimEnd('/', '\\') + "/" + normalizedPath).Replace('\\', '/');
         }
 
         public void Configure(AssetBundleUnloadMode unloadMode)

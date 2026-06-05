@@ -20,6 +20,7 @@ namespace StellarFramework.Tests.FrameworkValidation
         [TearDown]
         public void TearDown()
         {
+            AssetDatabase.DeleteAsset(TempAssetFolder);
             if (Directory.Exists(TempAbsoluteFolder))
             {
                 Directory.Delete(TempAbsoluteFolder, true);
@@ -30,6 +31,8 @@ namespace StellarFramework.Tests.FrameworkValidation
             {
                 File.Delete(metaPath);
             }
+
+            AssetDatabase.Refresh();
         }
 
         [Test]
@@ -135,6 +138,61 @@ namespace StellarFramework.Tests.FrameworkValidation
             Assert.That(manifest.hotUpdateAssemblySha256,
                 Is.EqualTo("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"));
             CollectionAssert.Contains(manifest.aotMetadataKeys, "Assets/GameHotUpdate/Metadata/mscorlib.dll.bytes");
+        }
+
+        [Test]
+        public void BuildManifestJsonPrefersHotUpdateDllMatchingConfiguredAssemblyKey()
+        {
+            Type exporterType = RequireExporterType();
+            Type reportType = Type.GetType(
+                "StellarFramework.Editor.Modules.HybridCLRHotUpdateExportReport, StellarFramework.ToolsHub.Editor");
+            Type itemType = Type.GetType(
+                "StellarFramework.Editor.Modules.HybridCLRHotUpdateExportItem, StellarFramework.ToolsHub.Editor");
+            Assert.That(reportType, Is.Not.Null);
+            Assert.That(itemType, Is.Not.Null);
+
+            object report = Activator.CreateInstance(reportType);
+            object unrelatedHotItem = Activator.CreateInstance(itemType);
+            object configuredHotItem = Activator.CreateInstance(itemType);
+            object aotItem = Activator.CreateInstance(itemType);
+
+            itemType.GetField("DestinationAssetPath").SetValue(unrelatedHotItem,
+                "Assets/GameHotUpdate/Code/StellarFramework.Runtime.dll.bytes");
+            itemType.GetField("Sha256").SetValue(unrelatedHotItem,
+                "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
+
+            itemType.GetField("DestinationAssetPath").SetValue(configuredHotItem,
+                "Assets/GameHotUpdate/Code/HotUpdate.dll.bytes");
+            itemType.GetField("Sha256").SetValue(configuredHotItem,
+                "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+
+            itemType.GetField("DestinationAssetPath").SetValue(aotItem,
+                "Assets/GameHotUpdate/Metadata/mscorlib.dll.bytes");
+
+            object hotUpdateDlls = reportType.GetField("HotUpdateDlls").GetValue(report);
+            object aotMetadataDlls = reportType.GetField("AotMetadataDlls").GetValue(report);
+            hotUpdateDlls.GetType().GetMethod("Add").Invoke(hotUpdateDlls, new[] { unrelatedHotItem });
+            hotUpdateDlls.GetType().GetMethod("Add").Invoke(hotUpdateDlls, new[] { configuredHotItem });
+            aotMetadataDlls.GetType().GetMethod("Add").Invoke(aotMetadataDlls, new[] { aotItem });
+
+            MethodInfo method = exporterType.GetMethod(
+                "BuildManifestJson",
+                BindingFlags.Public | BindingFlags.Static);
+            Assert.That(method, Is.Not.Null);
+
+            string json = (string)method.Invoke(null, new object[]
+            {
+                report,
+                BuildTarget.StandaloneWindows64,
+                "HotUpdate.HotUpdateMain",
+                "Main"
+            });
+
+            HotUpdateManifest manifest = HotUpdateManifest.FromJson(json);
+            Assert.That(manifest, Is.Not.Null);
+            Assert.That(manifest.hotUpdateAssemblyKey, Is.EqualTo("Assets/GameHotUpdate/Code/HotUpdate.dll.bytes"));
+            Assert.That(manifest.hotUpdateAssemblySha256,
+                Is.EqualTo("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"));
         }
 
         private static Type RequireExporterType()

@@ -148,7 +148,12 @@ namespace StellarFramework.Editor.Modules
                 return string.Empty;
             }
 
-            HybridCLRHotUpdateExportItem hotUpdateItem = report.HotUpdateDlls[0];
+            HybridCLRHotUpdateExportItem hotUpdateItem = SelectManifestHotUpdateItem(report);
+            if (hotUpdateItem == null)
+            {
+                return string.Empty;
+            }
+
             HotUpdateManifestEditorData manifest = new HotUpdateManifestEditorData
             {
                 version = 1,
@@ -169,6 +174,48 @@ namespace StellarFramework.Editor.Modules
             };
 
             return JsonUtility.ToJson(manifest, true);
+        }
+
+        private static HybridCLRHotUpdateExportItem SelectManifestHotUpdateItem(HybridCLRHotUpdateExportReport report)
+        {
+            if (report == null || report.HotUpdateDlls == null || report.HotUpdateDlls.Count == 0)
+            {
+                return null;
+            }
+
+            string configuredAssemblyKey = ReadHotUpdateAssemblyKeySetting();
+            if (!string.IsNullOrWhiteSpace(configuredAssemblyKey))
+            {
+                string normalizedConfiguredKey = NormalizeAssetPath(configuredAssemblyKey);
+                string configuredFileName = Path.GetFileName(normalizedConfiguredKey);
+                for (int i = 0; i < report.HotUpdateDlls.Count; i++)
+                {
+                    HybridCLRHotUpdateExportItem item = report.HotUpdateDlls[i];
+                    if (item == null || string.IsNullOrWhiteSpace(item.DestinationAssetPath))
+                    {
+                        continue;
+                    }
+
+                    if (string.Equals(
+                            NormalizeAssetPath(item.DestinationAssetPath),
+                            normalizedConfiguredKey,
+                            StringComparison.Ordinal))
+                    {
+                        return item;
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(configuredFileName) &&
+                        string.Equals(
+                            Path.GetFileName(item.DestinationAssetPath),
+                            configuredFileName,
+                            StringComparison.Ordinal))
+                    {
+                        return item;
+                    }
+                }
+            }
+
+            return report.HotUpdateDlls[0];
         }
 
         public static HybridCLRHotUpdateExportReport ExportDllDirectory(string sourceDirectory,
@@ -362,10 +409,39 @@ namespace StellarFramework.Editor.Modules
             entryClass = "HotUpdate.HotUpdateMain";
             entryMethod = "Main";
 
-            Type settingsType = Type.GetType("StellarFramework.HotUpdate.HotUpdateSettings, StellarFramework.HotUpdateKit");
-            if (settingsType == null)
+            Type settingsType;
+            object settings = LoadHotUpdateSettingsAsset(out settingsType);
+            if (settingsType == null || settings == null)
             {
                 return;
+            }
+
+            entryClass = ReadOptionalStringProperty(settingsType, settings, "HotUpdateEntryClass", entryClass);
+            entryMethod = ReadOptionalStringProperty(settingsType, settings, "HotUpdateEntryMethod", entryMethod);
+        }
+
+        private static string ReadHotUpdateAssemblyKeySetting()
+        {
+            Type settingsType;
+            object settings = LoadHotUpdateSettingsAsset(out settingsType);
+            if (settingsType == null || settings == null)
+            {
+                return "Assets/GameHotUpdate/Code/HotUpdate.dll.bytes";
+            }
+
+            return ReadOptionalStringProperty(
+                settingsType,
+                settings,
+                "HotUpdateAssemblyKey",
+                "Assets/GameHotUpdate/Code/HotUpdate.dll.bytes");
+        }
+
+        private static object LoadHotUpdateSettingsAsset(out Type settingsType)
+        {
+            settingsType = Type.GetType("StellarFramework.HotUpdate.HotUpdateSettings, StellarFramework.HotUpdateKit");
+            if (settingsType == null)
+            {
+                return null;
             }
 
             MethodInfo loadMethod = settingsType.GetMethod(
@@ -373,17 +449,10 @@ namespace StellarFramework.Editor.Modules
                 BindingFlags.Public | BindingFlags.Static);
             if (loadMethod == null)
             {
-                return;
+                return null;
             }
 
-            object settings = loadMethod.Invoke(null, new object[] { "HotUpdateSettings" });
-            if (settings == null)
-            {
-                return;
-            }
-
-            entryClass = ReadOptionalStringProperty(settingsType, settings, "HotUpdateEntryClass", entryClass);
-            entryMethod = ReadOptionalStringProperty(settingsType, settings, "HotUpdateEntryMethod", entryMethod);
+            return loadMethod.Invoke(null, new object[] { "HotUpdateSettings" });
         }
 
         private static string ReadOptionalStringProperty(Type type, object instance, string propertyName, string fallback)

@@ -148,11 +148,14 @@ namespace StellarFramework.Tests.FrameworkValidation
             string source = File.ReadAllText(Path.Combine(
                 Application.dataPath,
                 "StellarFramework/Editor/StellarToolsHub/Modules/Addressables/AAHotUpdatePublishToolModule.cs"));
+            string initializerSource = File.ReadAllText(Path.Combine(
+                Application.dataPath,
+                "StellarFramework/Editor/StellarToolsHub/Modules/Addressables/AAWorkflowWorkspaceInitializer.cs"));
 
             Assert.That(source, Does.Contain("初始化热更工作区"));
             Assert.That(source, Does.Contain("HotUpdateSettings.asset"));
             Assert.That(source, Does.Contain("Addressables Settings"));
-            Assert.That(source, Does.Contain("GetSettings(true)"));
+            Assert.That(initializerSource, Does.Contain("GetSettings(true)"));
         }
 
         [Test]
