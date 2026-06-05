@@ -13,15 +13,52 @@ namespace StellarFramework.Tests.FrameworkValidation
             string source = ReadQuickStartSource();
 
             Assert.That(source, Does.Contain("Title = \"1. 构建样例\""));
-            Assert.That(source, Does.Contain("FrameworkValidationScenePath"));
             Assert.That(source, Does.Contain("UIKitScenePath"));
             Assert.That(source, Does.Contain("ResKitScenePath"));
+            Assert.That(source, Does.Not.Contain("Title = \"2. 打开 FrameworkValidation\""));
+        }
+
+        [Test]
+        public void QuickStartModuleDefinesWelcomePortalEntry()
+        {
+            string source = ReadQuickStartSource();
+
+            Assert.That(source, Does.Contain("欢迎使用 StellarFramework"));
+            Assert.That(source, Does.Contain("进入 30 分钟上手"));
+        }
+
+        [Test]
+        public void ToolsHubDefinesExplicitPreferredGroupOrder()
+        {
+            string source = ReadAssetText("Assets/StellarFramework/Editor/StellarToolsHub/Core/StellarFrameworkTools.cs");
+
+            Assert.That(source, Does.Contain("PreferredGroupOrder"));
+            AssertInOrder(
+                source,
+                "\"Start Here\"",
+                "\"资源管理\"",
+                "\"框架核心\"",
+                "\"热更新\"",
+                "\"样例支持\"",
+                "\"生产力\"",
+                "\"常用工具\"");
+        }
+
+        [Test]
+        public void ResourceManagementModulesUseFixedOrderWeights()
+        {
+            string assetBundleSource = ReadAssetText("Assets/StellarFramework/Editor/StellarToolsHub/Modules/AssetBundleToolModule.cs");
+            string addressablesSource = ReadAssetText("Assets/StellarFramework/Editor/StellarToolsHub/Modules/Addressables/AAHotUpdatePublishToolModule.cs");
+            string resKitSource = ReadAssetText("Assets/StellarFramework/Editor/StellarToolsHub/Modules/ResKit/ResKitAuditHubModule.cs");
+
+            Assert.That(assetBundleSource, Does.Contain("[StellarTool(\"资源打包 (AssetBundle)\", \"资源管理\", 0)]"));
+            Assert.That(addressablesSource, Does.Contain("[StellarTool(\"AA 配置与发布\", \"资源管理\", 1)]"));
+            Assert.That(resKitSource, Does.Contain("[StellarTool(\"ResKit 资源审计\", \"资源管理\", 2)]"));
         }
 
         [Test]
         public void QuickStartReferencedPathsExistOnDisk()
         {
-            Assert.That(File.Exists(ToAbsoluteAssetPath("Assets/StellarFramework/Samples/KitSamples/Scenes/FrameworkValidation_Playable.unity")), Is.True);
             Assert.That(File.Exists(ToAbsoluteAssetPath("Assets/StellarFramework/Samples/KitSamples/Scenes/UIKit_Playable.unity")), Is.True);
             Assert.That(File.Exists(ToAbsoluteAssetPath("Assets/StellarFramework/Samples/KitSamples/Scenes/ResKit_Playable.unity")), Is.True);
             Assert.That(File.Exists(ToAbsoluteAssetPath("Assets/StellarFramework/快速开始.md")), Is.True);
@@ -54,6 +91,56 @@ namespace StellarFramework.Tests.FrameworkValidation
             Assert.That(source, Does.Contain("HybridCLR DLL 导出"));
             Assert.That(source, Does.Contain("资源打包 (AssetBundle)"));
             Assert.That(source, Does.Contain("ResKit 资源审计"));
+        }
+
+        [Test]
+        public void ToolsHubUserGuideDocumentsSidebarGroupOrderAndQuickStartPortal()
+        {
+            string source = ReadAssetText("Assets/StellarFramework/Editor/StellarToolsHub/StellarToolsHub-使用手册-Guide.md");
+
+            Assert.That(source, Does.Contain("左侧分组固定顺序"));
+            AssertInOrder(
+                source,
+                "`Start Here`",
+                "`资源管理`",
+                "`框架核心`",
+                "`热更新`",
+                "`样例支持`",
+                "`生产力`",
+                "`常用工具`");
+            AssertInOrder(
+                source,
+                "`资源打包 (AssetBundle)`",
+                "`AA 配置与发布`",
+                "`ResKit 资源审计`");
+            Assert.That(source, Does.Contain("欢迎使用 StellarFramework"));
+            Assert.That(source, Does.Contain("进入 30 分钟上手"));
+            Assert.That(source, Does.Contain("返回欢迎页"));
+        }
+
+        [Test]
+        public void ToolsHubGroupsMoveAssetPipelinesIntoResourceManagement()
+        {
+            string assetBundleSource = ReadAssetText("Assets/StellarFramework/Editor/StellarToolsHub/Modules/AssetBundleToolModule.cs");
+            string addressablesSource = ReadAssetText("Assets/StellarFramework/Editor/StellarToolsHub/Modules/Addressables/AAHotUpdatePublishToolModule.cs");
+            string resKitSource = ReadAssetText("Assets/StellarFramework/Editor/StellarToolsHub/Modules/ResKit/ResKitAuditHubModule.cs");
+            string hybridClrSource = ReadAssetText("Assets/StellarFramework/Editor/StellarToolsHub/Modules/HybridCLRHotUpdateAssetExporter.cs");
+
+            Assert.That(assetBundleSource, Does.Contain("[StellarTool(\"资源打包 (AssetBundle)\", \"资源管理\""));
+            Assert.That(addressablesSource, Does.Contain("[StellarTool(\"AA 配置与发布\", \"资源管理\""));
+            Assert.That(resKitSource, Does.Contain("[StellarTool(\"ResKit 资源审计\", \"资源管理\""));
+            Assert.That(hybridClrSource, Does.Contain("[StellarTool(\"HybridCLR DLL 导出\", \"热更新\""));
+        }
+
+        [Test]
+        public void AssetBundleToolDefinesInitializationGate()
+        {
+            string source = ReadAssetText("Assets/StellarFramework/Editor/StellarToolsHub/Modules/AssetBundleToolModule.cs");
+
+            Assert.That(source, Does.Contain("初始化AB"));
+            Assert.That(source, Does.Contain("AssetMap"));
+            Assert.That(source, Does.Contain("TestCapsule_AB.prefab"));
+            Assert.That(source, Does.Contain("StreamingAssets/AssetBundles"));
         }
 
         [Test]
@@ -134,20 +221,20 @@ namespace StellarFramework.Tests.FrameworkValidation
         }
 
         [Test]
-        public void ReadmeMarkdownLinksPointToExistingFiles()
+        public void QuickStartMarkdownLinksPointToExistingFiles()
         {
-            string readmePath = ToAbsoluteAssetPath("Assets/StellarFramework/README.md");
-            string readme = File.ReadAllText(readmePath);
-            string readmeDirectory = Path.GetDirectoryName(readmePath);
+            string quickStartPath = ToAbsoluteAssetPath("Assets/StellarFramework/快速开始.md");
+            string quickStart = File.ReadAllText(quickStartPath);
+            string quickStartDirectory = Path.GetDirectoryName(quickStartPath);
 
-            MatchCollection links = Regex.Matches(readme, @"\[[^\]]+\]\(([^)#]+\.md)\)");
+            MatchCollection links = Regex.Matches(quickStart, @"\[[^\]]+\]\(([^)#]+\.md)\)");
             Assert.That(links.Count, Is.GreaterThan(0));
 
             foreach (Match link in links)
             {
                 string relativeLink = link.Groups[1].Value.Replace('/', Path.DirectorySeparatorChar);
-                string target = Path.GetFullPath(Path.Combine(readmeDirectory, relativeLink));
-                Assert.That(File.Exists(target), Is.True, $"README link target is missing: {link.Groups[1].Value}");
+                string target = Path.GetFullPath(Path.Combine(quickStartDirectory, relativeLink));
+                Assert.That(File.Exists(target), Is.True, $"QuickStart link target is missing: {link.Groups[1].Value}");
             }
         }
 
@@ -199,7 +286,6 @@ namespace StellarFramework.Tests.FrameworkValidation
             Assert.That(File.Exists(ToAbsoluteAssetPath("Assets/StellarFramework/Editor/StellarToolsHub/StellarToolsHub-扩展开发-Guide.md")), Is.True);
             Assert.That(File.Exists(ToAbsoluteAssetPath("Assets/StellarFramework/Editor/StellarToolsHub/StellarToolsHub-源码文档-Guide.md")), Is.True);
             Assert.That(File.Exists(ToAbsoluteAssetPath("Assets/StellarFramework/Samples/Samples-源码文档-Guide.md")), Is.True);
-            Assert.That(File.Exists(ToAbsoluteAssetPath("Assets/StellarFramework/Tests/Tests-源码文档-Guide.md")), Is.True);
             Assert.That(File.Exists(ToAbsoluteAssetPath("Assets/StellarFramework/Generated/Generated-源码文档-Guide.md")), Is.True);
             Assert.That(File.Exists(ToAbsoluteAssetPath("Assets/StellarFramework/Resources/Resources-说明与源码文档-Guide.md")), Is.True);
         }
@@ -225,6 +311,17 @@ namespace StellarFramework.Tests.FrameworkValidation
         {
             string projectRoot = Directory.GetParent(Application.dataPath)?.FullName ?? Application.dataPath;
             return Path.Combine(projectRoot, assetPath.Replace('/', Path.DirectorySeparatorChar));
+        }
+
+        private static void AssertInOrder(string source, params string[] fragments)
+        {
+            int previousIndex = -1;
+            foreach (string fragment in fragments)
+            {
+                int currentIndex = source.IndexOf(fragment, previousIndex + 1, System.StringComparison.Ordinal);
+                Assert.That(currentIndex, Is.GreaterThan(previousIndex), $"Expected fragment order to include {fragment}");
+                previousIndex = currentIndex;
+            }
         }
     }
 }

@@ -6,7 +6,7 @@
 - `Runtime/Kits/HotUpdateKit/HotUpdateManifest.cs`：Manifest 数据结构、解析和来源链。
 - `Runtime/Kits/Reskit/Loaders/AddressableLoader/AddressableHotUpdateManager.cs`：Addressables catalog、下载和缓存流程。
 - `Editor/StellarToolsHub/Modules/HybridCLRHotUpdateAssetExporter.cs`：DLL、metadata、Manifest 导出工具。
-- `Editor/StellarToolsHub/Modules/AAHotUpdatePublishToolModule.cs`：AA 发布工作流。
+- `Editor/StellarToolsHub/Modules/Addressables/AAHotUpdatePublishToolModule.cs`：AA 发布工作流。
 
 ## 核心类型
 
@@ -66,4 +66,4 @@
 - `HotUpdateManifestTests`：Manifest 解析、BOM、字段校验。
 - `AAHotUpdatePublishToolTests`：AA 工作流路径和发布校验。
 - `AddressablesCanLoadHybridClrDllBytesAndMetadata`：远端 AA 下 DLL bytes 和 metadata 加载。
-- 修改运行链路后应跑 HotUpdate/AA 相关 EditMode 测试，并在需要时打开 FrameworkValidation 场景验证启动期热更。
+- 修改运行链路后应跑 HotUpdate/AA 相关 EditMode 测试，并在需要时打开外置验证区的 FrameworkValidation 场景验证启动期热更。

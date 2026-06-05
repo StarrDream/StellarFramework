@@ -7,7 +7,7 @@ namespace StellarFramework.Tests.FrameworkValidation
     public sealed class OnboardingSurfacePolicyTests
     {
         [Test]
-        public void QuickStartKeepsFrameworkValidationAsFirstRuntimeStep()
+        public void QuickStartPointsUsersToExportedPlayableScenesOnly()
         {
             string docPath = Path.Combine(
                 Application.dataPath,
@@ -15,9 +15,9 @@ namespace StellarFramework.Tests.FrameworkValidation
 
             string source = File.ReadAllText(docPath);
 
-            Assert.That(source, Does.Contain("FrameworkValidation_Playable.unity"));
             Assert.That(source, Does.Contain("UIKit_Playable.unity"));
             Assert.That(source, Does.Contain("ResKit_Playable.unity"));
+            Assert.That(source, Does.Not.Contain("FrameworkValidation_Playable.unity"));
         }
     }
 }

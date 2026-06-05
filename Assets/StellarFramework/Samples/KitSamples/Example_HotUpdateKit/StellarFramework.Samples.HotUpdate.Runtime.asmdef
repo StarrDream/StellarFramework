@@ -1,12 +1,10 @@
 {
-    "name": "StellarFramework.HotUpdateKit",
+    "name": "StellarFramework.Samples.HotUpdate.Runtime",
     "rootNamespace": "",
     "references": [
+        "StellarFramework.HotUpdateKit",
         "StellarFramework.LogKit",
-        "StellarFramework.SingletonKit",
-        "StellarFramework.PoolKit",
         "StellarFramework.ResKit",
-        "StellarFramework.HttpKit",
         "GUID:f51ebe6a0ceec4240a699833d6309b23"
     ],
     "includePlatforms": [],

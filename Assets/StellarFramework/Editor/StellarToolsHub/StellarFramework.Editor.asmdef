@@ -10,7 +10,6 @@
         "StellarFramework.ConfigKit",
         "StellarFramework.EventKit",
         "StellarFramework.FSMKit",
-        "StellarFramework.HotUpdateKit",
         "StellarFramework.HttpKit",
         "StellarFramework.LogKit",
         "StellarFramework.PoolKit",
@@ -18,8 +17,7 @@
         "StellarFramework.SingletonKit",
         "StellarFramework.UIKit",
         "StellarFramework.UIKit.Editor",
-        "StellarFramework.Singleton.Editor",
-        "Unity.Addressables.Editor"
+        "StellarFramework.Singleton.Editor"
     ],
     "includePlatforms": [
         "Editor"

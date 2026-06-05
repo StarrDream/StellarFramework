@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading;
 using Cysharp.Threading.Tasks;
+using StellarFramework.HotUpdate;
 
 #if UNITY_ADDRESSABLES
 using UnityEngine.AddressableAssets;
@@ -228,7 +229,7 @@ namespace StellarFramework.Res
                 List<object> downloadKeys = NormalizeKeys(keys);
                 if (downloadKeys.Count == 0)
                 {
-                    downloadKeys = ResKitRuntimeSettings.LoadOrCreateDefault().BuildAddressablesDefaultUpdateKeys();
+                    downloadKeys = HotUpdateSettings.LoadOrCreateDefault().BuildAddressablesDefaultUpdateKeys();
                     Report("No explicit keys were passed. Runtime settings default update keys will be used.");
                 }
 
@@ -523,7 +524,7 @@ namespace StellarFramework.Res
 
         public async UniTask<UpdateCheckResult> CheckUpdateAsync(IEnumerable<object> keys = null)
         {
-            ResKitRuntimeSettings settings = ResKitRuntimeSettings.LoadOrCreateDefault();
+            HotUpdateSettings settings = HotUpdateSettings.LoadOrCreateDefault();
             return await CheckCatalogUpdatesAsync(keys, settings.AddressablesUpdateCatalogsOnCheck);
         }
 

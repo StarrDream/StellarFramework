@@ -10,14 +10,34 @@ StellarFramework -> Tools Hub
 
 窗口左侧是工具分组和工具列表，右侧是当前工具。工具通过 `[StellarTool]` 自动注册，所以新增工具后通常会自动出现在对应分组里。
 
+## 左侧分组
+
+左侧分组固定顺序为：
+
+1. `Start Here`
+2. `资源管理`
+3. `框架核心`
+4. `热更新`
+5. `样例支持`
+6. `生产力`
+7. `常用工具`
+
+如果有未命中上述清单的新分组，会追加在末尾。
+
+其中 `资源管理` 组内固定顺序为：
+
+1. `资源打包 (AssetBundle)`
+2. `AA 配置与发布`
+3. `ResKit 资源审计`
+
 ## 新人第一次使用路线
 
 1. 进入 `Start Here -> Quick Start`。
-2. 点击 `构建样例`。
-3. 打开并运行 `FrameworkValidation_Playable.unity`。
-4. 运行 `UIKit_Playable.unity` 和 `ResKit_Playable.unity`。
+2. 首屏会先显示 `欢迎使用 StellarFramework` 欢迎页，点击主按钮 `进入 30 分钟上手`。
+3. 在第二层按顺序执行 `构建样例`、`打开 UIKit_Playable`、`打开 ResKit_Playable`、`阅读快速开始`。
+4. 需要重新查看首页时，使用顶部轻量按钮 `返回欢迎页`。
 5. 进入 `文档中心 (Docs)`，按 README、快速开始、Kit 说明文档、源码文档继续阅读。
-6. 需要热更新时再进入 `热更新 -> AA 配置与发布`。
+6. 需要热更新时再进入 `热更新 -> AA 配置与发布`。基础框架和热更扩展不是同一上手门槛。
 
 ## 文档中心 (Docs)
 
@@ -40,13 +60,21 @@ StellarFramework -> Tools Hub
 
 - 新人第一入口。
 - 构建样例场景和公共资源。
-- 打开核心验证场景和说明文档。
+- 打开用户安装包中实际可运行的核心场景和说明文档。
 - 检查常见缺失项。
+
+界面结构：
+
+- 首屏是 `欢迎使用 StellarFramework` 欢迎门户，主行动只有 `进入 30 分钟上手`。
+- 第二层保留现有 `30 分钟上手`、`官方推荐路线`、`环境检查`、`常用入口`。
+- 第二层顶部提供轻量按钮 `返回欢迎页`，用于回到欢迎首页。
 
 重点按钮：
 
-- `构建样例`：生成 KitSamples 运行所需资源、UIRoot、示例面板、AB 示例资源和集中验证场景。
-- 打开 `FrameworkValidation_Playable.unity`：优先验证框架总链路。
+- `进入 30 分钟上手`：进入推荐上手路径，先跑通样例、资源主链路和推荐文档。
+- `返回欢迎页`：从第二层回到欢迎门户，不会改变现有步骤内容。
+- `构建样例`：生成 KitSamples 运行所需资源、UIRoot、示例面板和 AB 示例资源。
+- `FrameworkValidation` 已迁入框架外验证区，用户安装包默认不会包含它。
 - 打开 `UIKit_Playable.unity`、`ResKit_Playable.unity`：分别验证 UI 和资源门面。
 
 ## AA 配置与发布
@@ -58,6 +86,11 @@ StellarFramework -> Tools Hub
 - 构建 catalog/hash/bundle。
 - 导出 `HotUpdate.dll.bytes`、AOT metadata 和 `HotUpdateManifest.json`。
 - 校验发布目录是否包含同批次 Manifest、catalog、hash 和 bundle。
+
+建议：
+
+- 新人先跑通基础框架，再进入这组工具。
+- 这组工具属于可选热更扩展路径，不是基础框架的默认起步路线。
 
 本地内置 AA 适合资源随包：
 

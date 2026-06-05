@@ -122,21 +122,6 @@ NavMeshSettings:
     debug:
       m_Flags: 0
   m_NavMeshData: {fileID: 0}
---- !u!115 &431742542
-MonoScript:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_Name: 
-  serializedVersion: 7
-  m_DefaultReferences: {}
-  m_Icon: {fileID: 0}
-  m_Type: 0
-  m_ExecutionOrder: 0
-  m_ClassName: Example_HybridCLRAAStartup
-  m_Namespace: StellarFramework.Examples
-  m_AssemblyName: StellarFramework.Samples.Runtime
 --- !u!1 &660502062
 GameObject:
   m_ObjectHideFlags: 0
@@ -384,7 +369,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1814653288}
   - component: {fileID: 1814653287}
-  - component: {fileID: 1814653289}
+  - component: {fileID: 1814653290}
   m_Layer: 0
   m_Name: Example_HotUpdateKit_Runner
   m_TagString: Untagged
@@ -421,7 +406,7 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1814653289
+--- !u!114 &1814653290
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -430,7 +415,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 1814653286}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 431742542}
+  m_Script: {fileID: 11500000, guid: 063a4921a8c7cfa458f679576fe7b511, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   settingsOverride: {fileID: 0}

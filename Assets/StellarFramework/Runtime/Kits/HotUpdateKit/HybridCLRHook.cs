@@ -85,7 +85,12 @@ namespace StellarFramework.HotUpdate
                     return false;
                 }
 
-                HybridCLR.RuntimeApi.LoadMetadataForAOTAssembly(dllBytes, HybridCLR.HomologousImageMode.SuperSet);
+                if (!TryLoadMetadataForAotAssembly(dllBytes, out string metadataError))
+                {
+                    SetFailed(metadataError);
+                    return false;
+                }
+
                 LogKit.Log($"[HybridCLRHook] 成功加载 AOT 补充元数据: {aotDllName}");
             }
 
@@ -159,6 +164,35 @@ namespace StellarFramework.HotUpdate
 
             State = HotUpdateState.EnteredHotUpdate;
             LogKit.Log("[HybridCLRHook] 热更入口执行完成");
+            return true;
+        }
+
+        private static bool TryLoadMetadataForAotAssembly(byte[] dllBytes, out string error)
+        {
+            error = null;
+            Type runtimeApiType = Type.GetType("HybridCLR.RuntimeApi, HybridCLR.Runtime");
+            Type modeType = Type.GetType("HybridCLR.HomologousImageMode, HybridCLR.Runtime");
+            if (runtimeApiType == null || modeType == null)
+            {
+                error = "[HybridCLRHook] HybridCLR.Runtime is not loaded. Install HybridCLR before loading AOT metadata.";
+                return false;
+            }
+
+            object superSetMode = Enum.Parse(modeType, "SuperSet");
+            MethodInfo method = runtimeApiType.GetMethod(
+                "LoadMetadataForAOTAssembly",
+                BindingFlags.Public | BindingFlags.Static,
+                null,
+                new[] { typeof(byte[]), modeType },
+                null);
+
+            if (method == null)
+            {
+                error = "[HybridCLRHook] HybridCLR.RuntimeApi.LoadMetadataForAOTAssembly was not found.";
+                return false;
+            }
+
+            method.Invoke(null, new[] { dllBytes, superSetMode });
             return true;
         }
 
@@ -289,7 +323,7 @@ namespace StellarFramework.HotUpdate
 
     public interface ICodeHotUpdateStrategy
     {
-        UniTask<HybridCLRAAHotUpdateResult> RunCodeHotUpdateAsync(ResKitRuntimeSettings settings = null,
+        UniTask<HybridCLRAAHotUpdateResult> RunCodeHotUpdateAsync(HotUpdateSettings settings = null,
             IProgress<float> progress = null, CancellationToken cancellationToken = default);
     }
 
@@ -297,110 +331,48 @@ namespace StellarFramework.HotUpdate
     {
         public async UniTask<HotUpdateOperationResult> InitializeAsync(CancellationToken cancellationToken = default)
         {
-            AddressableOperationResult result =
-                await AddressableHotUpdateManager.Instance.InitializeAsync(cancellationToken);
-            return FromAddressableOperation(result);
+            await UniTask.CompletedTask;
+            return HotUpdateOperationResult.Fail(AddressablesUnavailableMessage, HotUpdateOperationStatus.Unavailable);
         }
 
         public async UniTask<HotUpdateCheckResult> CheckResourceUpdatesAsync(IEnumerable<object> keys = null,
             bool updateCatalogs = true, CancellationToken cancellationToken = default)
         {
-            UpdateCheckResult result = await AddressableHotUpdateManager.Instance.CheckCatalogUpdatesAsync(keys,
-                updateCatalogs,
-                cancellationToken);
+            await UniTask.CompletedTask;
             return new HotUpdateCheckResult
             {
-                Success = result.IsSuccess,
-                Status = MapStatus(result.Status),
-                HasUpdate = result.HasUpdate,
-                TotalDownloadSize = result.TotalDownloadSize,
-                UpdatedCatalogs = result.UpdatedCatalogs,
-                Keys = result.Keys,
-                Error = result.Error,
-                ElapsedMilliseconds = result.ElapsedMilliseconds
+                Success = false,
+                Status = HotUpdateOperationStatus.Unavailable,
+                Error = AddressablesUnavailableMessage
             };
         }
 
         public async UniTask<HotUpdateDownloadResult> DownloadResourceUpdatesAsync(IEnumerable<object> keys,
             Action<HotUpdateDownloadProgress> onProgress = null, CancellationToken cancellationToken = default)
         {
-            AddressableDownloadResult result = await AddressableHotUpdateManager.Instance.DownloadDependenciesAsync(
-                keys,
-                progress => onProgress?.Invoke(new HotUpdateDownloadProgress
-                {
-                    Percent = progress.Percent,
-                    DownloadedBytes = progress.DownloadedBytes,
-                    TotalBytes = progress.TotalBytes
-                }),
-                cancellationToken);
-
+            await UniTask.CompletedTask;
             return new HotUpdateDownloadResult
             {
-                Success = result.Success,
-                Status = MapStatus(result.Status),
-                TotalBytes = result.TotalBytes,
-                DownloadedBytes = result.DownloadedBytes,
-                Error = result.Error,
-                ElapsedMilliseconds = result.ElapsedMilliseconds,
-                Keys = result.Keys
+                Success = false,
+                Status = HotUpdateOperationStatus.Unavailable,
+                Error = AddressablesUnavailableMessage
             };
         }
 
         public async UniTask<HotUpdateOperationResult> ClearResourceCacheAsync(IEnumerable<object> keys,
             CancellationToken cancellationToken = default)
         {
-            AddressableOperationResult result =
-                await AddressableHotUpdateManager.Instance.ClearDependencyCacheAsync(keys, cancellationToken);
-            return FromAddressableOperation(result);
+            await UniTask.CompletedTask;
+            return HotUpdateOperationResult.Fail(AddressablesUnavailableMessage, HotUpdateOperationStatus.Unavailable);
         }
 
-        private static HotUpdateOperationResult FromAddressableOperation(AddressableOperationResult result)
-        {
-            return new HotUpdateOperationResult
-            {
-                Success = result.Success,
-                Status = MapStatus(result.Status),
-                Error = result.Error,
-                ElapsedMilliseconds = result.ElapsedMilliseconds,
-                Keys = result.Keys
-            };
-        }
-
-        private static HotUpdateOperationStatus MapStatus(AddressableHotUpdateStatus status)
-        {
-            switch (status)
-            {
-                case AddressableHotUpdateStatus.Success:
-                    return HotUpdateOperationStatus.Success;
-                case AddressableHotUpdateStatus.AddressablesUnavailable:
-                    return HotUpdateOperationStatus.Unavailable;
-                case AddressableHotUpdateStatus.InitializationFailed:
-                    return HotUpdateOperationStatus.InitializationFailed;
-                case AddressableHotUpdateStatus.InvalidKeys:
-                    return HotUpdateOperationStatus.InvalidKeys;
-                case AddressableHotUpdateStatus.CatalogCheckFailed:
-                    return HotUpdateOperationStatus.CheckFailed;
-                case AddressableHotUpdateStatus.CatalogUpdateFailed:
-                    return HotUpdateOperationStatus.UpdateFailed;
-                case AddressableHotUpdateStatus.DownloadSizeFailed:
-                    return HotUpdateOperationStatus.DownloadSizeFailed;
-                case AddressableHotUpdateStatus.DownloadFailed:
-                    return HotUpdateOperationStatus.DownloadFailed;
-                case AddressableHotUpdateStatus.CacheClearFailed:
-                    return HotUpdateOperationStatus.CacheClearFailed;
-                case AddressableHotUpdateStatus.Cancelled:
-                    return HotUpdateOperationStatus.Cancelled;
-                case AddressableHotUpdateStatus.None:
-                    return HotUpdateOperationStatus.None;
-                default:
-                    return HotUpdateOperationStatus.Exception;
-            }
-        }
+        private const string AddressablesUnavailableMessage =
+            "Addressables hot update is unavailable. Install Addressables and load StellarFramework.ResKit.Addressables.";
     }
 
     public sealed class HybridCLRCodeHotUpdateStrategy : ICodeHotUpdateStrategy
     {
-        public UniTask<HybridCLRAAHotUpdateResult> RunCodeHotUpdateAsync(ResKitRuntimeSettings settings = null,
+        public UniTask<HybridCLRAAHotUpdateResult> RunCodeHotUpdateAsync(HotUpdateSettings settings = null,
             IProgress<float> progress = null, CancellationToken cancellationToken = default)
         {
             return HybridCLRAAHotUpdateRunner.RunAsync(settings, progress, cancellationToken);
@@ -411,14 +383,14 @@ namespace StellarFramework.HotUpdate
     {
         private static IResourceHotUpdateStrategy _resourceStrategy = new AddressablesHotUpdateStrategy();
         private static ICodeHotUpdateStrategy _codeStrategy = new HybridCLRCodeHotUpdateStrategy();
-        private static ResKitRuntimeSettings _settings;
+        private static HotUpdateSettings _settings;
 
         public static IResourceHotUpdateStrategy ResourceStrategy => _resourceStrategy;
         public static ICodeHotUpdateStrategy CodeStrategy => _codeStrategy;
-        public static ResKitRuntimeSettings Settings => _settings ?? ResKitRuntimeSettings.LoadOrCreateDefault();
+        public static HotUpdateSettings Settings => _settings ?? HotUpdateSettings.LoadOrCreateDefault();
 
         public static void Configure(IResourceHotUpdateStrategy resourceStrategy = null,
-            ICodeHotUpdateStrategy codeStrategy = null, ResKitRuntimeSettings settings = null)
+            ICodeHotUpdateStrategy codeStrategy = null, HotUpdateSettings settings = null)
         {
             if (resourceStrategy != null)
             {
@@ -491,7 +463,7 @@ namespace StellarFramework.HotUpdate
                 {
                     Success = false,
                     Status = HotUpdateOperationStatus.InvalidKeys,
-                    Error = "Resource hot update keys are empty. Configure Addressables labels/keys in ResKitRuntimeSettings or pass explicit keys."
+                    Error = "Resource hot update keys are empty. Configure Addressables labels/keys in HotUpdateSettings or pass explicit keys."
                 });
             }
 
@@ -519,7 +491,7 @@ namespace StellarFramework.HotUpdate
                 {
                     Success = false,
                     Status = HotUpdateOperationStatus.InvalidKeys,
-                    Error = "Resource hot update keys are empty. Configure Addressables labels/keys in ResKitRuntimeSettings or pass explicit keys."
+                    Error = "Resource hot update keys are empty. Configure Addressables labels/keys in HotUpdateSettings or pass explicit keys."
                 });
             }
 
@@ -541,7 +513,7 @@ namespace StellarFramework.HotUpdate
         }
 
         public static UniTask<HybridCLRAAHotUpdateResult> RunCodeHotUpdateAsync(
-            ResKitRuntimeSettings settings = null, IProgress<float> progress = null,
+            HotUpdateSettings settings = null, IProgress<float> progress = null,
             CancellationToken cancellationToken = default)
         {
             if (_codeStrategy == null)
@@ -549,24 +521,24 @@ namespace StellarFramework.HotUpdate
                 return UniTask.FromResult(FailCodeResult("Code hot update strategy is null."));
             }
 
-            ResKitRuntimeSettings resolvedSettings = settings ?? Settings;
+            HotUpdateSettings resolvedSettings = settings ?? Settings;
             if (resolvedSettings == null)
             {
-                return UniTask.FromResult(FailCodeResult("ResKitRuntimeSettings is null."));
+                return UniTask.FromResult(FailCodeResult("HotUpdateSettings is null."));
             }
 
-            ResKitRuntimeSettingsValidationReport validation = resolvedSettings.Validate(true);
+            HotUpdateSettingsValidationReport validation = resolvedSettings.Validate();
             if (!validation.IsValid)
             {
                 return UniTask.FromResult(FailCodeResult(
-                    "ResKitRuntimeSettings validation failed: " + string.Join(" | ", validation.Errors)));
+                    "HotUpdateSettings validation failed: " + string.Join(" | ", validation.Errors)));
             }
 
             return _codeStrategy.RunCodeHotUpdateAsync(resolvedSettings, progress, cancellationToken);
         }
 
         public static UniTask<HybridCLRAAHotUpdateResult> RunStartupHotUpdateAsync(
-            ResKitRuntimeSettings settings = null, IProgress<float> progress = null,
+            HotUpdateSettings settings = null, IProgress<float> progress = null,
             CancellationToken cancellationToken = default)
         {
             return RunCodeHotUpdateAsync(settings, progress, cancellationToken);
@@ -596,14 +568,14 @@ namespace StellarFramework.HotUpdate
 
         public static string LastError { get; private set; }
 
-        public static UniTask<HybridCLRAAHotUpdateResult> RunAsync(ResKitRuntimeSettings settings,
+        public static UniTask<HybridCLRAAHotUpdateResult> RunAsync(HotUpdateSettings settings,
             Action<float> onProgress, CancellationToken cancellationToken = default)
         {
             IProgress<float> progress = onProgress != null ? Progress.Create(onProgress) : null;
             return RunAsync(settings, progress, cancellationToken);
         }
 
-        public static async UniTask<HybridCLRAAHotUpdateResult> RunAsync(ResKitRuntimeSettings settings = null,
+        public static async UniTask<HybridCLRAAHotUpdateResult> RunAsync(HotUpdateSettings settings = null,
             IProgress<float> progress = null, CancellationToken cancellationToken = default)
         {
             LastError = null;
@@ -616,16 +588,24 @@ namespace StellarFramework.HotUpdate
 #else
             if (settings == null)
             {
-                settings = ResKitRuntimeSettings.LoadOrCreateDefault();
+                settings = HotUpdateSettings.LoadOrCreateDefault();
             }
 
             if (settings == null)
             {
-                return Fail("ResKitRuntimeSettings is null.");
+                return Fail("HotUpdateSettings is null.");
+            }
+
+            bool strictProduction = HotUpdateRuntimePolicy.IsStrictProductionRuntime;
+
+            HotUpdateSettingsValidationReport settingsValidation = settings.Validate(strictProduction);
+            if (!settingsValidation.IsValid)
+            {
+                return Fail("HotUpdateSettings validation failed: " + string.Join(" | ", settingsValidation.Errors));
             }
 
             HotUpdateManifestLoadResult manifestLoadResult = await HotUpdateManifestSourceChain.LoadAsync(
-                HotUpdateManifestSourceChain.BuildDefaultSources(settings),
+                HotUpdateManifestSourceChain.BuildDefaultSources(settings, strictProduction),
                 cancellationToken);
 
             if (!manifestLoadResult.Success || manifestLoadResult.Manifest == null)
@@ -634,7 +614,7 @@ namespace StellarFramework.HotUpdate
             }
 
             HotUpdateManifest manifest = manifestLoadResult.Manifest;
-            HotUpdateManifestValidationReport manifestValidation = manifest.Validate();
+            HotUpdateManifestValidationReport manifestValidation = manifest.Validate(strictProduction);
             if (!manifestValidation.IsValid)
             {
                 return Fail("HotUpdateManifest validation failed: " + string.Join(" | ", manifestValidation.Errors));
@@ -647,10 +627,8 @@ namespace StellarFramework.HotUpdate
                 return Fail("HotUpdateAssemblyKey is empty.");
             }
 
-            AddressableHotUpdateManager aaManager = AddressableHotUpdateManager.Instance;
-
             State = HybridCLRAAHotUpdateRunnerState.InitializingAddressables;
-            AddressableOperationResult initResult = await aaManager.InitializeAsync(cancellationToken);
+            HotUpdateOperationResult initResult = await HotUpdateKit.ResourceStrategy.InitializeAsync(cancellationToken);
             if (!initResult.Success)
             {
                 return Fail(initResult.Error);
@@ -661,12 +639,12 @@ namespace StellarFramework.HotUpdate
             List<object> hotUpdateKeys = manifest.BuildDownloadKeys();
 
             State = HybridCLRAAHotUpdateRunnerState.CheckingCatalogs;
-            UpdateCheckResult checkResult = await aaManager.CheckCatalogUpdatesAsync(
+            HotUpdateCheckResult checkResult = await HotUpdateKit.ResourceStrategy.CheckResourceUpdatesAsync(
                 hotUpdateKeys,
                 settings.AddressablesUpdateCatalogsOnCheck,
                 cancellationToken);
 
-            if (!checkResult.IsSuccess)
+            if (!checkResult.Success)
             {
                 return Fail(checkResult.Error);
             }
@@ -674,7 +652,7 @@ namespace StellarFramework.HotUpdate
             progress?.Report(0.25f);
 
             State = HybridCLRAAHotUpdateRunnerState.DownloadingDependencies;
-            AddressableDownloadResult downloadResult = await aaManager.DownloadDependenciesAsync(
+            HotUpdateDownloadResult downloadResult = await HotUpdateKit.ResourceStrategy.DownloadResourceUpdatesAsync(
                 hotUpdateKeys,
                 downloadProgress => progress?.Report(0.25f + downloadProgress.Percent * 0.2f),
                 cancellationToken);
@@ -686,8 +664,13 @@ namespace StellarFramework.HotUpdate
 
             progress?.Report(0.45f);
 
-            AddressableLoader loader = ResKit.Allocate<AddressableLoader>();
-            loader.SetOwnerName("HybridCLRAAHotUpdateRunner");
+            IResLoader loader = ResKit.Allocate(ResLoaderRequest.Custom(
+                "Addressables",
+                "HybridCLRAAHotUpdateRunner"));
+            if (loader == null)
+            {
+                return Fail("Addressables loader allocation failed.");
+            }
 
             try
             {
@@ -708,7 +691,7 @@ namespace StellarFramework.HotUpdate
 
                 byte[] hotUpdateBytes = hotUpdateAsset.bytes;
                 string actualSha256;
-                if (!VerifySha256(hotUpdateBytes, manifest.hotUpdateAssemblySha256, out actualSha256))
+                if (!VerifySha256(hotUpdateBytes, manifest.hotUpdateAssemblySha256, strictProduction, out actualSha256))
                 {
                     return Fail(
                         $"Hot update dll SHA256 mismatch. Key={manifest.hotUpdateAssemblyKey}, Expected={manifest.hotUpdateAssemblySha256}, Actual={actualSha256}");
@@ -777,7 +760,7 @@ namespace StellarFramework.HotUpdate
 #endif
         }
 
-        private static async UniTask<Dictionary<string, byte[]>> LoadMetadataBytesAsync(AddressableLoader loader,
+        private static async UniTask<Dictionary<string, byte[]>> LoadMetadataBytesAsync(IResLoader loader,
             IReadOnlyList<string> metadataKeys, CancellationToken cancellationToken)
         {
             Dictionary<string, byte[]> result = new Dictionary<string, byte[]>(StringComparer.Ordinal);
@@ -807,12 +790,12 @@ namespace StellarFramework.HotUpdate
             return result;
         }
 
-        private static bool VerifySha256(byte[] bytes, string expectedSha256, out string actualSha256)
+        private static bool VerifySha256(byte[] bytes, string expectedSha256, bool strictProduction, out string actualSha256)
         {
             actualSha256 = ComputeSha256(bytes);
             if (string.IsNullOrWhiteSpace(expectedSha256))
             {
-                return true;
+                return !strictProduction;
             }
 
             string normalizedExpected = expectedSha256.Trim().Replace("-", string.Empty);

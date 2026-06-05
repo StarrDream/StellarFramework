@@ -29,10 +29,10 @@ namespace StellarFramework.Tests.ResKit
             Assert.That(assetSettings, Is.Not.Null,
                 "Resources/ResKitRuntimeSettings.asset should load as a ResKitRuntimeSettings asset.");
 
-            ResKitRuntimeSettings settings = ResKitRuntimeSettings.LoadOrCreateDefault();
+            HotUpdateSettings settings = HotUpdateSettings.LoadOrCreateDefault();
 
             CollectionAssert.Contains(settings.BuildAddressablesDefaultUpdateKeys(), "hotupdate");
-            Assert.That(settings.Validate(includeHybridCLR: false).IsValid, Is.True);
+            Assert.That(settings.Validate().IsValid, Is.True);
         }
 
         [UnityTest]
@@ -91,8 +91,8 @@ namespace StellarFramework.Tests.ResKit
                 (AddressableDownloadProgress progress) => { });
             Assert.That(download.Success, Is.True, download.Error);
 
-            IResLoader loader = StellarFramework.Res.ResKit.Allocate(ResLoaderRequest.For(
-                ResLoadBackend.Addressables,
+            IResLoader loader = StellarFramework.Res.ResKit.Allocate(ResLoaderRequest.Custom(
+                "Addressables",
                 "AddressablesHotUpdateRuntimeTests"));
             Assert.That(loader, Is.Not.Null);
 
@@ -113,8 +113,8 @@ namespace StellarFramework.Tests.ResKit
         {
             PrepareSingletonFactoryForEditMode();
 
-            ResKitRuntimeSettings settings = ResKitRuntimeSettings.LoadOrCreateDefault();
-            ResKitRuntimeSettingsValidationReport validation = settings.Validate(includeHybridCLR: true);
+            HotUpdateSettings settings = HotUpdateSettings.LoadOrCreateDefault();
+            HotUpdateSettingsValidationReport validation = settings.Validate();
             Assert.That(validation.IsValid, Is.True, string.Join(" | ", validation.Errors));
             HotUpdateManifestLoadResult manifestResult = await HotUpdateManifestSourceChain.LoadAsync(
                 HotUpdateManifestSourceChain.BuildDefaultSources(settings),
@@ -138,8 +138,8 @@ namespace StellarFramework.Tests.ResKit
             AddressableDownloadResult download = await manager.DownloadDependenciesAsync(keys);
             Assert.That(download.Success, Is.True, download.Error);
 
-            IResLoader loader = StellarFramework.Res.ResKit.Allocate(ResLoaderRequest.For(
-                ResLoadBackend.Addressables,
+            IResLoader loader = StellarFramework.Res.ResKit.Allocate(ResLoaderRequest.Custom(
+                "Addressables",
                 "HybridCLRDllBytesRuntimeTests"));
             Assert.That(loader, Is.Not.Null);
 
@@ -169,8 +169,8 @@ namespace StellarFramework.Tests.ResKit
         {
             PrepareSingletonFactoryForEditMode();
 
-            ResKitRuntimeSettings settings = ResKitRuntimeSettings.LoadOrCreateDefault();
-            ResKitRuntimeSettingsValidationReport validation = settings.Validate(includeHybridCLR: true);
+            HotUpdateSettings settings = HotUpdateSettings.LoadOrCreateDefault();
+            HotUpdateSettingsValidationReport validation = settings.Validate();
             Assert.That(validation.IsValid, Is.True, string.Join(" | ", validation.Errors));
 
             HybridCLRAAHotUpdateResult result = await HotUpdateKit.RunCodeHotUpdateAsync(settings);
@@ -211,6 +211,29 @@ namespace StellarFramework.Tests.ResKit
                 BindingFlags.Static | BindingFlags.NonPublic);
             Assert.That(registerAll, Is.Not.Null, "SingletonRegister.RegisterAll was not found.");
             registerAll.Invoke(null, null);
+
+            AddressablesResKitInstaller.Install();
+            AddressablesHotUpdateInstaller.Install();
+            EnsureAddressablesHotUpdateStrategyInstalled();
+        }
+
+        private static void EnsureAddressablesHotUpdateStrategyInstalled()
+        {
+            const string strategyTypeName =
+                "StellarFramework.Res.AddressablesPackageHotUpdateStrategy, StellarFramework.ResKit.Addressables";
+
+            System.Type strategyType = System.Type.GetType(strategyTypeName);
+            Assert.That(strategyType, Is.Not.Null, "Addressables hot update strategy type was not found.");
+
+            IResourceHotUpdateStrategy strategy = HotUpdateKit.ResourceStrategy;
+            if (strategy == null || strategy.GetType() != strategyType)
+            {
+                object instance = System.Activator.CreateInstance(strategyType, true);
+                Assert.That(instance, Is.Not.Null, "Failed to create Addressables hot update strategy instance.");
+                HotUpdateKit.SetResourceStrategy((IResourceHotUpdateStrategy)instance);
+            }
+
+            Assert.That(HotUpdateKit.ResourceStrategy.GetType(), Is.EqualTo(strategyType));
         }
 #endif
     }

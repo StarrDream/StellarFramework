@@ -1,6 +1,7 @@
 using System.IO;
 using NUnit.Framework;
 using StellarFramework.Editor.Modules;
+using StellarFramework.HotUpdate;
 using UnityEditor;
 using UnityEngine;
 
@@ -139,6 +140,151 @@ namespace StellarFramework.Tests.FrameworkValidation
             Assert.That(configSet.Configs[1].Mode, Is.EqualTo(AAWorkflowMode.RemoteHotUpdate));
             Assert.That(configSet.Configs[1].EnableRemoteCatalog, Is.True);
             Assert.That(configSet.Configs[1].AllowStreamingAssetsFallback, Is.False);
+        }
+
+        [Test]
+        public void AddressablesWorkflowModuleDefinesInitializationGateAndHotUpdateSettingsWriter()
+        {
+            string source = File.ReadAllText(Path.Combine(
+                Application.dataPath,
+                "StellarFramework/Editor/StellarToolsHub/Modules/Addressables/AAHotUpdatePublishToolModule.cs"));
+
+            Assert.That(source, Does.Contain("初始化热更工作区"));
+            Assert.That(source, Does.Contain("HotUpdateSettings.asset"));
+            Assert.That(source, Does.Contain("Addressables Settings"));
+            Assert.That(source, Does.Contain("GetSettings(true)"));
+        }
+
+        [Test]
+        public void AddressablesWorkflowInitializationIsQueuedOutsideOnGui()
+        {
+            string source = File.ReadAllText(Path.Combine(
+                Application.dataPath,
+                "StellarFramework/Editor/StellarToolsHub/Modules/Addressables/AAHotUpdatePublishToolModule.cs"));
+
+            Assert.That(source, Does.Contain("QueueWorkspaceInitialization("));
+            Assert.That(source, Does.Contain("EditorApplication.delayCall"));
+        }
+
+        [Test]
+        public void WorkspaceInitializerDefinesHybridClrAutoInstallAndGenerateFlow()
+        {
+            string source = File.ReadAllText(Path.Combine(
+                Application.dataPath,
+                "StellarFramework/Editor/StellarToolsHub/Modules/Addressables/AAWorkflowWorkspaceInitializer.cs"));
+
+            Assert.That(source, Does.Contain("HYBRIDCLR_ENABLE"));
+            Assert.That(source, Does.Contain("HybridCLR.Editor.Installer.InstallerController"));
+            Assert.That(source, Does.Contain("InstallDefaultHybridCLR"));
+            Assert.That(source, Does.Contain("HybridCLR.Editor.Commands.PrebuildCommand"));
+            Assert.That(source, Does.Contain("GenerateAll"));
+            Assert.That(source, Does.Contain("ExportGeneratedAssets"));
+        }
+
+        [Test]
+        public void WorkspaceStatusRequiresRecognizedRuntimeSettingsAndGroupPaths()
+        {
+            AAWorkflowWorkspaceStatus status = new AAWorkflowWorkspaceStatus
+            {
+                HasAddressablesSettings = true,
+                HasConfigAsset = true,
+                HasLocalProfile = true,
+                HasRemoteProfile = true,
+                HasHotUpdateSettingsAsset = true,
+                HasRuntimeSettingsAsset = true,
+                HasLocalResourcesGroup = true,
+                HasHotUpdateCodeGroup = true,
+                HasSeedEntries = true,
+                HasRecognizedRuntimeSettings = true,
+                HasRecognizedGroupPaths = true,
+                HasHybridClrPackage = true,
+                HasHybridClrDefine = true,
+                HasHybridClrInstalled = true,
+                HasHybridClrGeneratedAssets = true
+            };
+
+            Assert.That(status.IsReady, Is.True);
+
+            status.HasRecognizedRuntimeSettings = false;
+            Assert.That(status.IsReady, Is.False);
+
+            status.HasRecognizedRuntimeSettings = true;
+            status.HasRecognizedGroupPaths = false;
+            Assert.That(status.IsReady, Is.False);
+
+            status.HasRecognizedGroupPaths = true;
+            status.HasHybridClrInstalled = false;
+            Assert.That(status.IsReady, Is.False);
+        }
+
+        [Test]
+        public void WorkspaceRuntimeSettingsCanMatchLocalOrRemoteWorkflowModes()
+        {
+            AAWorkflowConfig localConfig = AAWorkflowConfig.CreateLocalBuiltInDefault();
+            AAWorkflowConfig remoteConfig = AAWorkflowConfig.CreateRemoteHotUpdateDefault();
+            HotUpdateSettings settings = ScriptableObject.CreateInstance<HotUpdateSettings>();
+
+            ApplyRuntimeSettingsSnapshot(settings, localConfig, BuildTarget.StandaloneWindows64);
+            Assert.That(
+                AAWorkflowWorkspaceInitializer.IsRuntimeSettingsConfiguredForAnyWorkflow(
+                    settings,
+                    BuildTarget.StandaloneWindows64,
+                    localConfig,
+                    remoteConfig),
+                Is.True);
+
+            ApplyRuntimeSettingsSnapshot(settings, remoteConfig, BuildTarget.StandaloneWindows64);
+            Assert.That(
+                AAWorkflowWorkspaceInitializer.IsRuntimeSettingsConfiguredForAnyWorkflow(
+                    settings,
+                    BuildTarget.StandaloneWindows64,
+                    localConfig,
+                    remoteConfig),
+                Is.True);
+
+            ApplyRuntimeSettingsSnapshot(settings, localConfig, BuildTarget.StandaloneWindows64);
+            SetSerializedString(settings, "hotUpdateManifestPathOrUrl", "https://broken.example.com/manifest.json");
+            Assert.That(
+                AAWorkflowWorkspaceInitializer.IsRuntimeSettingsConfiguredForAnyWorkflow(
+                    settings,
+                    BuildTarget.StandaloneWindows64,
+                    localConfig,
+                    remoteConfig),
+                Is.False);
+        }
+
+        [Test]
+        public void WorkspaceGroupPathReadinessRequiresKnownVariablePairs()
+        {
+            AAGroupPathStatus[] readyStatuses =
+            {
+                new AAGroupPathStatus
+                {
+                    GroupName = AAWorkflowWorkspaceInitializer.LocalResourcesGroupName,
+                    HasBundledSchema = true,
+                    Included = true,
+                    BuildPathVariable = AAWorkflowWorkspaceInitializer.LocalBuildPathVariableName,
+                    LoadPathVariable = AAWorkflowWorkspaceInitializer.LocalLoadPathVariableName
+                },
+                new AAGroupPathStatus
+                {
+                    GroupName = AAWorkflowWorkspaceInitializer.HotUpdateCodeGroupName,
+                    HasBundledSchema = true,
+                    Included = true,
+                    BuildPathVariable = AAWorkflowWorkspaceInitializer.RemoteBuildPathVariableName,
+                    LoadPathVariable = AAWorkflowWorkspaceInitializer.RemoteLoadPathVariableName
+                }
+            };
+
+            Assert.That(
+                AAWorkflowWorkspaceInitializer.AreRequiredGroupPathsConfigured(readyStatuses),
+                Is.True);
+
+            readyStatuses[1].LoadPathVariable = AAWorkflowWorkspaceInitializer.LocalLoadPathVariableName;
+
+            Assert.That(
+                AAWorkflowWorkspaceInitializer.AreRequiredGroupPathsConfigured(readyStatuses),
+                Is.False);
         }
 
         [Test]
@@ -374,6 +520,39 @@ namespace StellarFramework.Tests.FrameworkValidation
             Assert.That(hotUpdateGroupText, Does.Contain("m_GroupName: StellarFramework Hot Update Code"));
             Assert.That(hotUpdateGroupText, Does.Contain("Assets/GameHotUpdate/Code/HotUpdate.dll.bytes"));
             Assert.That(hotUpdateGroupText, Does.Contain("Assets/GameHotUpdate/Metadata/mscorlib.dll.bytes"));
+        }
+
+        private static void ApplyRuntimeSettingsSnapshot(
+            HotUpdateSettings settings,
+            AAWorkflowConfig config,
+            BuildTarget target)
+        {
+            SetSerializedString(settings, "hotUpdateManifestPathOrUrl",
+                AAWorkflowPathUtility.BuildRuntimeManifestPathOrUrl(config, target));
+            SetSerializedBool(settings, "hotUpdateManifestFallbackToStreamingAssets",
+                config.AllowStreamingAssetsFallback);
+            SetSerializedBool(settings, "hotUpdateManifestFallbackToResources",
+                config.AllowResourcesFallback);
+            SetSerializedBool(settings, "addressablesUpdateCatalogsOnCheck",
+                config.Mode == AAWorkflowMode.RemoteHotUpdate);
+        }
+
+        private static void SetSerializedString(UnityEngine.Object target, string propertyName, string value)
+        {
+            SerializedObject serialized = new SerializedObject(target);
+            SerializedProperty property = serialized.FindProperty(propertyName);
+            Assert.That(property, Is.Not.Null, propertyName);
+            property.stringValue = value ?? string.Empty;
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        private static void SetSerializedBool(UnityEngine.Object target, string propertyName, bool value)
+        {
+            SerializedObject serialized = new SerializedObject(target);
+            SerializedProperty property = serialized.FindProperty(propertyName);
+            Assert.That(property, Is.Not.Null, propertyName);
+            property.boolValue = value;
+            serialized.ApplyModifiedPropertiesWithoutUndo();
         }
     }
 }

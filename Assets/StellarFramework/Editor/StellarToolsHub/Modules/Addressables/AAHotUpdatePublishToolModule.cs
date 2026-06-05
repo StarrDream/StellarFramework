@@ -1345,10 +1345,10 @@ namespace StellarFramework.Editor.Modules
                 return false;
             }
 
-            ResKitRuntimeSettings settings = LoadOrCreateRuntimeSettingsAsset();
+            HotUpdateSettings settings = LoadOrCreateRuntimeSettingsAsset();
             if (settings == null)
             {
-                message = "无法加载或创建 ResKitRuntimeSettings 资源。";
+                message = "无法加载或创建 HotUpdateSettings 资源。";
                 return false;
             }
 
@@ -1386,22 +1386,22 @@ namespace StellarFramework.Editor.Modules
             }
         }
 
-        private static ResKitRuntimeSettings LoadOrCreateRuntimeSettingsAsset()
+        private static HotUpdateSettings LoadOrCreateRuntimeSettingsAsset()
         {
-            const string assetPath = "Assets/Resources/ResKitRuntimeSettings.asset";
-            ResKitRuntimeSettings settings = AssetDatabase.LoadAssetAtPath<ResKitRuntimeSettings>(assetPath);
+            const string assetPath = AAWorkflowWorkspaceInitializer.HotUpdateSettingsAssetPath;
+            HotUpdateSettings settings = AssetDatabase.LoadAssetAtPath<HotUpdateSettings>(assetPath);
             if (settings != null)
             {
                 return settings;
             }
 
-            string[] guids = AssetDatabase.FindAssets("t:ResKitRuntimeSettings");
+            string[] guids = AssetDatabase.FindAssets("t:HotUpdateSettings");
             foreach (string guid in guids)
             {
                 string path = AssetDatabase.GUIDToAssetPath(guid);
                 if (path.Contains("/Resources/", StringComparison.OrdinalIgnoreCase))
                 {
-                    settings = AssetDatabase.LoadAssetAtPath<ResKitRuntimeSettings>(path);
+                    settings = AssetDatabase.LoadAssetAtPath<HotUpdateSettings>(path);
                     if (settings != null)
                     {
                         return settings;
@@ -1410,7 +1410,7 @@ namespace StellarFramework.Editor.Modules
             }
 
             Directory.CreateDirectory("Assets/Resources");
-            settings = ScriptableObject.CreateInstance<ResKitRuntimeSettings>();
+            settings = ScriptableObject.CreateInstance<HotUpdateSettings>();
             AssetDatabase.CreateAsset(settings, assetPath);
             AssetDatabase.SaveAssets();
             return settings;
@@ -1713,7 +1713,7 @@ namespace StellarFramework.Editor.Modules
         }
     }
 
-    [StellarTool("AA 配置与发布", "热更新", -10)]
+    [StellarTool("AA 配置与发布", "资源管理", 1)]
     public sealed class AAWorkflowPublishHubModule : ToolModule
     {
         private static readonly string[] TabNames =
@@ -1736,6 +1736,9 @@ namespace StellarFramework.Editor.Modules
         private bool _showRemoteManualActions;
         private bool _showInlineDiagnostics;
         private bool _showGroupPathDetails;
+        private bool _workspaceInitializationQueued;
+        private bool _workspaceInitializationRunning;
+        private EditorApplication.CallbackFunction _pendingWorkspaceInitializationAction;
 
         public override string Icon => "d_Folder Icon";
         public override string Description => "管理本地内置 AA 与远端热更 AA 配置，构建、发布、覆盖测试 Player 并诊断 Manifest。";
@@ -1745,17 +1748,40 @@ namespace StellarFramework.Editor.Modules
             AAWorkflowConfigStore.Reload();
         }
 
+        public override void OnDisable()
+        {
+            if (_pendingWorkspaceInitializationAction != null)
+            {
+                EditorApplication.delayCall -= _pendingWorkspaceInitializationAction;
+                _pendingWorkspaceInitializationAction = null;
+            }
+
+            _workspaceInitializationQueued = false;
+            _workspaceInitializationRunning = false;
+        }
+
         public override void OnGUI()
         {
             BuildTarget target = EditorUserBuildSettings.activeBuildTarget;
+            AAWorkflowWorkspaceStatus workspaceStatus = AAWorkflowWorkspaceInitializer.Evaluate(target);
+
+            if (!workspaceStatus.IsReady)
+            {
+                DrawInitializationHeader();
+                DrawWorkspaceInitialization(target, workspaceStatus);
+                DrawLastReports();
+                return;
+            }
+
             AAWorkflowConfigSet configSet = AAWorkflowConfigStore.ConfigSet;
             configSet.EnsureDefaults();
             SyncSelectedConfigToTab(configSet);
             AAWorkflowConfig config = configSet.SelectedConfig;
-            AAWorkflowConfig localConfig = configSet.GetFirstConfig(AAWorkflowMode.LocalBuiltIn);
-            AAWorkflowConfig remoteConfig = configSet.GetFirstConfig(AAWorkflowMode.RemoteHotUpdate);
 
             DrawHeader(configSet, config, target);
+
+            AAWorkflowConfig localConfig = configSet.GetFirstConfig(AAWorkflowMode.LocalBuiltIn);
+            AAWorkflowConfig remoteConfig = configSet.GetFirstConfig(AAWorkflowMode.RemoteHotUpdate);
             DrawTabBar();
             GUILayout.Space(6);
 
@@ -1779,6 +1805,140 @@ namespace StellarFramework.Editor.Modules
             if (!reportsInSidebar)
             {
                 DrawLastReports();
+            }
+        }
+
+        private static void DrawInitializationHeader()
+        {
+            using (new GUILayout.VerticalScope(EditorStyles.helpBox, GUILayout.MinHeight(64), GUILayout.ExpandWidth(true)))
+            {
+                EditorGUILayout.LabelField("AA 配置与发布", EditorStyles.boldLabel);
+                EditorGUILayout.LabelField(
+                    "第一次接入前，先初始化一次热更工作区。初始化完成后再进入完整的 AA 配置、发布和诊断面板。",
+                    EditorStyles.miniLabel);
+            }
+
+            GUILayout.Space(6);
+        }
+
+        private void DrawWorkspaceInitialization(
+            BuildTarget target,
+            AAWorkflowWorkspaceStatus workspaceStatus)
+        {
+            Section("初始化热更工作区");
+            using (new GUILayout.VerticalScope(EditorStyles.helpBox))
+            {
+                EditorGUILayout.HelpBox(
+                    "第一次接入热更时，先初始化一次工作区。这个步骤会创建 Addressables Settings、AAWorkflowConfigSet、默认 Local/Remote Profile，并写入默认运行时热更配置。初始化完成后，才会进入正常的 AA 配置与发布面板。",
+                    MessageType.Info);
+
+                if (workspaceStatus.MissingItems.Count > 0)
+                {
+                    string missing = string.Join("\n- ", workspaceStatus.MissingItems);
+                    EditorGUILayout.HelpBox("当前缺少：\n- " + missing, MessageType.Warning);
+                }
+
+                if (_workspaceInitializationQueued || _workspaceInitializationRunning)
+                {
+                    EditorGUILayout.HelpBox(
+                        _workspaceInitializationRunning
+                            ? "热更工作区初始化正在执行，请等待当前任务完成。"
+                            : "热更工作区初始化已加入队列，稍后会在编辑器空闲时执行。",
+                        MessageType.Info);
+                }
+
+                using (new GUILayout.HorizontalScope())
+                {
+                    using (new EditorGUI.DisabledScope(_workspaceInitializationQueued || _workspaceInitializationRunning))
+                    {
+                        if (PrimaryButton("初始化热更工作区", GUILayout.Height(34)))
+                        {
+                            QueueWorkspaceInitialization(target);
+                            GUI.FocusControl(null);
+                        }
+                    }
+
+                    if (GUILayout.Button(new GUIContent("刷新状态", "重新检查当前工程的热更工作区状态。"), GUILayout.Height(30)))
+                    {
+                        AAWorkflowConfigStore.Reload();
+                        GUI.FocusControl(null);
+                    }
+                }
+            }
+
+            Section("初始化后你会得到什么");
+            using (new GUILayout.VerticalScope(EditorStyles.helpBox))
+            {
+                EditorGUILayout.LabelField("1. Addressables Settings", EditorStyles.boldLabel);
+                EditorGUILayout.LabelField("2. Local / Remote 两套默认 AA 工作流", EditorStyles.wordWrappedMiniLabel);
+                EditorGUILayout.LabelField("3. HotUpdateSettings / ResKitRuntimeSettings 运行时资产", EditorStyles.wordWrappedMiniLabel);
+                EditorGUILayout.LabelField("4. 进入完整的本地内置 AA / 远端热更 AA / 诊断页签", EditorStyles.wordWrappedMiniLabel);
+            }
+        }
+
+        private void QueueWorkspaceInitialization(BuildTarget target)
+        {
+            if (_workspaceInitializationQueued || _workspaceInitializationRunning)
+            {
+                return;
+            }
+
+            _workspaceInitializationQueued = true;
+            _pendingWorkspaceInitializationAction = () =>
+            {
+                EditorApplication.delayCall -= _pendingWorkspaceInitializationAction;
+                _pendingWorkspaceInitializationAction = null;
+                _workspaceInitializationQueued = false;
+                RunWorkspaceInitialization(target);
+            };
+
+            EditorApplication.delayCall += _pendingWorkspaceInitializationAction;
+            Window.ShowNotification(new GUIContent("热更工作区初始化已排队"));
+            Window.Repaint();
+        }
+
+        private void RunWorkspaceInitialization(BuildTarget target)
+        {
+            _workspaceInitializationRunning = true;
+            try
+            {
+                if (AAWorkflowWorkspaceInitializer.TryInitialize(target, out List<string> messages, out List<string> errors))
+                {
+                    _lastRunReport = new AAHotUpdatePublishRunReport();
+                    foreach (string message in messages)
+                    {
+                        _lastRunReport.AddMessage(message);
+                    }
+
+                    Window.ShowNotification(new GUIContent("热更工作区初始化完成"));
+                }
+                else
+                {
+                    _lastRunReport = new AAHotUpdatePublishRunReport();
+                    foreach (string message in messages)
+                    {
+                        _lastRunReport.AddMessage(message);
+                    }
+
+                    foreach (string error in errors)
+                    {
+                        _lastRunReport.AddError(error);
+                    }
+
+                    Window.ShowNotification(new GUIContent("热更工作区初始化失败"));
+                }
+            }
+            catch (Exception exception)
+            {
+                _lastRunReport = new AAHotUpdatePublishRunReport();
+                _lastRunReport.AddError(exception.GetBaseException().Message);
+                Window.ShowNotification(new GUIContent("热更工作区初始化失败"));
+            }
+            finally
+            {
+                AAWorkflowConfigStore.Reload();
+                _workspaceInitializationRunning = false;
+                Window.Repaint();
             }
         }
 
@@ -2266,7 +2426,7 @@ namespace StellarFramework.Editor.Modules
 
                 using (new GUILayout.HorizontalScope())
                 {
-                    if (GUILayout.Button(new GUIContent("写入设置", "只写入 ResKitRuntimeSettings 的 Manifest 来源、兜底策略和 catalog 检查开关。"), GUILayout.Height(26)))
+                    if (GUILayout.Button(new GUIContent("写入设置", "把当前工作流的 Manifest 来源、兜底策略和 catalog 检查开关写入 HotUpdateSettings。"), GUILayout.Height(26)))
                     {
                         WriteWorkflowRuntimeSettings(config, target);
                     }
@@ -2432,7 +2592,7 @@ namespace StellarFramework.Editor.Modules
                     new GUIContent("复制 .meta 文件", "正式发布不需要 .meta。只有调试目录内容时才建议开启。"),
                     config.CopyMetaFiles);
                 config.WriteRuntimeSettings = EditorGUILayout.Toggle(
-                    new GUIContent("写入运行时设置", "把当前工作流的 Manifest 策略写入 Resources/ResKitRuntimeSettings.asset。"),
+                    new GUIContent("写入运行时设置", "把当前工作流的 Manifest 策略写入 Resources/HotUpdateSettings.asset。"),
                     config.WriteRuntimeSettings);
                 if (EditorGUI.EndChangeCheck())
                 {
@@ -2546,7 +2706,7 @@ namespace StellarFramework.Editor.Modules
                         Window.ShowNotification(new GUIContent(_lastRunReport.Success ? "AA 配置已应用" : "AA 配置失败"));
                     }
 
-                    if (GUILayout.Button(new GUIContent("写入运行时设置", "只写入 ResKitRuntimeSettings 的 Manifest 来源、兜底策略和 catalog 检查开关。"), GUILayout.Height(28)))
+                    if (GUILayout.Button(new GUIContent("写入运行时设置", "把当前工作流的 Manifest 来源、兜底策略和 catalog 检查开关写入 HotUpdateSettings。"), GUILayout.Height(28)))
                     {
                         WriteWorkflowRuntimeSettings(config, target);
                     }

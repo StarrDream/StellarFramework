@@ -45,7 +45,7 @@ namespace StellarFramework.HotUpdate
             }
         }
 
-        public static HotUpdateManifest FromRuntimeSettings(ResKitRuntimeSettings settings)
+        public static HotUpdateManifest FromRuntimeSettings(HotUpdateSettings settings)
         {
             if (settings == null)
             {
@@ -83,6 +83,11 @@ namespace StellarFramework.HotUpdate
 
         public HotUpdateManifestValidationReport Validate()
         {
+            return Validate(false);
+        }
+
+        public HotUpdateManifestValidationReport Validate(bool strictAssemblyIntegrity)
+        {
             HotUpdateManifestValidationReport report = new HotUpdateManifestValidationReport();
 
             if (string.IsNullOrWhiteSpace(hotUpdateAssemblyKey))
@@ -94,8 +99,18 @@ namespace StellarFramework.HotUpdate
                 report.AddWarning("hotUpdateAssemblyKey should usually point to a .dll.bytes TextAsset address.");
             }
 
-            if (!string.IsNullOrWhiteSpace(hotUpdateAssemblySha256) &&
-                hotUpdateAssemblySha256.Trim().Replace("-", string.Empty).Length != 64)
+            string normalizedSha256 = string.IsNullOrWhiteSpace(hotUpdateAssemblySha256)
+                ? string.Empty
+                : hotUpdateAssemblySha256.Trim().Replace("-", string.Empty);
+
+            if (strictAssemblyIntegrity && string.IsNullOrWhiteSpace(normalizedSha256))
+            {
+                report.AddError(
+                    "Production hot update requires hotUpdateAssemblySha256. Re-export dll.bytes and regenerate HotUpdateManifest.json.");
+            }
+
+            if (!string.IsNullOrWhiteSpace(normalizedSha256) &&
+                normalizedSha256.Length != 64)
             {
                 report.AddError("hotUpdateAssemblySha256 must be a 64-character SHA256 hex string when provided.");
             }
@@ -261,12 +276,17 @@ namespace StellarFramework.HotUpdate
                 errors);
         }
 
-        public static List<IHotUpdateManifestSource> BuildDefaultSources(ResKitRuntimeSettings settings)
+        public static List<IHotUpdateManifestSource> BuildDefaultSources(HotUpdateSettings settings)
+        {
+            return BuildDefaultSources(settings, HotUpdateRuntimePolicy.IsStrictProductionRuntime);
+        }
+
+        public static List<IHotUpdateManifestSource> BuildDefaultSources(HotUpdateSettings settings, bool strictProduction)
         {
             List<IHotUpdateManifestSource> sources = new List<IHotUpdateManifestSource>();
             if (settings == null)
             {
-                settings = ResKitRuntimeSettings.LoadOrCreateDefault();
+                settings = HotUpdateSettings.LoadOrCreateDefault();
             }
 
             string explicitPath = settings != null ? settings.HotUpdateManifestPathOrUrl : null;
@@ -275,6 +295,11 @@ namespace StellarFramework.HotUpdate
                 sources.Add(CreateExplicitSource(
                     explicitPath.Trim(),
                     settings != null ? settings.HotUpdateManifestHttpTimeoutSeconds : 30));
+
+                if (strictProduction)
+                {
+                    return sources;
+                }
             }
 
             if (settings == null || settings.HotUpdateManifestFallbackToStreamingAssets)
@@ -282,7 +307,7 @@ namespace StellarFramework.HotUpdate
                 sources.Add(new StreamingAssetsHotUpdateManifestSource());
             }
 
-            if (settings == null || settings.HotUpdateManifestFallbackToResources)
+            if (!strictProduction && (settings == null || settings.HotUpdateManifestFallbackToResources))
             {
                 sources.Add(new ResourcesHotUpdateManifestSource(settings));
             }
@@ -383,9 +408,9 @@ namespace StellarFramework.HotUpdate
 
     public sealed class ResourcesHotUpdateManifestSource : IHotUpdateManifestSource
     {
-        private readonly ResKitRuntimeSettings _settings;
+        private readonly HotUpdateSettings _settings;
 
-        public ResourcesHotUpdateManifestSource(ResKitRuntimeSettings settings = null)
+        public ResourcesHotUpdateManifestSource(HotUpdateSettings settings = null)
         {
             _settings = settings;
         }
@@ -394,11 +419,11 @@ namespace StellarFramework.HotUpdate
 
         public UniTask<HotUpdateManifestLoadResult> LoadAsync(CancellationToken cancellationToken)
         {
-            ResKitRuntimeSettings settings = _settings ?? ResKitRuntimeSettings.LoadOrCreateDefault();
+            HotUpdateSettings settings = _settings ?? HotUpdateSettings.LoadOrCreateDefault();
             HotUpdateManifest manifest = HotUpdateManifest.FromRuntimeSettings(settings);
             return UniTask.FromResult(manifest != null
                 ? HotUpdateManifestLoadResult.Ok(manifest, Description)
-                : HotUpdateManifestLoadResult.Fail(Description, "ResKitRuntimeSettings was not found."));
+                : HotUpdateManifestLoadResult.Fail(Description, "HotUpdateSettings was not found."));
         }
     }
 

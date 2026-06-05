@@ -33,6 +33,19 @@ namespace StellarFramework.Tests.HotUpdate
         }
 
         [Test]
+        public void StrictManifestValidationRejectsMissingSha()
+        {
+            HotUpdateManifest manifest = CreateValidManifest();
+            manifest.hotUpdateAssemblySha256 = string.Empty;
+
+            HotUpdateManifestValidationReport report = manifest.Validate(strictAssemblyIntegrity: true);
+
+            Assert.That(report.IsValid, Is.False);
+            CollectionAssert.Contains(report.Errors,
+                "Production hot update requires hotUpdateAssemblySha256. Re-export dll.bytes and regenerate HotUpdateManifest.json.");
+        }
+
+        [Test]
         public void ManifestValidationRejectsMissingCoreFields()
         {
             HotUpdateManifest manifest = new HotUpdateManifest();
@@ -75,7 +88,7 @@ namespace StellarFramework.Tests.HotUpdate
         [Test]
         public void ResourcesFallbackBuildsManifestFromSettings()
         {
-            ResKitRuntimeSettings settings = ResKitRuntimeSettings.LoadOrCreateDefault();
+            HotUpdateSettings settings = HotUpdateSettings.LoadOrCreateDefault();
 
             HotUpdateManifest manifest = HotUpdateManifest.FromRuntimeSettings(settings);
 
@@ -84,6 +97,24 @@ namespace StellarFramework.Tests.HotUpdate
             Assert.That(manifest.hotUpdateEntryClass, Is.EqualTo(settings.HotUpdateEntryClass));
             Assert.That(manifest.hotUpdateEntryMethod, Is.EqualTo(settings.HotUpdateEntryMethod));
             CollectionAssert.AreEqual(settings.AotMetadataKeys, manifest.aotMetadataKeys);
+        }
+
+        [Test]
+        public void StrictSettingsValidationRejectsMissingShaAndResourcesOnlyFallback()
+        {
+            HotUpdateSettings settings = ScriptableObject.CreateInstance<HotUpdateSettings>();
+            SetPrivateField(settings, "hotUpdateAssemblySha256", string.Empty);
+            SetPrivateField(settings, "hotUpdateManifestPathOrUrl", string.Empty);
+            SetPrivateField(settings, "hotUpdateManifestFallbackToStreamingAssets", false);
+            SetPrivateField(settings, "hotUpdateManifestFallbackToResources", true);
+
+            HotUpdateSettingsValidationReport report = settings.Validate(strictProduction: true);
+
+            Assert.That(report.IsValid, Is.False);
+            CollectionAssert.Contains(report.Errors,
+                "Production hot update requires HotUpdateManifestPathOrUrl or StreamingAssets fallback. Resources-only fallback is not allowed.");
+            CollectionAssert.Contains(report.Errors,
+                "Production hot update requires HotUpdateAssemblySha256. Re-export dll.bytes so the framework can verify the hot update DLL.");
         }
 
         [Test]
@@ -104,6 +135,34 @@ namespace StellarFramework.Tests.HotUpdate
             Assert.That(result.Manifest, Is.SameAs(expected));
             Assert.That(result.Errors, Has.Count.EqualTo(1));
             Assert.That(result.Errors[0], Does.Contain("Missing manifest"));
+        }
+
+        [Test]
+        public void StrictSourceChainUsesExplicitSourceOnly()
+        {
+            HotUpdateSettings settings = ScriptableObject.CreateInstance<HotUpdateSettings>();
+            SetPrivateField(settings, "hotUpdateManifestPathOrUrl", "https://example.com/hotupdate/HotUpdateManifest.json");
+            SetPrivateField(settings, "hotUpdateManifestFallbackToStreamingAssets", true);
+            SetPrivateField(settings, "hotUpdateManifestFallbackToResources", true);
+
+            var sources = HotUpdateManifestSourceChain.BuildDefaultSources(settings, strictProduction: true);
+
+            Assert.That(sources, Has.Count.EqualTo(1));
+            Assert.That(sources[0], Is.TypeOf<HttpHotUpdateManifestSource>());
+        }
+
+        [Test]
+        public void StrictSourceChainSkipsResourcesFallbackEvenWithoutExplicitSource()
+        {
+            HotUpdateSettings settings = ScriptableObject.CreateInstance<HotUpdateSettings>();
+            SetPrivateField(settings, "hotUpdateManifestPathOrUrl", string.Empty);
+            SetPrivateField(settings, "hotUpdateManifestFallbackToStreamingAssets", true);
+            SetPrivateField(settings, "hotUpdateManifestFallbackToResources", true);
+
+            var sources = HotUpdateManifestSourceChain.BuildDefaultSources(settings, strictProduction: true);
+
+            Assert.That(sources, Has.Count.EqualTo(1));
+            Assert.That(sources[0], Is.TypeOf<StreamingAssetsHotUpdateManifestSource>());
         }
 
         private static HotUpdateManifest CreateValidManifest()
@@ -140,6 +199,14 @@ namespace StellarFramework.Tests.HotUpdate
             {
                 return UniTask.FromResult(_result);
             }
+        }
+
+        private static void SetPrivateField<T>(HotUpdateSettings settings, string fieldName, T value)
+        {
+            var field = typeof(HotUpdateSettings).GetField(fieldName,
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+            Assert.That(field, Is.Not.Null, fieldName);
+            field.SetValue(settings, value);
         }
     }
 }

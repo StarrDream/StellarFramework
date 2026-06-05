@@ -22,13 +22,12 @@
 | `ResKit_Playable.unity` | Resources、AB、AA、RawText | `Resources / AB / RawText` 可直接验证，`AA` 依赖 Addressables |
 | `SingletonKit_Playable.unity` | 全局单例与场景单例 | 可直接运行 |
 | `UIKit_Playable.unity` | UIRoot、面板打开、堆栈与压力测试 | 可直接运行 |
-| `FrameworkValidation_Playable.unity` | ResKit、UIKit、HotUpdateKit 集中验证 | 推荐作为新人第一场景与回归入口 |
 
 ## 建议顺序
 
-1. `FrameworkValidation_Playable.unity`
-2. `UIKit_Playable.unity`
-3. `ResKit_Playable.unity`
+1. `UIKit_Playable.unity`
+2. `ResKit_Playable.unity`
+3. `HotUpdateKit_Playable.unity`
 4. `HotUpdateKit_Playable.unity`
 5. `ActionKit_Playable.unity`
 6. `BindableKit_Playable.unity`
@@ -65,5 +64,5 @@
 - `SettingsKit_Playable.unity` 会自动安装默认设置页，并附带一个 `Example Extensions` 扩展页
 - `ResKit_Playable.unity` 的 Addressables 部分依赖本地安装和构建结果；AA 模拟与构建请使用 Addressables 官方界面
 - `HotUpdateKit_Playable.unity` 只验证入口，不包含完整热更产物
-- `FrameworkValidation_Playable.unity` 是集中验收入口，适合每次框架重构后快速检查主链路，也是新人第一推荐场景
+- `FrameworkValidation` 已迁入框架外验证区，适合框架开发者做发布前回归，不再作为用户样例的一部分
 - `HttpKit_Playable.unity` 离线也能看到本地逻辑，联网时信息更完整

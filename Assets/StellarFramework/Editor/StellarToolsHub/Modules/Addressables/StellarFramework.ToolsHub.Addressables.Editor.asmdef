@@ -1,0 +1,31 @@
+{
+    "name": "StellarFramework.ToolsHub.Addressables.Editor",
+    "rootNamespace": "",
+    "references": [
+        "StellarFramework.ToolsHub.Editor",
+        "StellarFramework.HotUpdateKit",
+        "StellarFramework.ResKit",
+        "Unity.Addressables.Editor",
+        "Unity.Addressables",
+        "Unity.ResourceManager"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [
+        "UNITY_ADDRESSABLES"
+    ],
+    "versionDefines": [
+        {
+            "name": "com.unity.addressables",
+            "expression": "1.0.0",
+            "define": "UNITY_ADDRESSABLES"
+        }
+    ],
+    "noEngineReferences": false
+}

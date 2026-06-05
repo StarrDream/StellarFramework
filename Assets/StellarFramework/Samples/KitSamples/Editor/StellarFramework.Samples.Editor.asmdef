@@ -10,7 +10,6 @@
         "StellarFramework.ConfigKit",
         "StellarFramework.EventKit",
         "StellarFramework.FSMKit",
-        "StellarFramework.HotUpdateKit",
         "StellarFramework.HttpKit",
         "StellarFramework.LogKit",
         "StellarFramework.PoolKit",

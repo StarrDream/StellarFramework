@@ -1,0 +1,37 @@
+{
+  "name": "StellarFramework.FrameworkValidation.Addressables.Tests",
+  "rootNamespace": "StellarFramework.Tests",
+  "references": [
+    "StellarFramework.ToolsHub.Addressables.Editor",
+    "StellarFramework.HotUpdateKit",
+    "StellarFramework.ResKit",
+    "StellarFramework.ResKit.Addressables",
+    "StellarFramework.SingletonKit",
+    "UniTask",
+    "UniTask.Addressables",
+    "Unity.Addressables",
+    "Unity.ResourceManager"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": false,
+  "defineConstraints": [
+    "UNITY_ADDRESSABLES"
+  ],
+  "versionDefines": [
+    {
+      "name": "com.unity.addressables",
+      "expression": "1.0.0",
+      "define": "UNITY_ADDRESSABLES"
+    }
+  ],
+  "noEngineReferences": false,
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ]
+}
