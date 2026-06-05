@@ -8,7 +8,6 @@ namespace StellarFramework.Res
     {
         Default = 0,
         Resources = 1,
-        Addressables = 2,
         AssetBundle = 3,
         Custom = 100
     }
@@ -63,6 +62,7 @@ namespace StellarFramework.Res
             new Dictionary<string, ResLoaderFactory>(StringComparer.Ordinal);
 
         private static ResLoadBackend _configuredDefaultBackend = ResLoadBackend.Default;
+        private static string _configuredDefaultCustomKey = string.Empty;
         private static ResKitRuntimeSettings _configuredRuntimeSettings;
 
         /// <summary>
@@ -78,9 +78,11 @@ namespace StellarFramework.Res
         /// Passing ResLoadBackend.Default lets ResKitRuntimeSettings decide, then falls back to Resources.
         /// </summary>
         public static void Configure(ResLoadBackend defaultBackend = ResLoadBackend.Default,
-            ResKitRuntimeSettings runtimeSettings = null)
+            ResKitRuntimeSettings runtimeSettings = null,
+            string defaultCustomLoaderKey = null)
         {
             _configuredDefaultBackend = defaultBackend;
+            _configuredDefaultCustomKey = NormalizeCustomKey(defaultCustomLoaderKey);
             _configuredRuntimeSettings = runtimeSettings;
         }
 
@@ -133,16 +135,17 @@ namespace StellarFramework.Res
         /// </summary>
         public static IResLoader Allocate(ResLoaderRequest request)
         {
-            ResLoadBackend backend = ResolveBackend(request.Backend);
+            ResLoaderRequest resolvedRequest = ResolveRequest(request);
+            ResLoadBackend backend = resolvedRequest.Backend;
             IResLoader loader = null;
 
             if (backend == ResLoadBackend.Custom)
             {
-                loader = AllocateCustom(request);
+                loader = AllocateCustom(resolvedRequest);
             }
             else if (_backendFactories.TryGetValue(backend, out ResLoaderFactory factory))
             {
-                loader = factory.Invoke(request);
+                loader = factory.Invoke(resolvedRequest);
             }
             else
             {
@@ -156,9 +159,9 @@ namespace StellarFramework.Res
                 return null;
             }
 
-            if (!string.IsNullOrWhiteSpace(request.OwnerName) && loader is ResLoader resLoader)
+            if (!string.IsNullOrWhiteSpace(resolvedRequest.OwnerName) && loader is ResLoader resLoader)
             {
-                resLoader.SetOwnerName(request.OwnerName);
+                resLoader.SetOwnerName(resolvedRequest.OwnerName);
             }
 
             return loader;
@@ -197,26 +200,40 @@ namespace StellarFramework.Res
             loader.RecycleToPool();
         }
 
-        private static ResLoadBackend ResolveBackend(ResLoadBackend requestedBackend)
+        private static ResLoaderRequest ResolveRequest(ResLoaderRequest request)
         {
-            if (requestedBackend != ResLoadBackend.Default)
+            if (request.Backend != ResLoadBackend.Default)
             {
-                return requestedBackend;
+                return request;
             }
 
             if (_configuredDefaultBackend != ResLoadBackend.Default)
             {
-                return _configuredDefaultBackend;
+                return BuildResolvedRequest(
+                    _configuredDefaultBackend,
+                    _configuredDefaultCustomKey,
+                    request.OwnerName);
             }
 
             ResKitRuntimeSettings settings = _configuredRuntimeSettings ??
                                              ResKitRuntimeSettings.LoadOrCreateDefault();
             if (settings != null && settings.DefaultLoadBackend != ResLoadBackend.Default)
             {
-                return settings.DefaultLoadBackend;
+                return BuildResolvedRequest(
+                    settings.DefaultLoadBackend,
+                    settings.DefaultCustomLoaderKey,
+                    request.OwnerName);
             }
 
-            return ResLoadBackend.Resources;
+            return ResLoaderRequest.For(ResLoadBackend.Resources, request.OwnerName);
+        }
+
+        private static ResLoaderRequest BuildResolvedRequest(ResLoadBackend backend, string customKey,
+            string ownerName)
+        {
+            return backend == ResLoadBackend.Custom
+                ? ResLoaderRequest.Custom(customKey, ownerName)
+                : ResLoaderRequest.For(backend, ownerName);
         }
 
         private static IResLoader AllocateBuiltin(ResLoadBackend backend)
@@ -225,8 +242,6 @@ namespace StellarFramework.Res
             {
                 case ResLoadBackend.Resources:
                     return Allocate<ResourceLoader>();
-                case ResLoadBackend.Addressables:
-                    return Allocate<AddressableLoader>();
                 case ResLoadBackend.AssetBundle:
                     return Allocate<AssetBundleLoader>();
                 default:

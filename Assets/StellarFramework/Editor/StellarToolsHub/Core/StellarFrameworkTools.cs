@@ -10,6 +10,17 @@ namespace StellarFramework.Editor
 {
     public class StellarFrameworkTools : EditorWindow
     {
+        private static readonly string[] PreferredGroupOrder =
+        {
+            "Start Here",
+            "资源管理",
+            "框架核心",
+            "热更新",
+            "样例支持",
+            "生产力",
+            "常用工具"
+        };
+
         [MenuItem("StellarFramework/Tools Hub %#t")]
         public static void ShowWindow()
         {
@@ -123,6 +134,11 @@ namespace StellarFramework.Editor
                 _groupedModules[module.Group].Add(module);
             }
 
+            _groupedModules = _groupedModules
+                .OrderBy(pair => GetGroupOrder(pair.Key))
+                .ThenBy(pair => pair.Key, StringComparer.Ordinal)
+                .ToDictionary(pair => pair.Key, pair => pair.Value);
+
             // 6. 默认选中第一个
             if (_allModules.Count > 0 && _currentModule == null)
             {
@@ -131,6 +147,19 @@ namespace StellarFramework.Editor
             }
 
             Debug.Log($"[StellarFrameworkTools] 已加载 {_allModules.Count} 个工具模块");
+        }
+
+        private static int GetGroupOrder(string groupName)
+        {
+            for (int i = 0; i < PreferredGroupOrder.Length; i++)
+            {
+                if (string.Equals(PreferredGroupOrder[i], groupName, StringComparison.Ordinal))
+                {
+                    return i;
+                }
+            }
+
+            return PreferredGroupOrder.Length;
         }
 
         private static IEnumerable<Type> GetToolModuleTypes()

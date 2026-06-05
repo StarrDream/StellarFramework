@@ -15,7 +15,7 @@ Samples 是新人验收和维护者回归的重要入口。它们不是独立小
 ## 核心类型
 
 - `SampleBuilderHubModule`：ToolsHub 中负责生成和修复样例的工具模块。
-- `FrameworkValidation` 相关样例脚本：集中验证 Runtime Kit 主链路。
+- 外置验证区中的 `FrameworkValidation` 相关脚本：集中验证 Runtime Kit 主链路。
 - `UIKit` 样例脚本：演示 UI 初始化、打开、关闭和页面栈。
 - `ResKit` 样例脚本：演示 Resources、AB、AA 后端加载。
 - `SettingsKit` 样例脚本：演示设置页、应用、保存和回滚。
@@ -29,7 +29,7 @@ Samples 是新人验收和维护者回归的重要入口。它们不是独立小
 
 ## 核心内容
 
-- `FrameworkValidation_Playable.unity`：集中验证场景，优先用于新人第一次跑通。
+- `FrameworkValidation_Playable.unity`：已迁入外置验证区，优先用于框架开发者做集中回归。
 - `UIKit_Playable.unity`：UIKit 面板、页面栈、UIRoot 和加载策略验证。
 - `ResKit_Playable.unity`：Resources、AB、AA 等加载后端验证。
 - `SettingsKit_Playable.unity`：设置页、保存、应用和回滚验证。
@@ -39,7 +39,7 @@ Samples 是新人验收和维护者回归的重要入口。它们不是独立小
 
 1. 用户在 ToolsHub `Quick Start` 或 `样例构建` 中点击构建。
 2. 样例构建器创建或修复样例资源、Prefab、场景和配置。
-3. 新人先运行 FrameworkValidation 场景。
+3. 用户安装包优先运行 UIKit / ResKit 样例；框架开发者再运行外置验证区的 FrameworkValidation 场景。
 4. 再按具体 Kit 打开单独 Playable 场景。
 5. 修改 Runtime Kit 后，可以回到对应样例场景做行为回归。
 
@@ -54,11 +54,11 @@ Samples 是新人验收和维护者回归的重要入口。它们不是独立小
 
 - 新增 Kit 样例：在 `Samples/KitSamples/Scripts` 添加脚本，在 `Scenes` 添加 Playable 场景。
 - 新增样例资源：放入明确的 Kit 子目录，并在样例构建工具中补生成逻辑。
-- 新增集中验证项：优先补到 `FrameworkValidation_Playable.unity`。
+- 新增集中验证项：优先补到外置验证区的 `FrameworkValidation_Playable.unity`。
 - 新增文档：更新 `Samples_Index.md` 和对应 Kit 说明文档。
 
 ## 测试入口
 
 - `QuickStartHubModule` 依赖样例场景路径固定存在。
 - `QuickStartCatalogPolicyTests` 会检查关键样例场景和样例索引存在。
-- 修改样例构建逻辑后，至少重新执行 ToolsHub `构建样例` 并打开 FrameworkValidation 场景。
+- 修改样例构建逻辑后，至少重新执行 ToolsHub `构建样例`，并按需打开外置验证区的 FrameworkValidation 场景。

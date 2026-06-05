@@ -90,13 +90,13 @@ public sealed class PlayerHudView : StellarView
 
 ## ToolsHub 关联
 
-- `Quick Start` 会生成并打开 FrameworkValidation 场景，让新人先看 MSV 和 Kit 的组合方式。
+- `Quick Start` 现在先引导用户跑 UIKit / ResKit 样例；FrameworkValidation 已迁入外置验证区，供框架开发者做集中回归。
 - `文档中心 (Docs)` 可直接阅读架构说明文档和源码文档。
 
 ## 样例和测试
 
 - 样例：`Samples/ArchitectureDemo`
-- 集中验证场景：`Samples/KitSamples/Scenes/FrameworkValidation_Playable.unity`
+- 集中验证场景：`Assets/StellarFrameworkVerification/Scenes/FrameworkValidation_Playable.unity`
 - 源码阅读：[Architecture 源码文档](Architecture-MSV-架构源码文档-Guide.md)
 
 ## 常见问题

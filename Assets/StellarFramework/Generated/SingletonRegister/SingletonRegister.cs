@@ -19,8 +19,6 @@ namespace StellarFramework.Generated
             SingletonFactory.RegisterMetadata(typeof(StellarFramework.CoroutineRunner), new SingletonMetadata { ResourcePath = "", LifeCycle = SingletonLifeCycle.Global, UseContainer = true });
             SingletonFactory.RegisterMetadata(typeof(StellarFramework.Res.AB.AssetBundleManager), new SingletonMetadata { ResourcePath = "", LifeCycle = SingletonLifeCycle.Global, UseContainer = true });
             SingletonFactory.RegisterPureSingletonCreator(typeof(StellarFramework.Res.AB.AssetBundleManager), static () => new StellarFramework.Res.AB.AssetBundleManager());
-            SingletonFactory.RegisterMetadata(typeof(StellarFramework.Res.AddressableHotUpdateManager), new SingletonMetadata { ResourcePath = "", LifeCycle = SingletonLifeCycle.Global, UseContainer = true });
-            SingletonFactory.RegisterPureSingletonCreator(typeof(StellarFramework.Res.AddressableHotUpdateManager), static () => new StellarFramework.Res.AddressableHotUpdateManager());
             SingletonFactory.RegisterMetadata(typeof(StellarFramework.Settings.SettingsManager), new SingletonMetadata { ResourcePath = "", LifeCycle = SingletonLifeCycle.Global, UseContainer = true });
             SingletonFactory.RegisterPureSingletonCreator(typeof(StellarFramework.Settings.SettingsManager), static () => new StellarFramework.Settings.SettingsManager());
             SingletonFactory.RegisterMetadata(typeof(StellarFramework.UI.UIKit), new SingletonMetadata { ResourcePath = "Managers/UIKit", LifeCycle = SingletonLifeCycle.Global, UseContainer = false });

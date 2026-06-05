@@ -5,19 +5,14 @@ ResKit 是框架的资源加载门户。业务层优先通过 `ResKit.Allocate(r
 ## 1. 后端选择
 
 ```csharp
-IResLoader loader = ResKit.Allocate(new ResLoaderRequest
-{
-    Backend = ResLoadBackend.Addressables,
-    OwnerName = "BattlePreload"
-});
+IResLoader loader = ResKit.Allocate(ResLoaderRequest.Custom("Addressables", "BattlePreload"));
 ```
 
 可选后端：
 
 - `Resources`：本地内置资源，简单稳定，适合基础配置和兜底 UI。
-- `Addressables`：推荐生产热更后端，使用 `Assets/...` address，优先异步加载。
 - `AssetBundle`：保留自建 AB 管线，继续使用 `AssetMap` 和 ToolHub AB 构建。
-- `Custom`：通过 `ResKit.RegisterCustomLoader` 接入 YooAsset 或业务自定义加载器。
+- `Custom`：通过 `ResKit.RegisterCustomLoader` 接入 Addressables、YooAsset 或业务自定义加载器。
 
 旧代码继续可用：
 
@@ -34,7 +29,7 @@ private IResLoader _loader;
 
 private async UniTaskVoid Start()
 {
-    _loader = ResKit.Allocate(ResLoadBackend.Addressables, "HeroView");
+    _loader = ResKit.Allocate(ResLoaderRequest.Custom("Addressables", "HeroView"));
     GameObject prefab = await _loader.LoadAsync<GameObject>(
         "Assets/Game/Prefabs/Hero.prefab",
         destroyCancellationToken);
@@ -126,11 +121,7 @@ public sealed class PrefabSpawner : MonoBehaviour
 
     private async UniTaskVoid Start()
     {
-        _loader = ResKit.Allocate(new ResLoaderRequest
-        {
-            Backend = ResLoadBackend.Addressables,
-            OwnerName = nameof(PrefabSpawner)
-        });
+        _loader = ResKit.Allocate(ResLoaderRequest.Custom("Addressables", nameof(PrefabSpawner)));
 
         GameObject prefab = await _loader.LoadAsync<GameObject>(PrefabPath, destroyCancellationToken);
         if (prefab == null)
@@ -205,7 +196,7 @@ public sealed class AddressablePrefabSpawner : MonoBehaviour
 
     private async UniTaskVoid Start()
     {
-        _loader = ResKit.Allocate(ResLoadBackend.Addressables, "AddressablePrefabSpawner");
+        _loader = ResKit.Allocate(ResLoaderRequest.Custom("Addressables", "AddressablePrefabSpawner"));
         GameObject prefab = await _loader.LoadAsync<GameObject>(
             "Assets/Game/Prefabs/Hero.prefab",
             destroyCancellationToken);

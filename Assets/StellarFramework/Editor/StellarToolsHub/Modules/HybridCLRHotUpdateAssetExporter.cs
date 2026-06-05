@@ -324,12 +324,14 @@ namespace StellarFramework.Editor.Modules
 
         private static void WriteManifestFiles(HybridCLRHotUpdateExportReport report, BuildTarget target)
         {
-            Res.ResKitRuntimeSettings settings = Res.ResKitRuntimeSettings.LoadOrCreateDefault();
+            string entryClass;
+            string entryMethod;
+            ReadHotUpdateEntrySettings(out entryClass, out entryMethod);
             string manifestJson = BuildManifestJson(
                 report,
                 target,
-                settings != null ? settings.HotUpdateEntryClass : "HotUpdate.HotUpdateMain",
-                settings != null ? settings.HotUpdateEntryMethod : "Main");
+                entryClass,
+                entryMethod);
 
             if (string.IsNullOrWhiteSpace(manifestJson))
             {
@@ -353,6 +355,49 @@ namespace StellarFramework.Editor.Modules
             report.ManifestAssetPath = manifestAssetPath;
             report.StreamingAssetsManifestPath = streamingAssetsAssetPath;
             report.ManifestJson = manifestJson;
+        }
+
+        private static void ReadHotUpdateEntrySettings(out string entryClass, out string entryMethod)
+        {
+            entryClass = "HotUpdate.HotUpdateMain";
+            entryMethod = "Main";
+
+            Type settingsType = Type.GetType("StellarFramework.HotUpdate.HotUpdateSettings, StellarFramework.HotUpdateKit");
+            if (settingsType == null)
+            {
+                return;
+            }
+
+            MethodInfo loadMethod = settingsType.GetMethod(
+                "LoadOrCreateDefault",
+                BindingFlags.Public | BindingFlags.Static);
+            if (loadMethod == null)
+            {
+                return;
+            }
+
+            object settings = loadMethod.Invoke(null, new object[] { "HotUpdateSettings" });
+            if (settings == null)
+            {
+                return;
+            }
+
+            entryClass = ReadOptionalStringProperty(settingsType, settings, "HotUpdateEntryClass", entryClass);
+            entryMethod = ReadOptionalStringProperty(settingsType, settings, "HotUpdateEntryMethod", entryMethod);
+        }
+
+        private static string ReadOptionalStringProperty(Type type, object instance, string propertyName, string fallback)
+        {
+            PropertyInfo property = type.GetProperty(
+                propertyName,
+                BindingFlags.Public | BindingFlags.Instance);
+            if (property == null || property.PropertyType != typeof(string))
+            {
+                return fallback;
+            }
+
+            string value = property.GetValue(instance, null) as string;
+            return string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
         }
 
         private static string ProjectRoot => Directory.GetParent(Application.dataPath).FullName;

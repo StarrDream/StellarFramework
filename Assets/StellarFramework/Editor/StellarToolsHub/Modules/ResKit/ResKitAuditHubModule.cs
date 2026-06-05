@@ -11,7 +11,7 @@ namespace StellarFramework.Editor.Modules
     /// <summary>
     /// ResKit 运行时资源审计工具。
     /// </summary>
-    [StellarTool("ResKit 资源审计", "框架核心", 1)]
+    [StellarTool("ResKit 资源审计", "资源管理", 2)]
     public class ResKitAuditHubModule : ToolModule
     {
         public override string Icon => "d_SettingsIcon";

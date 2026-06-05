@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using StellarFramework.HotUpdate;
 using StellarFramework.Res;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -33,9 +32,6 @@ namespace StellarFramework.Editor.Modules
 
     public static class FrameworkQuickStartCatalog
     {
-        public const string FrameworkValidationScenePath =
-            "Assets/StellarFramework/Samples/KitSamples/Scenes/FrameworkValidation_Playable.unity";
-
         public const string UIKitScenePath =
             "Assets/StellarFramework/Samples/KitSamples/Scenes/UIKit_Playable.unity";
 
@@ -63,35 +59,35 @@ namespace StellarFramework.Editor.Modules
                 },
                 new QuickStartEntry
                 {
-                    Title = "2. 打开 FrameworkValidation",
-                    Description = "先跑总验证场景，确认 ResKit / UIKit / HotUpdateKit 主链路可用。",
+                    Title = "2. 打开 UIKit_Playable",
+                    Description = "学习唯一 UI 门户：OpenAsync / PushAsync / Pop / Close / ClearStack。",
                     ActionKind = QuickStartActionKind.OpenScene,
-                    TargetPath = FrameworkValidationScenePath,
+                    TargetPath = UIKitScenePath,
                     Group = "30 分钟上手",
                     Order = 1
                 },
                 new QuickStartEntry
                 {
-                    Title = "3. 打开 UIKit_Playable",
-                    Description = "学习唯一 UI 门户：OpenAsync / PushAsync / Pop / Close / ClearStack。",
+                    Title = "3. 打开 ResKit_Playable",
+                    Description = "学习统一资源门户，以及 Resources / AA / AB 的适用边界。",
                     ActionKind = QuickStartActionKind.OpenScene,
-                    TargetPath = UIKitScenePath,
+                    TargetPath = ResKitScenePath,
                     Group = "30 分钟上手",
                     Order = 2
                 },
                 new QuickStartEntry
                 {
-                    Title = "4. 打开 ResKit_Playable",
-                    Description = "学习统一资源门户，以及 Resources / AA / AB 的适用边界。",
-                    ActionKind = QuickStartActionKind.OpenScene,
-                    TargetPath = ResKitScenePath,
+                    Title = "4. 阅读快速开始",
+                    Description = "按推荐顺序继续查文档和可运行样例，不需要先接触框架开发者的验证工具。",
+                    ActionKind = QuickStartActionKind.OpenDoc,
+                    TargetPath = QuickStartDocPath,
                     Group = "30 分钟上手",
                     Order = 3
                 },
                 new QuickStartEntry
                 {
                     Title = "环境检查",
-                    Description = "检查样例资源、Addressables、AB 产物和 HybridCLR 开关是否就绪。",
+                    Description = "检查样例资源、AB 产物，以及可选 Addressables / HybridCLR 扩展是否就绪。",
                     ActionKind = QuickStartActionKind.ValidateEnvironment,
                     Group = "常用入口",
                     Order = 10
@@ -135,7 +131,7 @@ namespace StellarFramework.Editor.Modules
                 new QuickStartEntry
                 {
                     Title = "HotUpdateKit Guide",
-                    Description = "资源热更门户、代码热更门户与 HybridCLR 接线。",
+                    Description = "可选热更扩展：资源热更门户、代码热更门户与 HybridCLR 接线。",
                     ActionKind = QuickStartActionKind.OpenDoc,
                     TargetPath = HotUpdateGuidePath,
                     Group = "常用入口",
@@ -148,6 +144,9 @@ namespace StellarFramework.Editor.Modules
     [StellarTool("Quick Start", "Start Here", -1000)]
     public sealed class QuickStartHubModule : ToolModule
     {
+        private const string WelcomeTitle = "欢迎使用 StellarFramework";
+        private const string WelcomeButtonLabel = "进入 30 分钟上手";
+
         private sealed class EnvironmentCheckResult
         {
             public string Name;
@@ -157,6 +156,7 @@ namespace StellarFramework.Editor.Modules
 
         private readonly List<QuickStartEntry> _entries = new List<QuickStartEntry>();
         private readonly List<EnvironmentCheckResult> _checks = new List<EnvironmentCheckResult>();
+        private bool _showWelcomePortal = true;
 
         public override string Icon => "d_UnityEditor.ConsoleWindow";
         public override string Description => "新人第一入口：构建样例、打开主链路场景、查看推荐路线并检查环境。";
@@ -166,10 +166,28 @@ namespace StellarFramework.Editor.Modules
             _entries.Clear();
             _entries.AddRange(FrameworkQuickStartCatalog.BuildDefaultEntries().OrderBy(entry => entry.Order));
             RefreshEnvironmentChecks();
+            _showWelcomePortal = true;
         }
 
         public override void OnGUI()
         {
+            if (_showWelcomePortal)
+            {
+                DrawWelcomePortal();
+                return;
+            }
+
+            using (new GUILayout.HorizontalScope())
+            {
+                GUILayout.FlexibleSpace();
+                if (GUILayout.Button("返回欢迎页", GUILayout.Width(120), GUILayout.Height(24)))
+                {
+                    _showWelcomePortal = true;
+                    GUI.FocusControl(null);
+                    return;
+                }
+            }
+
             Section("30 分钟上手");
             DrawGroupedEntries("30 分钟上手");
 
@@ -180,7 +198,7 @@ namespace StellarFramework.Editor.Modules
                 "显式包资源 / 既有打包管线：AssetBundle\n" +
                 "第三方资源系统：Custom Loader\n" +
                 "UI 唯一入口：UIKit\n" +
-                "代码热更：HotUpdateKit + HybridCLR startup-only",
+                "代码热更：HotUpdateKit + HybridCLR startup-only（可选扩展）",
                 MessageType.Info);
 
             Section("环境检查");
@@ -188,6 +206,60 @@ namespace StellarFramework.Editor.Modules
 
             Section("常用入口");
             DrawGroupedEntries("常用入口");
+        }
+
+        private void DrawWelcomePortal()
+        {
+            GUILayout.FlexibleSpace();
+
+            using (new GUILayout.HorizontalScope())
+            {
+                GUILayout.FlexibleSpace();
+                using (new GUILayout.VerticalScope(EditorStyles.helpBox, GUILayout.Width(720)))
+                {
+                    GUIStyle titleStyle = new GUIStyle(EditorStyles.boldLabel)
+                    {
+                        fontSize = 24,
+                        alignment = TextAnchor.MiddleCenter,
+                        wordWrap = true
+                    };
+                    GUIStyle bodyStyle = new GUIStyle(EditorStyles.wordWrappedLabel)
+                    {
+                        fontSize = 12,
+                        alignment = TextAnchor.MiddleCenter
+                    };
+
+                    GUILayout.Space(20f);
+                    GUILayout.Label(WelcomeTitle, titleStyle);
+                    GUILayout.Space(10f);
+                    GUILayout.Label(
+                        "这里是 StellarFramework 的统一上手门户。先用 30 分钟跑通样例、资源主链路和推荐文档，再决定是否继续进入热更新、资源发布和框架开发者工具。",
+                        bodyStyle);
+                    GUILayout.Space(18f);
+
+                    using (new GUILayout.HorizontalScope())
+                    {
+                        GUILayout.FlexibleSpace();
+                        if (PrimaryButton(WelcomeButtonLabel, GUILayout.Width(280), GUILayout.Height(54)))
+                        {
+                            _showWelcomePortal = false;
+                            GUI.FocusControl(null);
+                        }
+
+                        GUILayout.FlexibleSpace();
+                    }
+
+                    GUILayout.Space(12f);
+                    EditorGUILayout.HelpBox(
+                        "建议顺序：构建样例 -> 打开 UIKit_Playable -> 打开 ResKit_Playable -> 阅读快速开始与样例索引。",
+                        MessageType.Info);
+                    GUILayout.Space(8f);
+                }
+
+                GUILayout.FlexibleSpace();
+            }
+
+            GUILayout.FlexibleSpace();
         }
 
         private void DrawGroupedEntries(string group)
@@ -278,9 +350,6 @@ namespace StellarFramework.Editor.Modules
         {
             _checks.Clear();
 
-            AddPathCheck("样例场景已生成",
-                FrameworkQuickStartCatalog.FrameworkValidationScenePath,
-                "FrameworkValidation_Playable 用于主链路回归与真机前检查。");
             AddPathCheck("UIRoot.prefab 已存在",
                 "Assets/StellarFramework/Resources/UIPanel/UIRoot.prefab",
                 "UIKit 默认入口依赖这个 UIRoot。可通过样例构建器或 UIKit 工具重新生成。");
@@ -295,8 +364,20 @@ namespace StellarFramework.Editor.Modules
                 Name = "ResKitRuntimeSettings 可读取",
                 Passed = settings != null,
                 Details = hasRuntimeSettingsAsset
-                    ? "已找到 Resources/ResKitRuntimeSettings.asset，可直接驱动 ResKit / HotUpdateKit 默认配置。"
-                    : "当前使用运行时默认值。建议创建 Resources/ResKitRuntimeSettings.asset 固化资源与热更配置。"
+                    ? "已找到 Resources/ResKitRuntimeSettings.asset，可直接驱动 ResKit 默认资源配置。"
+                    : "当前使用 ResKit 运行时默认值。建议创建 Resources/ResKitRuntimeSettings.asset 固化资源配置。"
+            });
+
+            Type hotUpdateSettingsType = Type.GetType("StellarFramework.HotUpdate.HotUpdateSettings, StellarFramework.HotUpdateKit");
+            bool hasHotUpdateSettingsAsset = hotUpdateSettingsType != null &&
+                                            Resources.Load("HotUpdateSettings", hotUpdateSettingsType) != null;
+            _checks.Add(new EnvironmentCheckResult
+            {
+                Name = "HotUpdateSettings 可读取",
+                Passed = true,
+                Details = hasHotUpdateSettingsAsset
+                    ? "已找到 Resources/HotUpdateSettings.asset，可驱动热更 Manifest、SHA 与 AOT metadata 默认配置。"
+                    : "当前未找到 HotUpdateSettings 资产。安装器或 AA 初始化器会自动补齐；不影响基础 ResKit / UIKit 上手。"
             });
 
             bool addressablesAvailable = Type.GetType("UnityEngine.AddressableAssets.Addressables, Unity.Addressables") != null;

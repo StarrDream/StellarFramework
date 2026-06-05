@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f0b55d762b037f74b862f9b61a7a8c25, type: 3}
   m_Name: AAWorkflowConfigSet
   m_EditorClassIdentifier: 
-  selectedConfigIndex: 1
+  selectedConfigIndex: 0
   configs:
   - Name: "\u672C\u5730\u5185\u7F6E AA"
     Mode: 0

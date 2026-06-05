@@ -9,7 +9,7 @@ ToolsHub 是 StellarFramework 的统一编辑器工具入口。源码阅读重�
 - `Editor/StellarToolsHub/StellarToolAttribute.cs`：工具自动注册特性。
 - `Editor/StellarToolsHub/Modules/DocumentationHubModule.cs`：文档中心。
 - `Editor/StellarToolsHub/Modules/QuickStartHubModule.cs`：新人入口和样例构建导航。
-- `Editor/StellarToolsHub/Modules/AAHotUpdatePublishToolModule.cs`：AA 本地内置和远端热更发布闭环。
+- `Editor/StellarToolsHub/Modules/Addressables/AAHotUpdatePublishToolModule.cs`：AA 本地内置和远端热更发布闭环。
 - `Editor/StellarToolsHub/Modules/HybridCLRHotUpdateAssetExporter.cs`：HybridCLR DLL、metadata、Manifest 导出。
 - `Editor/StellarToolsHub/Modules/AssetBundleToolModule.cs`：AB 规则、构建、AssetMap 生成。
 - `Editor/StellarToolsHub/Modules/*HubModule.cs`：UIKit、ConfigKit、SettingsKit、AudioKit、EventKit、Samples 等工具模块。

@@ -35,20 +35,18 @@ namespace StellarFramework.UI
         {
             settings = settings != null ? settings : UIKitSettings.LoadOrCreateDefault();
 
-            ResLoadBackend backend = ResolveUIBackend(settings);
-            ResLoaderRequest request = backend == ResLoadBackend.Custom
-                ? ResLoaderRequest.Custom(settings.CustomLoaderKey, "UIKit")
-                : ResLoaderRequest.For(backend, "UIKit");
+            ResLoaderRequest request = ResolveUIRequest(settings);
 
             _loader = ResKit.Allocate(request);
             _ownsLoader = true;
-            _supportSyncLoad = settings.AllowSyncLoad && backend != ResLoadBackend.Addressables;
+            _supportSyncLoad = settings.AllowSyncLoad && !IsAddressablesLoader(_loader);
             _uiRootPath = ResolveUIRootPath(settings);
             _panelPathFormat = ResolvePanelPathFormat(settings);
 
             if (_loader == null)
             {
-                Debug.LogError($"[ResKitUILoadStrategy] Initialize failed: backend allocation returned null. Backend={backend}");
+                Debug.LogError(
+                    $"[ResKitUILoadStrategy] Initialize failed: backend allocation returned null. Backend={request.Backend}, CustomKey={request.CustomKey ?? "null"}");
             }
         }
 
@@ -57,12 +55,18 @@ namespace StellarFramework.UI
         {
         }
 
+        private static bool IsAddressablesLoader(IResLoader loader)
+        {
+            return loader is ResLoader resLoader
+                   && string.Equals(resLoader.LoaderName, "Addressables", StringComparison.Ordinal);
+        }
+
         private ResKitUILoadStrategy(IResLoader loader, UIKitSettings settings, bool ownsLoader)
         {
             settings = settings != null ? settings : UIKitSettings.LoadOrCreateDefault();
             _loader = loader;
             _ownsLoader = ownsLoader;
-            _supportSyncLoad = settings.AllowSyncLoad && !(loader is AddressableLoader);
+            _supportSyncLoad = settings.AllowSyncLoad && !IsAddressablesLoader(loader);
             _uiRootPath = ResolveUIRootPath(settings);
             _panelPathFormat = ResolvePanelPathFormat(settings);
 
@@ -162,21 +166,25 @@ namespace StellarFramework.UI
             _isReleased = true;
         }
 
-        private static ResLoadBackend ResolveUIBackend(UIKitSettings settings)
+        private static ResLoaderRequest ResolveUIRequest(UIKitSettings settings)
         {
             ResLoadBackend backend = settings != null ? settings.DefaultLoadBackend : ResLoadBackend.Default;
             if (backend != ResLoadBackend.Default)
             {
-                return backend;
+                return backend == ResLoadBackend.Custom
+                    ? ResLoaderRequest.Custom(settings != null ? settings.CustomLoaderKey : null, "UIKit")
+                    : ResLoaderRequest.For(backend, "UIKit");
             }
 
             ResKitRuntimeSettings resSettings = ResKitRuntimeSettings.LoadOrCreateDefault();
             if (resSettings != null && resSettings.DefaultUILoadBackend != ResLoadBackend.Default)
             {
-                return resSettings.DefaultUILoadBackend;
+                return resSettings.DefaultUILoadBackend == ResLoadBackend.Custom
+                    ? ResLoaderRequest.Custom(resSettings.DefaultUICustomLoaderKey, "UIKit")
+                    : ResLoaderRequest.For(resSettings.DefaultUILoadBackend, "UIKit");
             }
 
-            return ResLoadBackend.Resources;
+            return ResLoaderRequest.For(ResLoadBackend.Resources, "UIKit");
         }
 
         private static string ResolveUIRootPath(UIKitSettings settings)

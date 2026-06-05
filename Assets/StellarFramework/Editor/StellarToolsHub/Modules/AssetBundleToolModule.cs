@@ -17,18 +17,37 @@ namespace StellarFramework.Editor
         public List<string> dependencies = new List<string>();
     }
 
-    [StellarTool("资源打包 (AssetBundle)", "框架核心", 10)]
+    [StellarTool("资源打包 (AssetBundle)", "资源管理", 0)]
     public class AssetBundleToolModule : ToolModule
     {
+        private sealed class AssetBundleWorkspaceStatus
+        {
+            public bool HasDefaultRule;
+            public bool HasSampleAsset;
+            public bool HasAssetMap;
+            public bool HasOutputDirectory;
+            public readonly List<string> MissingItems = new List<string>();
+
+            public bool IsReady => HasDefaultRule && HasSampleAsset && HasAssetMap && HasOutputDirectory;
+        }
+
         private List<BundleRule> _rules = new List<BundleRule>();
         private BundleRule _selectedRule;
         private Vector2 _leftScroll;
         private Vector2 _rightScroll;
         private bool _hasUnappliedChanges = false;
         private bool _isBuilding = false;
+        private readonly List<string> _initializationMessages = new List<string>();
+        private readonly List<string> _initializationErrors = new List<string>();
 
         private const string PREFS_KEY = "Stellar_AB_Rules";
         private const string SHADER_BUNDLE_NAME = "shaders"; // 全局 Shader 包名
+        private const string DefaultBundleName = "art";
+        private const string DefaultSampleAssetPath =
+            "Assets/StellarFramework/Samples/KitSamples/Example_ResKit/Art/AssetBundle/TestCapsule_AB.prefab";
+        private const string DefaultSampleFolderPath =
+            "Assets/StellarFramework/Samples/KitSamples/Example_ResKit/Art/AssetBundle";
+        private const string AssetMapAssetPath = "Assets/StellarFramework/Generated/AssetMap/AssetMap.cs";
 
         public override string Icon => "d_PreMatCube";
         public override string Description => "可视化的 AB 包依赖分析、冗余检测与构建工具。";
@@ -45,6 +64,13 @@ namespace StellarFramework.Editor
 
         public override void OnGUI()
         {
+            AssetBundleWorkspaceStatus workspaceStatus = EvaluateWorkspaceStatus();
+            if (!workspaceStatus.IsReady)
+            {
+                DrawInitializationGate(workspaceStatus);
+                return;
+            }
+
             using (new GUILayout.HorizontalScope(EditorStyles.toolbar))
             {
                 GUILayout.FlexibleSpace();
@@ -84,6 +110,69 @@ namespace StellarFramework.Editor
                 DrawRightPanel();
             }
             EditorGUILayout.EndHorizontal();
+        }
+
+        private void DrawInitializationGate(AssetBundleWorkspaceStatus status)
+        {
+            Section("初始化AB");
+            using (new GUILayout.VerticalScope(EditorStyles.helpBox))
+            {
+                EditorGUILayout.HelpBox(
+                    "第一次使用 AssetBundle 工作流时，先初始化一次 AB 工作区。这个步骤会补齐 ResKit 的 AB 示例资源、默认规则、AssetMap 以及 StreamingAssets/AssetBundles 输出目录。初始化完成后，才会进入完整的 AB 构建面板。",
+                    MessageType.Info);
+
+                if (status.MissingItems.Count > 0)
+                {
+                    EditorGUILayout.HelpBox("当前缺少：\n- " + string.Join("\n- ", status.MissingItems), MessageType.Warning);
+                }
+
+                using (new GUILayout.HorizontalScope())
+                {
+                    if (PrimaryButton("初始化AB", GUILayout.Height(34)))
+                    {
+                        if (TryInitializeWorkspace(out List<string> messages, out List<string> errors))
+                        {
+                            _initializationMessages.Clear();
+                            _initializationMessages.AddRange(messages);
+                            _initializationErrors.Clear();
+                            Window.ShowNotification(new GUIContent("AB 初始化完成"));
+                        }
+                        else
+                        {
+                            _initializationMessages.Clear();
+                            _initializationMessages.AddRange(messages);
+                            _initializationErrors.Clear();
+                            _initializationErrors.AddRange(errors);
+                            Window.ShowNotification(new GUIContent("AB 初始化失败"));
+                        }
+
+                        GUI.FocusControl(null);
+                    }
+
+                    if (GUILayout.Button("刷新状态", GUILayout.Height(30)))
+                    {
+                        LoadRules();
+                        GUI.FocusControl(null);
+                    }
+                }
+            }
+
+            if (_initializationMessages.Count > 0 || _initializationErrors.Count > 0)
+            {
+                Section("最近结果");
+                using (new GUILayout.VerticalScope(EditorStyles.helpBox))
+                {
+                    foreach (string message in _initializationMessages)
+                    {
+                        EditorGUILayout.HelpBox(message, MessageType.Info);
+                    }
+
+                    foreach (string error in _initializationErrors)
+                    {
+                        EditorGUILayout.HelpBox(error, MessageType.Error);
+                    }
+                }
+            }
         }
 
         private void DrawLeftPanel()
@@ -232,6 +321,128 @@ namespace StellarFramework.Editor
                 path = path,
                 isFolder = isDir
             });
+        }
+
+        private AssetBundleWorkspaceStatus EvaluateWorkspaceStatus()
+        {
+            AssetBundleWorkspaceStatus status = new AssetBundleWorkspaceStatus();
+            status.HasDefaultRule = _rules.Any(rule =>
+                rule != null &&
+                string.Equals(rule.bundleName, DefaultBundleName, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(rule.path, DefaultSampleFolderPath, StringComparison.Ordinal));
+            status.HasSampleAsset = File.Exists(ToAbsoluteProjectPath(DefaultSampleAssetPath));
+            status.HasAssetMap = File.Exists(ToAbsoluteProjectPath(AssetMapAssetPath));
+            status.HasOutputDirectory = Directory.Exists(ToAbsoluteProjectPath(GetCurrentAssetBundleOutputPath()));
+
+            if (!status.HasDefaultRule)
+            {
+                status.MissingItems.Add("默认 AB 规则");
+            }
+
+            if (!status.HasSampleAsset)
+            {
+                status.MissingItems.Add("ResKit AB 示例资源");
+            }
+
+            if (!status.HasAssetMap)
+            {
+                status.MissingItems.Add("AssetMap");
+            }
+
+            if (!status.HasOutputDirectory)
+            {
+                status.MissingItems.Add("StreamingAssets/AssetBundles 输出目录");
+            }
+
+            return status;
+        }
+
+        private bool TryInitializeWorkspace(out List<string> messages, out List<string> errors)
+        {
+            messages = new List<string>();
+            errors = new List<string>();
+
+            try
+            {
+                EnsureDefaultSampleAsset(messages);
+                EnsureOutputDirectory(messages);
+                EnsureDefaultRule(messages);
+                SaveRules();
+                ApplyRulesAndAnalyze(true);
+                LoadRules();
+
+                AssetBundleWorkspaceStatus status = EvaluateWorkspaceStatus();
+                if (!status.IsReady)
+                {
+                    errors.Add("初始化AB后仍有未满足项： " + string.Join(", ", status.MissingItems));
+                    return false;
+                }
+
+                messages.Add("已生成或刷新 AssetMap。");
+                return true;
+            }
+            catch (Exception exception)
+            {
+                errors.Add(exception.GetBaseException().Message);
+                return false;
+            }
+        }
+
+        private void EnsureDefaultSampleAsset(List<string> messages)
+        {
+            string absoluteAssetPath = ToAbsoluteProjectPath(DefaultSampleAssetPath);
+            if (File.Exists(absoluteAssetPath))
+            {
+                messages.Add("已检测到默认 AB 示例资源 TestCapsule_AB.prefab。");
+                return;
+            }
+
+            string absoluteFolderPath = ToAbsoluteProjectPath(DefaultSampleFolderPath);
+            Directory.CreateDirectory(absoluteFolderPath);
+            AssetDatabase.Refresh();
+
+            GameObject capsule = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+            capsule.name = "TestCapsule_AB";
+            PrefabUtility.SaveAsPrefabAsset(capsule, DefaultSampleAssetPath);
+            UnityEngine.Object.DestroyImmediate(capsule);
+            AssetDatabase.ImportAsset(DefaultSampleAssetPath, ImportAssetOptions.ForceUpdate);
+            messages.Add("已补齐默认 AB 示例资源 TestCapsule_AB.prefab。");
+        }
+
+        private void EnsureOutputDirectory(List<string> messages)
+        {
+            string outputDirectory = ToAbsoluteProjectPath(GetCurrentAssetBundleOutputPath());
+            if (Directory.Exists(outputDirectory))
+            {
+                messages.Add("已检测到 StreamingAssets/AssetBundles 输出目录。");
+                return;
+            }
+
+            Directory.CreateDirectory(outputDirectory);
+            AssetDatabase.Refresh();
+            messages.Add("已创建 StreamingAssets/AssetBundles 输出目录。");
+        }
+
+        private void EnsureDefaultRule(List<string> messages)
+        {
+            BundleRule existingRule = _rules.FirstOrDefault(rule =>
+                rule != null &&
+                string.Equals(rule.bundleName, DefaultBundleName, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(rule.path, DefaultSampleFolderPath, StringComparison.Ordinal));
+            if (existingRule != null)
+            {
+                messages.Add("已检测到默认 AB 规则。");
+                return;
+            }
+
+            _rules.Add(new BundleRule
+            {
+                bundleName = DefaultBundleName,
+                path = DefaultSampleFolderPath,
+                isFolder = true
+            });
+            _hasUnappliedChanges = true;
+            messages.Add("已创建默认 AB 规则。");
         }
 
         private void ApplyRulesAndAnalyze(bool generateCode = true)
@@ -515,6 +726,18 @@ namespace StellarFramework.Editor
                 case BuildTarget.WebGL: return "WebGL";
                 default: return "Unknown";
             }
+        }
+
+        private static string ToAbsoluteProjectPath(string assetPath)
+        {
+            string projectRoot = Directory.GetParent(Application.dataPath)?.FullName ?? Application.dataPath;
+            string normalizedPath = assetPath.Replace('/', Path.DirectorySeparatorChar);
+            return Path.Combine(projectRoot, normalizedPath);
+        }
+
+        private string GetCurrentAssetBundleOutputPath()
+        {
+            return $"Assets/StreamingAssets/AssetBundles/{GetPlatformFolderName(EditorUserBuildSettings.activeBuildTarget)}";
         }
 
         private void SaveRules()

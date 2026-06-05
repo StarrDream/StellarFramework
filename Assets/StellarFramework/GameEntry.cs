@@ -28,7 +28,7 @@ public class GameEntry : MonoBehaviour
         Debug.Log($"[GameEntry] 业务架构初始化完成, TriggerObject={gameObject.name}");
     }
 
-    private void OnDestroy()
+    private void OnApplicationQuit()
     {
         if (!_isStarted)
         {

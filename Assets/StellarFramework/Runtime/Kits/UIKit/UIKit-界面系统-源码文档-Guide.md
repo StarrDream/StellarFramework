@@ -59,6 +59,6 @@
 ## 测试入口
 
 - `UIKit_Playable.unity`：UI 打开、关闭、页面栈和样例面板。
-- `FrameworkValidation_Playable.unity`：集中验证 UI 入口。
+- 外置验证区的 `FrameworkValidation_Playable.unity`：集中验证 UI 入口。
 - ToolsHub `UIKit 工具`：绑定生成和样例修复。
 - 修改加载、关闭或栈逻辑后，至少验证 OpenAsync、PushAsync、Pop、Full Screen 暂停恢复、DestroyAllPanels。

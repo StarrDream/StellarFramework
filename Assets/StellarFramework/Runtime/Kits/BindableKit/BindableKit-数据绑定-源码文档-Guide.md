@@ -44,5 +44,5 @@ Model 持有 bindable 数据。View 注册回调后，BindableKit 把回调封�
 
 ## 测试入口
 
-- 在 FrameworkValidation 或 BindableKit 样例中验证属性、列表、字典变化。
+- 在 BindableKit 样例中验证属性、列表、字典变化；如需集中回归，可使用外置验证区的 FrameworkValidation 场景。
 - 修改 observer 回收或反注册逻辑时，应补注册、重复注册、回调中解绑的 EditMode 测试。

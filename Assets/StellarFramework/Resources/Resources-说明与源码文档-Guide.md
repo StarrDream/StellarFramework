@@ -61,5 +61,5 @@ Resources 目录保存框架默认资源、示例配置和 Resources 后端测�
 ## 测试入口
 
 - `ResKit_Playable.unity`：Resources 后端样例。
-- `FrameworkValidation_Playable.unity`：集中验证默认资源是否存在。
+- 面向框架开发者的 `FrameworkValidation` 已迁入外置验证区，用于集中验证默认资源是否存在。
 - `QuickStartCatalogPolicyTests`：检查关键文档和样例入口，不直接扫描所有资源。

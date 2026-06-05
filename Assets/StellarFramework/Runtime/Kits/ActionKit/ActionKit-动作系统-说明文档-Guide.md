@@ -39,7 +39,7 @@ public sealed class OpenAnimation : MonoBehaviour
 ## 样例与测试
 
 - 样例脚本位于 `Samples/KitSamples/Scripts`。
-- 可运行入口优先走 `FrameworkValidation_Playable.unity` 或具体 ActionKit 样例场景。
+- 用户样例入口优先走具体 ActionKit Playable 场景；框架开发者可额外使用外置验证区的 FrameworkValidation 场景。
 
 ## 常见问题
 

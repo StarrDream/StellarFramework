@@ -8,7 +8,7 @@ ResKit 是资源加载统一入口。业务层只分配 `IResLoader`，不直接
 - `AssetBundle`：传统自管 AB 管线，保留完整 manifest、依赖、引用计数链路。
 - `Addressables 本地内置`：资源随包放入 `StreamingAssets/aa`，是 AB 模式的上位替代方案。
 - `Addressables 远端热更`：catalog/hash/bundle/version/download/cache 由 AA 官方机制处理。
-- `Custom`：第三方资源系统接入点，例如 YooAsset。
+- `Custom`：第三方资源系统接入点，例如 Addressables、YooAsset。
 
 ## 入口 API
 
@@ -33,7 +33,7 @@ public sealed class PrefabSpawner : MonoBehaviour
 
     private async UniTaskVoid Start()
     {
-        _loader = ResKit.Allocate(ResLoadBackend.Addressables, nameof(PrefabSpawner));
+        _loader = ResKit.Allocate(ResLoaderRequest.Custom("Addressables", nameof(PrefabSpawner)));
         GameObject prefab = await _loader.LoadAsync<GameObject>(
             "Assets/Game/Prefabs/Hero.prefab",
             destroyCancellationToken);

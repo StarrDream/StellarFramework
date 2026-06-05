@@ -2,6 +2,7 @@
   "dependencies": {
     "com.code-philosophy.hybridclr": "https://github.com/focus-creative-games/hybridclr_unity.git",
     "com.coplaydev.unity-mcp": "https://github.com/CoplayDev/unity-mcp.git?path=/MCPForUnity#main",
+    "com.cysharp.unitask": "https://github.com/Cysharp/UniTask.git?path=src/UniTask/Assets/Plugins/UniTask",
     "com.unity.addressables": "1.22.3",
     "com.unity.collab-proxy": "2.12.4",
     "com.unity.feature.development": "1.0.1",

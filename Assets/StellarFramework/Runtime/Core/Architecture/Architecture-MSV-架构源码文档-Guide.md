@@ -72,6 +72,6 @@
 ## 测试入口
 
 - `Samples/ArchitectureDemo/Scene/FrameworkArchitecture_Playable.unity`：架构示例场景。
-- `Samples/KitSamples/Scenes/FrameworkValidation_Playable.unity`：集中验证入口。
+- `Assets/StellarFrameworkVerification/Scenes/FrameworkValidation_Playable.unity`：外置集中验证入口。
 - `Tests/EditMode/FrameworkValidation`：文档和样例入口策略测试。
-- 修改架构后至少运行 QuickStart/onboarding 相关 EditMode 测试，并手动打开 FrameworkValidation 场景确认 View 绑定正常。
+- 修改架构后至少运行 QuickStart/onboarding 相关 EditMode 测试，并在需要时手动打开外置验证区的 FrameworkValidation 场景确认 View 绑定正常。

@@ -53,5 +53,5 @@
 ## 测试入口
 
 - 修改异步动作链后跑相关 ActionKit 样例。
-- 修改配置化动作后打开 FrameworkValidation 或 ActionKit Playable 场景。
+- 修改配置化动作后打开 ActionKit Playable 场景；如需集中回归，再使用外置验证区的 FrameworkValidation 场景。
 - 修改 Pool 回收时检查 `UniActionChain` 是否重复使用安全。

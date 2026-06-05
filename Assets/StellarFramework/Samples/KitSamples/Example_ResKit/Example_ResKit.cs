@@ -240,7 +240,9 @@ namespace StellarFramework.Examples
 #if UNITY_ADDRESSABLES
             if (_aaLoader == null)
             {
-                _aaLoader = ResKit.Allocate<AddressableLoader>();
+                _aaLoader = ResKit.Allocate(ResLoaderRequest.Custom(
+                    "Addressables",
+                    "Example_ResKit.Addressables"));
             }
 #endif
         }
@@ -277,7 +279,7 @@ namespace StellarFramework.Examples
 #if UNITY_ADDRESSABLES
             if (_aaLoader != null)
             {
-                ResKit.Recycle<AddressableLoader>((AddressableLoader)_aaLoader);
+                ResKit.Recycle(_aaLoader);
                 _aaLoader = null;
             }
 #endif
