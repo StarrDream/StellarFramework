@@ -379,17 +379,20 @@ namespace StellarFramework.Res.AB
 
             string platform = PlatformName;
             string manifestPath = $"{BasePath}/{platform}/{platform}";
+            string altPath = $"{BasePath}/{platform}/AssetBundleManifest";
 
-            AssetBundle bundle = AssetBundle.LoadFromFile(manifestPath);
-            if (bundle == null)
+            if (!TryResolveExistingBundlePath(manifestPath, altPath, out string existingManifestPath))
             {
-                string altPath = $"{BasePath}/{platform}/AssetBundleManifest";
-                bundle = AssetBundle.LoadFromFile(altPath);
+                _lastError = BuildMissingManifestError(manifestPath, altPath);
+                LogKit.LogError($"[AssetBundleManager] {_lastError}");
+                return false;
             }
 
+            AssetBundle bundle = AssetBundle.LoadFromFile(existingManifestPath);
+
             if (bundle == null)
             {
-                _lastError = $"Manifest 加载失败，请检查路径: {manifestPath}";
+                _lastError = $"Manifest 加载失败，请检查路径: {existingManifestPath}";
                 LogKit.LogError($"[AssetBundleManager] {_lastError}");
                 return false;
             }
@@ -402,7 +405,7 @@ namespace StellarFramework.Res.AB
                 return true;
             }
 
-            _lastError = $"Manifest Bundle 中缺少 AssetBundleManifest: {manifestPath}";
+            _lastError = $"Manifest Bundle 中缺少 AssetBundleManifest: {existingManifestPath}";
             LogKit.LogError($"[AssetBundleManager] {_lastError}");
             return false;
         }
@@ -416,17 +419,20 @@ namespace StellarFramework.Res.AB
 
             string platform = PlatformName;
             string manifestPath = $"{BasePath}/{platform}/{platform}";
+            string altPath = $"{BasePath}/{platform}/AssetBundleManifest";
 
-            AssetBundle bundle = await LoadBundlePlatformSafeAsync(manifestPath, cancellationToken);
-            if (bundle == null)
+            if (!TryResolveExistingBundlePath(manifestPath, altPath, out string existingManifestPath))
             {
-                string altPath = $"{BasePath}/{platform}/AssetBundleManifest";
-                bundle = await LoadBundlePlatformSafeAsync(altPath, cancellationToken);
+                _lastError = BuildMissingManifestError(manifestPath, altPath);
+                LogKit.LogError($"[AssetBundleManager] {_lastError}");
+                return false;
             }
 
+            AssetBundle bundle = await LoadBundlePlatformSafeAsync(existingManifestPath, cancellationToken);
+
             if (bundle == null)
             {
-                _lastError = $"Manifest 异步加载失败: {manifestPath}";
+                _lastError = $"Manifest 异步加载失败: {existingManifestPath}";
                 LogKit.LogError($"[AssetBundleManager] {_lastError}");
                 return false;
             }
@@ -439,9 +445,50 @@ namespace StellarFramework.Res.AB
                 return true;
             }
 
-            _lastError = $"Manifest Bundle 中缺少 AssetBundleManifest: {manifestPath}";
+            _lastError = $"Manifest Bundle 中缺少 AssetBundleManifest: {existingManifestPath}";
             LogKit.LogError($"[AssetBundleManager] {_lastError}");
             return false;
+        }
+
+        private static bool TryResolveExistingBundlePath(string primaryPath, string fallbackPath, out string existingPath)
+        {
+            existingPath = string.Empty;
+#if UNITY_WEBGL && !UNITY_EDITOR
+            if (!string.IsNullOrWhiteSpace(primaryPath))
+            {
+                existingPath = primaryPath;
+                return true;
+            }
+
+            if (!string.IsNullOrWhiteSpace(fallbackPath))
+            {
+                existingPath = fallbackPath;
+                return true;
+            }
+
+            return false;
+#else
+            if (!string.IsNullOrWhiteSpace(primaryPath) && File.Exists(primaryPath))
+            {
+                existingPath = primaryPath;
+                return true;
+            }
+
+            if (!string.IsNullOrWhiteSpace(fallbackPath) && File.Exists(fallbackPath))
+            {
+                existingPath = fallbackPath;
+                return true;
+            }
+
+            return false;
+#endif
+        }
+
+        private static string BuildMissingManifestError(string manifestPath, string fallbackPath)
+        {
+            return "Manifest 文件不存在，请先在 Tools Hub 的 `资源打包 (AssetBundle)` 中点击 `初始化AB` 或 `增量构建`。" +
+                   $"\n主路径: {manifestPath}" +
+                   $"\n备用路径: {fallbackPath}";
         }
 
         private void LoadGlobalShadersSync()

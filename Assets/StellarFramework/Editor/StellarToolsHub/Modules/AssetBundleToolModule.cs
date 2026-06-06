@@ -26,9 +26,10 @@ namespace StellarFramework.Editor
             public bool HasSampleAsset;
             public bool HasAssetMap;
             public bool HasOutputDirectory;
+            public bool HasManifestBundle;
             public readonly List<string> MissingItems = new List<string>();
 
-            public bool IsReady => HasDefaultRule && HasSampleAsset && HasAssetMap && HasOutputDirectory;
+            public bool IsReady => HasDefaultRule && HasSampleAsset && HasAssetMap && HasOutputDirectory && HasManifestBundle;
         }
 
         private List<BundleRule> _rules = new List<BundleRule>();
@@ -135,7 +136,7 @@ namespace StellarFramework.Editor
                             _initializationMessages.Clear();
                             _initializationMessages.AddRange(messages);
                             _initializationErrors.Clear();
-                            Window.ShowNotification(new GUIContent("AB 初始化完成"));
+                            Window?.ShowNotification(new GUIContent("AB 初始化完成"));
                         }
                         else
                         {
@@ -143,7 +144,7 @@ namespace StellarFramework.Editor
                             _initializationMessages.AddRange(messages);
                             _initializationErrors.Clear();
                             _initializationErrors.AddRange(errors);
-                            Window.ShowNotification(new GUIContent("AB 初始化失败"));
+                            Window?.ShowNotification(new GUIContent("AB 初始化失败"));
                         }
 
                         GUI.FocusControl(null);
@@ -332,7 +333,11 @@ namespace StellarFramework.Editor
                 string.Equals(rule.path, DefaultSampleFolderPath, StringComparison.Ordinal));
             status.HasSampleAsset = File.Exists(ToAbsoluteProjectPath(DefaultSampleAssetPath));
             status.HasAssetMap = File.Exists(ToAbsoluteProjectPath(AssetMapAssetPath));
-            status.HasOutputDirectory = Directory.Exists(ToAbsoluteProjectPath(GetCurrentAssetBundleOutputPath()));
+            string outputPath = GetCurrentAssetBundleOutputPath();
+            status.HasOutputDirectory = Directory.Exists(ToAbsoluteProjectPath(outputPath));
+            status.HasManifestBundle = File.Exists(ToAbsoluteProjectPath(Path.Combine(
+                outputPath,
+                GetPlatformFolderName(EditorUserBuildSettings.activeBuildTarget))));
 
             if (!status.HasDefaultRule)
             {
@@ -354,6 +359,11 @@ namespace StellarFramework.Editor
                 status.MissingItems.Add("StreamingAssets/AssetBundles 输出目录");
             }
 
+            if (!status.HasManifestBundle)
+            {
+                status.MissingItems.Add("当前平台 AssetBundle Manifest");
+            }
+
             return status;
         }
 
@@ -369,6 +379,12 @@ namespace StellarFramework.Editor
                 EnsureDefaultRule(messages);
                 SaveRules();
                 ApplyRulesAndAnalyze(true);
+                if (!BuildBundles(revealInFinder: false, showDialogOnFailure: false))
+                {
+                    errors.Add("默认 AssetBundle 构建失败，请检查 Console 中的 BuildPipeline 报错。");
+                    return false;
+                }
+
                 LoadRules();
 
                 AssetBundleWorkspaceStatus status = EvaluateWorkspaceStatus();
@@ -379,6 +395,7 @@ namespace StellarFramework.Editor
                 }
 
                 messages.Add("已生成或刷新 AssetMap。");
+                messages.Add("已构建默认 AssetBundle 和当前平台 Manifest。");
                 return true;
             }
             catch (Exception exception)
@@ -510,7 +527,7 @@ namespace StellarFramework.Editor
                 _hasUnappliedChanges = false;
                 if (generateCode)
                 {
-                    Window.ShowNotification(new GUIContent("规则应用成功！"));
+                    Window?.ShowNotification(new GUIContent("规则应用成功！"));
                 }
             }
             catch (Exception e)
@@ -559,7 +576,7 @@ namespace StellarFramework.Editor
             }
         }
 
-        private void BuildBundles()
+        private bool BuildBundles(bool revealInFinder = true, bool showDialogOnFailure = true)
         {
             if (_hasUnappliedChanges)
             {
@@ -570,9 +587,15 @@ namespace StellarFramework.Editor
             var allNames = AssetDatabase.GetAllAssetBundleNames();
             if (allNames.Length == 0)
             {
+                if (!showDialogOnFailure)
+                {
+                    Debug.LogError("[ABTool] 当前没有任何资源被标记，无法构建 AssetBundle。");
+                    return false;
+                }
+
                 bool autoApply = EditorUtility.DisplayDialog("提示", "当前没有任何资源被标记，是否重新扫描规则？", "扫描并构建", "取消");
                 if (autoApply) ApplyRulesAndAnalyze(false);
-                else return;
+                else return false;
             }
 
             string rootPath = Path.Combine(Application.streamingAssetsPath, "AssetBundles");
@@ -594,14 +617,22 @@ namespace StellarFramework.Editor
                 CleanStaleFiles(outPath, manifest, platformFolder);
 
                 Debug.Log($"[ABTool] 构建成功！路径: {outPath}");
-                EditorUtility.RevealInFinder(outPath);
-                Window.ShowNotification(new GUIContent("构建成功！"));
+                if (revealInFinder)
+                {
+                    EditorUtility.RevealInFinder(outPath);
+                }
+
+                Window?.ShowNotification(new GUIContent("构建成功！"));
+                return true;
             }
-            else
+
+            Debug.LogError("[ABTool] 构建失败！请检查 Console 报错。");
+            if (showDialogOnFailure)
             {
-                Debug.LogError("[ABTool] 构建失败！请检查 Console 报错。");
                 EditorUtility.DisplayDialog("构建失败", "BuildPipeline 返回 null。\n请检查控制台是否有 Shader 编译错误或资源引用丢失。", "确定");
             }
+
+            return false;
         }
 
         private void CleanStaleFiles(string outPath, AssetBundleManifest manifest, string platformName)
