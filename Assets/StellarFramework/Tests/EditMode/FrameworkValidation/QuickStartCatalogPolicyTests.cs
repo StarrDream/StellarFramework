@@ -104,6 +104,18 @@ namespace StellarFramework.Tests.FrameworkValidation
         }
 
         [Test]
+        public void AddressablesToolDisplaysCompatibilityStatusInUi()
+        {
+            string addressablesSource = ReadAssetText("Assets/StellarFramework/Editor/StellarToolsHub/Modules/Addressables/AAHotUpdatePublishToolModule.cs");
+
+            Assert.That(addressablesSource, Does.Contain("AAWorkflowCompatibilityStatus"));
+            Assert.That(addressablesSource, Does.Contain("CompatibilityLabel"));
+            Assert.That(addressablesSource, Does.Contain("CompatibilityDetail"));
+            Assert.That(addressablesSource, Does.Contain("兼容性"));
+            Assert.That(addressablesSource, Does.Contain("当前组合已通过框架兼容矩阵"));
+        }
+
+        [Test]
         public void QuickStartReferencedPathsExistOnDisk()
         {
             Assert.That(File.Exists(ToAbsoluteAssetPath("Assets/StellarFramework/Samples/KitSamples/Scenes/UIKit_Playable.unity")), Is.True);

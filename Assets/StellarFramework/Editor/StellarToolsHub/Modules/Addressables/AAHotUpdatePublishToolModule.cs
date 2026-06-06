@@ -721,12 +721,16 @@ namespace StellarFramework.Editor.Modules
         public string ResourcesFallbackLabel { get; private set; }
         public string RuntimeSettingsLabel { get; private set; }
         public string PackageHint { get; private set; }
+        public string CompatibilityLabel { get; private set; }
+        public string CompatibilityDetail { get; private set; }
+        public bool CompatibilitySupported { get; private set; }
         public bool IsRemoteHotUpdate { get; private set; }
 
         public static AAWorkflowPackagingStatus Build(AAWorkflowConfig config, BuildTarget target)
         {
             config = config ?? AAWorkflowConfig.CreateLocalBuiltInDefault();
             bool isRemote = config.Mode == AAWorkflowMode.RemoteHotUpdate;
+            AAWorkflowCompatibilityStatus compatibility = AAWorkflowCompatibilityStatus.Detect();
 
             return new AAWorkflowPackagingStatus
             {
@@ -742,8 +746,106 @@ namespace StellarFramework.Editor.Modules
                 PackageHint = isRemote
                     ? "打包前执行“一键远端热更发布”，Player 会内置远端 Manifest 地址。"
                     : "打包前执行“一键本地内置构建”，Player 会随包带上 StreamingAssets/aa。",
+                CompatibilityLabel = compatibility.Summary,
+                CompatibilityDetail = compatibility.Detail,
+                CompatibilitySupported = compatibility.IsSupported,
                 IsRemoteHotUpdate = isRemote
             };
+        }
+    }
+
+    public sealed class AAWorkflowCompatibilityStatus
+    {
+        public string UnityVersion { get; private set; }
+        public string AddressablesVersion { get; private set; }
+        public string SbpVersion { get; private set; }
+        public bool IsSupported { get; private set; }
+        public string Summary { get; private set; }
+        public string Detail { get; private set; }
+
+        public static AAWorkflowCompatibilityStatus Detect(string packagesLockJson = null)
+        {
+            string unityVersion = Application.unityVersion ?? string.Empty;
+            string addressablesVersion = string.Empty;
+            string sbpVersion = string.Empty;
+
+            if (!string.IsNullOrWhiteSpace(packagesLockJson))
+            {
+                AAHotUpdatePublishLogic.TryReadLockedPackageVersion(packagesLockJson, "com.unity.addressables", out addressablesVersion);
+                AAHotUpdatePublishLogic.TryReadLockedPackageVersion(packagesLockJson, "com.unity.scriptablebuildpipeline", out sbpVersion);
+            }
+            else
+            {
+                string packagesLockPath = Path.Combine(
+                    Directory.GetParent(Application.dataPath)?.FullName ?? Application.dataPath,
+                    "Packages",
+                    "packages-lock.json");
+                if (File.Exists(packagesLockPath))
+                {
+                    string lockJson = File.ReadAllText(packagesLockPath);
+                    AAHotUpdatePublishLogic.TryReadLockedPackageVersion(lockJson, "com.unity.addressables", out addressablesVersion);
+                    AAHotUpdatePublishLogic.TryReadLockedPackageVersion(lockJson, "com.unity.scriptablebuildpipeline", out sbpVersion);
+                }
+            }
+
+            bool unitySupported = unityVersion.StartsWith("2022.", StringComparison.Ordinal) ||
+                                  unityVersion.StartsWith("6000.", StringComparison.Ordinal);
+            bool pairSupported = IsKnownCompatiblePair(unityVersion, addressablesVersion, sbpVersion);
+
+            string summary;
+            string detail;
+            if (!unitySupported)
+            {
+                summary = "未声明支持";
+                detail = $"当前 Unity={unityVersion}，框架 AA 兼容矩阵当前只声明支持 2022.x 和 6000.x。";
+            }
+            else if (pairSupported)
+            {
+                summary = "兼容";
+                detail = $"当前组合已通过框架兼容矩阵：Unity={unityVersion}, Addressables={addressablesVersion}, SBP={sbpVersion}。";
+            }
+            else
+            {
+                summary = "不兼容";
+                if (string.IsNullOrWhiteSpace(addressablesVersion) || string.IsNullOrWhiteSpace(sbpVersion))
+                {
+                    detail = $"未能从 packages-lock.json 解析 Addressables/SBP 版本。当前 Unity={unityVersion}。";
+                }
+                else
+                {
+                    detail = $"当前组合未通过框架兼容矩阵：Unity={unityVersion}, Addressables={addressablesVersion}, SBP={sbpVersion}。";
+                }
+            }
+
+            return new AAWorkflowCompatibilityStatus
+            {
+                UnityVersion = unityVersion,
+                AddressablesVersion = string.IsNullOrWhiteSpace(addressablesVersion) ? "未解析" : addressablesVersion,
+                SbpVersion = string.IsNullOrWhiteSpace(sbpVersion) ? "未解析" : sbpVersion,
+                IsSupported = unitySupported && pairSupported,
+                Summary = summary,
+                Detail = detail
+            };
+        }
+
+        private static bool IsKnownCompatiblePair(string unityVersion, string addressablesVersion, string sbpVersion)
+        {
+            if (string.IsNullOrWhiteSpace(unityVersion) ||
+                string.IsNullOrWhiteSpace(addressablesVersion) ||
+                string.IsNullOrWhiteSpace(sbpVersion))
+            {
+                return false;
+            }
+
+            if ((unityVersion.StartsWith("2022.", StringComparison.Ordinal) ||
+                 unityVersion.StartsWith("6000.", StringComparison.Ordinal)) &&
+                addressablesVersion.StartsWith("1.22.", StringComparison.Ordinal) &&
+                string.Equals(sbpVersion, "1.21.25", StringComparison.Ordinal))
+            {
+                return true;
+            }
+
+            return false;
         }
     }
 
@@ -1078,7 +1180,7 @@ namespace StellarFramework.Editor.Modules
             return true;
         }
 
-        private static bool TryReadLockedPackageVersion(string packagesLockJson, string packageName, out string version)
+        internal static bool TryReadLockedPackageVersion(string packagesLockJson, string packageName, out string version)
         {
             version = null;
             if (string.IsNullOrWhiteSpace(packagesLockJson) || string.IsNullOrWhiteSpace(packageName))
@@ -2095,6 +2197,7 @@ namespace StellarFramework.Editor.Modules
 
                 DrawCompactStatusRow("模式", status.ModeLabel + " / " + status.TargetLabel);
                 DrawCompactStatusRow("Manifest", status.ManifestDisplayPath);
+                DrawCompactStatusRow("兼容", status.CompatibilityLabel);
                 DrawCompactStatusRow(
                     "兜底",
                     "StreamingAssets " + status.StreamingAssetsFallbackLabel + " / Resources " + status.ResourcesFallbackLabel);
@@ -2477,6 +2580,7 @@ namespace StellarFramework.Editor.Modules
             {
                 DrawInfoRow("配置名称", config.Name, 84);
                 DrawInfoRow("模式", status.ModeLabel, 84);
+                DrawInfoRow("兼容性", status.CompatibilityLabel, 84);
                 DrawInfoRow("Manifest", status.ManifestDisplayPath, 84);
                 DrawInfoRow("Catalog", status.RemoteCatalogLabel, 84);
                 DrawInfoRow("兜底策略", "StreamingAssets " + status.StreamingAssetsFallbackLabel +
@@ -2580,6 +2684,8 @@ namespace StellarFramework.Editor.Modules
 
         private void DrawDiagnostics(AAWorkflowConfig config, BuildTarget target)
         {
+            AAWorkflowPackagingStatus status = AAWorkflowPackagingStatus.Build(config, target);
+
             _showGroupPathDetails = EditorGUILayout.Foldout(
                 _showGroupPathDetails,
                 new GUIContent("高级：Addressables Group 路径明细", "用于排查每个 Group 当前指向 Local 还是 Remote。日常使用不需要展开。"),
@@ -2592,6 +2698,9 @@ namespace StellarFramework.Editor.Modules
             Section("目录校验");
             using (new GUILayout.VerticalScope(EditorStyles.helpBox))
             {
+                EditorGUILayout.HelpBox(
+                    $"兼容性={status.CompatibilityLabel}\n{status.CompatibilityDetail}",
+                    status.CompatibilitySupported ? MessageType.Info : MessageType.Error);
                 EditorGUILayout.HelpBox(
                     "校验会检查 HotUpdateManifest.json、catalog json、catalog hash、bundle，并用当前工程中的 HotUpdate.dll.bytes 对 Manifest SHA256 做一致性检查。",
                     MessageType.None);

@@ -106,6 +106,49 @@ namespace StellarFramework.Tests.FrameworkValidation
         }
 
         [Test]
+        public void CompatibilityStatusMarksKnownSupportedPairAsCompatible()
+        {
+            const string packagesLockJson = "{\n" +
+                                            "  \"dependencies\": {\n" +
+                                            "    \"com.unity.addressables\": {\n" +
+                                            "      \"version\": \"1.22.3\"\n" +
+                                            "    },\n" +
+                                            "    \"com.unity.scriptablebuildpipeline\": {\n" +
+                                            "      \"version\": \"1.21.25\"\n" +
+                                            "    }\n" +
+                                            "  }\n" +
+                                            "}";
+
+            AAWorkflowCompatibilityStatus status = AAWorkflowCompatibilityStatus.Detect(packagesLockJson);
+
+            Assert.That(status.IsSupported, Is.True);
+            Assert.That(status.Summary, Is.EqualTo("兼容"));
+            Assert.That(status.Detail, Does.Contain("Addressables=1.22.3"));
+            Assert.That(status.Detail, Does.Contain("SBP=1.21.25"));
+        }
+
+        [Test]
+        public void CompatibilityStatusRejectsKnownBrokenPair()
+        {
+            const string packagesLockJson = "{\n" +
+                                            "  \"dependencies\": {\n" +
+                                            "    \"com.unity.addressables\": {\n" +
+                                            "      \"version\": \"1.22.3\"\n" +
+                                            "    },\n" +
+                                            "    \"com.unity.scriptablebuildpipeline\": {\n" +
+                                            "      \"version\": \"2.1.4\"\n" +
+                                            "    }\n" +
+                                            "  }\n" +
+                                            "}";
+
+            AAWorkflowCompatibilityStatus status = AAWorkflowCompatibilityStatus.Detect(packagesLockJson);
+
+            Assert.That(status.IsSupported, Is.False);
+            Assert.That(status.Summary, Is.EqualTo("不兼容"));
+            Assert.That(status.Detail, Does.Contain("SBP=2.1.4"));
+        }
+
+        [Test]
         public void BuildRemoteBuildPathFallsBackToRemotePublishDirectory()
         {
             AAWorkflowConfig config = AAWorkflowConfig.CreateRemoteHotUpdateDefault();
