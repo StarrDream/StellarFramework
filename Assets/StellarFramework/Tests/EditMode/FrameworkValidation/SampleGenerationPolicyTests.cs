@@ -59,6 +59,10 @@ namespace StellarFramework.Tests.FrameworkValidation
             Assert.That(builder, Does.Contain("MaterializeTemplateFolder(ArchitectureDemoTemplateFolder"));
             Assert.That(builder, Does.Contain("FindPreferredLitShader"));
             Assert.That(builder, Does.Not.Contain("RenderPipelineManager.currentPipeline"));
+            Assert.That(builder, Does.Contain("RefreshPrefabMaterial("));
+            Assert.That(builder, Does.Contain("TestSphere_AA.prefab"));
+            Assert.That(builder, Does.Contain("TestCapsule_AB.prefab"));
+            Assert.That(builder, Does.Contain("TestCube_Res.prefab"));
         }
 
         [Test]

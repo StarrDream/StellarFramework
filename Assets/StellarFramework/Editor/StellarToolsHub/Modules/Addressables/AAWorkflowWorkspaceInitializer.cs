@@ -248,6 +248,11 @@ namespace StellarFramework.Editor.Modules
 
             try
             {
+                if (TryRefreshPipelineAwareSampleAssets())
+                {
+                    messages.Add("已按当前渲染管线补齐并刷新 ResKit / AA 样例素材。");
+                }
+
                 AddressableAssetSettings settings = AddressableAssetSettingsDefaultObject.GetSettings(true);
                 if (settings == null)
                 {
@@ -602,6 +607,35 @@ namespace StellarFramework.Editor.Modules
             }
 
             return true;
+        }
+
+        private static bool TryRefreshPipelineAwareSampleAssets()
+        {
+            const string typeName = "StellarFramework.Editor.ExamplePlayableSceneBuilder";
+            const string methodName = "EnsureSampleSupportAssetsForCurrentPipeline";
+
+            Assembly[] assemblies = AppDomain.CurrentDomain.GetAssemblies();
+            for (int i = 0; i < assemblies.Length; i++)
+            {
+                Type builderType = assemblies[i].GetType(typeName, false);
+                if (builderType == null)
+                {
+                    continue;
+                }
+
+                MethodInfo method = builderType.GetMethod(
+                    methodName,
+                    BindingFlags.Public | BindingFlags.Static);
+                if (method == null)
+                {
+                    return false;
+                }
+
+                method.Invoke(null, null);
+                return true;
+            }
+
+            return false;
         }
 
         private static T FindResourcesAsset<T>(string filter) where T : UnityEngine.Object

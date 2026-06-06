@@ -149,6 +149,18 @@ namespace StellarFramework.Tests.FrameworkValidation
         }
 
         [Test]
+        public void WorkspaceInitializerRefreshesPipelineAwareSampleAssetsBeforeSeedingEntries()
+        {
+            string source = ReadAssetText(
+                "Assets/StellarFramework/Editor/StellarToolsHub/Modules/Addressables/AAWorkflowWorkspaceInitializer.cs");
+
+            Assert.That(source, Does.Contain("TryRefreshPipelineAwareSampleAssets()"));
+            Assert.That(source, Does.Contain("EnsureSampleSupportAssetsForCurrentPipeline"));
+            Assert.That(source, Does.Contain("已按当前渲染管线补齐并刷新 ResKit / AA 样例素材"));
+            Assert.That(source, Does.Contain("TestSphere_AA.prefab"));
+        }
+
+        [Test]
         public void BuildRemoteBuildPathFallsBackToRemotePublishDirectory()
         {
             AAWorkflowConfig config = AAWorkflowConfig.CreateRemoteHotUpdateDefault();
@@ -643,6 +655,12 @@ namespace StellarFramework.Tests.FrameworkValidation
             Assert.That(property, Is.Not.Null, propertyName);
             property.boolValue = value;
             serialized.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        private static string ReadAssetText(string assetPath)
+        {
+            string projectRoot = Directory.GetParent(Application.dataPath)?.FullName ?? Application.dataPath;
+            return File.ReadAllText(Path.Combine(projectRoot, assetPath.Replace('/', Path.DirectorySeparatorChar)));
         }
     }
 }

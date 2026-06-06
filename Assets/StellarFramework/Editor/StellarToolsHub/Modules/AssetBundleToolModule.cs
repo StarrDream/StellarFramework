@@ -48,6 +48,8 @@ namespace StellarFramework.Editor
             "Assets/StellarFramework/Samples/KitSamples/Example_ResKit/Art/AssetBundle/TestCapsule_AB.prefab";
         private const string DefaultSampleFolderPath =
             "Assets/StellarFramework/Samples/KitSamples/Example_ResKit/Art/AssetBundle";
+        private const string DefaultSampleMaterialPath =
+            "Assets/StellarFramework/Samples/KitSamples/Example_ResKit/Art/AssetBundle/TestCapsule_AB_Auto.mat";
         private const string AssetMapAssetPath = "Assets/StellarFramework/Generated/AssetMap/AssetMap.cs";
 
         public override string Icon => "d_PreMatCube";
@@ -410,6 +412,7 @@ namespace StellarFramework.Editor
             string absoluteAssetPath = ToAbsoluteProjectPath(DefaultSampleAssetPath);
             if (File.Exists(absoluteAssetPath))
             {
+                EnsureDefaultSampleAssetMaterial(messages);
                 messages.Add("已检测到默认 AB 示例资源 TestCapsule_AB.prefab。");
                 return;
             }
@@ -420,10 +423,113 @@ namespace StellarFramework.Editor
 
             GameObject capsule = GameObject.CreatePrimitive(PrimitiveType.Capsule);
             capsule.name = "TestCapsule_AB";
+            ApplyDefaultSampleMaterial(capsule);
             PrefabUtility.SaveAsPrefabAsset(capsule, DefaultSampleAssetPath);
             UnityEngine.Object.DestroyImmediate(capsule);
             AssetDatabase.ImportAsset(DefaultSampleAssetPath, ImportAssetOptions.ForceUpdate);
             messages.Add("已补齐默认 AB 示例资源 TestCapsule_AB.prefab。");
+        }
+
+        private void EnsureDefaultSampleAssetMaterial(List<string> messages)
+        {
+            GameObject samplePrefab = AssetDatabase.LoadAssetAtPath<GameObject>(DefaultSampleAssetPath);
+            if (samplePrefab == null)
+            {
+                return;
+            }
+
+            GameObject instance = PrefabUtility.InstantiatePrefab(samplePrefab) as GameObject;
+            if (instance == null)
+            {
+                return;
+            }
+
+            try
+            {
+                if (ApplyDefaultSampleMaterial(instance))
+                {
+                    PrefabUtility.SaveAsPrefabAsset(instance, DefaultSampleAssetPath);
+                    messages.Add("已按当前渲染管线刷新默认 AB 示例材质。");
+                }
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(instance);
+            }
+        }
+
+        private bool ApplyDefaultSampleMaterial(GameObject target)
+        {
+            if (target == null)
+            {
+                return false;
+            }
+
+            Renderer renderer = target.GetComponent<Renderer>();
+            if (renderer == null)
+            {
+                return false;
+            }
+
+            Material material = LoadOrCreateDefaultSampleMaterial();
+            if (material == null)
+            {
+                return false;
+            }
+
+            if (renderer.sharedMaterial == material)
+            {
+                return false;
+            }
+
+            renderer.sharedMaterial = material;
+            EditorUtility.SetDirty(target);
+            return true;
+        }
+
+        private static Material LoadOrCreateDefaultSampleMaterial()
+        {
+            Material material = AssetDatabase.LoadAssetAtPath<Material>(DefaultSampleMaterialPath);
+            Shader shader = StellarFramework.RenderPipelineCompatibility.FindPreferredLitShader();
+            if (shader == null)
+            {
+                shader = Shader.Find("Standard");
+            }
+
+            if (shader == null)
+            {
+                return material;
+            }
+
+            if (material == null)
+            {
+                material = new Material(shader);
+                material.name = "TestCapsule_AB_Auto";
+            }
+            else if (material.shader != shader)
+            {
+                material.shader = shader;
+            }
+
+            if (material.HasProperty("_BaseColor"))
+            {
+                material.SetColor("_BaseColor", new Color(0.89f, 0.30f, 0.28f));
+            }
+            else if (material.HasProperty("_Color"))
+            {
+                material.SetColor("_Color", new Color(0.89f, 0.30f, 0.28f));
+            }
+
+            if (AssetDatabase.GetAssetPath(material) == string.Empty)
+            {
+                AssetDatabase.CreateAsset(material, DefaultSampleMaterialPath);
+            }
+            else
+            {
+                EditorUtility.SetDirty(material);
+            }
+
+            return material;
         }
 
         private void EnsureOutputDirectory(List<string> messages)

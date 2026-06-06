@@ -76,6 +76,14 @@ namespace StellarFramework.Editor
             BuildAllSamples();
         }
 
+        public static void EnsureSampleSupportAssetsForCurrentPipeline()
+        {
+            EnsureFolders();
+            EnsureSupportAssets();
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+        }
+
         public static void BuildAllSamples()
         {
             EnsureFolders();
@@ -424,6 +432,7 @@ namespace StellarFramework.Editor
             Bullet existing = AssetDatabase.LoadAssetAtPath<Bullet>(path);
             if (existing != null)
             {
+                RefreshPrefabMaterial(path, _blueMaterial, Vector3.one * 0.35f);
                 return existing;
             }
 
@@ -512,6 +521,7 @@ namespace StellarFramework.Editor
 
             if (AssetDatabase.LoadAssetAtPath<GameObject>(path) != null)
             {
+                RefreshPrefabMaterial(path, material, scale);
                 return;
             }
 
@@ -526,18 +536,21 @@ namespace StellarFramework.Editor
         private static Material LoadOrCreateMaterial(string path, Color color)
         {
             Material material = AssetDatabase.LoadAssetAtPath<Material>(path);
-            if (material != null)
-            {
-                return material;
-            }
-
             Shader shader = global::StellarFramework.RenderPipelineCompatibility.FindPreferredLitShader();
             if (shader == null)
             {
                 shader = Shader.Find("Standard");
             }
 
-            material = new Material(shader);
+            if (material == null)
+            {
+                material = new Material(shader);
+            }
+            else if (shader != null && material.shader != shader)
+            {
+                material.shader = shader;
+            }
+
             if (material.HasProperty("_BaseColor"))
             {
                 material.SetColor("_BaseColor", color);
@@ -547,8 +560,47 @@ namespace StellarFramework.Editor
                 material.SetColor("_Color", color);
             }
 
-            AssetDatabase.CreateAsset(material, path);
+            if (AssetDatabase.GetAssetPath(material) == string.Empty)
+            {
+                AssetDatabase.CreateAsset(material, path);
+            }
+            else
+            {
+                EditorUtility.SetDirty(material);
+            }
+
             return material;
+        }
+
+        private static void RefreshPrefabMaterial(string path, Material material, Vector3 scale)
+        {
+            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+            if (prefab == null || material == null)
+            {
+                return;
+            }
+
+            GameObject instance = PrefabUtility.InstantiatePrefab(prefab) as GameObject;
+            if (instance == null)
+            {
+                return;
+            }
+
+            try
+            {
+                instance.transform.localScale = scale;
+                Renderer renderer = instance.GetComponent<Renderer>();
+                if (renderer != null)
+                {
+                    renderer.sharedMaterial = material;
+                }
+
+                PrefabUtility.SaveAsPrefabAsset(instance, path);
+            }
+            finally
+            {
+                Object.DestroyImmediate(instance);
+            }
         }
 
         private static void WriteToneWavIfMissing(string path, float frequency, float durationSeconds)

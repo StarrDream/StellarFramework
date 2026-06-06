@@ -204,6 +204,8 @@ namespace StellarFramework.Tests.FrameworkValidation
             Assert.That(source, Does.Contain("当前平台 AssetBundle Manifest"));
             Assert.That(source, Does.Contain("BuildBundles(revealInFinder: false, showDialogOnFailure: false)"));
             Assert.That(source, Does.Contain("已构建默认 AssetBundle 和当前平台 Manifest"));
+            Assert.That(source, Does.Contain("TestCapsule_AB_Auto.mat"));
+            Assert.That(source, Does.Contain("RenderPipelineCompatibility.FindPreferredLitShader()"));
         }
 
         [Test]
