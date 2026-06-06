@@ -64,6 +64,48 @@ namespace StellarFramework.Tests.FrameworkValidation
         }
 
         [Test]
+        public void AddressablesSbpCompatibilityErrorExplainsRequiredPinnedVersion()
+        {
+            const string packagesLockJson = "{\n" +
+                                            "  \"dependencies\": {\n" +
+                                            "    \"com.unity.addressables\": {\n" +
+                                            "      \"version\": \"1.22.3\"\n" +
+                                            "    },\n" +
+                                            "    \"com.unity.scriptablebuildpipeline\": {\n" +
+                                            "      \"version\": \"2.1.4\"\n" +
+                                            "    }\n" +
+                                            "  }\n" +
+                                            "}";
+
+            string error = AAHotUpdatePublishLogic.GetAddressablesSbpCompatibilityError(packagesLockJson);
+
+            Assert.That(error, Does.Contain("Addressables / Scriptable Build Pipeline 版本不兼容"));
+            Assert.That(error, Does.Contain("Addressables=1.22.3"));
+            Assert.That(error, Does.Contain("SBP=2.1.4"));
+            Assert.That(error, Does.Contain("1.21.25"));
+            Assert.That(error, Does.Contain("Packages/manifest.json"));
+        }
+
+        [Test]
+        public void AddressablesSbpCompatibilityErrorReturnsNullForExpectedPair()
+        {
+            const string packagesLockJson = "{\n" +
+                                            "  \"dependencies\": {\n" +
+                                            "    \"com.unity.addressables\": {\n" +
+                                            "      \"version\": \"1.22.3\"\n" +
+                                            "    },\n" +
+                                            "    \"com.unity.scriptablebuildpipeline\": {\n" +
+                                            "      \"version\": \"1.21.25\"\n" +
+                                            "    }\n" +
+                                            "  }\n" +
+                                            "}";
+
+            string error = AAHotUpdatePublishLogic.GetAddressablesSbpCompatibilityError(packagesLockJson);
+
+            Assert.That(error, Is.Null);
+        }
+
+        [Test]
         public void BuildRemoteBuildPathFallsBackToRemotePublishDirectory()
         {
             AAWorkflowConfig config = AAWorkflowConfig.CreateRemoteHotUpdateDefault();

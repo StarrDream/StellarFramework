@@ -5,6 +5,7 @@ using System.Linq;
 using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.RegularExpressions;
 using StellarFramework.Editor;
 using StellarFramework.HotUpdate;
 using StellarFramework.Res;
@@ -968,11 +969,48 @@ namespace StellarFramework.Editor.Modules
 
         public static AddressablesPlayerBuildResult BuildAddressablesPlayerContent()
         {
+            if (TryBuildCompatibilityFailureResult(out AddressablesPlayerBuildResult incompatibleResult))
+            {
+                return incompatibleResult;
+            }
+
             using (new AddressablesBuildReportScope(clearBuildReportList: true))
             {
                 AddressableAssetSettings.BuildPlayerContent(out AddressablesPlayerBuildResult result);
                 return result;
             }
+        }
+
+        public static string GetAddressablesSbpCompatibilityError(string packagesLockJson = null)
+        {
+            if (string.IsNullOrWhiteSpace(packagesLockJson))
+            {
+                string packagesLockPath = Path.Combine(ProjectRoot.Replace('/', Path.DirectorySeparatorChar), "Packages", "packages-lock.json");
+                if (!File.Exists(packagesLockPath))
+                {
+                    return null;
+                }
+
+                packagesLockJson = File.ReadAllText(packagesLockPath);
+            }
+
+            if (!TryReadLockedPackageVersion(packagesLockJson, "com.unity.addressables", out string addressablesVersion) ||
+                !TryReadLockedPackageVersion(packagesLockJson, "com.unity.scriptablebuildpipeline", out string sbpVersion))
+            {
+                return null;
+            }
+
+            if (addressablesVersion.StartsWith("1.22.", StringComparison.Ordinal) &&
+                int.TryParse(sbpVersion.Split('.')[0], out int sbpMajor) &&
+                sbpMajor >= 2)
+            {
+                return "检测到 Addressables / Scriptable Build Pipeline 版本不兼容：" +
+                       $" Addressables={addressablesVersion}, SBP={sbpVersion}。" +
+                       " Addressables 1.22.x 需要 com.unity.scriptablebuildpipeline 1.21.25。" +
+                       " 请在 Packages/manifest.json 中显式添加 `\"com.unity.scriptablebuildpipeline\": \"1.21.25\"`，等待 Unity 重新解析包后再构建。";
+            }
+
+            return null;
         }
 
         private static string NormalizeAbsolutePath(string path)
@@ -1021,6 +1059,46 @@ namespace StellarFramework.Editor.Modules
                 DirectoryInfo parent = Directory.GetParent(Application.dataPath);
                 return (parent == null ? Application.dataPath : parent.FullName).Replace('\\', '/');
             }
+        }
+
+        public static bool TryBuildCompatibilityFailureResult(out AddressablesPlayerBuildResult result)
+        {
+            result = null;
+
+            string error = GetAddressablesSbpCompatibilityError();
+            if (string.IsNullOrWhiteSpace(error))
+            {
+                return false;
+            }
+
+            result = new AddressablesPlayerBuildResult
+            {
+                Error = error
+            };
+            return true;
+        }
+
+        private static bool TryReadLockedPackageVersion(string packagesLockJson, string packageName, out string version)
+        {
+            version = null;
+            if (string.IsNullOrWhiteSpace(packagesLockJson) || string.IsNullOrWhiteSpace(packageName))
+            {
+                return false;
+            }
+
+            string pattern =
+                "\"" + Regex.Escape(packageName) + "\"\\s*:\\s*\\{(?:(?!\\n\\s*\\}).)*?\"version\"\\s*:\\s*\"([^\"]+)\"";
+            Match match = Regex.Match(
+                packagesLockJson,
+                pattern,
+                RegexOptions.Multiline | RegexOptions.Singleline | RegexOptions.CultureInvariant);
+            if (!match.Success)
+            {
+                return false;
+            }
+
+            version = match.Groups[1].Value?.Trim();
+            return !string.IsNullOrWhiteSpace(version);
         }
 
     }
@@ -3009,6 +3087,12 @@ namespace StellarFramework.Editor.Modules
 
         private static AddressablesPlayerBuildResult BuildAddressablesForPlayer(AddressableAssetSettings settings)
         {
+            if (AAHotUpdatePublishLogic.TryBuildCompatibilityFailureResult(
+                    out AddressablesPlayerBuildResult compatibilityResult))
+            {
+                return compatibilityResult;
+            }
+
             bool isHybridClrScriptsOnlyBuild = EditorUserBuildSettings.buildScriptsOnly;
             if (!isHybridClrScriptsOnlyBuild)
             {
