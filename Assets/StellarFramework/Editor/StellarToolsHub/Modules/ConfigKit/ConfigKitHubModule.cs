@@ -1,6 +1,7 @@
 ﻿#if UNITY_EDITOR
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.UIElements;
 
 namespace StellarFramework.Editor.Modules
 {
@@ -11,48 +12,20 @@ namespace StellarFramework.Editor.Modules
     [StellarTool("ConfigKit 配置中心", "框架核心", 4)]
     public class ConfigKitHubModule : ToolModule
     {
+        private readonly ConfigKitWindow _panel = new ConfigKitWindow();
+
         public override string Icon => "d_SettingsIcon";
         public override string Description => "统一的配置管理入口。支持普通配置与网络配置的横向扩展、可视化编辑与环境切换。";
 
         public override void OnGUI()
         {
-            Section("配置管理面板");
-
-            EditorGUILayout.HelpBox(
-                "ConfigKit 现已重构为模块化架构。\n" +
-                "所有的配置增删改查、字段编辑以及网络环境切换，均已整合至独立的 Dashboard 中。",
-                MessageType.Info);
-
-            GUILayout.Space(15);
-
-            // 使用 Hub 提供的 PrimaryButton 样式，保持 UI 风格统一
-            if (PrimaryButton("打开 ConfigKit Dashboard", GUILayout.Height(36)))
-            {
-                ConfigKitWindow.ShowWindow();
-            }
-
-            GUILayout.Space(20);
-            Section("快捷操作");
-
-            using (new GUILayout.HorizontalScope())
-            {
-                if (GUILayout.Button("打开本地存档目录 (PersistentDataPath)", Window.GhostButtonStyle))
-                {
-                    EditorUtility.RevealInFinder(Application.persistentDataPath);
-                }
-
-                if (GUILayout.Button("打开包内配置目录 (StreamingAssets)", Window.GhostButtonStyle))
-                {
-                    string path = System.IO.Path.Combine(Application.streamingAssetsPath, "Configs");
-                    if (!System.IO.Directory.Exists(path))
-                    {
-                        System.IO.Directory.CreateDirectory(path);
-                    }
-
-                    EditorUtility.RevealInFinder(path);
-                }
-            }
+            _panel.DrawLegacyContent(Window);
         }
+
+        public override VisualElement CreateView() => _panel.CreateView(Window);
+        public override void OnEnable() => _panel.Activate(Window);
+        public override void OnDisable() => _panel.Deactivate();
+        public override void OnSelectionChange() => _panel.HandleSelectionChange();
     }
 }
 #endif

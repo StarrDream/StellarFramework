@@ -1,16 +1,18 @@
 ﻿using System.Collections.Generic;
 using System.IO;
 using UnityEditor;
+using UnityEditor.UIElements;
 using UnityEngine;
 using UnityEngine.Rendering;
+using UnityEngine.UIElements;
 
 namespace StellarFramework.Editor
 {
     /// <summary>
-    ///     编辑器窗口版本的 Mesh 合并碰撞体生成工具
+    ///     ToolsHub 内嵌版的 Mesh 合并碰撞体生成工具
     ///     支持批量处理、撤销操作和防镂空逻辑
     /// </summary>
-    public class CombinedMeshColliderWindow : EditorWindow
+    public class CombinedMeshColliderWindow : ToolsHubEmbeddedPanel
     {
         // ================= 配置项 =================
         private string savePath = "Assets/CombinedMeshes";
@@ -25,21 +27,135 @@ namespace StellarFramework.Editor
         private bool bakePoseForSkinnedMesh = true;
         private bool saveMeshAsset = true;
 
-        // ================= 窗口生命周期 =================
+        private TextField _colliderNameField;
+        private TextField _savePathField;
+        private Toggle _saveMeshToggle;
+        private VisualElement _savePathRow;
+        private Button _generateButton;
+        private Button _clearButton;
+        private HelpBox _selectionHelpBox;
 
+        // ================= 绘制入口 =================
 
-        public static void ShowWindow()
+        protected override VisualElement BuildView()
         {
-            var window = GetWindow<CombinedMeshColliderWindow>("Mesh Collider Tool");
-            window.minSize = new Vector2(350, 500);
-            window.Show();
+            ScrollView root = new ScrollView
+            {
+                style =
+                {
+                    flexGrow = 1f
+                }
+            };
+
+            root.Add(new HelpBox("选中 Hierarchy 中的物体，点击生成按钮即可创建全包围 MeshCollider。已包含防镂空修复。", HelpBoxMessageType.Info));
+
+            _colliderNameField = new TextField("碰撞体子物体名称")
+            {
+                value = colliderName
+            };
+            _colliderNameField.RegisterValueChangedCallback(evt => colliderName = evt.newValue);
+            root.Add(_colliderNameField);
+
+            _saveMeshToggle = new Toggle("保存 Mesh 到资产")
+            {
+                value = saveMeshAsset
+            };
+            _saveMeshToggle.RegisterValueChangedCallback(evt =>
+            {
+                saveMeshAsset = evt.newValue;
+                _savePathRow?.SetEnabled(evt.newValue);
+            });
+            root.Add(_saveMeshToggle);
+
+            _savePathRow = new VisualElement
+            {
+                style =
+                {
+                    flexDirection = FlexDirection.Row,
+                    alignItems = Align.Center,
+                    marginTop = 4
+                }
+            };
+
+            _savePathField = new TextField("保存路径")
+            {
+                value = savePath
+            };
+            _savePathField.style.flexGrow = 1f;
+            _savePathField.RegisterValueChangedCallback(evt => savePath = evt.newValue);
+            _savePathRow.Add(_savePathField);
+
+            Button browseButton = new Button(() =>
+            {
+                string path = EditorUtility.OpenFolderPanel("选择保存文件夹", "Assets", "");
+                if (string.IsNullOrEmpty(path))
+                {
+                    return;
+                }
+
+                savePath = path.StartsWith(Application.dataPath)
+                    ? "Assets" + path.Substring(Application.dataPath.Length)
+                    : path;
+
+                _savePathField.value = savePath;
+            })
+            {
+                text = "..."
+            };
+            browseButton.style.width = 36;
+            browseButton.style.marginLeft = 4;
+            _savePathRow.Add(browseButton);
+            _savePathRow.SetEnabled(saveMeshAsset);
+            root.Add(_savePathRow);
+
+            root.Add(new Label("包含的 Renderer 类型")
+            {
+                style =
+                {
+                    unityFontStyleAndWeight = FontStyle.Bold,
+                    marginTop = 8
+                }
+            });
+
+            root.Add(CreateToggle("Mesh Renderer", includeMeshRenderer, value => includeMeshRenderer = value));
+            root.Add(CreateToggle("Skinned Mesh Renderer", includeSkinnedMeshRenderer, value => includeSkinnedMeshRenderer = value));
+            root.Add(CreateToggle("烘焙当前姿态 (Bake Pose)", bakePoseForSkinnedMesh, value => bakePoseForSkinnedMesh = value));
+            root.Add(CreateToggle("Particle System", includeParticleSystemRenderer, value => includeParticleSystemRenderer = value));
+            root.Add(CreateToggle("Line Renderer", includeLineRenderer, value => includeLineRenderer = value));
+            root.Add(CreateToggle("Trail Renderer", includeTrailRenderer, value => includeTrailRenderer = value));
+
+            _selectionHelpBox = new HelpBox("请在 Hierarchy 中选择至少一个物体。", HelpBoxMessageType.Warning);
+            root.Add(_selectionHelpBox);
+
+            _generateButton = new Button(ProcessSelectedObjects)
+            {
+                text = "为选中物体生成"
+            };
+            _generateButton.style.height = 32;
+            _generateButton.style.marginTop = 8;
+            root.Add(_generateButton);
+
+            _clearButton = new Button(ClearSelectedColliders)
+            {
+                text = "清除选中物体的旧碰撞体"
+            };
+            _clearButton.style.height = 28;
+            root.Add(_clearButton);
+
+            RefreshSelectionUi();
+            return root;
         }
 
-        private void OnGUI()
+        protected override void DrawIMGUI()
         {
             DrawHeader();
             DrawSettings();
             DrawActionButtons();
+        }
+
+        protected override void OnSelectionChanged()
+        {
+            RefreshSelectionUi();
         }
 
         private void DrawHeader()
@@ -263,7 +379,7 @@ namespace StellarFramework.Editor
                     if (bakePoseForSkinnedMesh)
                         renderer.BakeMesh(mesh);
                     else if (renderer.sharedMesh != null)
-                        mesh = Instantiate(renderer.sharedMesh);
+                        mesh = Object.Instantiate(renderer.sharedMesh);
 
                     if (mesh != null)
                     {
@@ -299,6 +415,37 @@ namespace StellarFramework.Editor
                 instance.transform = transformMatrix;
                 instances.Add(instance);
             }
+        }
+
+        private void RefreshSelectionUi()
+        {
+            int selectedCount = Selection.gameObjects.Length;
+
+            if (_generateButton != null)
+            {
+                _generateButton.text = $"为选中物体生成 ({selectedCount})";
+                _generateButton.SetEnabled(selectedCount > 0);
+            }
+
+            if (_clearButton != null)
+            {
+                _clearButton.SetEnabled(selectedCount > 0);
+            }
+
+            if (_selectionHelpBox != null)
+            {
+                _selectionHelpBox.style.display = selectedCount == 0 ? DisplayStyle.Flex : DisplayStyle.None;
+            }
+        }
+
+        private static Toggle CreateToggle(string label, bool value, System.Action<bool> onChanged)
+        {
+            Toggle toggle = new Toggle(label)
+            {
+                value = value
+            };
+            toggle.RegisterValueChangedCallback(evt => onChanged(evt.newValue));
+            return toggle;
         }
     }
 }

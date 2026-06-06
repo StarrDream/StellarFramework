@@ -5,6 +5,8 @@
 !/Assets/
 !/Assets/**
 
+/Assets/PayloadInspect*
+
 !/ProjectSettings/
 !/ProjectSettings/**
 

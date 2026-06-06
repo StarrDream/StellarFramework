@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -6,12 +6,13 @@ using System.Text;
 using System.Text.RegularExpressions;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.UIElements;
 
 namespace StellarFramework.Editor.Modules
 {
     /// <summary>
-    /// 文档中心模块 (Markdown 增强渲染版)
-    /// 自动扫描框架目录下的所有 Markdown 文件，提供集成的、原生级的富文本阅读体验
+    /// 文档中心模块 (UI Toolkit 版)
+    /// 自动扫描框架目录下的所有 Markdown 文件，提供稳定的集成文档阅读体验。
     /// </summary>
     [StellarTool("文档中心 (Docs)", "框架核心", -999)]
     public class DocumentationHubModule : ToolModule
@@ -25,239 +26,466 @@ namespace StellarFramework.Editor.Modules
             public int SortOrder;
         }
 
-        public override string Icon => "d_TextAsset Icon";
-        public override string Description => "统一管理与查阅框架内所有 Markdown 文档 (支持富文本排版与代码块高亮)。";
+        private enum BlockType
+        {
+            Paragraph,
+            Header1,
+            Header2,
+            Header3,
+            Code,
+            Quote,
+            List,
+            Table,
+            HR
+        }
 
-        private readonly List<DocEntry> _docs = new List<DocEntry>();
-        private string _selectedDocPath = "";
-        private string _docContent = "";
-        
-        private Vector2 _leftScroll;
-        private Vector2 _rightScroll;
-
-        // --- Markdown 解析缓存 ---
-        private enum BlockType { Paragraph, Header1, Header2, Header3, Code, Quote, List, Table, HR }
-        private class MarkdownBlock
+        private sealed class MarkdownBlock
         {
             public BlockType Type;
             public string Content;
         }
+
+        public override string Icon => "d_TextAsset Icon";
+        public override string Description => "统一管理与查阅框架内所有 Markdown 文档 (支持文本排版与代码块高亮)。";
+
+        private readonly List<DocEntry> _docs = new List<DocEntry>();
         private readonly List<MarkdownBlock> _parsedBlocks = new List<MarkdownBlock>();
 
-        // --- GUI 样式缓存 ---
-        private bool _mdStylesInitialized;
-        private GUIStyle _h1Style;
-        private GUIStyle _h2Style;
-        private GUIStyle _h3Style;
-        private GUIStyle _pStyle;
-        private GUIStyle _codeBoxStyle;
-        private GUIStyle _codeTextStyle;
-        private GUIStyle _quoteStyle;
-        private GUIStyle _listStyle;
-        private GUIStyle _hrStyle;
+        private string _selectedDocPath = string.Empty;
+        private string _docContent = string.Empty;
+
+        private Label _docCountLabel;
+        private ScrollView _docListView;
+        private Label _selectedDocTitleLabel;
+        private Label _selectedDocPathLabel;
+        private ScrollView _docContentView;
 
         public override void OnEnable()
         {
             RefreshDocs();
         }
 
-        private void RefreshDocs()
+        public override VisualElement CreateView()
         {
-            _docs.Clear();
-            string rootPath = Application.dataPath + "/StellarFramework";
-            if (Directory.Exists(rootPath))
+            TwoPaneSplitView splitView = new TwoPaneSplitView(0, 340, TwoPaneSplitViewOrientation.Horizontal)
             {
-                string[] files = Directory.GetFiles(rootPath, "*.md", SearchOption.AllDirectories);
-                string normalizedRoot = rootPath.Replace("\\", "/").TrimEnd('/');
-                foreach (string file in files)
+                style =
                 {
-                    string normalizedPath = file.Replace("\\", "/");
-                    string relativePath = normalizedPath.Replace(normalizedRoot + "/", string.Empty);
-                    _docs.Add(new DocEntry
-                    {
-                        Path = normalizedPath,
-                        RelativePath = relativePath,
-                        DisplayName = BuildDisplayName(normalizedPath, relativePath),
-                        Category = BuildCategory(relativePath),
-                        SortOrder = BuildSortOrder(relativePath)
-                    });
+                    flexGrow = 1f
+                }
+            };
+
+            VisualElement leftPane = new VisualElement
+            {
+                style =
+                {
+                    flexGrow = 1f,
+                    paddingLeft = 12,
+                    paddingRight = 12,
+                    paddingTop = 12,
+                    paddingBottom = 12
+                }
+            };
+
+            Button refreshButton = new Button(() =>
+            {
+                RefreshDocs();
+                if (!string.IsNullOrEmpty(_selectedDocPath) && File.Exists(_selectedDocPath))
+                {
+                    _docContent = File.ReadAllText(_selectedDocPath);
+                    ParseMarkdown(_docContent);
                 }
 
-                _docs.Sort((left, right) =>
+                RefreshDocListView();
+                RefreshDocContentView();
+            })
+            {
+                text = "刷新文档列表"
+            };
+            refreshButton.style.height = 28;
+            leftPane.Add(refreshButton);
+
+            _docCountLabel = new Label
+            {
+                style =
                 {
-                    int categoryCompare = GetCategoryOrder(left.Category).CompareTo(GetCategoryOrder(right.Category));
-                    if (categoryCompare != 0)
-                    {
-                        return categoryCompare;
-                    }
+                    unityFontStyleAndWeight = FontStyle.Bold,
+                    fontSize = 14,
+                    marginTop = 10
+                }
+            };
+            leftPane.Add(_docCountLabel);
 
-                    int orderCompare = left.SortOrder.CompareTo(right.SortOrder);
-                    if (orderCompare != 0)
-                    {
-                        return orderCompare;
-                    }
+            _docListView = new ScrollView
+            {
+                style =
+                {
+                    flexGrow = 1f,
+                    marginTop = 8
+                }
+            };
+            leftPane.Add(_docListView);
 
-                    int titleCompare = string.Compare(left.DisplayName, right.DisplayName, StringComparison.OrdinalIgnoreCase);
-                    return titleCompare != 0
-                        ? titleCompare
-                        : string.Compare(left.RelativePath, right.RelativePath, StringComparison.OrdinalIgnoreCase);
-                });
-            }
+            VisualElement rightPane = new VisualElement
+            {
+                style =
+                {
+                    flexGrow = 1f,
+                    paddingLeft = 12,
+                    paddingRight = 12,
+                    paddingTop = 12,
+                    paddingBottom = 12
+                }
+            };
+
+            VisualElement docHeader = new VisualElement
+            {
+                style =
+                {
+                    flexDirection = FlexDirection.Row,
+                    alignItems = Align.Center
+                }
+            };
+
+            VisualElement titleColumn = new VisualElement
+            {
+                style =
+                {
+                    flexGrow = 1f
+                }
+            };
+
+            _selectedDocTitleLabel = new Label("请在左侧选择要查阅的文档")
+            {
+                style =
+                {
+                    unityFontStyleAndWeight = FontStyle.Bold,
+                    fontSize = 16
+                }
+            };
+            titleColumn.Add(_selectedDocTitleLabel);
+
+            _selectedDocPathLabel = new Label
+            {
+                style =
+                {
+                    fontSize = 11,
+                    color = new Color(0.73f, 0.77f, 0.83f),
+                    marginTop = 2
+                }
+            };
+            titleColumn.Add(_selectedDocPathLabel);
+            docHeader.Add(titleColumn);
+
+            Button openExternalButton = new Button(() =>
+            {
+                if (!string.IsNullOrEmpty(_selectedDocPath) && File.Exists(_selectedDocPath))
+                {
+                    EditorUtility.OpenWithDefaultApp(_selectedDocPath);
+                }
+            })
+            {
+                text = "在外部编辑器打开"
+            };
+            openExternalButton.style.height = 28;
+            docHeader.Add(openExternalButton);
+            rightPane.Add(docHeader);
+
+            _docContentView = new ScrollView
+            {
+                style =
+                {
+                    flexGrow = 1f,
+                    marginTop = 10
+                }
+            };
+            rightPane.Add(_docContentView);
+
+            splitView.Add(leftPane);
+            splitView.Add(rightPane);
+
+            RefreshDocListView();
+            RefreshDocContentView();
+            return splitView;
         }
 
         public override void OnGUI()
         {
-            using (new GUILayout.HorizontalScope(EditorStyles.toolbar))
-            {
-                if (GUILayout.Button("刷新文档列表", EditorStyles.toolbarButton, GUILayout.Width(100)))
-                {
-                    RefreshDocs();
-                    if (!string.IsNullOrEmpty(_selectedDocPath) && File.Exists(_selectedDocPath))
-                    {
-                        _docContent = File.ReadAllText(_selectedDocPath);
-                        ParseMarkdown(_docContent);
-                    }
-                }
-                GUILayout.FlexibleSpace();
-            }
-
-            EditorGUILayout.BeginHorizontal();
-            DrawLeftPanel();
-            DrawRightPanel();
-            EditorGUILayout.EndHorizontal();
+            EditorGUILayout.HelpBox("文档中心已迁移到 UI Toolkit 视图入口。", MessageType.Info);
         }
 
-        private void DrawLeftPanel()
+        private void RefreshDocs()
         {
-            using (new GUILayout.VerticalScope("box", GUILayout.Width(260), GUILayout.ExpandHeight(true)))
+            _docs.Clear();
+            string rootPath = Application.dataPath + "/StellarFramework";
+            if (!Directory.Exists(rootPath))
             {
-                GUILayout.Label($"文档列表 ({_docs.Count})", EditorStyles.boldLabel);
-                GUILayout.Space(5);
-                
-                _leftScroll = EditorGUILayout.BeginScrollView(_leftScroll);
-                string currentCategory = null;
-                foreach (DocEntry doc in _docs)
-                {
-                    if (!string.Equals(currentCategory, doc.Category, StringComparison.Ordinal))
-                    {
-                        currentCategory = doc.Category;
-                        GUILayout.Space(6);
-                        GUILayout.Label(currentCategory, EditorStyles.miniBoldLabel);
-                    }
+                return;
+            }
 
-                    bool isSelected = _selectedDocPath == doc.Path;
-                    
-                    var oldColor = GUI.backgroundColor;
-                    if (isSelected) GUI.backgroundColor = new Color(0.22f, 0.52f, 0.88f);
-                    
-                    if (GUILayout.Button(new GUIContent(doc.DisplayName, doc.RelativePath), Window.SidebarButtonStyle))
+            string[] files = Directory.GetFiles(rootPath, "*.md", SearchOption.AllDirectories);
+            string normalizedRoot = rootPath.Replace("\\", "/").TrimEnd('/');
+            foreach (string file in files)
+            {
+                string normalizedPath = file.Replace("\\", "/");
+                string relativePath = normalizedPath.Replace(normalizedRoot + "/", string.Empty);
+                if (!ShouldIncludeDoc(normalizedPath, relativePath))
+                {
+                    continue;
+                }
+
+                _docs.Add(new DocEntry
+                {
+                    Path = normalizedPath,
+                    RelativePath = relativePath,
+                    DisplayName = BuildDisplayName(normalizedPath, relativePath),
+                    Category = BuildCategory(relativePath),
+                    SortOrder = BuildSortOrder(relativePath)
+                });
+            }
+
+            _docs.Sort((left, right) =>
+            {
+                int categoryCompare = GetCategoryOrder(left.Category).CompareTo(GetCategoryOrder(right.Category));
+                if (categoryCompare != 0)
+                {
+                    return categoryCompare;
+                }
+
+                int orderCompare = left.SortOrder.CompareTo(right.SortOrder);
+                if (orderCompare != 0)
+                {
+                    return orderCompare;
+                }
+
+                int titleCompare = string.Compare(left.DisplayName, right.DisplayName, StringComparison.OrdinalIgnoreCase);
+                return titleCompare != 0
+                    ? titleCompare
+                    : string.Compare(left.RelativePath, right.RelativePath, StringComparison.OrdinalIgnoreCase);
+            });
+
+            if (!string.IsNullOrEmpty(_selectedDocPath) && !File.Exists(_selectedDocPath))
+            {
+                _selectedDocPath = string.Empty;
+                _docContent = string.Empty;
+                _parsedBlocks.Clear();
+            }
+        }
+
+        private static bool ShouldIncludeDoc(string normalizedPath, string relativePath)
+        {
+            if (!File.Exists(normalizedPath))
+            {
+                return false;
+            }
+
+            if (string.Equals(
+                    relativePath,
+                    "Editor/StellarToolsHub/StellarToolsHub-工具中心-Guide.md",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        private void RefreshDocListView()
+        {
+            if (_docCountLabel != null)
+            {
+                _docCountLabel.text = $"文档列表 ({_docs.Count})";
+            }
+
+            if (_docListView == null)
+            {
+                return;
+            }
+
+            _docListView.Clear();
+
+            string currentCategory = null;
+            foreach (DocEntry doc in _docs)
+            {
+                if (!string.Equals(currentCategory, doc.Category, StringComparison.Ordinal))
+                {
+                    currentCategory = doc.Category;
+                    _docListView.Add(new Label(currentCategory)
                     {
-                        if (_selectedDocPath != doc.Path)
+                        style =
                         {
-                            _selectedDocPath = doc.Path;
-                            _docContent = File.ReadAllText(doc.Path);
-                            ParseMarkdown(_docContent); // 选中时触发解析，缓存结构
-                            _rightScroll = Vector2.zero;
-                            GUI.FocusControl(null);
+                            unityFontStyleAndWeight = FontStyle.Bold,
+                            fontSize = 11,
+                            color = new Color(0.73f, 0.77f, 0.83f),
+                            marginTop = 10,
+                            marginBottom = 6
                         }
-                    }
-                    GUI.backgroundColor = oldColor;
+                    });
                 }
-                EditorGUILayout.EndScrollView();
+
+                Button button = new Button(() =>
+                {
+                    if (_selectedDocPath == doc.Path)
+                    {
+                        return;
+                    }
+
+                    _selectedDocPath = doc.Path;
+                    _docContent = File.ReadAllText(doc.Path);
+                    ParseMarkdown(_docContent);
+                    RefreshDocListView();
+                    RefreshDocContentView();
+                })
+                {
+                    text = doc.DisplayName,
+                    tooltip = doc.RelativePath
+                };
+                button.style.unityTextAlign = TextAnchor.MiddleLeft;
+                button.style.height = 34;
+                button.style.marginBottom = 4;
+                button.style.paddingLeft = 12;
+                button.style.backgroundColor = _selectedDocPath == doc.Path
+                    ? new Color(0.16f, 0.42f, 0.80f)
+                    : new Color(0.16f, 0.18f, 0.21f);
+                button.style.color = Color.white;
+                button.style.borderTopLeftRadius = 8;
+                button.style.borderTopRightRadius = 8;
+                button.style.borderBottomLeftRadius = 8;
+                button.style.borderBottomRightRadius = 8;
+                _docListView.Add(button);
             }
         }
 
-        private void DrawRightPanel()
+        private void RefreshDocContentView()
         {
-            using (new GUILayout.VerticalScope("box", GUILayout.ExpandHeight(true), GUILayout.ExpandWidth(true)))
+            if (_docContentView == null)
             {
-                if (string.IsNullOrEmpty(_selectedDocPath))
-                {
-                    GUILayout.FlexibleSpace();
-                    GUILayout.BeginHorizontal();
-                    GUILayout.FlexibleSpace();
-                    GUILayout.Label("请在左侧选择要查阅的文档", EditorStyles.largeLabel);
-                    GUILayout.FlexibleSpace();
-                    GUILayout.EndHorizontal();
-                    GUILayout.FlexibleSpace();
-                    return;
-                }
+                return;
+            }
 
-                using (new GUILayout.HorizontalScope())
-                {
-                    DocEntry selectedDoc = GetSelectedDoc();
-                    GUILayout.Label(selectedDoc != null ? selectedDoc.DisplayName : Path.GetFileName(_selectedDocPath),
-                        EditorStyles.boldLabel);
-                    GUILayout.Space(10);
-                    GUILayout.Label(selectedDoc != null ? selectedDoc.RelativePath : _selectedDocPath,
-                        EditorStyles.miniLabel);
-                    GUILayout.FlexibleSpace();
-                    if (GUILayout.Button("在外部编辑器打开", GUILayout.Width(120), GUILayout.Height(24)))
-                    {
-                        EditorUtility.OpenWithDefaultApp(_selectedDocPath);
-                    }
-                }
-                GUILayout.Space(10);
+            _docContentView.Clear();
 
-                _rightScroll = EditorGUILayout.BeginScrollView(_rightScroll);
-                
-                EnsureStyles();
+            if (string.IsNullOrEmpty(_selectedDocPath) || !File.Exists(_selectedDocPath))
+            {
+                if (_selectedDocTitleLabel != null) _selectedDocTitleLabel.text = "请在左侧选择要查阅的文档";
+                if (_selectedDocPathLabel != null) _selectedDocPathLabel.text = string.Empty;
+                _docContentView.Add(new HelpBox("当前未选择文档。", HelpBoxMessageType.Info));
+                return;
+            }
 
-                // 遍历渲染解析好的 Markdown 块
-                foreach (var block in _parsedBlocks)
-                {
-                    switch (block.Type)
-                    {
-                        case BlockType.Header1:
-                            GUILayout.Label(block.Content, _h1Style);
-                            break;
-                        case BlockType.Header2:
-                            GUILayout.Label(block.Content, _h2Style);
-                            break;
-                        case BlockType.Header3:
-                            GUILayout.Label(block.Content, _h3Style);
-                            break;
-                        case BlockType.Paragraph:
-                            if (!string.IsNullOrEmpty(block.Content))
-                                GUILayout.Label(block.Content, _pStyle);
-                            else
-                                GUILayout.Space(8); // 空行作为段落间距
-                            break;
-                        case BlockType.Quote:
-                            using (new GUILayout.HorizontalScope())
-                            {
-                                GUILayout.Box("", GUILayout.Width(4), GUILayout.ExpandHeight(true)); // 左侧竖线
-                                GUILayout.Label(block.Content, _quoteStyle);
-                            }
-                            break;
-                        case BlockType.List:
-                            GUILayout.Label(block.Content, _listStyle);
-                            break;
-                        case BlockType.Code:
-                        case BlockType.Table:
-                            using (new GUILayout.VerticalScope(_codeBoxStyle))
-                            {
-                                // 使用 TextArea 保证代码可被选中和复制，同时禁用富文本以防尖括号被吞
-                                EditorGUILayout.TextArea(block.Content, _codeTextStyle);
-                            }
-                            break;
-                        case BlockType.HR:
-                            GUILayout.Box("", _hrStyle, GUILayout.ExpandWidth(true), GUILayout.Height(2));
-                            break;
-                    }
-                }
+            DocEntry selectedDoc = GetSelectedDoc();
+            if (_selectedDocTitleLabel != null)
+            {
+                _selectedDocTitleLabel.text = selectedDoc != null ? selectedDoc.DisplayName : Path.GetFileName(_selectedDocPath);
+            }
 
-                GUILayout.Space(20);
-                EditorGUILayout.EndScrollView();
+            if (_selectedDocPathLabel != null)
+            {
+                _selectedDocPathLabel.text = selectedDoc != null ? selectedDoc.RelativePath : _selectedDocPath;
+            }
+
+            if (_parsedBlocks.Count == 0 && !string.IsNullOrEmpty(_docContent))
+            {
+                ParseMarkdown(_docContent);
+            }
+
+            foreach (MarkdownBlock block in _parsedBlocks)
+            {
+                _docContentView.Add(BuildBlockView(block));
             }
         }
 
-        #region Markdown 解析核心逻辑
+        private VisualElement BuildBlockView(MarkdownBlock block)
+        {
+            switch (block.Type)
+            {
+                case BlockType.Header1:
+                    return CreateLabelBlock(block.Content, 22, FontStyle.Bold, 12, 8, true);
+                case BlockType.Header2:
+                    return CreateLabelBlock(block.Content, 18, FontStyle.Bold, 10, 6, true);
+                case BlockType.Header3:
+                    return CreateLabelBlock(block.Content, 15, FontStyle.Bold, 8, 5, true);
+                case BlockType.Paragraph:
+                    if (string.IsNullOrEmpty(block.Content))
+                    {
+                        return new VisualElement { style = { height = 8 } };
+                    }
+
+                    return CreateLabelBlock(block.Content, 13, FontStyle.Normal, 4, 4, true);
+                case BlockType.Quote:
+                    VisualElement quote = new VisualElement
+                    {
+                        style =
+                        {
+                            flexDirection = FlexDirection.Row,
+                            marginBottom = 8
+                        }
+                    };
+                    quote.Add(new VisualElement
+                    {
+                        style =
+                        {
+                            width = 4,
+                            marginRight = 8,
+                            backgroundColor = new Color(0.35f, 0.68f, 1.00f)
+                        }
+                    });
+                    quote.Add(CreateLabelBlock(block.Content, 13, FontStyle.Italic, 0, 0, true));
+                    return quote;
+                case BlockType.List:
+                    return CreateLabelBlock(block.Content, 13, FontStyle.Normal, 3, 3, true, 14);
+                case BlockType.Code:
+                case BlockType.Table:
+                    TextField codeField = new TextField
+                    {
+                        value = block.Content,
+                        multiline = true,
+                        isReadOnly = true
+                    };
+                    codeField.style.marginBottom = 10;
+                    return codeField;
+                case BlockType.HR:
+                    return new VisualElement
+                    {
+                        style =
+                        {
+                            height = 2,
+                            marginTop = 10,
+                            marginBottom = 10,
+                            backgroundColor = new Color(0.27f, 0.31f, 0.37f)
+                        }
+                    };
+                default:
+                    return new VisualElement();
+            }
+        }
+
+        private static Label CreateLabelBlock(string text, int fontSize, FontStyle fontStyle, int marginTop, int marginBottom,
+            bool wrap = false, int paddingLeft = 0)
+        {
+            Label label = new Label(text)
+            {
+                style =
+                {
+                    fontSize = fontSize,
+                    unityFontStyleAndWeight = fontStyle,
+                    marginTop = marginTop,
+                    marginBottom = marginBottom,
+                    whiteSpace = wrap ? WhiteSpace.Normal : WhiteSpace.NoWrap,
+                    paddingLeft = paddingLeft
+                }
+            };
+            label.enableRichText = true;
+            return label;
+        }
 
         private void ParseMarkdown(string rawText)
         {
             _parsedBlocks.Clear();
-            if (string.IsNullOrEmpty(rawText)) return;
+            if (string.IsNullOrEmpty(rawText))
+            {
+                return;
+            }
 
             string[] lines = rawText.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None);
             bool inCodeBlock = false;
@@ -268,7 +496,6 @@ namespace StellarFramework.Editor.Modules
                 string line = lines[i];
                 string trimmed = line.Trim();
 
-                // 1. 代码块开关
                 if (trimmed.StartsWith("```"))
                 {
                     if (inCodeBlock)
@@ -284,27 +511,42 @@ namespace StellarFramework.Editor.Modules
                     continue;
                 }
 
-                // 2. 代码块内容收集
                 if (inCodeBlock)
                 {
                     codeBuilder.AppendLine(line);
                     continue;
                 }
 
-                // 3. 分割线
                 if (trimmed == "---" || trimmed == "***" || trimmed == "___")
                 {
-                    _parsedBlocks.Add(new MarkdownBlock { Type = BlockType.HR, Content = "" });
+                    _parsedBlocks.Add(new MarkdownBlock { Type = BlockType.HR, Content = string.Empty });
                     continue;
                 }
 
-                // 4. 标题 (H1 ~ H3)
-                if (line.StartsWith("# ")) { _parsedBlocks.Add(new MarkdownBlock { Type = BlockType.Header1, Content = ParseInline(line.Substring(2)) }); continue; }
-                if (line.StartsWith("## ")) { _parsedBlocks.Add(new MarkdownBlock { Type = BlockType.Header2, Content = ParseInline(line.Substring(3)) }); continue; }
-                if (line.StartsWith("### ")) { _parsedBlocks.Add(new MarkdownBlock { Type = BlockType.Header3, Content = ParseInline(line.Substring(4)) }); continue; }
-                if (line.StartsWith("#### ")) { _parsedBlocks.Add(new MarkdownBlock { Type = BlockType.Header3, Content = ParseInline(line.Substring(5)) }); continue; } // H4 降级为 H3 显示
+                if (line.StartsWith("# "))
+                {
+                    _parsedBlocks.Add(new MarkdownBlock { Type = BlockType.Header1, Content = ParseInline(line.Substring(2)) });
+                    continue;
+                }
 
-                // 5. 引用区块
+                if (line.StartsWith("## "))
+                {
+                    _parsedBlocks.Add(new MarkdownBlock { Type = BlockType.Header2, Content = ParseInline(line.Substring(3)) });
+                    continue;
+                }
+
+                if (line.StartsWith("### "))
+                {
+                    _parsedBlocks.Add(new MarkdownBlock { Type = BlockType.Header3, Content = ParseInline(line.Substring(4)) });
+                    continue;
+                }
+
+                if (line.StartsWith("#### "))
+                {
+                    _parsedBlocks.Add(new MarkdownBlock { Type = BlockType.Header3, Content = ParseInline(line.Substring(5)) });
+                    continue;
+                }
+
                 if (line.StartsWith("> "))
                 {
                     string quoteContent = ParseInline(line.Substring(2));
@@ -319,7 +561,6 @@ namespace StellarFramework.Editor.Modules
                     continue;
                 }
 
-                // 6. 简易表格识别 (渲染为等宽文本块以保持对齐)
                 if (trimmed.StartsWith("|") && trimmed.EndsWith("|"))
                 {
                     if (_parsedBlocks.Count > 0 && _parsedBlocks[_parsedBlocks.Count - 1].Type == BlockType.Table)
@@ -333,27 +574,27 @@ namespace StellarFramework.Editor.Modules
                     continue;
                 }
 
-                // 7. 列表项
                 if (trimmed.StartsWith("- ") || trimmed.StartsWith("* "))
                 {
                     _parsedBlocks.Add(new MarkdownBlock { Type = BlockType.List, Content = "• " + ParseInline(trimmed.Substring(2)) });
                     continue;
                 }
+
                 if (Regex.IsMatch(trimmed, @"^\d+\.\s"))
                 {
                     _parsedBlocks.Add(new MarkdownBlock { Type = BlockType.List, Content = ParseInline(trimmed) });
                     continue;
                 }
 
-                // 8. 空行 (段落分隔)
                 if (string.IsNullOrEmpty(trimmed))
                 {
-                    _parsedBlocks.Add(new MarkdownBlock { Type = BlockType.Paragraph, Content = "" });
+                    _parsedBlocks.Add(new MarkdownBlock { Type = BlockType.Paragraph, Content = string.Empty });
                     continue;
                 }
 
-                // 9. 常规段落 (自动合并相邻行)
-                if (_parsedBlocks.Count > 0 && _parsedBlocks[_parsedBlocks.Count - 1].Type == BlockType.Paragraph && !string.IsNullOrEmpty(_parsedBlocks[_parsedBlocks.Count - 1].Content))
+                if (_parsedBlocks.Count > 0 &&
+                    _parsedBlocks[_parsedBlocks.Count - 1].Type == BlockType.Paragraph &&
+                    !string.IsNullOrEmpty(_parsedBlocks[_parsedBlocks.Count - 1].Content))
                 {
                     _parsedBlocks[_parsedBlocks.Count - 1].Content += " " + ParseInline(trimmed);
                 }
@@ -363,7 +604,6 @@ namespace StellarFramework.Editor.Modules
                 }
             }
 
-            // 兜底：未闭合的代码块
             if (inCodeBlock)
             {
                 _parsedBlocks.Add(new MarkdownBlock { Type = BlockType.Code, Content = codeBuilder.ToString().TrimEnd() });
@@ -532,9 +772,9 @@ namespace StellarFramework.Editor.Modules
                     }
                 }
             }
-            catch (Exception e)
+            catch (Exception exception)
             {
-                Debug.LogWarning($"[DocumentationHubModule] 读取标题失败: Path={path}, Error={e.Message}");
+                Debug.LogWarning($"[DocumentationHubModule] 读取标题失败: Path={path}, Error={exception.Message}");
             }
 
             return string.Empty;
@@ -542,63 +782,13 @@ namespace StellarFramework.Editor.Modules
 
         private string ParseInline(string text)
         {
-            // 防御性转义：防止 C# 泛型 <T> 被 Unity 误认为富文本标签而导致文本丢失
-            // 插入零宽字符 \u200B 破坏标签结构，但视觉上不可见
             text = text.Replace("<", "<\u200B");
-
-            // 图片: ![alt](url) -> 降级显示为文字提示
             text = Regex.Replace(text, @"\!\[(.*?)\]\((.*?)\)", "<color=#4ec9b0>[图片: $1]</color>");
-            
-            // 链接: [text](url)
             text = Regex.Replace(text, @"\[(.*?)\]\((.*?)\)", "<color=#569cd6>$1</color>");
-            
-            // 粗体: **text**
             text = Regex.Replace(text, @"\*\*(.*?)\*\*", "<b>$1</b>");
-            
-            // 斜体: *text*
             text = Regex.Replace(text, @"\*(.*?)\*", "<i>$1</i>");
-            
-            // 行内代码: `text`
             text = Regex.Replace(text, @"\`(.*?)\`", "<color=#dcdcaa>$1</color>");
-            
             return text;
         }
-
-        #endregion
-
-        #region GUI 样式初始化
-
-        private void EnsureStyles()
-        {
-            if (_mdStylesInitialized) return;
-
-            _h1Style = new GUIStyle(EditorStyles.label) { fontSize = 20, fontStyle = FontStyle.Bold, wordWrap = true, margin = new RectOffset(0, 0, 15, 10), richText = true };
-            _h2Style = new GUIStyle(EditorStyles.label) { fontSize = 16, fontStyle = FontStyle.Bold, wordWrap = true, margin = new RectOffset(0, 0, 10, 8), richText = true };
-            _h3Style = new GUIStyle(EditorStyles.label) { fontSize = 14, fontStyle = FontStyle.Bold, wordWrap = true, margin = new RectOffset(0, 0, 8, 5), richText = true };
-            
-            _pStyle = new GUIStyle(EditorStyles.label) { fontSize = 13, wordWrap = true, richText = true, margin = new RectOffset(0, 0, 4, 4) };
-            
-            _codeBoxStyle = new GUIStyle("HelpBox") { padding = new RectOffset(8, 8, 8, 8), margin = new RectOffset(4, 4, 10, 10) };
-            _codeTextStyle = new GUIStyle(EditorStyles.textArea) 
-            { 
-                fontSize = 13, 
-                wordWrap = false, 
-                richText = false, // 禁用富文本，确保代码中的 <T> 完美显示
-                focused = { background = null },
-                active = { background = null },
-                hover = { background = null },
-                normal = { background = null, textColor = new Color(0.85f, 0.85f, 0.85f) }
-            };
-            
-            _quoteStyle = new GUIStyle(EditorStyles.label) { fontSize = 13, fontStyle = FontStyle.Italic, wordWrap = true, richText = true, padding = new RectOffset(10, 0, 0, 0), normal = { textColor = new Color(0.65f, 0.65f, 0.65f) } };
-            
-            _listStyle = new GUIStyle(EditorStyles.label) { fontSize = 13, wordWrap = true, richText = true, padding = new RectOffset(15, 0, 0, 0) };
-            
-            _hrStyle = new GUIStyle("box") { margin = new RectOffset(0, 0, 15, 15) };
-
-            _mdStylesInitialized = true;
-        }
-
-        #endregion
     }
 }

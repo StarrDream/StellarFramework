@@ -1,17 +1,17 @@
-﻿using UnityEngine;
 using UnityEditor;
+using UnityEngine;
+using UnityEngine.UIElements;
 
 namespace StellarFramework.Editor
 {
     /// <summary>
-    /// 工具模块基类
-    /// 所有扩展工具都应继承此类
+    /// 工具模块基类。
+    /// 默认仍可通过 OnGUI 走旧的 IMGUI 路径；迁移后的模块可直接返回 UI Toolkit 视图。
     /// </summary>
     public abstract class ToolModule
     {
         public StellarFrameworkTools Window { get; private set; }
 
-        // 从 Attribute 中获取的元数据
         public string Title { get; set; }
         public string Group { get; set; }
         public int Order { get; set; }
@@ -26,6 +26,11 @@ namespace StellarFramework.Editor
 
         public abstract void OnGUI();
 
+        public virtual VisualElement CreateView()
+        {
+            return null;
+        }
+
         public virtual void OnEnable()
         {
         }
@@ -38,12 +43,9 @@ namespace StellarFramework.Editor
         {
         }
 
-        // --- 样式辅助方法 (封装对 Window 样式的访问) ---
-
         protected void Section(string title)
         {
             GUILayout.Space(10);
-            // 访问 Window 公开的样式
             GUILayout.Label(title, Window.SectionHeaderStyle);
             GUILayout.Space(2);
         }
@@ -55,8 +57,8 @@ namespace StellarFramework.Editor
 
         protected bool PrimaryButton(GUIContent content, params GUILayoutOption[] options)
         {
-            var old = GUI.backgroundColor;
-            GUI.backgroundColor = new Color(0.22f, 0.52f, 0.88f); // AccentDark
+            Color old = GUI.backgroundColor;
+            GUI.backgroundColor = new Color(0.22f, 0.52f, 0.88f);
             bool clicked = GUILayout.Button(content, Window.PrimaryButtonStyle, options);
             GUI.backgroundColor = old;
             return clicked;
@@ -64,8 +66,8 @@ namespace StellarFramework.Editor
 
         protected bool DangerButton(string label, params GUILayoutOption[] options)
         {
-            var old = GUI.backgroundColor;
-            GUI.backgroundColor = new Color(0.90f, 0.25f, 0.25f); // Danger
+            Color old = GUI.backgroundColor;
+            GUI.backgroundColor = new Color(0.90f, 0.25f, 0.25f);
             bool clicked = GUILayout.Button(label, Window.DangerButtonStyle, options);
             GUI.backgroundColor = old;
             return clicked;

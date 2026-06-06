@@ -3,23 +3,23 @@ using System.IO;
 using System.Text;
 using System.Text.RegularExpressions;
 using UnityEditor;
+using UnityEditor.UIElements;
 using UnityEngine;
+using UnityEngine.UIElements;
 
 namespace StellarFramework.Editor
 {
-    public class FolderContentCopyTool : EditorWindow
+    public class FolderContentCopyTool : ToolsHubEmbeddedPanel
     {
-        public static void ShowWindow()
-        {
-            var wnd = GetWindow<FolderContentCopyTool>("上下文复制工具");
-            wnd.minSize = new Vector2(600, 650);
-            wnd.Show();
-        }
-
         private string _rootFolder = "";
         private Vector2 _scroll;
         private readonly List<string> _subFolders = new List<string>(128);
         private readonly HashSet<string> _selectedFolders = new HashSet<string>();
+
+        private TextField _rootFolderField;
+        private ScrollView _folderListView;
+        private Label _folderCountLabel;
+        private Button _copyButton;
 
         // 文件类型过滤
         private bool _includeCs = true;
@@ -34,7 +34,114 @@ namespace StellarFramework.Editor
         private bool _removeComments = false; // 移除注释（大幅减少）
         private bool _removeIndentation = false; // 移除缩进（代码变平，大幅减少）
 
-        private void OnGUI()
+        protected override VisualElement BuildView()
+        {
+            VisualElement root = new VisualElement
+            {
+                style =
+                {
+                    flexGrow = 1f
+                }
+            };
+
+            _rootFolderField = new TextField("根目录")
+            {
+                value = _rootFolder,
+                isReadOnly = true
+            };
+            root.Add(_rootFolderField);
+
+            VisualElement rootActions = CreateRow();
+            rootActions.Add(CreateButton("选择目录", () =>
+            {
+                string path = EditorUtility.OpenFolderPanel("选择根目录", _rootFolder, "");
+                if (!string.IsNullOrEmpty(path))
+                {
+                    _rootFolder = path;
+                    _rootFolderField.value = path;
+                    RefreshSubFolders();
+                    RefreshFolderListView();
+                }
+            }));
+            rootActions.Add(CreateButton("刷新", () =>
+            {
+                RefreshSubFolders();
+                RefreshFolderListView();
+            }));
+            root.Add(rootActions);
+
+            root.Add(new Label("文件类型")
+            {
+                style =
+                {
+                    unityFontStyleAndWeight = FontStyle.Bold,
+                    marginTop = 8
+                }
+            });
+
+            VisualElement fileTypeRow = CreateRow();
+            fileTypeRow.Add(CreateToggle(".cs", _includeCs, value => _includeCs = value));
+            fileTypeRow.Add(CreateToggle("Shader", _includeShader, value => _includeShader = value));
+            fileTypeRow.Add(CreateToggle(".json", _includeJson, value => _includeJson = value));
+            fileTypeRow.Add(CreateToggle(".asmdef", _includeAsmdef, value => _includeAsmdef = value));
+            fileTypeRow.Add(CreateToggle("Txt/Md", _includeTxt, value => _includeTxt = value));
+            fileTypeRow.Add(CreateToggle(".meta", _includeMeta, value => _includeMeta = value));
+            root.Add(fileTypeRow);
+
+            root.Add(new Label("压缩策略")
+            {
+                style =
+                {
+                    unityFontStyleAndWeight = FontStyle.Bold,
+                    marginTop = 8
+                }
+            });
+
+            root.Add(CreateToggle("基础压缩 (合并空行 + Markdown 格式)", _optimizeForContext, value => _optimizeForContext = value));
+
+            VisualElement optimizeRow = CreateRow();
+            optimizeRow.Add(CreateToggle("移除注释", _removeComments, value => _removeComments = value));
+            optimizeRow.Add(CreateToggle("移除缩进", _removeIndentation, value => _removeIndentation = value));
+            root.Add(optimizeRow);
+
+            root.Add(new HelpBox("复制前请确认 IDE 已保存代码文件。会跳过大于 500KB 的文件，并按当前过滤与压缩策略输出。", HelpBoxMessageType.Info));
+
+            _folderCountLabel = new Label();
+            _folderCountLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
+            _folderCountLabel.style.marginTop = 8;
+            root.Add(_folderCountLabel);
+
+            _folderListView = new ScrollView
+            {
+                style =
+                {
+                    flexGrow = 1f,
+                    minHeight = 260
+                }
+            };
+            root.Add(_folderListView);
+
+            VisualElement actionRow = CreateRow();
+            actionRow.Add(CreateButton("全选", () =>
+            {
+                _selectedFolders.UnionWith(_subFolders);
+                RefreshFolderListView();
+            }));
+            actionRow.Add(CreateButton("清空", () =>
+            {
+                _selectedFolders.Clear();
+                RefreshFolderListView();
+            }));
+
+            _copyButton = CreateButton("复制到剪贴板", CopySelectedFoldersToClipboard);
+            actionRow.Add(_copyButton);
+            root.Add(actionRow);
+
+            RefreshFolderListView();
+            return root;
+        }
+
+        protected override void DrawIMGUI()
         {
             DrawHeader();
             DrawFilters();
@@ -262,11 +369,11 @@ namespace StellarFramework.Editor
 
                 Debug.Log($"--------------------------------------------------");
 
-                ShowNotification(new GUIContent($"复制成功: {totalLength} 字符"));
+                Notify($"复制成功: {totalLength} 字符");
             }
             else
             {
-                ShowNotification(new GUIContent("未找到文件"));
+                Notify("未找到文件");
             }
         }
 
@@ -339,6 +446,91 @@ namespace StellarFramework.Editor
             }
 
             return set;
+        }
+
+        private void RefreshFolderListView()
+        {
+            if (_folderCountLabel != null)
+            {
+                _folderCountLabel.text = $"子目录列表 ({_selectedFolders.Count}/{_subFolders.Count})";
+            }
+
+            if (_copyButton != null)
+            {
+                string buttonText = "复制到剪贴板";
+                if (_optimizeForContext) buttonText += " (已压缩)";
+                _copyButton.text = buttonText;
+                _copyButton.SetEnabled(_selectedFolders.Count > 0 && Directory.Exists(_rootFolder));
+            }
+
+            if (_folderListView == null)
+            {
+                return;
+            }
+
+            _folderListView.Clear();
+
+            if (_subFolders.Count == 0)
+            {
+                _folderListView.Add(new Label("无子目录或未选择根目录"));
+                return;
+            }
+
+            foreach (string fullPath in _subFolders)
+            {
+                Toggle toggle = new Toggle(Path.GetFileName(fullPath))
+                {
+                    value = _selectedFolders.Contains(fullPath)
+                };
+                toggle.tooltip = fullPath;
+                toggle.RegisterValueChangedCallback(evt =>
+                {
+                    if (evt.newValue)
+                    {
+                        _selectedFolders.Add(fullPath);
+                    }
+                    else
+                    {
+                        _selectedFolders.Remove(fullPath);
+                    }
+
+                    RefreshFolderListView();
+                });
+                _folderListView.Add(toggle);
+            }
+        }
+
+        private static VisualElement CreateRow()
+        {
+            return new VisualElement
+            {
+                style =
+                {
+                    flexDirection = FlexDirection.Row,
+                    alignItems = Align.Center,
+                    marginTop = 4
+                }
+            };
+        }
+
+        private static Toggle CreateToggle(string label, bool value, System.Action<bool> onChanged)
+        {
+            Toggle toggle = new Toggle(label)
+            {
+                value = value
+            };
+            toggle.RegisterValueChangedCallback(evt => onChanged(evt.newValue));
+            return toggle;
+        }
+
+        private static Button CreateButton(string text, System.Action onClick)
+        {
+            Button button = new Button(onClick)
+            {
+                text = text
+            };
+            button.style.marginRight = 4;
+            return button;
         }
     }
 }

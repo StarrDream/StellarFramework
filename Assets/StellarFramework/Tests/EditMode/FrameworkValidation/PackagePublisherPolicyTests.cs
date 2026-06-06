@@ -152,6 +152,10 @@ namespace StellarFramework.Tests.FrameworkValidation
             Assert.That(bootstrapUtility, Does.Contain("IsFrameworkDevelopmentProject"));
             Assert.That(bootstrapUtility, Does.Contain("ENABLE_LOG"));
             Assert.That(bootstrapUtility, Does.Contain("TryAddDefineForSelectedBuildTarget"));
+            Assert.That(bootstrapUtility, Does.Contain("UNITY_2021_2_OR_NEWER"));
+            Assert.That(bootstrapUtility, Does.Contain("NamedBuildTarget.FromBuildTargetGroup"));
+            Assert.That(bootstrapUtility, Does.Contain("GetScriptingDefineSymbols(namedBuildTarget)"));
+            Assert.That(bootstrapUtility, Does.Contain("SetScriptingDefineSymbols(namedBuildTarget, merged)"));
         }
 
         [Test]
@@ -162,6 +166,23 @@ namespace StellarFramework.Tests.FrameworkValidation
             Assert.That(readme, Does.Contain("只需导入一个包"));
             Assert.That(readme, Does.Contain("单包安装器"));
             Assert.That(readme, Does.Contain("一键安装"));
+            Assert.That(readme, Does.Contain("Unity 2022.3 LTS"));
+            Assert.That(readme, Does.Contain("Unity 6000.x"));
+            Assert.That(readme, Does.Contain("Built-in、URP、HDRP"));
+            Assert.That(readme, Does.Contain("构建样例"));
+        }
+
+        [Test]
+        public void PackageGuideDocumentsUnityAndRenderPipelineCompatibility()
+        {
+            string source = ReadAssetText(
+                "Assets/StellarFramework/Editor/StellarToolsHub/Modules/Packaging/StellarFrameworkPackagePublisher.cs");
+
+            Assert.That(source, Does.Contain("Unity 2022.3 LTS"));
+            Assert.That(source, Does.Contain("Unity 6000.x"));
+            Assert.That(source, Does.Contain("Built-in、URP 或 HDRP"));
+            Assert.That(source, Does.Contain("RenderPipelineCompatibility"));
+            Assert.That(source, Does.Contain("SampleTemplates"));
         }
 
         private static string ReadAssetText(string assetPath)

@@ -3,20 +3,15 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
 using UnityEditor;
+using UnityEditor.UIElements;
 using UnityEngine;
+using UnityEngine.UIElements;
 using Newtonsoft.Json; // 依赖 Newtonsoft.Json
 
 namespace StellarFramework.Editor
 {
-    public class ListSerializerWindow : EditorWindow
+    public class ListSerializerWindow : ToolsHubEmbeddedPanel
     {
-        public static void ShowWindow()
-        {
-            var window = GetWindow<ListSerializerWindow>("List Serializer");
-            window.minSize = new Vector2(900, 600);
-            window.Show();
-        }
-
         private MonoBehaviour _targetMono;
         private Vector2 _sidebarScroll;
         private Vector2 _contentScroll;
@@ -36,7 +31,50 @@ namespace StellarFramework.Editor
         private Dictionary<int, bool> _foldoutCache = new Dictionary<int, bool>();
         private List<FieldInfo> _cachedListFields = new List<FieldInfo>();
 
-        private void OnEnable()
+        protected override VisualElement BuildView()
+        {
+            VisualElement root = new VisualElement
+            {
+                style =
+                {
+                    flexGrow = 1f
+                }
+            };
+
+            ObjectField targetField = new ObjectField("目标组件")
+            {
+                objectType = typeof(MonoBehaviour),
+                allowSceneObjects = true,
+                value = _targetMono
+            };
+            targetField.RegisterValueChangedCallback(evt =>
+            {
+                _targetMono = evt.newValue as MonoBehaviour;
+                RefreshFieldCache();
+                _selectedField = null;
+                _selectedListObject = null;
+            });
+            root.Add(targetField);
+
+            Button refreshButton = new Button(() =>
+            {
+                RefreshFieldCache();
+            })
+            {
+                text = "刷新字段缓存"
+            };
+            refreshButton.style.marginTop = 4;
+            root.Add(refreshButton);
+
+            root.Add(new HelpBox("复杂列表/数组编辑保持原有行为，当前通过 ToolsHub 内部 UI Toolkit 视图承载。", HelpBoxMessageType.Info));
+
+            IMGUIContainer content = CreateLegacyContainer();
+            content.style.flexGrow = 1f;
+            root.Add(content);
+            return root;
+        }
+
+        protected override void OnActivated()
         {
             if (Selection.activeGameObject != null)
             {
@@ -45,7 +83,16 @@ namespace StellarFramework.Editor
             }
         }
 
-        private void OnGUI()
+        protected override void OnSelectionChanged()
+        {
+            if (Selection.activeGameObject != null)
+            {
+                _targetMono = Selection.activeGameObject.GetComponent<MonoBehaviour>();
+                RefreshFieldCache();
+            }
+        }
+
+        protected override void DrawIMGUI()
         {
             DrawHeader();
 

@@ -3,19 +3,14 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
 using UnityEditor;
+using UnityEditor.UIElements;
 using UnityEngine;
+using UnityEngine.UIElements;
 
 namespace StellarFramework.Editor
 {
-    public class DictionarySerializerWindow : EditorWindow
+    public class DictionarySerializerWindow : ToolsHubEmbeddedPanel
     {
-        public static void ShowWindow()
-        {
-            var window = GetWindow<DictionarySerializerWindow>("Dictionary Serializer");
-            window.minSize = new Vector2(820, 560);
-            window.Show();
-        }
-
         private const int MAX_RECURSION_DEPTH = 8;
         private MonoBehaviour _targetMono;
         private Vector2 _scroll;
@@ -42,13 +37,77 @@ namespace StellarFramework.Editor
         // 数据编辑缓存：Key=FieldPath, Value=List<DictionaryEntry> (用于编辑字典)
         private readonly Dictionary<string, object> _editDataCache = new Dictionary<string, object>();
 
-        private void OnEnable()
+        protected override VisualElement BuildView()
+        {
+            VisualElement root = new VisualElement
+            {
+                style =
+                {
+                    flexGrow = 1f
+                }
+            };
+
+            ObjectField targetField = new ObjectField("目标组件")
+            {
+                objectType = typeof(MonoBehaviour),
+                allowSceneObjects = true,
+                value = _targetMono
+            };
+            targetField.RegisterValueChangedCallback(evt =>
+            {
+                _targetMono = evt.newValue as MonoBehaviour;
+                ClearCache();
+            });
+            root.Add(targetField);
+
+            VisualElement actionRow = new VisualElement
+            {
+                style =
+                {
+                    flexDirection = FlexDirection.Row,
+                    marginTop = 4
+                }
+            };
+
+            Button refreshButton = new Button(() =>
+            {
+                ClearCache();
+                Debug.Log("[DictionarySerializer] 缓存已重置");
+            })
+            {
+                text = "刷新字段 / 重置缓存"
+            };
+            refreshButton.style.marginRight = 4;
+            actionRow.Add(refreshButton);
+
+            Button applyButton = new Button(ApplyChanges)
+            {
+                text = "应用修改 (Save)"
+            };
+            actionRow.Add(applyButton);
+            root.Add(actionRow);
+
+            root.Add(new HelpBox("复杂字段编辑保持原有行为，当前通过 ToolsHub 内部视图承载。", HelpBoxMessageType.Info));
+
+            IMGUIContainer content = CreateLegacyContainer();
+            content.style.flexGrow = 1f;
+            root.Add(content);
+            return root;
+        }
+
+        protected override void OnActivated()
         {
             var go = Selection.activeGameObject;
             if (go) _targetMono = go.GetComponent<MonoBehaviour>();
         }
 
-        private void OnGUI()
+        protected override void OnSelectionChanged()
+        {
+            var go = Selection.activeGameObject;
+            if (go) _targetMono = go.GetComponent<MonoBehaviour>();
+        }
+
+        protected override void DrawIMGUI()
         {
             EditorGUILayout.Space(8);
             EditorGUILayout.LabelField("Dictionary / List / Array 增强编辑器", EditorStyles.boldLabel);

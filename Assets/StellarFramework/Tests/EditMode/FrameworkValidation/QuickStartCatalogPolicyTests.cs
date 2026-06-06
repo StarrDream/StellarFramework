@@ -81,6 +81,17 @@ namespace StellarFramework.Tests.FrameworkValidation
         }
 
         [Test]
+        public void ToolsHubHostUsesUiToolkitCreateGui()
+        {
+            string source = ReadAssetText("Assets/StellarFramework/Editor/StellarToolsHub/Core/StellarFrameworkTools.cs");
+
+            Assert.That(source, Does.Contain("CreateGUI()"));
+            Assert.That(source, Does.Contain("rootVisualElement"));
+            Assert.That(source, Does.Contain("TwoPaneSplitView"));
+            Assert.That(source, Does.Contain("ToolbarSearchField"));
+        }
+
+        [Test]
         public void ResourceManagementModulesUseFixedOrderWeights()
         {
             string assetBundleSource = ReadAssetText("Assets/StellarFramework/Editor/StellarToolsHub/Modules/AssetBundleToolModule.cs");

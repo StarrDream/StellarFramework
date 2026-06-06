@@ -5,19 +5,13 @@ using System.Threading;
 using Cysharp.Threading.Tasks;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.UIElements;
 using StellarFramework.ActionEngine;
 
 namespace StellarFramework.Editor
 {
-    public class ActionEngineEditorWindow : EditorWindow
+    public class ActionEngineEditorWindow : ToolsHubEmbeddedPanel
     {
-        public static void ShowWindow()
-        {
-            var window = GetWindow<ActionEngineEditorWindow>("Action Engine");
-            window.minSize = new Vector2(1200, 700);
-            window.Show();
-        }
-
         private ActionEngineAsset _activeAsset;
         private GameObject _rootTarget;
 
@@ -109,13 +103,32 @@ namespace StellarFramework.Editor
 
         #endregion
 
-        private void OnEnable()
+        protected override VisualElement BuildView()
+        {
+            VisualElement root = new VisualElement
+            {
+                style =
+                {
+                    flexGrow = 1f
+                }
+            };
+
+            root.Add(new HelpBox("ActionEngine 图编辑器已经收拢到 ToolsHub。当前保留原有交互逻辑，通过 ToolsHub 内部视图承载。", HelpBoxMessageType.Info));
+
+            IMGUIContainer container = CreateLegacyContainer();
+            container.style.flexGrow = 1f;
+            root.Add(container);
+
+            return root;
+        }
+
+        protected override void OnActivated()
         {
             _componentNames = new[] { "无 (纯容器)" }.Concat(_actionRegistry.Keys).ToArray();
             EditorApplication.update += OnEditorUpdate;
         }
 
-        private void OnDisable()
+        protected override void OnDeactivated()
         {
             StopPlayback();
             EditorApplication.update -= OnEditorUpdate;
@@ -123,7 +136,7 @@ namespace StellarFramework.Editor
 
         private void OnEditorUpdate()
         {
-            if (EditorWindow.focusedWindow == this || EditorWindow.mouseOverWindow == this) Repaint();
+            if (IsHostFocused) RequestRepaint();
             if (_playbackCts != null && !Application.isPlaying) SceneView.RepaintAll();
         }
 
@@ -159,7 +172,7 @@ namespace StellarFramework.Editor
             }
         }
 
-        private void OnGUI()
+        protected override void DrawIMGUI()
         {
             InitStyles();
             DrawTopBar();
@@ -237,7 +250,7 @@ namespace StellarFramework.Editor
             {
                 EditorUtility.SetDirty(_activeAsset);
                 AssetDatabase.SaveAssets();
-                ShowNotification(new GUIContent("资产已保存"));
+                Notify("资产已保存");
             }
         }
 
@@ -311,7 +324,7 @@ namespace StellarFramework.Editor
 
                 _zoom = newZoom;
                 e.Use();
-                Repaint();
+                RequestRepaint();
             }
 
             GUI.BeginClip(graphRect);
@@ -1030,7 +1043,7 @@ namespace StellarFramework.Editor
                 if (_rootTarget != null && GUILayout.Button("刷新基准", EditorStyles.toolbarButton, GUILayout.Width(60)))
                 {
                     ActionEngineRunner.InitSnapshot(_rootTarget, _activeAsset, true);
-                    ShowNotification(new GUIContent("已更新物体的初始状态快照"));
+                    Notify("已更新物体的初始状态快照");
                 }
 
                 GUILayout.FlexibleSpace();

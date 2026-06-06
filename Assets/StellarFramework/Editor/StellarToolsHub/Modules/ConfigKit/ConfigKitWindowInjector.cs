@@ -8,18 +8,10 @@ using UnityEngine;
 
 namespace StellarFramework.Editor
 {
-    [InitializeOnLoad]
     public static class ConfigKitWindowInjector
     {
-        static ConfigKitWindowInjector()
+        public static void BindDelegates(ConfigKitWindow window)
         {
-            EditorApplication.update += InjectDelegates;
-        }
-
-        private static void InjectDelegates()
-        {
-            if (!EditorWindow.HasOpenInstances<ConfigKitWindow>()) return;
-            var window = EditorWindow.GetWindow<ConfigKitWindow>("", false);
             if (window == null) return;
 
             if (window.OnDrawNormalConfigPanel == null)

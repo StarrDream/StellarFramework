@@ -181,6 +181,10 @@ namespace StellarFramework.Editor.Modules
                 "- Newtonsoft.Json (`com.unity.nuget.newtonsoft-json`)\r\n" +
                 "- Addressables (`com.unity.addressables`)\r\n" +
                 "- HybridCLR (`com.code-philosophy.hybridclr`)\r\n\r\n" +
+                "## 兼容性\r\n\r\n" +
+                "- Unity 版本：面向 Unity 2022.3 LTS 和 Unity 6000.x。\r\n" +
+                "- 渲染管线：Runtime 和 Samples 通过 `RenderPipelineCompatibility` 自动选择 Built-in、URP 或 HDRP 的可用 Lit Shader。\r\n" +
+                "- 样例：导出包保留 SampleTemplates，安装后可在 Tools Hub 里重新点击 `构建样例` 生成场景和资源。\r\n\r\n" +
                 "## 说明\r\n\r\n" +
                 "- 单包里已经内嵌完整框架 payload，用户不需要再手动选择基础包或热更包。\r\n" +
                 "- 安装器会先补齐 UPM 依赖，再自动导入完整框架内容。\r\n";

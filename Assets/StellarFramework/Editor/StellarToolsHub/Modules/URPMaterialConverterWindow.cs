@@ -1,12 +1,14 @@
 using System.Collections.Generic;
 using UnityEditor;
+using UnityEditor.UIElements;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using UnityEngine.UIElements;
 
 namespace StellarFramework.Editor
 {
-    public class URPMaterialConverterWindow : EditorWindow
+    public class URPMaterialConverterWindow : ToolsHubEmbeddedPanel
     {
         private Shader _targetLitShader;
         private Material _defaultPipelineMaterial;
@@ -18,20 +20,108 @@ namespace StellarFramework.Editor
 
         private readonly List<Material> _scannedMaterials = new List<Material>(2048);
 
-        public static void Open()
+        private ObjectField _targetShaderField;
+        private ObjectField _defaultMaterialField;
+        private Toggle _logEachMaterialToggle;
+        private Toggle _replaceDefaultToggle;
+        private Toggle _replaceMissingToggle;
+        private Button _convertButton;
+        private Button _replaceButton;
+        private ScrollView _materialsListView;
+        private Label _materialsCountLabel;
+
+        protected override VisualElement BuildView()
         {
-            URPMaterialConverterWindow window =
-                GetWindow<URPMaterialConverterWindow>("Render Pipeline Material Converter");
-            window.minSize = new Vector2(860, 580);
-            window.Show();
+            ScrollView root = new ScrollView
+            {
+                style =
+                {
+                    flexGrow = 1f
+                }
+            };
+
+            root.Add(new HelpBox("用于将 Standard 材质迁移到当前渲染管线的 Lit Shader，并批量修复场景中的默认/缺失材质槽。", HelpBoxMessageType.Info));
+
+            _targetShaderField = new ObjectField("目标 Lit Shader")
+            {
+                objectType = typeof(Shader),
+                allowSceneObjects = false,
+                value = _targetLitShader
+            };
+            _targetShaderField.RegisterValueChangedCallback(evt => _targetLitShader = evt.newValue as Shader);
+            root.Add(_targetShaderField);
+
+            Button refreshShaderButton = new Button(() =>
+            {
+                RefreshTargetShader();
+                RefreshViewState();
+            })
+            {
+                text = "重新检测"
+            };
+            refreshShaderButton.style.marginTop = 4;
+            root.Add(refreshShaderButton);
+
+            _defaultMaterialField = new ObjectField("默认目标材质")
+            {
+                objectType = typeof(Material),
+                allowSceneObjects = false,
+                value = _defaultPipelineMaterial
+            };
+            _defaultMaterialField.RegisterValueChangedCallback(evt => _defaultPipelineMaterial = evt.newValue as Material);
+            root.Add(_defaultMaterialField);
+
+            _logEachMaterialToggle = CreateToggle("逐条输出转换日志", _logEachMaterial, value => _logEachMaterial = value);
+            _replaceDefaultToggle = CreateToggle("替换 Default-Material 槽", _replaceDefaultMaterialSlots, value => _replaceDefaultMaterialSlots = value);
+            _replaceMissingToggle = CreateToggle("替换 Missing 材质槽", _replaceMissingMaterialSlots, value => _replaceMissingMaterialSlots = value);
+            root.Add(_logEachMaterialToggle);
+            root.Add(_replaceDefaultToggle);
+            root.Add(_replaceMissingToggle);
+
+            VisualElement actionRow = CreateRow();
+            actionRow.Add(CreateButton("扫描 Project 材质", () =>
+            {
+                ScanProjectMaterials();
+                RefreshViewState();
+            }));
+            _convertButton = CreateButton("批量转换到当前管线 Lit", ConvertScannedToCurrentPipeline);
+            actionRow.Add(_convertButton);
+            root.Add(actionRow);
+
+            _replaceButton = CreateButton("替换场景材质槽 (Default/Missing)", ReplaceSceneMaterialSlots);
+            root.Add(_replaceButton);
+
+            _materialsCountLabel = new Label
+            {
+                style =
+                {
+                    unityFontStyleAndWeight = FontStyle.Bold,
+                    marginTop = 8
+                }
+            };
+            root.Add(_materialsCountLabel);
+
+            _materialsListView = new ScrollView
+            {
+                style =
+                {
+                    flexGrow = 1f,
+                    minHeight = 260
+                }
+            };
+            root.Add(_materialsListView);
+
+            RefreshViewState();
+            return root;
         }
 
-        private void OnEnable()
+        protected override void OnActivated()
         {
             RefreshTargetShader();
+            RefreshViewState();
         }
 
-        private void OnGUI()
+        protected override void DrawIMGUI()
         {
             FrameworkRenderPipelineFamily family = StellarFramework.RenderPipelineCompatibility.CurrentFamily;
             bool requiresConversion = family != FrameworkRenderPipelineFamily.BuiltIn;
@@ -133,7 +223,7 @@ namespace StellarFramework.Editor
             }
 
             Debug.Log($"[URPMaterialConverterWindow] 扫描完成：{_scannedMaterials.Count} 个材质");
-            ShowNotification(new GUIContent($"扫描到 {_scannedMaterials.Count} 个材质"));
+            Notify($"扫描到 {_scannedMaterials.Count} 个材质");
         }
 
         private void ConvertScannedToCurrentPipeline()
@@ -184,7 +274,7 @@ namespace StellarFramework.Editor
 
             Debug.Log(
                 $"[URPMaterialConverterWindow] 转换完成：converted={converted}, skipped={skipped}, total={_scannedMaterials.Count}");
-            ShowNotification(new GUIContent($"转换 {converted}/{_scannedMaterials.Count}"));
+            Notify($"转换 {converted}/{_scannedMaterials.Count}");
         }
 
         private void ReplaceSceneMaterialSlots()
@@ -265,7 +355,7 @@ namespace StellarFramework.Editor
 
             Debug.Log(
                 $"[URPMaterialConverterWindow] 替换完成：RendererChanged={changedRendererCount}, SlotChanged={changedSlotCount}");
-            ShowNotification(new GUIContent($"替换槽位 {changedSlotCount}"));
+            Notify($"替换槽位 {changedSlotCount}");
         }
 
         private static Renderer[] FindSceneRenderers()
@@ -311,6 +401,88 @@ namespace StellarFramework.Editor
             }
 
             return string.Join("/", stack);
+        }
+
+        private void RefreshViewState()
+        {
+            if (_targetShaderField != null)
+            {
+                _targetShaderField.value = _targetLitShader;
+            }
+
+            bool requiresConversion = StellarFramework.RenderPipelineCompatibility.CurrentFamily != FrameworkRenderPipelineFamily.BuiltIn;
+
+            if (_convertButton != null)
+            {
+                _convertButton.SetEnabled(_scannedMaterials.Count > 0 && requiresConversion);
+            }
+
+            if (_replaceButton != null)
+            {
+                _replaceButton.SetEnabled(_defaultPipelineMaterial != null);
+            }
+
+            if (_materialsCountLabel != null)
+            {
+                _materialsCountLabel.text = $"扫描结果：{_scannedMaterials.Count} 个材质";
+            }
+
+            if (_materialsListView == null)
+            {
+                return;
+            }
+
+            _materialsListView.Clear();
+            if (_scannedMaterials.Count == 0)
+            {
+                _materialsListView.Add(new Label("尚未扫描到材质"));
+                return;
+            }
+
+            foreach (Material material in _scannedMaterials)
+            {
+                ObjectField materialField = new ObjectField
+                {
+                    objectType = typeof(Material),
+                    allowSceneObjects = false,
+                    value = material
+                };
+                materialField.SetEnabled(false);
+                _materialsListView.Add(materialField);
+            }
+        }
+
+        private static VisualElement CreateRow()
+        {
+            return new VisualElement
+            {
+                style =
+                {
+                    flexDirection = FlexDirection.Row,
+                    alignItems = Align.Center,
+                    marginTop = 4
+                }
+            };
+        }
+
+        private static Toggle CreateToggle(string label, bool value, System.Action<bool> onChanged)
+        {
+            Toggle toggle = new Toggle(label)
+            {
+                value = value
+            };
+            toggle.RegisterValueChangedCallback(evt => onChanged(evt.newValue));
+            return toggle;
+        }
+
+        private static Button CreateButton(string text, System.Action onClick)
+        {
+            Button button = new Button(onClick)
+            {
+                text = text
+            };
+            button.style.marginRight = 4;
+            return button;
         }
     }
 }

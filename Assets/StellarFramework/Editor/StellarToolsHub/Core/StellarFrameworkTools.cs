@@ -1,9 +1,11 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using UnityEditor;
+using UnityEditor.UIElements;
 using UnityEngine;
+using UnityEngine.UIElements;
 using Object = UnityEngine.Object;
 
 namespace StellarFramework.Editor
@@ -21,110 +23,561 @@ namespace StellarFramework.Editor
             "常用工具"
         };
 
+        private static readonly Color Accent = new Color(0.35f, 0.68f, 1.00f);
+        private static readonly Color AccentDark = new Color(0.16f, 0.42f, 0.80f);
+        private static readonly Color WindowBackground = new Color(0.10f, 0.11f, 0.13f);
+        private static readonly Color PanelBackground = new Color(0.14f, 0.16f, 0.19f);
+        private static readonly Color CardBackground = new Color(0.18f, 0.20f, 0.24f);
+        private static readonly Color CardBackgroundSoft = new Color(0.16f, 0.18f, 0.21f);
+        private static readonly Color BorderColor = new Color(0.27f, 0.31f, 0.37f);
+        private static readonly Color TextPrimary = new Color(0.96f, 0.97f, 0.99f);
+        private static readonly Color TextSecondary = new Color(0.73f, 0.77f, 0.83f);
+
         [MenuItem("StellarFramework/Tools Hub %#t")]
         public static void ShowWindow()
         {
-            var window = GetWindow<StellarFrameworkTools>("Tools Hub");
+            StellarFrameworkTools window = GetWindow<StellarFrameworkTools>("Tools Hub");
             window.minSize = new Vector2(1000, 680);
             window.Show();
         }
 
-        // 模块列表
         private readonly List<ToolModule> _allModules = new List<ToolModule>();
-
-        // 分组后的视图数据 Key: GroupName, Value: Modules
         private Dictionary<string, List<ToolModule>> _groupedModules = new Dictionary<string, List<ToolModule>>();
+        private readonly Dictionary<ToolModule, Button> _moduleButtons = new Dictionary<ToolModule, Button>();
 
         private ToolModule _currentModule;
-        private Vector2 _sidebarScroll;
-        private Vector2 _contentScroll;
-        private string _search = "";
+        private string _search = string.Empty;
 
-        // --- 样式定义 (公开给 Module 使用) ---
-        private static readonly Color Accent = new Color(0.35f, 0.68f, 1.00f);
+        private ToolbarSearchField _searchField;
+        private ScrollView _sidebarScrollView;
+        private Label _moduleTitleLabel;
+        private Label _moduleDescriptionLabel;
+        private VisualElement _contentHost;
 
-        private bool _stylesReady;
-        private GUIStyle _topBarStyle;
-        private GUIStyle _titleStyle;
-        private GUIStyle _subTitleStyle;
-        private GUIStyle _sidebarHeaderStyle;
+        private bool _legacyStylesReady;
         private GUIStyle _sidebarButtonStyle;
-        private GUIStyle _cardStyle;
-        private GUIStyle _miniHintStyle;
-        private GUIStyle _searchFieldStyle;
-        private GUIStyle _searchCancelStyle;
 
-        // 公开样式属性
         public GUIStyle SectionHeaderStyle { get; private set; }
         public GUIStyle PrimaryButtonStyle { get; private set; }
         public GUIStyle DangerButtonStyle { get; private set; }
         public GUIStyle GhostButtonStyle { get; private set; }
-        public GUIStyle SidebarButtonStyle => _sidebarButtonStyle; // 允许模块访问侧边栏样式(如果需要)
+        public GUIStyle SidebarButtonStyle => _sidebarButtonStyle;
 
         private void OnEnable()
         {
-            ScanAndRegisterModules();
-            _stylesReady = false;
+            ScanAndRegisterModules(_currentModule?.Title);
+            if (rootVisualElement != null && rootVisualElement.childCount > 0)
+            {
+                RebuildUi();
+            }
         }
 
         private void OnDisable()
         {
-            if (_currentModule != null) _currentModule.OnDisable();
+            _currentModule?.OnDisable();
         }
 
         private void OnSelectionChange()
         {
-            if (_currentModule != null)
+            if (_currentModule == null)
             {
-                _currentModule.OnSelectionChange();
-                Repaint();
+                return;
+            }
+
+            _currentModule.OnSelectionChange();
+            _contentHost?.MarkDirtyRepaint();
+        }
+
+        public void CreateGUI()
+        {
+            RebuildUi();
+        }
+
+        private void EnsureLegacyStyles()
+        {
+            if (_legacyStylesReady)
+            {
+                return;
+            }
+
+            SectionHeaderStyle = new GUIStyle(EditorStyles.boldLabel)
+            {
+                fontSize = 12,
+                normal = { textColor = Accent },
+                margin = new RectOffset(0, 0, 10, 4)
+            };
+
+            _sidebarButtonStyle = new GUIStyle(GUI.skin.button)
+            {
+                alignment = TextAnchor.MiddleLeft,
+                fixedHeight = 32,
+                fontSize = 12,
+                margin = new RectOffset(2, 2, 1, 1),
+                padding = new RectOffset(14, 10, 6, 6)
+            };
+
+            PrimaryButtonStyle = new GUIStyle(GUI.skin.button)
+            {
+                fixedHeight = 30,
+                fontSize = 12,
+                fontStyle = FontStyle.Bold
+            };
+
+            DangerButtonStyle = new GUIStyle(GUI.skin.button)
+            {
+                fixedHeight = 30,
+                fontSize = 12
+            };
+
+            GhostButtonStyle = new GUIStyle(GUI.skin.button)
+            {
+                fixedHeight = 26,
+                fontSize = 11
+            };
+
+            _legacyStylesReady = true;
+        }
+
+        private void RebuildUi()
+        {
+            rootVisualElement.Clear();
+            rootVisualElement.style.flexGrow = 1f;
+            rootVisualElement.style.backgroundColor = WindowBackground;
+            rootVisualElement.style.paddingLeft = 10;
+            rootVisualElement.style.paddingRight = 10;
+            rootVisualElement.style.paddingTop = 10;
+            rootVisualElement.style.paddingBottom = 10;
+
+            rootVisualElement.Add(BuildTopBar());
+
+            TwoPaneSplitView splitView = new TwoPaneSplitView(0, 288, TwoPaneSplitViewOrientation.Horizontal)
+            {
+                style =
+                {
+                    flexGrow = 1f,
+                    marginTop = 10
+                }
+            };
+
+            splitView.Add(BuildSidebarPane());
+            splitView.Add(BuildContentPane());
+            rootVisualElement.Add(splitView);
+            rootVisualElement.Add(BuildFooter());
+
+            RefreshSidebar();
+            RefreshContent();
+        }
+
+        private VisualElement BuildTopBar()
+        {
+            VisualElement topBar = new VisualElement
+            {
+                style =
+                {
+                    flexDirection = FlexDirection.Row,
+                    alignItems = Align.Center,
+                    paddingLeft = 16,
+                    paddingRight = 16,
+                    paddingTop = 12,
+                    paddingBottom = 12,
+                    minHeight = 60,
+                    backgroundColor = PanelBackground,
+                    borderTopLeftRadius = 10,
+                    borderTopRightRadius = 10,
+                    borderBottomLeftRadius = 10,
+                    borderBottomRightRadius = 10,
+                    borderTopColor = BorderColor,
+                    borderRightColor = BorderColor,
+                    borderBottomColor = BorderColor,
+                    borderLeftColor = BorderColor,
+                    borderTopWidth = 1,
+                    borderRightWidth = 1,
+                    borderBottomWidth = 1,
+                    borderLeftWidth = 1
+                }
+            };
+
+            VisualElement titleGroup = new VisualElement
+            {
+                style =
+                {
+                    flexDirection = FlexDirection.Column
+                }
+            };
+
+            Label title = new Label("StellarFramework Tools Hub")
+            {
+                style =
+                {
+                    unityFontStyleAndWeight = FontStyle.Bold,
+                    fontSize = 18,
+                    color = TextPrimary
+                }
+            };
+            titleGroup.Add(title);
+
+            Label subtitle = new Label("统一入口 | Editor 工具集成版")
+            {
+                style =
+                {
+                    fontSize = 11,
+                    color = TextSecondary,
+                    marginTop = 2
+                }
+            };
+            titleGroup.Add(subtitle);
+            topBar.Add(titleGroup);
+
+            VisualElement spacer = new VisualElement
+            {
+                style =
+                {
+                    flexGrow = 1f
+                }
+            };
+            topBar.Add(spacer);
+
+            Button refreshButton = new Button(() =>
+            {
+                string selectedTitle = _currentModule?.Title;
+                _currentModule?.OnDisable();
+                ScanAndRegisterModules(selectedTitle);
+                RebuildUi();
+            })
+            {
+                text = "刷新"
+            };
+            refreshButton.style.width = 72;
+            refreshButton.style.height = 28;
+            refreshButton.style.unityFontStyleAndWeight = FontStyle.Bold;
+            topBar.Add(refreshButton);
+
+            return topBar;
+        }
+
+        private VisualElement BuildSidebarPane()
+        {
+            VisualElement sidebarPane = CreateCardContainer();
+            sidebarPane.style.flexGrow = 1f;
+            sidebarPane.style.marginRight = 6;
+
+            Label header = new Label("工具列表")
+            {
+                style =
+                {
+                    unityFontStyleAndWeight = FontStyle.Bold,
+                    fontSize = 14,
+                    color = TextPrimary,
+                    marginBottom = 10
+                }
+            };
+            sidebarPane.Add(header);
+
+            _searchField = new ToolbarSearchField();
+            _searchField.value = _search;
+            _searchField.RegisterValueChangedCallback(evt =>
+            {
+                _search = evt.newValue ?? string.Empty;
+                RefreshSidebar();
+            });
+            sidebarPane.Add(_searchField);
+
+            _sidebarScrollView = new ScrollView
+            {
+                style =
+                {
+                    flexGrow = 1f,
+                    marginTop = 10
+                }
+            };
+            sidebarPane.Add(_sidebarScrollView);
+
+            return sidebarPane;
+        }
+
+        private VisualElement BuildContentPane()
+        {
+            VisualElement contentPane = new VisualElement
+            {
+                style =
+                {
+                    flexGrow = 1f,
+                    marginLeft = 6
+                }
+            };
+
+            VisualElement headerCard = CreateCardContainer();
+            headerCard.style.flexGrow = 0f;
+            headerCard.style.marginBottom = 10;
+
+            _moduleTitleLabel = new Label
+            {
+                style =
+                {
+                    unityFontStyleAndWeight = FontStyle.Bold,
+                    fontSize = 18,
+                    color = TextPrimary
+                }
+            };
+            headerCard.Add(_moduleTitleLabel);
+
+            _moduleDescriptionLabel = new Label
+            {
+                style =
+                {
+                    marginTop = 4,
+                    color = TextSecondary,
+                    whiteSpace = WhiteSpace.Normal
+                }
+            };
+            headerCard.Add(_moduleDescriptionLabel);
+            contentPane.Add(headerCard);
+
+            _contentHost = CreateCardContainer();
+            _contentHost.style.flexGrow = 1f;
+            _contentHost.style.paddingLeft = 0;
+            _contentHost.style.paddingRight = 0;
+            _contentHost.style.paddingTop = 0;
+            _contentHost.style.paddingBottom = 0;
+            contentPane.Add(_contentHost);
+
+            return contentPane;
+        }
+
+        private VisualElement BuildFooter()
+        {
+            VisualElement footer = CreateCardContainer();
+            footer.style.flexGrow = 0f;
+            footer.style.flexDirection = FlexDirection.Row;
+            footer.style.alignItems = Align.Center;
+            footer.style.marginTop = 10;
+            footer.style.paddingTop = 8;
+            footer.style.paddingBottom = 8;
+
+            footer.Add(new Label("v2.4 集成版")
+            {
+                style =
+                {
+                    color = TextSecondary
+                }
+            });
+
+            footer.Add(new VisualElement
+            {
+                style =
+                {
+                    flexGrow = 1f
+                }
+            });
+
+            Button locateButton = new Button(() =>
+            {
+                Object obj = AssetDatabase.LoadAssetAtPath<Object>("Assets/StellarFramework");
+                if (obj)
+                {
+                    EditorGUIUtility.PingObject(obj);
+                }
+            })
+            {
+                text = "定位框架目录"
+            };
+            locateButton.style.width = 128;
+            locateButton.style.height = 26;
+            footer.Add(locateButton);
+
+            return footer;
+        }
+
+        private void RefreshSidebar()
+        {
+            if (_sidebarScrollView == null)
+            {
+                return;
+            }
+
+            _sidebarScrollView.Clear();
+            _moduleButtons.Clear();
+
+            foreach (KeyValuePair<string, List<ToolModule>> group in _groupedModules)
+            {
+                List<ToolModule> modules = group.Value;
+                if (!string.IsNullOrEmpty(_search))
+                {
+                    modules = modules
+                        .Where(m => m.Title.IndexOf(_search, StringComparison.OrdinalIgnoreCase) >= 0)
+                        .ToList();
+                    if (modules.Count == 0)
+                    {
+                        continue;
+                    }
+                }
+
+                Label groupLabel = new Label(group.Key)
+                {
+                    style =
+                    {
+                        unityFontStyleAndWeight = FontStyle.Bold,
+                        color = TextSecondary,
+                        marginTop = 10,
+                        marginBottom = 6,
+                        fontSize = 11
+                    }
+                };
+                _sidebarScrollView.Add(groupLabel);
+
+                foreach (ToolModule module in modules)
+                {
+                    Button button = new Button(() => SelectModule(module))
+                    {
+                        text = module.Title
+                    };
+                    button.style.unityTextAlign = TextAnchor.MiddleLeft;
+                    button.style.height = 36;
+                    button.style.marginBottom = 4;
+                    button.style.backgroundColor = module == _currentModule ? AccentDark : CardBackgroundSoft;
+                    button.style.color = TextPrimary;
+                    button.style.borderTopLeftRadius = 8;
+                    button.style.borderTopRightRadius = 8;
+                    button.style.borderBottomLeftRadius = 8;
+                    button.style.borderBottomRightRadius = 8;
+                    button.style.borderLeftWidth = module == _currentModule ? 3 : 1;
+                    button.style.borderRightWidth = 1;
+                    button.style.borderTopWidth = 1;
+                    button.style.borderBottomWidth = 1;
+                    button.style.borderLeftColor = module == _currentModule ? Accent : BorderColor;
+                    button.style.borderRightColor = BorderColor;
+                    button.style.borderTopColor = BorderColor;
+                    button.style.borderBottomColor = BorderColor;
+                    button.style.paddingLeft = 12;
+                    _moduleButtons[module] = button;
+                    _sidebarScrollView.Add(button);
+                }
             }
         }
 
-        /// <summary>
-        /// 核心：使用反射扫描所有带有 [StellarTool] 特性的类
-        /// </summary>
-        private void ScanAndRegisterModules()
+        private void RefreshContent()
         {
+            if (_contentHost == null)
+            {
+                return;
+            }
+
+            _contentHost.Clear();
+
+            if (_currentModule == null)
+            {
+                _moduleTitleLabel.text = "未选择模块";
+                _moduleDescriptionLabel.text = "请选择左侧工具模块。";
+                return;
+            }
+
+            _moduleTitleLabel.text = _currentModule.Title;
+            _moduleDescriptionLabel.text = _currentModule.Description;
+
+            try
+            {
+                VisualElement customView = _currentModule.CreateView();
+                if (customView != null)
+                {
+                    customView.style.flexGrow = 1f;
+                    _contentHost.Add(customView);
+                    return;
+                }
+
+                ScrollView scrollView = new ScrollView
+                {
+                    style =
+                    {
+                        flexGrow = 1f
+                    }
+                };
+
+                IMGUIContainer legacyContainer = new IMGUIContainer(() =>
+                {
+                    try
+                    {
+                        EnsureLegacyStyles();
+                        _currentModule.OnGUI();
+                    }
+                    catch (Exception exception)
+                    {
+                        EditorGUILayout.HelpBox(
+                            $"模块绘制出错: {exception.Message}\n{exception.StackTrace}",
+                            MessageType.Error);
+                    }
+                })
+                {
+                    style =
+                    {
+                        flexGrow = 1f
+                    }
+                };
+
+                scrollView.Add(legacyContainer);
+                _contentHost.Add(scrollView);
+            }
+            catch (Exception exception)
+            {
+                HelpBox helpBox = new HelpBox(
+                    $"模块视图创建失败: {exception.Message}\n{exception.StackTrace}",
+                    HelpBoxMessageType.Error);
+                _contentHost.Add(helpBox);
+            }
+        }
+
+        private void SelectModule(ToolModule module)
+        {
+            if (module == null || module == _currentModule)
+            {
+                return;
+            }
+
+            _currentModule?.OnDisable();
+            _currentModule = module;
+            _currentModule.OnEnable();
+            RefreshSidebar();
+            RefreshContent();
+        }
+
+        private void ScanAndRegisterModules(string preferredTitle = null)
+        {
+            Type currentType = _currentModule?.GetType();
+            string previousTitle = preferredTitle ?? _currentModule?.Title;
+
             _allModules.Clear();
             _groupedModules.Clear();
 
-            // 1. 获取所有程序集中的类型。Unity 2019.2+ 使用 TypeCache；Unity 2018 使用反射回退。
-            var derivedTypes = GetToolModuleTypes();
-
-            foreach (var type in derivedTypes)
+            IEnumerable<Type> derivedTypes = GetToolModuleTypes();
+            foreach (Type type in derivedTypes)
             {
-                if (type.IsAbstract) continue;
+                if (type.IsAbstract)
+                {
+                    continue;
+                }
 
-                // 2. 检查是否有特性标记
-                var attr = type.GetCustomAttribute<StellarToolAttribute>();
-                if (attr == null) continue; // 没有标记的不加载
+                StellarToolAttribute attr = type.GetCustomAttribute<StellarToolAttribute>();
+                if (attr == null)
+                {
+                    continue;
+                }
 
                 try
                 {
-                    // 3. 实例化
-                    var module = (ToolModule)Activator.CreateInstance(type);
+                    ToolModule module = (ToolModule)Activator.CreateInstance(type);
                     module.Initialize(this);
-
-                    // 4. 注入元数据
                     module.Title = attr.Title;
                     module.Group = attr.Group;
                     module.Order = attr.Order;
-
                     _allModules.Add(module);
                 }
-                catch (Exception e)
+                catch (Exception exception)
                 {
-                    Debug.LogError($"[StellarFrameworkTools] 无法实例化模块 {type.Name}: {e.Message}");
+                    Debug.LogError($"[StellarFrameworkTools] 无法实例化模块 {type.Name}: {exception.Message}");
                 }
             }
 
-            // 5. 排序并分组
-            // 先按 Order 排序
-            var sortedModules = _allModules.OrderBy(m => m.Order).ToList();
-
-            // 分组
-            foreach (var module in sortedModules)
+            List<ToolModule> sortedModules = _allModules.OrderBy(m => m.Order).ToList();
+            foreach (ToolModule module in sortedModules)
             {
                 if (!_groupedModules.ContainsKey(module.Group))
                 {
@@ -139,13 +592,21 @@ namespace StellarFramework.Editor
                 .ThenBy(pair => pair.Key, StringComparer.Ordinal)
                 .ToDictionary(pair => pair.Key, pair => pair.Value);
 
-            // 6. 默认选中第一个
-            if (_allModules.Count > 0 && _currentModule == null)
+            ToolModule selected = sortedModules.FirstOrDefault(module =>
+                currentType != null && module.GetType() == currentType);
+            if (selected == null && !string.IsNullOrEmpty(previousTitle))
             {
-                _currentModule = sortedModules[0];
-                _currentModule.OnEnable();
+                selected = sortedModules.FirstOrDefault(module =>
+                    string.Equals(module.Title, previousTitle, StringComparison.Ordinal));
             }
 
+            if (selected == null && sortedModules.Count > 0)
+            {
+                selected = sortedModules[0];
+            }
+
+            _currentModule = selected;
+            _currentModule?.OnEnable();
             Debug.Log($"[StellarFrameworkTools] 已加载 {_allModules.Count} 个工具模块");
         }
 
@@ -187,188 +648,31 @@ namespace StellarFramework.Editor
         }
 #endif
 
-        private void OnGUI()
+        private static VisualElement CreateCardContainer()
         {
-            EnsureStylesOnGUI();
-            DrawTopBar();
-
-            EditorGUILayout.BeginHorizontal();
-
-            // Sidebar
-            using (new GUILayout.VerticalScope(_cardStyle, GUILayout.Width(260), GUILayout.ExpandHeight(true)))
+            return new VisualElement
             {
-                DrawSidebar();
-            }
-
-            // Content
-            using (new GUILayout.VerticalScope(GUILayout.ExpandHeight(true), GUILayout.ExpandWidth(true)))
-            {
-                DrawContent();
-            }
-
-            EditorGUILayout.EndHorizontal();
-            DrawFooter();
-        }
-
-        private void EnsureStylesOnGUI()
-        {
-            if (_stylesReady) return;
-
-            _topBarStyle = new GUIStyle(EditorStyles.toolbar) { fixedHeight = 34 };
-            _titleStyle = new GUIStyle(EditorStyles.boldLabel) { fontSize = 15, alignment = TextAnchor.MiddleLeft, normal = { textColor = Color.white } };
-            _subTitleStyle = new GUIStyle(EditorStyles.label) { fontSize = 11, alignment = TextAnchor.MiddleLeft, normal = { textColor = new Color(1f, 1f, 1f, 0.65f) } };
-            _sidebarHeaderStyle = new GUIStyle(EditorStyles.boldLabel)
-                { fontSize = 13, alignment = TextAnchor.MiddleLeft, padding = new RectOffset(8, 8, 10, 10), normal = { textColor = Accent } };
-
-            _sidebarButtonStyle = new GUIStyle(GUI.skin.button)
-            {
-                alignment = TextAnchor.MiddleLeft,
-                fixedHeight = 32,
-                fontSize = 12,
-                margin = new RectOffset(2, 2, 1, 1),
-                padding = new RectOffset(14, 10, 6, 6) // 增加左边距以体现层级
+                style =
+                {
+                    paddingLeft = 14,
+                    paddingRight = 14,
+                    paddingTop = 14,
+                    paddingBottom = 14,
+                    backgroundColor = CardBackground,
+                    borderTopLeftRadius = 10,
+                    borderTopRightRadius = 10,
+                    borderBottomLeftRadius = 10,
+                    borderBottomRightRadius = 10,
+                    borderTopColor = BorderColor,
+                    borderRightColor = BorderColor,
+                    borderBottomColor = BorderColor,
+                    borderLeftColor = BorderColor,
+                    borderTopWidth = 1,
+                    borderRightWidth = 1,
+                    borderBottomWidth = 1,
+                    borderLeftWidth = 1
+                }
             };
-
-            _cardStyle = new GUIStyle("HelpBox") { padding = new RectOffset(10, 10, 10, 10), margin = new RectOffset(8, 8, 8, 8) };
-
-            SectionHeaderStyle = new GUIStyle(EditorStyles.boldLabel)
-            {
-                fontSize = 12,
-                normal = { textColor = Accent },
-                margin = new RectOffset(0, 0, 10, 4)
-            };
-
-            _miniHintStyle = new GUIStyle(EditorStyles.wordWrappedMiniLabel) { fontSize = 10, normal = { textColor = new Color(1f, 1f, 1f, 0.62f) } };
-
-            _searchFieldStyle = GUI.skin.FindStyle("ToolbarSearchTextField") ?? new GUIStyle("ToolbarSeachTextField");
-            _searchCancelStyle = GUI.skin.FindStyle("ToolbarSearchCancelButton") ?? new GUIStyle("ToolbarSeachCancelButton");
-
-            PrimaryButtonStyle = new GUIStyle(GUI.skin.button) { fixedHeight = 30, fontSize = 12, fontStyle = FontStyle.Bold };
-            DangerButtonStyle = new GUIStyle(GUI.skin.button) { fixedHeight = 30, fontSize = 12 };
-            GhostButtonStyle = new GUIStyle(GUI.skin.button) { fixedHeight = 26, fontSize = 11 };
-
-            _stylesReady = true;
-        }
-
-        private void DrawTopBar()
-        {
-            using (new GUILayout.HorizontalScope(_topBarStyle))
-            {
-                GUILayout.Space(8);
-                GUILayout.Label("StellarFramework Tools Hub", _titleStyle);
-                GUILayout.Space(10);
-                GUILayout.Label("统一入口 | Editor 工具集成版", _subTitleStyle);
-                GUILayout.FlexibleSpace();
-                if (GUILayout.Button("刷新", EditorStyles.toolbarButton, GUILayout.Width(60)))
-                {
-                    ScanAndRegisterModules();
-                    if (_currentModule != null) _currentModule.OnEnable();
-                }
-            }
-        }
-
-        private void DrawSidebar()
-        {
-            GUILayout.Label("工具列表", _sidebarHeaderStyle);
-
-            using (new GUILayout.HorizontalScope())
-            {
-                _search = GUILayout.TextField(_search, _searchFieldStyle);
-                if (GUILayout.Button(GUIContent.none, _searchCancelStyle))
-                {
-                    _search = "";
-                    GUI.FocusControl(null);
-                    Repaint();
-                }
-            }
-
-            GUILayout.Space(6);
-            _sidebarScroll = EditorGUILayout.BeginScrollView(_sidebarScroll);
-
-            // 遍历分组
-            foreach (var group in _groupedModules)
-            {
-                string groupName = group.Key;
-                var modules = group.Value;
-
-                // 搜索过滤
-                if (!string.IsNullOrEmpty(_search))
-                {
-                    modules = modules.Where(m => m.Title.IndexOf(_search, StringComparison.OrdinalIgnoreCase) >= 0).ToList();
-                    if (modules.Count == 0) continue;
-                }
-
-                // 绘制分组头
-                GUILayout.Label(groupName, EditorStyles.miniBoldLabel);
-
-                // 绘制该组下的模块
-                foreach (var m in modules)
-                {
-                    var old = GUI.backgroundColor;
-                    if (_currentModule == m) GUI.backgroundColor = Accent;
-
-                    var icon = EditorGUIUtility.IconContent(m.Icon).image;
-                    var label = new GUIContent($" {m.Title}", icon);
-
-                    if (GUILayout.Button(label, _sidebarButtonStyle))
-                    {
-                        if (_currentModule != m)
-                        {
-                            if (_currentModule != null) _currentModule.OnDisable();
-                            _currentModule = m;
-                            _currentModule.OnEnable();
-                            _contentScroll = Vector2.zero;
-                            GUI.FocusControl(null);
-                        }
-                    }
-
-                    GUI.backgroundColor = old;
-                }
-
-                GUILayout.Space(4); // 分组间距
-            }
-
-            EditorGUILayout.EndScrollView();
-        }
-
-        private void DrawContent()
-        {
-            if (_currentModule == null) return;
-
-            using (new GUILayout.VerticalScope(_cardStyle))
-            {
-                GUILayout.Label(_currentModule.Title, _titleStyle);
-                GUILayout.Label(_currentModule.Description, _miniHintStyle);
-            }
-
-            _contentScroll = EditorGUILayout.BeginScrollView(_contentScroll);
-            GUILayout.Space(6);
-
-            try
-            {
-                _currentModule.OnGUI();
-            }
-            catch (Exception e)
-            {
-                EditorGUILayout.HelpBox($"模块绘制出错: {e.Message}\n{e.StackTrace}", MessageType.Error);
-            }
-
-            GUILayout.Space(18);
-            EditorGUILayout.EndScrollView();
-        }
-
-        private void DrawFooter()
-        {
-            using (new GUILayout.HorizontalScope(EditorStyles.helpBox))
-            {
-                GUILayout.Label("v2.4 集成版", EditorStyles.miniLabel);
-                GUILayout.FlexibleSpace();
-                if (GUILayout.Button("定位框架目录", GhostButtonStyle, GUILayout.Width(120)))
-                {
-                    var obj = AssetDatabase.LoadAssetAtPath<Object>("Assets/StellarFramework");
-                    if (obj) EditorGUIUtility.PingObject(obj);
-                }
-            }
         }
     }
 }

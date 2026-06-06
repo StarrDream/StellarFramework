@@ -38,6 +38,30 @@ namespace StellarFramework.Tests.FrameworkValidation
         }
 
         [Test]
+        public void SampleTemplatesRemainInExportedPayloadSoGeneratedAssetsCanBeRebuilt()
+        {
+            string publisher = ReadAssetText(
+                "Assets/StellarFramework/Editor/StellarToolsHub/Modules/Packaging/StellarFrameworkPackagePublisher.cs");
+
+            Assert.That(publisher, Does.Not.Contain("Assets/StellarFramework/Samples/KitSamples/Editor/SampleTemplates"));
+            Assert.That(publisher, Does.Contain("Assets/StellarFramework/Samples/KitSamples/Scenes"));
+            Assert.That(publisher, Does.Contain("Assets/StellarFramework/Samples/KitSamples/Generated"));
+            Assert.That(publisher, Does.Contain("Assets/StellarFramework/Samples/ArchitectureDemo/Scene"));
+            Assert.That(publisher, Does.Contain("Assets/StellarFramework/Samples/ArchitectureDemo/Resources"));
+        }
+
+        [Test]
+        public void SampleBuilderGeneratesPipelineNeutralSupportAssetsFromTemplates()
+        {
+            string builder = ReadAssetText("Assets/StellarFramework/Samples/KitSamples/Editor/ExamplePlayableSceneBuilder.cs");
+
+            Assert.That(builder, Does.Contain("MaterializeTemplateFolder(KitSampleTemplateFolder, ScenesFolder)"));
+            Assert.That(builder, Does.Contain("MaterializeTemplateFolder(ArchitectureDemoTemplateFolder"));
+            Assert.That(builder, Does.Contain("FindPreferredLitShader"));
+            Assert.That(builder, Does.Not.Contain("RenderPipelineManager.currentPipeline"));
+        }
+
+        [Test]
         public void RenderPipelineCompatibilityTreatsNonSrpProjectsAsBuiltIn()
         {
             string source = ReadAssetText("Assets/StellarFramework/Runtime/Extensions/RenderPipelineCompatibility.cs");
@@ -45,6 +69,11 @@ namespace StellarFramework.Tests.FrameworkValidation
             Assert.That(source, Does.Contain("FrameworkRenderPipelineFamily.BuiltIn"));
             Assert.That(source, Does.Contain("GraphicsSettings.currentRenderPipeline"));
             Assert.That(source, Does.Contain("QualitySettings.renderPipeline"));
+            Assert.That(source, Does.Contain("FrameworkRenderPipelineFamily.URP"));
+            Assert.That(source, Does.Contain("FrameworkRenderPipelineFamily.HDRP"));
+            Assert.That(source, Does.Contain("Universal Render Pipeline/Lit"));
+            Assert.That(source, Does.Contain("HDRP/Lit"));
+            Assert.That(source, Does.Contain("Standard"));
         }
 
         [Test]

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.UIElements;
 using Object = UnityEngine.Object;
 
 namespace StellarFramework.Editor.Modules
@@ -547,13 +548,20 @@ namespace StellarFramework.Editor.Modules
     [StellarTool("Mesh 合并碰撞体生成工具", "生产力", 0)]
     public class CombinedMeshColliderHubModule : ToolModule
     {
+        private readonly CombinedMeshColliderWindow _panel = new CombinedMeshColliderWindow();
+
         public override string Icon => "d_ScriptableObject Icon";
-        public override string Description => "打开 Mesh 合并碰撞体生成工具。";
+        public override string Description => "在 ToolsHub 内使用 Mesh 合并碰撞体生成工具。";
 
         public override void OnGUI()
         {
-            if (PrimaryButton("打开窗口", GUILayout.Height(34))) CombinedMeshColliderWindow.ShowWindow();
+            _panel.DrawLegacyContent(Window);
         }
+
+        public override VisualElement CreateView() => _panel.CreateView(Window);
+        public override void OnEnable() => _panel.Activate(Window);
+        public override void OnDisable() => _panel.Deactivate();
+        public override void OnSelectionChange() => _panel.HandleSelectionChange();
     }
     // =========================================================
     // 框架核心组
@@ -562,60 +570,95 @@ namespace StellarFramework.Editor.Modules
     [StellarTool("字典序列化 (增强)", "框架核心", 20)]
     public class DictionarySerializerHubModule : ToolModule
     {
+        private readonly DictionarySerializerWindow _panel = new DictionarySerializerWindow();
+
         public override string Icon => "d_ScriptableObject Icon";
-        public override string Description => "打开 DictionarySerializerWindow。";
+        public override string Description => "在 ToolsHub 内增强编辑 Dictionary / List / Array。";
 
         public override void OnGUI()
         {
-            if (PrimaryButton("打开窗口", GUILayout.Height(34))) DictionarySerializerWindow.ShowWindow();
+            _panel.DrawLegacyContent(Window);
         }
+
+        public override VisualElement CreateView() => _panel.CreateView(Window);
+        public override void OnEnable() => _panel.Activate(Window);
+        public override void OnDisable() => _panel.Deactivate();
+        public override void OnSelectionChange() => _panel.HandleSelectionChange();
     }
 
     [StellarTool("列表序列化 (增强)", "框架核心", 20)]
     public class ListSerializerWindowHubModule : ToolModule
     {
+        private readonly ListSerializerWindow _panel = new ListSerializerWindow();
+
         public override string Icon => "d_ScriptableObject Icon";
-        public override string Description => "打开 ListSerializerWindow。";
+        public override string Description => "在 ToolsHub 内分页浏览并编辑 List / Array。";
 
         public override void OnGUI()
         {
-            if (PrimaryButton("打开窗口", GUILayout.Height(34))) ListSerializerWindow.ShowWindow();
+            _panel.DrawLegacyContent(Window);
         }
+
+        public override VisualElement CreateView() => _panel.CreateView(Window);
+        public override void OnEnable() => _panel.Activate(Window);
+        public override void OnDisable() => _panel.Deactivate();
+        public override void OnSelectionChange() => _panel.HandleSelectionChange();
     }
 
     [StellarTool("脚本内容复制", "框架核心", 1)]
     public class FolderCopyHubModule : ToolModule
     {
+        private readonly FolderContentCopyTool _panel = new FolderContentCopyTool();
+
         public override string Icon => "d_Folder Icon";
-        public override string Description => "打开 FolderContentCopyTool。";
+        public override string Description => "在 ToolsHub 内批量整理并复制脚本上下文。";
 
         public override void OnGUI()
         {
-            if (PrimaryButton("打开窗口", GUILayout.Height(34))) FolderContentCopyTool.ShowWindow();
+            _panel.DrawLegacyContent(Window);
         }
+
+        public override VisualElement CreateView() => _panel.CreateView(Window);
+        public override void OnEnable() => _panel.Activate(Window);
+        public override void OnDisable() => _panel.Deactivate();
+        public override void OnSelectionChange() => _panel.HandleSelectionChange();
     }
 
     [StellarTool("动画编组", "框架核心", 9)]
     public class ActionEngineHubModule : ToolModule
     {
+        private readonly ActionEngineEditorWindow _panel = new ActionEngineEditorWindow();
+
         public override string Icon => "d_AnimationClip Icon";
-        public override string Description => "打开 ActionEngineEditorWindow。";
+        public override string Description => "在 ToolsHub 内编辑 ActionEngine 资产。";
 
         public override void OnGUI()
         {
-            if (PrimaryButton("打开窗口", GUILayout.Height(34))) ActionEngineEditorWindow.ShowWindow();
+            _panel.DrawLegacyContent(Window);
         }
+
+        public override VisualElement CreateView() => _panel.CreateView(Window);
+        public override void OnEnable() => _panel.Activate(Window);
+        public override void OnDisable() => _panel.Deactivate();
+        public override void OnSelectionChange() => _panel.HandleSelectionChange();
     }
 
     [StellarTool("管线材质转换", "框架核心", 20)]
     public class URPConverterHubModule : ToolModule
     {
+        private readonly URPMaterialConverterWindow _panel = new URPMaterialConverterWindow();
+
         public override string Icon => "d_Material Icon";
-        public override string Description => "打开渲染管线材质转换工具。";
+        public override string Description => "在 ToolsHub 内执行渲染管线材质转换与材质槽修复。";
 
         public override void OnGUI()
         {
-            if (PrimaryButton("打开窗口", GUILayout.Height(34))) URPMaterialConverterWindow.Open();
+            _panel.DrawLegacyContent(Window);
         }
+
+        public override VisualElement CreateView() => _panel.CreateView(Window);
+        public override void OnEnable() => _panel.Activate(Window);
+        public override void OnDisable() => _panel.Deactivate();
+        public override void OnSelectionChange() => _panel.HandleSelectionChange();
     }
 }

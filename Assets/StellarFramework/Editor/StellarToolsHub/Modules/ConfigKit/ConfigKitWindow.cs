@@ -5,6 +5,7 @@ using System.Text;
 using Newtonsoft.Json.Linq;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.UIElements;
 
 namespace StellarFramework.Editor
 {
@@ -18,7 +19,7 @@ namespace StellarFramework.Editor
     /// ConfigKit 复合编辑器主窗口 (双工作区版)
     /// 职责: 提供统一的配置管理入口，支持在包内目录与沙盒目录之间无缝切换
     /// </summary>
-    public class ConfigKitWindow : EditorWindow
+    public class ConfigKitWindow : ToolsHubEmbeddedPanel
     {
         private ConfigWorkspace _currentWorkspace = ConfigWorkspace.StreamingAssets;
 
@@ -35,17 +36,119 @@ namespace StellarFramework.Editor
         public Action<string> OnDrawNormalConfigPanel;
         public Action<string> OnDrawNetConfigPanel;
 
-        public static void ShowWindow()
-        {
-            var window = GetWindow<ConfigKitWindow>("ConfigKit Dashboard");
-            window.minSize = new Vector2(850, 600);
-            window.Show();
-        }
+        private EnumField _workspaceField;
+        private HelpBox _workspaceWarning;
+        private TextField _newConfigNameField;
+        private ScrollView _normalConfigList;
+        private ScrollView _netConfigList;
+        private IMGUIContainer _rightPanel;
 
-        private void OnEnable()
+        protected override void OnActivated()
         {
+            ConfigKitWindowInjector.BindDelegates(this);
             EnsureDirectories();
             ScanConfigs();
+        }
+
+        protected override VisualElement BuildView()
+        {
+            TwoPaneSplitView splitView = new TwoPaneSplitView(0, 320, TwoPaneSplitViewOrientation.Horizontal)
+            {
+                style =
+                {
+                    flexGrow = 1f
+                }
+            };
+
+            ScrollView leftPane = new ScrollView
+            {
+                style =
+                {
+                    flexGrow = 1f
+                }
+            };
+
+            _workspaceField = new EnumField("工作区", _currentWorkspace);
+            _workspaceField.RegisterValueChangedCallback(evt =>
+            {
+                _currentWorkspace = (ConfigWorkspace)evt.newValue;
+                _selectedFilePath = string.Empty;
+                EnsureDirectories();
+                ScanConfigs();
+                RefreshConfigLists();
+            });
+            leftPane.Add(_workspaceField);
+
+            _workspaceWarning = new HelpBox("当前处于沙盒目录。此处的配置会覆盖包内同名配置，常用于测试存档与热更逻辑。", HelpBoxMessageType.Warning);
+            leftPane.Add(_workspaceWarning);
+
+            _newConfigNameField = new TextField("新建配置")
+            {
+                value = _newConfigName
+            };
+            _newConfigNameField.RegisterValueChangedCallback(evt => _newConfigName = evt.newValue);
+            leftPane.Add(_newConfigNameField);
+
+            VisualElement createButtons = CreateRow();
+            createButtons.Add(CreateButton("+ Normal", () =>
+            {
+                CreateNewConfig(false);
+                _newConfigNameField.value = _newConfigName;
+                RefreshConfigLists();
+            }));
+            createButtons.Add(CreateButton("+ Net", () =>
+            {
+                CreateNewConfig(true);
+                _newConfigNameField.value = _newConfigName;
+                RefreshConfigLists();
+            }));
+            leftPane.Add(createButtons);
+
+            leftPane.Add(new Label("普通配置")
+            {
+                style =
+                {
+                    unityFontStyleAndWeight = FontStyle.Bold,
+                    marginTop = 8
+                }
+            });
+            _normalConfigList = new ScrollView();
+            leftPane.Add(_normalConfigList);
+
+            leftPane.Add(new Label("网络配置")
+            {
+                style =
+                {
+                    unityFontStyleAndWeight = FontStyle.Bold,
+                    marginTop = 8
+                }
+            });
+            _netConfigList = new ScrollView();
+            leftPane.Add(_netConfigList);
+
+            VisualElement bottomActions = CreateRow();
+            bottomActions.Add(CreateButton("刷新列表", () =>
+            {
+                ScanConfigs();
+                RefreshConfigLists();
+            }));
+            bottomActions.Add(CreateButton("打开目录", () => EditorUtility.RevealInFinder(GetBaseDir())));
+            bottomActions.Add(CreateButton("清空本地存档", ClearPersistentWorkspace));
+            leftPane.Add(bottomActions);
+
+            _rightPanel = new IMGUIContainer(DrawRightPanel)
+            {
+                style =
+                {
+                    flexGrow = 1f
+                }
+            };
+
+            splitView.Add(leftPane);
+            splitView.Add(_rightPanel);
+
+            RefreshConfigLists();
+            return splitView;
         }
 
         #region 动态路径解析
@@ -63,7 +166,7 @@ namespace StellarFramework.Editor
 
         #endregion
 
-        private void OnGUI()
+        protected override void DrawIMGUI()
         {
             GUILayout.BeginHorizontal();
 
@@ -350,6 +453,121 @@ namespace StellarFramework.Editor
 
             GUILayout.EndScrollView();
             GUILayout.EndVertical();
+        }
+
+        private void RefreshConfigLists()
+        {
+            if (_workspaceWarning != null)
+            {
+                _workspaceWarning.style.display = _currentWorkspace == ConfigWorkspace.PersistentDataPath
+                    ? DisplayStyle.Flex
+                    : DisplayStyle.None;
+            }
+
+            if (_normalConfigList != null)
+            {
+                PopulateConfigList(_normalConfigList, _normalConfigs, false);
+            }
+
+            if (_netConfigList != null)
+            {
+                PopulateConfigList(_netConfigList, _netConfigs, true);
+            }
+
+            _rightPanel?.MarkDirtyRepaint();
+        }
+
+        private void PopulateConfigList(ScrollView host, List<string> configs, bool isNet)
+        {
+            host.Clear();
+
+            if (configs.Count == 0)
+            {
+                host.Add(new Label("(空)"));
+                return;
+            }
+
+            foreach (string path in configs)
+            {
+                string fileName = Path.GetFileName(path);
+                VisualElement row = CreateRow();
+
+                Button selectButton = CreateButton(fileName, () =>
+                {
+                    _selectedFilePath = path;
+                    _isSelectedNetConfig = isNet;
+                    _rightPanel?.MarkDirtyRepaint();
+                    RefreshConfigLists();
+                });
+                selectButton.style.flexGrow = 1f;
+                if (_selectedFilePath == path)
+                {
+                    selectButton.style.backgroundColor = new Color(0.22f, 0.52f, 0.88f);
+                    selectButton.style.color = Color.white;
+                }
+
+                row.Add(selectButton);
+
+                Button deleteButton = CreateButton("X", () =>
+                {
+                    if (EditorUtility.DisplayDialog("删除确认", $"确定要删除配置 {fileName} 吗？\n此操作不可逆！", "删除", "取消"))
+                    {
+                        DeleteConfig(path);
+                        RefreshConfigLists();
+                    }
+                });
+                deleteButton.style.width = 28;
+                row.Add(deleteButton);
+
+                host.Add(row);
+            }
+        }
+
+        private void ClearPersistentWorkspace()
+        {
+            if (_currentWorkspace != ConfigWorkspace.PersistentDataPath)
+            {
+                return;
+            }
+
+            if (!EditorUtility.DisplayDialog("危险操作", "确定要清空 PersistentDataPath 下的所有配置文件吗？\n游戏将恢复读取包内默认配置。", "确定清空", "取消"))
+            {
+                return;
+            }
+
+            if (Directory.Exists(GetBaseDir()))
+            {
+                Directory.Delete(GetBaseDir(), true);
+            }
+
+            EnsureDirectories();
+            ScanConfigs();
+            _selectedFilePath = string.Empty;
+            Debug.Log("[ConfigKitWindow] 本地存档已全部清空");
+            RefreshConfigLists();
+        }
+
+        private static VisualElement CreateRow()
+        {
+            return new VisualElement
+            {
+                style =
+                {
+                    flexDirection = FlexDirection.Row,
+                    alignItems = Align.Center,
+                    marginTop = 4
+                }
+            };
+        }
+
+        private static Button CreateButton(string text, System.Action onClick)
+        {
+            Button button = new Button(onClick)
+            {
+                text = text
+            };
+            button.style.marginRight = 4;
+            return button;
         }
 
         #endregion
