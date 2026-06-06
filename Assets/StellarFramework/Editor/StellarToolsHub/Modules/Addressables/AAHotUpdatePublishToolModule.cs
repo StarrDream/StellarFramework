@@ -1918,7 +1918,11 @@ namespace StellarFramework.Editor.Modules
         private bool _showGroupPathDetails;
         private bool _workspaceInitializationQueued;
         private bool _workspaceInitializationRunning;
+        private bool _workflowActionQueued;
+        private bool _workflowActionRunning;
+        private string _workflowActionLabel;
         private EditorApplication.CallbackFunction _pendingWorkspaceInitializationAction;
+        private EditorApplication.CallbackFunction _pendingWorkflowAction;
 
         public override string Icon => "d_Folder Icon";
         public override string Description => "管理本地内置 AA 与远端热更 AA 配置，构建、发布、覆盖测试 Player 并诊断 Manifest。";
@@ -1936,8 +1940,17 @@ namespace StellarFramework.Editor.Modules
                 _pendingWorkspaceInitializationAction = null;
             }
 
+            if (_pendingWorkflowAction != null)
+            {
+                EditorApplication.delayCall -= _pendingWorkflowAction;
+                _pendingWorkflowAction = null;
+            }
+
             _workspaceInitializationQueued = false;
             _workspaceInitializationRunning = false;
+            _workflowActionQueued = false;
+            _workflowActionRunning = false;
+            _workflowActionLabel = null;
         }
 
         public override void OnGUI()
@@ -1959,6 +1972,15 @@ namespace StellarFramework.Editor.Modules
             AAWorkflowConfig config = configSet.SelectedConfig;
 
             DrawHeader(configSet, config, target);
+
+            if (_workflowActionQueued || _workflowActionRunning)
+            {
+                EditorGUILayout.HelpBox(
+                    _workflowActionRunning
+                        ? $"任务执行中：{_workflowActionLabel}"
+                        : $"任务已排队：{_workflowActionLabel}",
+                    MessageType.Info);
+            }
 
             AAWorkflowConfig localConfig = configSet.GetFirstConfig(AAWorkflowMode.LocalBuiltIn);
             AAWorkflowConfig remoteConfig = configSet.GetFirstConfig(AAWorkflowMode.RemoteHotUpdate);
@@ -2384,17 +2406,22 @@ namespace StellarFramework.Editor.Modules
 
                 using (new GUILayout.HorizontalScope())
                 {
-                    if (PrimaryButton(new GUIContent(
-                            "一键本地内置构建",
-                            "自动完成：1. 写入本地内置 AA 配置；2. 导出热更 DLL 与 Manifest；3. 构建 Addressables 资源包；4. 同步到 StreamingAssets/aa；5. 写入 Player 运行时设置。"),
-                            GUILayout.Height(36)))
+                    using (new EditorGUI.DisabledScope(_workflowActionQueued || _workflowActionRunning))
                     {
-                        RunLocalBuild(config, target);
-                    }
+                        if (PrimaryButton(new GUIContent(
+                                "一键本地内置构建",
+                                "自动完成：1. 写入本地内置 AA 配置；2. 导出热更 DLL 与 Manifest；3. 构建 Addressables 资源包；4. 同步到 StreamingAssets/aa；5. 写入 Player 运行时设置。"),
+                                GUILayout.Height(36)))
+                        {
+                            QueueWorkflowAction("本地内置构建", () => RunLocalBuild(config, target));
+                            GUIUtility.ExitGUI();
+                        }
 
-                    if (GUILayout.Button(new GUIContent("覆盖测试 Player", "把编辑器中的 StreamingAssets/aa 整套复制到已打包 Player 的 *_Data/StreamingAssets/aa。"), GUILayout.Height(32)))
-                    {
-                        CoverTestPlayer(config, target);
+                        if (GUILayout.Button(new GUIContent("覆盖测试 Player", "把编辑器中的 StreamingAssets/aa 整套复制到已打包 Player 的 *_Data/StreamingAssets/aa。"), GUILayout.Height(32)))
+                        {
+                            QueueWorkflowAction("覆盖测试 Player", () => CoverTestPlayer(config, target));
+                            GUIUtility.ExitGUI();
+                        }
                     }
 
                     if (GUILayout.Button(new GUIContent("校验当前目录", "校验本地内置 AA 输出目录。"), GUILayout.Height(32)))
@@ -2429,17 +2456,22 @@ namespace StellarFramework.Editor.Modules
 
                 using (new GUILayout.HorizontalScope())
                 {
-                    if (PrimaryButton(new GUIContent(
-                            "一键远端热更发布",
-                            "自动完成：1. 写入远端 AA 构建配置；2. 导出热更 DLL 与 Manifest；3. 构建 Addressables 资源包；4. 复制到远端发布目录；5. 写入 Player 运行时读取的 Manifest 地址。"),
-                            GUILayout.Height(36)))
+                    using (new EditorGUI.DisabledScope(_workflowActionQueued || _workflowActionRunning))
                     {
-                        RunRemotePublish(config, target);
-                    }
+                        if (PrimaryButton(new GUIContent(
+                                "一键远端热更发布",
+                                "自动完成：1. 写入远端 AA 构建配置；2. 导出热更 DLL 与 Manifest；3. 构建 Addressables 资源包；4. 复制到远端发布目录；5. 写入 Player 运行时读取的 Manifest 地址。"),
+                                GUILayout.Height(36)))
+                        {
+                            QueueWorkflowAction("远端热更发布", () => RunRemotePublish(config, target));
+                            GUIUtility.ExitGUI();
+                        }
 
-                    if (GUILayout.Button(new GUIContent("仅发布目录", "只把 Remote.BuildPath 的输出复制到远端发布目录，并做目录校验。"), GUILayout.Height(32)))
-                    {
-                        PublishRemoteOnly(config, target);
+                        if (GUILayout.Button(new GUIContent("仅发布目录", "只把 Remote.BuildPath 的输出复制到远端发布目录，并做目录校验。"), GUILayout.Height(32)))
+                        {
+                            QueueWorkflowAction("远端目录发布", () => PublishRemoteOnly(config, target));
+                            GUIUtility.ExitGUI();
+                        }
                     }
 
                     if (GUILayout.Button(new GUIContent("校验当前目录", "校验远端发布目录。"), GUILayout.Height(32)))
@@ -2941,17 +2973,25 @@ namespace StellarFramework.Editor.Modules
         {
             using (new GUILayout.HorizontalScope())
             {
-                if (GUILayout.Button(new GUIContent("导出 DLL + Manifest", "复制 HybridCLR 生成的 DLL 为 .dll.bytes，并生成 HotUpdateManifest.json。"), GUILayout.Height(28)))
+                using (new EditorGUI.DisabledScope(_workflowActionQueued || _workflowActionRunning))
                 {
-                    HybridCLRHotUpdateExportReport report =
-                        HybridCLRHotUpdateAssetExporter.ExportGeneratedAssets(target);
-                    HybridCLRHotUpdateAssetExporter.LogReport(report);
-                    Window.ShowNotification(new GUIContent(report.Success ? "导出完成" : "导出失败"));
-                }
+                    if (GUILayout.Button(new GUIContent("导出 DLL + Manifest", "复制 HybridCLR 生成的 DLL 为 .dll.bytes，并生成 HotUpdateManifest.json。"), GUILayout.Height(28)))
+                    {
+                        QueueWorkflowAction("导出 DLL + Manifest", () =>
+                        {
+                            HybridCLRHotUpdateExportReport report =
+                                HybridCLRHotUpdateAssetExporter.ExportGeneratedAssets(target);
+                            HybridCLRHotUpdateAssetExporter.LogReport(report);
+                            Window.ShowNotification(new GUIContent(report.Success ? "导出完成" : "导出失败"));
+                        });
+                        GUIUtility.ExitGUI();
+                    }
 
-                if (GUILayout.Button(new GUIContent("构建 Addressables", "调用 AddressableAssetSettings.BuildPlayerContent() 构建当前 AA 内容。"), GUILayout.Height(28)))
-                {
-                    BuildAddressablesOnly();
+                    if (GUILayout.Button(new GUIContent("构建 Addressables", "调用 AddressableAssetSettings.BuildPlayerContent() 构建当前 AA 内容。"), GUILayout.Height(28)))
+                    {
+                        QueueWorkflowAction("构建 Addressables", BuildAddressablesOnly);
+                        GUIUtility.ExitGUI();
+                    }
                 }
 
                 if (GUILayout.Button(new GUIContent("校验目录", "校验当前配置对应的输出/发布目录。"), GUILayout.Height(28)))
@@ -3125,6 +3165,37 @@ namespace StellarFramework.Editor.Modules
                 requireCatalogHash: !isLocalBuiltIn,
                 requireSettingsJson: isLocalBuiltIn,
                 warnAboutMetaFiles: !isLocalBuiltIn);
+        }
+
+        private void QueueWorkflowAction(string label, Action action)
+        {
+            if (_workflowActionQueued || _workflowActionRunning || action == null)
+            {
+                return;
+            }
+
+            _workflowActionQueued = true;
+            _workflowActionLabel = label;
+            _pendingWorkflowAction = () =>
+            {
+                EditorApplication.delayCall -= _pendingWorkflowAction;
+                _pendingWorkflowAction = null;
+                _workflowActionQueued = false;
+                _workflowActionRunning = true;
+                try
+                {
+                    action();
+                }
+                finally
+                {
+                    _workflowActionRunning = false;
+                    Window?.Repaint();
+                }
+            };
+
+            EditorApplication.delayCall += _pendingWorkflowAction;
+            Window?.ShowNotification(new GUIContent(label + " 已排队"));
+            Window?.Repaint();
         }
 
         private void DrawLastReports()
