@@ -1,69 +1,110 @@
 # StellarFramework
 
-StellarFramework 是一个面向 Unity 项目的框架工程，包含：
+StellarFramework 是一个 Unity 基础开发框架，提供架构分层、UI、资源加载、热更新、设置系统，以及配套的编辑器工具、样例和文档。
 
-- `MSV / Architecture` 架构层
-- `ResKit` 统一资源入口
-- `UIKit` UI 管理
-- `HotUpdateKit + HybridCLR` 热更新链路
-- `Tools Hub` 编辑器工具入口
-- 可直接运行的样例和验证测试
-
-它更适合做团队自维护的项目底座，而不是零配置的外部成品包。
-
-## 环境
+## 运行环境
 
 - Unity `2022.3 LTS`
+- Unity `6000.x`
 
-## 目录
+## 安装
 
-- `Assets/StellarFramework`
-  框架主体，包含 Runtime、Editor、Samples、Tests、Generated、Resources
-- `Assets/StellarFrameworkBootstrap`
-  单包安装器和内嵌 payload
-- `Assets/StellarFrameworkVerification`
-  发布前验证区，仅供框架维护时使用
+### 直接打开工程
 
-## 快速上手
+使用 Unity 打开当前工程即可。
 
-1. 用 Unity 打开工程
-2. 打开菜单 `StellarFramework -> Tools Hub`
-3. 进入 `Start Here -> Quick Start`
-4. 点击 `构建样例`
-5. 先运行 `UIKit_Playable.unity`
-6. 再运行 `ResKit_Playable.unity`
-7. 需要热更新时，再进入 `资源管理 -> AA 配置与发布`
+### 接入已有项目
 
-## 你会主要接触到的东西
+将 `Assets/StellarFramework` 和相关依赖目录接入到现有项目中。
 
-- `Architecture<T>`
-  用来组织 Model / Service / View
-- `ResKit`
-  统一资源加载入口，按需接 `Resources / AssetBundle / Addressables / Custom`
-- `UIKit`
-  UI 打开、关闭、栈管理和异步加载入口
-- `HotUpdateKit`
-  资源热更新和代码热更新的统一入口
-- `Tools Hub`
-  样例构建、资源构建、AA 发布、文档索引和诊断工具
+### 单包安装
 
-## 文档入口
+- 可以使用仓库 `Release` 中已导出的 `unitypackage`
+- 也可以使用当前工程自行导出 `StellarFramework.unitypackage`
+- 导入后打开 `StellarFramework -> 单包安装器`
+
+详细说明：
+
+- [StellarFrameworkBootstrap README](Assets/StellarFrameworkBootstrap/README.md)
+
+## 快速开始
+
+1. 打开 `StellarFramework -> Tools Hub`
+2. 进入 `Start Here -> Quick Start`
+3. 执行样例构建
+4. 运行 `UIKit_Playable.unity`
+5. 运行 `ResKit_Playable.unity`
+
+详细说明：
+
+- [快速开始](Assets/StellarFramework/快速开始.md)
+- [Tools Hub 使用手册](Assets/StellarFramework/Editor/StellarToolsHub/StellarToolsHub-使用手册-Guide.md)
+
+## 目录结构
+
+```text
+Assets
+├─ StellarFramework/                 核心运行时、编辑器模块、样例与文档
+├─ StellarFrameworkBootstrap/        单包安装与引导内容
+├─ StellarFrameworkVerification/     框架验证区
+├─ GameHotUpdate/                    热更新示例资源
+├─ AddressableAssetsData/            Addressables 配置
+├─ StreamingAssets/                  示例运行资源
+└─ Scenes/                           示例场景
+```
+
+## 模块
+
+### Runtime Kits
+
+| 模块 | 说明 |
+| --- | --- |
+| `Architecture` | `Model / Service / View` 基础架构分层 |
+| `ActionKit` | 行为与时序动作能力 |
+| `AudioKit` | 音频播放与管理 |
+| `BindableKit` | 数据绑定 |
+| `ConfigKit` | 配置读取与访问 |
+| `EventKit` | 事件注册与派发 |
+| `FSMKit` | 状态机 |
+| `HttpKit` | HTTP 请求封装 |
+| `UIKit` | UI 面板管理与页面栈 |
+| `ResKit` | `Resources / AssetBundle / Addressables / 自定义 Loader` 统一加载入口 |
+| `HotUpdateKit` | Addressables 资源更新与 HybridCLR 启动热更新 |
+| `SettingsKit` | 设置项注册、扩展页、存储 |
+| `LogKit` | 日志输出与诊断 |
+| `PoolKit` | 对象池 |
+| `SingletonKit` | 单例生命周期与注册 |
+
+### Editor Modules
+
+| 模块 | 说明 |
+| --- | --- |
+| `Tools Hub` | 快速开始、样例构建、资源构建、热更新配置与发布、诊断工具 |
+| `ActionKit` | ActionKit 编辑器支持 |
+| `Addressables` | AA 配置、构建、发布与热更新工作流 |
+| `AudioKit` | AudioKit 工具入口 |
+| `ConfigKit` | 配置工具入口 |
+| `DevTools` | 调试与开发辅助工具 |
+| `EventKit` | EventKit 工具入口 |
+| `Packaging` | 打包与发布辅助 |
+| `ResKit` | 资源构建与资源审计 |
+| `SettingsKit` | 设置中心工具 |
+| `UIKit` | UI 绑定生成与 UIKit 工具 |
+
+### Samples
+
+| 模块 | 说明 |
+| --- | --- |
+| `KitSamples` | 单模块最小可运行样例 |
+| `ArchitectureDemo` | 完整架构示例 |
+
+## 文档
 
 - [快速开始](Assets/StellarFramework/快速开始.md)
 - [Samples 总览](Assets/StellarFramework/Samples/README.md)
-- [ToolsHub 使用手册](Assets/StellarFramework/Editor/StellarToolsHub/StellarToolsHub-使用手册-Guide.md)
-- [ResKit 说明文档](Assets/StellarFramework/Runtime/Kits/Reskit/ResKit-统一资源-说明文档-Guide.md)
-- [UIKit 说明文档](Assets/StellarFramework/Runtime/Kits/UIKit/UIKit-界面系统-说明文档-Guide.md)
-- [HotUpdateKit 说明文档](Assets/StellarFramework/Runtime/Kits/HotUpdateKit/HotUpdateKit-热更新-说明文档-Guide.md)
-- [HybridCLR 热更新专题](Assets/StellarFramework/Runtime/Kits/HotUpdateKit/HybridCLR-热更新-Guide.md)
-
-## 如果你是框架维护者
-
-- [ToolsHub 源码文档](Assets/StellarFramework/Editor/StellarToolsHub/StellarToolsHub-源码文档-Guide.md)
-- [Architecture 源码文档](Assets/StellarFramework/Runtime/Core/Architecture/Architecture-MSV-架构源码文档-Guide.md)
-- [ResKit 源码文档](Assets/StellarFramework/Runtime/Kits/Reskit/ResKit-统一资源-源码文档-Guide.md)
-- [HotUpdateKit 源码文档](Assets/StellarFramework/Runtime/Kits/HotUpdateKit/HotUpdateKit-热更新-源码文档-Guide.md)
-
-## 当前定位
-
-这个仓库已经可以作为中大型项目的内部框架工程使用，但更适合由团队自己维护和演进。
+- [Tools Hub 使用手册](Assets/StellarFramework/Editor/StellarToolsHub/StellarToolsHub-使用手册-Guide.md)
+- [ResKit 统一资源说明](Assets/StellarFramework/Runtime/Kits/Reskit/ResKit-统一资源-说明文档-Guide.md)
+- [UIKit 界面系统说明](Assets/StellarFramework/Runtime/Kits/UIKit/UIKit-界面系统-说明文档-Guide.md)
+- [HotUpdateKit 热更新说明](Assets/StellarFramework/Runtime/Kits/HotUpdateKit/HotUpdateKit-热更新-说明文档-Guide.md)
+- [SettingsKit 设置系统说明](Assets/StellarFramework/Runtime/Kits/SettingsKit/SettingsKit-设置系统-Guide.md)
+- [HybridCLR 热更新 Guide](Assets/StellarFramework/Runtime/Kits/HotUpdateKit/HybridCLR-热更新-Guide.md)
