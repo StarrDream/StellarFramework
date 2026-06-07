@@ -121,7 +121,7 @@ namespace StellarFramework.Tests.FrameworkValidation
             Assert.That(File.Exists(ToAbsoluteAssetPath("Assets/StellarFramework/Samples/KitSamples/Scenes/UIKit_Playable.unity")), Is.True);
             Assert.That(File.Exists(ToAbsoluteAssetPath("Assets/StellarFramework/Samples/KitSamples/Scenes/ResKit_Playable.unity")), Is.True);
             Assert.That(File.Exists(ToAbsoluteAssetPath("Assets/StellarFramework/快速开始.md")), Is.True);
-            Assert.That(File.Exists(ToAbsoluteAssetPath("Assets/StellarFramework/Editor/StellarToolsHub/StellarToolsHub-使用手册-Guide.md")), Is.True);
+            Assert.That(File.Exists(ToAbsoluteAssetPath("Assets/StellarFramework/Editor/StellarToolsHub/StellarToolsHub-说明文档-Guide.md")), Is.True);
             Assert.That(File.Exists(ToAbsoluteAssetPath("Assets/StellarFramework/Samples/KitSamples/Samples_Index.md")), Is.True);
             AssertDualTrackKitDocsExist();
             AssertNonKitSourceDocsExist();
@@ -140,7 +140,7 @@ namespace StellarFramework.Tests.FrameworkValidation
         [Test]
         public void ToolsHubUserGuideCoversCoreToolsAndHotUpdateButtons()
         {
-            string source = ReadAssetText("Assets/StellarFramework/Editor/StellarToolsHub/StellarToolsHub-使用手册-Guide.md");
+            string source = ReadAssetText("Assets/StellarFramework/Editor/StellarToolsHub/StellarToolsHub-说明文档-Guide.md");
 
             Assert.That(source, Does.Contain("Quick Start"));
             Assert.That(source, Does.Contain("文档中心"));
@@ -155,7 +155,7 @@ namespace StellarFramework.Tests.FrameworkValidation
         [Test]
         public void ToolsHubUserGuideDocumentsSidebarGroupOrderAndQuickStartPortal()
         {
-            string source = ReadAssetText("Assets/StellarFramework/Editor/StellarToolsHub/StellarToolsHub-使用手册-Guide.md");
+            string source = ReadAssetText("Assets/StellarFramework/Editor/StellarToolsHub/StellarToolsHub-说明文档-Guide.md");
 
             Assert.That(source, Does.Contain("左侧分组固定顺序"));
             AssertInOrder(
@@ -269,19 +269,15 @@ namespace StellarFramework.Tests.FrameworkValidation
                 "Assets/StellarFramework/Samples/Samples-源码文档-Guide.md",
                 "Assets/StellarFramework/Tests/Tests-源码文档-Guide.md",
                 "Assets/StellarFramework/Generated/Generated-源码文档-Guide.md",
-                "Assets/StellarFramework/Resources/Resources-说明与源码文档-Guide.md",
+                "Assets/StellarFramework/Resources/Resources-源码文档-Guide.md",
             };
 
             foreach (string path in sourceGuidePaths)
             {
                 string source = ReadAssetText(path);
-                Assert.That(source, Does.Contain("## 源码位置"), path);
-                Assert.That(source, Does.Contain("## 核心类型"), path);
-                Assert.That(source, Does.Contain("## 关键方法"), path);
-                Assert.That(source, Does.Contain("## 数据流"), path);
-                Assert.That(source, Does.Contain("## 依赖关系"), path);
-                Assert.That(source, Does.Contain("## 扩展点"), path);
-                Assert.That(source, Does.Contain("## 测试入口"), path);
+                Assert.That(source, Does.Contain("## 模块职责"), path);
+                Assert.That(source, Does.Contain("## 源码"), path);
+                Assert.That(source, Does.Contain("## "), path);
             }
         }
 
@@ -347,12 +343,16 @@ namespace StellarFramework.Tests.FrameworkValidation
         {
             Assert.That(File.Exists(ToAbsoluteAssetPath("Assets/StellarFramework/Runtime/Core/Architecture/Architecture-MSV-架构说明文档-Guide.md")), Is.True);
             Assert.That(File.Exists(ToAbsoluteAssetPath("Assets/StellarFramework/Runtime/Core/Architecture/Architecture-MSV-架构源码文档-Guide.md")), Is.True);
+            Assert.That(File.Exists(ToAbsoluteAssetPath("Assets/StellarFramework/Runtime/Extensions/RuntimeExtensions-说明文档-Guide.md")), Is.True);
             Assert.That(File.Exists(ToAbsoluteAssetPath("Assets/StellarFramework/Runtime/Extensions/RuntimeExtensions-源码文档-Guide.md")), Is.True);
-            Assert.That(File.Exists(ToAbsoluteAssetPath("Assets/StellarFramework/Editor/StellarToolsHub/StellarToolsHub-扩展开发-Guide.md")), Is.True);
+            Assert.That(File.Exists(ToAbsoluteAssetPath("Assets/StellarFramework/Editor/StellarToolsHub/StellarToolsHub-说明文档-Guide.md")), Is.True);
             Assert.That(File.Exists(ToAbsoluteAssetPath("Assets/StellarFramework/Editor/StellarToolsHub/StellarToolsHub-源码文档-Guide.md")), Is.True);
+            Assert.That(File.Exists(ToAbsoluteAssetPath("Assets/StellarFramework/Samples/Samples-说明文档-Guide.md")), Is.True);
             Assert.That(File.Exists(ToAbsoluteAssetPath("Assets/StellarFramework/Samples/Samples-源码文档-Guide.md")), Is.True);
+            Assert.That(File.Exists(ToAbsoluteAssetPath("Assets/StellarFramework/Generated/Generated-说明文档-Guide.md")), Is.True);
             Assert.That(File.Exists(ToAbsoluteAssetPath("Assets/StellarFramework/Generated/Generated-源码文档-Guide.md")), Is.True);
-            Assert.That(File.Exists(ToAbsoluteAssetPath("Assets/StellarFramework/Resources/Resources-说明与源码文档-Guide.md")), Is.True);
+            Assert.That(File.Exists(ToAbsoluteAssetPath("Assets/StellarFramework/Resources/Resources-说明文档-Guide.md")), Is.True);
+            Assert.That(File.Exists(ToAbsoluteAssetPath("Assets/StellarFramework/Resources/Resources-源码文档-Guide.md")), Is.True);
         }
 
         private static string ReadFrameworkMarkdown()

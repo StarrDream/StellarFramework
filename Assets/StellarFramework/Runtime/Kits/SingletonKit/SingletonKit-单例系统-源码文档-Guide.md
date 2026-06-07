@@ -1,6 +1,17 @@
 # SingletonKit / 单例系统源码文档
 
-## 源码位置
+## 模块职责
+
+`SingletonKit` 负责统一管理纯 C# 单例和 `MonoBehaviour` 单例。
+
+核心目标：
+
+- 统一 `Instance` 获取入口
+- 区分 `Global / Scene` 生命周期
+- 用静态元数据替代运行时反射读取特性
+- 限制主线程访问 Unity 相关单例
+
+## 源码文件
 
 - `Runtime/Kits/SingletonKit/ISingleton.cs`
 - `Runtime/Kits/SingletonKit/Singleton.cs`
@@ -8,48 +19,217 @@
 - `Runtime/Kits/SingletonKit/SingletonFactory.cs`
 - `Runtime/Kits/SingletonKit/SingletonAttribute.cs`
 - `Runtime/Kits/SingletonKit/SingletonMetadata.cs`
-- `Runtime/Kits/SingletonKit/Editor/SingletonGenerator.cs`
-- `Generated/SingletonRegister/SingletonRegister.cs`
 
-## 核心类型
+## 总体结构
 
-- `ISingleton`：单例标记接口。
-- `Singleton<T>`：纯 C# 单例基类。
-- `MonoSingleton<T>`：MonoBehaviour 单例基类。
-- `SingletonFactory`：统一创建、注册、查询和清理单例。
-- `SingletonAttribute`：声明单例生命周期和生成信息。
-- `SingletonLifeCycle`：单例生命周期枚举。
-- `SingletonMetadata`：生成后的元数据。
-- `SingletonGenerator`：构建前扫描并生成注册代码。
+```text
+ISingleton
+├─ Singleton<T>
+└─ MonoSingleton<T>
 
-## 关键方法
+SingletonFactory
+├─ Instances
+├─ MetadataCache
+├─ PureSingletonCreators
+└─ GlobalContainer
+```
 
-- `Singleton<T>.Instance` / `MonoSingleton<T>.Instance`：转发到 `SingletonFactory.GetSingleton<T>()`。
-- `SingletonFactory.GetSingleton<T>`：优先返回已注册实例，否则按元数据或默认规则创建。
-- `RegisterMetadata`：写入生成元数据。
-- `RegisterPureSingletonCreator`：注册纯 C# 创建器。
-- `Register` / `Unregister`：手动管理实例。
-- `ClearAll`：清理所有单例。
-- `SingletonGenerator.Generate`：扫描特性并重写生成文件。
+## 调用链
 
-## 数据流
+### 获取纯 C# 单例
 
-运行时访问 `Instance`，请求进入 `SingletonFactory`。Factory 查询已注册实例；如果不存在，则根据生成元数据或默认构造创建。MonoSingleton 会创建或查找 GameObject 组件。构建前，`SingletonGenerator` 扫描带特性的类型并生成 `SingletonRegister`，减少运行时反射。
+1. 业务调用 `YourSingleton.Instance`
+2. `Singleton<T>.Instance` 转发到 `SingletonFactory.GetSingleton<T>()`
+3. 工厂读取 `SingletonMetadata`
+4. 用 `PureSingletonCreators` 创建实例
+5. 注册到 `Instances`
+6. 调用 `OnSingletonInit()`
 
-## 依赖关系
+### 获取 Mono 单例
 
-- MonoSingleton 依赖 Unity GameObject 和 MonoBehaviour。
-- 生成器依赖 UnityEditor 构建前处理器。
-- Generated 目录中的 SingletonRegister 依赖 SingletonFactory。
-- AudioManager、ResMgr、SettingsManager 等多个 Kit 使用 SingletonKit。
+1. 业务调用 `YourMonoSingleton.Instance`
+2. `MonoSingleton<T>.Instance` 转发到 `SingletonFactory.GetSingleton<T>()`
+3. 工厂读取元数据
+4. 按 `ResourcePath` 实例化预制体或创建空对象
+5. 挂载组件并注册
+6. `DontDestroyOnLoad`
 
-## 扩展点
+### 场景单例注册
 
-- 新增生命周期策略：扩展 `SingletonLifeCycle`、元数据和 Factory 处理逻辑。
-- 新增生成字段：同步更新 `SingletonMetadata`、`SingletonGenerator` 和 Generated 文档。
-- 新增单例类型：继承 `Singleton<T>` 或 `MonoSingleton<T>`，必要时加 `SingletonAttribute`。
+1. 场景对象 `Awake()`
+2. `MonoSingleton<T>.Awake()` 调用 `SingletonFactory.Register(...)`
+3. 注册成功后调用 `OnSingletonInit()`
+4. 对象销毁时 `OnDestroy()` 反注册
 
-## 测试入口
+## 类型详解
 
-- 验证纯 C# 单例、MonoSingleton、手动注册、反注册、ClearAll。
-- 修改生成器后检查 `Generated/SingletonRegister/SingletonRegister.cs` 编译通过。
+## `ISingleton`
+
+### 作用
+
+定义单例初始化回调契约。
+
+### 方法
+
+- `OnSingletonInit()`
+
+## `Singleton<T>`
+
+### 作用
+
+纯 C# 单例基类。
+
+### 成员
+
+- `Instance`
+  转发到 `SingletonFactory.GetSingleton<T>()`
+- `OnSingletonInit()`
+  首次注册成功后调用一次
+
+## `MonoSingleton<T>`
+
+### 作用
+
+`MonoBehaviour` 单例基类。
+
+### 字段 / 属性
+
+- `IsInitialized`
+  标记当前实例是否完成单例初始化
+
+### 方法
+
+- `Awake()`
+  向 `SingletonFactory` 注册
+- `OnDestroy()`
+  反注册并清理初始化标记
+- `OnSingletonInit()`
+  设置 `IsInitialized = true`
+
+## `SingletonLifeCycle`
+
+### 枚举值
+
+- `Global`
+  自动创建，跨场景保留
+- `Scene`
+  不能自动创建，必须由场景对象主动注册
+
+## `SingletonAttribute`
+
+### 作用
+
+声明单例配置。
+
+### 字段
+
+- `ResourcePath`
+- `LifeCycle`
+- `UseContainer`
+
+运行时不依赖反射读取它，最终会转成 `SingletonMetadata`。
+
+## `SingletonMetadata`
+
+### 作用
+
+运行时静态元数据载体。
+
+### 字段
+
+- `ResourcePath`
+- `LifeCycle`
+- `UseContainer`
+
+## `SingletonFactory`
+
+### 作用
+
+单例系统核心工厂。
+
+### 核心字段
+
+- `Instances`
+  已注册单例实例
+- `MetadataCache`
+  类型到元数据映射
+- `PureSingletonCreators`
+  纯 C# 单例创建器
+- `Locker`
+  线程锁
+- `_globalContainer`
+  全局容器对象
+- `_isQuitting`
+  应用退出标记
+- `_mainThreadId`
+  主线程 ID
+
+### 关键方法
+
+#### `RegisterMetadata(...)`
+
+注册静态元数据。
+
+#### `RegisterPureSingletonCreator(...)`
+
+注册纯 C# 单例创建器。
+
+#### `GetSingleton<T>()`
+
+统一实例获取入口。
+
+职责：
+
+- 退出阶段返回 `null`
+- 校验主线程访问
+- 清理已失效 Unity 对象引用
+- 读取元数据
+- 自动创建全局单例或返回场景单例
+
+#### `Register(...)`
+
+注册实例并调用 `OnSingletonInit()`。
+
+会拦截重复单例：
+
+- `MonoBehaviour` 重复时保留旧实例并销毁新对象
+- 纯 C# 重复时直接报错
+
+#### `Unregister(...)`
+
+在实例销毁时反注册。
+
+#### `TryGetRegisteredSingleton<T>(out T instance)`
+
+仅查询，不触发创建。
+
+#### `CreateGlobalInstance<T>(...)`
+
+全局单例自动创建逻辑。
+
+行为：
+
+- 纯 C# 走 `PureSingletonCreators`
+- `MonoBehaviour` 走预制体实例化或空对象创建
+- 可选择挂到 `[SingletonContainer]`
+
+## 设计约束
+
+- Unity 相关单例只能在主线程访问
+- 场景单例不会自动创建
+- 纯 C# 单例禁止运行时反射实例化
+- 缺少静态元数据时在开发期直接断言
+
+## 常见误用
+
+- 场景单例未放进场景就访问 `Instance`
+- 没有注册 `PureSingletonCreator`
+- 后台线程访问 Unity 单例
+
+## 测试建议
+
+- 全局单例自动创建
+- 场景单例未注册报错
+- 重复单例注册拦截
+- 主线程限制
+- 应用退出阶段访问行为

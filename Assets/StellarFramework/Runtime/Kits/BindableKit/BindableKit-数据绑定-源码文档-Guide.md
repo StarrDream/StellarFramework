@@ -1,48 +1,203 @@
 # BindableKit / 数据绑定源码文档
 
-## 源码位置
+## 模块职责
+
+`BindableKit` 提供三类可观察容器：
+
+- `BindableProperty<T>`
+- `BindableList<T>`
+- `BindableDictionary<K, V>`
+
+它们的共同目标是：
+
+- 在值或集合变化时通知观察者
+- 返回可注销监听令牌
+- 支持和 Unity 生命周期绑定自动注销
+- 阻止通知中的递归修改与递归通知
+
+## 源码文件
 
 - `Runtime/Kits/BindableKit/BindableProperty.cs`
 - `Runtime/Kits/BindableKit/BindableList.cs`
 - `Runtime/Kits/BindableKit/BindableDictionary.cs`
 - `Runtime/Kits/BindableKit/BindableExtensions.cs`
 
-## 核心类型
+## 总体结构
 
-- `IReadOnlyBindableProperty<T>`：只读绑定属性接口。
-- `BindableProperty<T>`：保存值和观察者链表。
-- `ListEventType` / `ListEvent<T>`：列表变化类型和事件数据。
-- `BindableList<T>`：包装 List 并广播 add/remove/clear/set 等变化。
-- `DictEventType` / `DictEvent<K,V>`：字典变化类型和事件数据。
-- `BindableDictionary<K,V>`：包装 Dictionary 并广播 key/value 变化。
-- `BindableExtensions`：把普通值和集合快速转为可绑定对象。
+```text
+IReadOnlyBindableProperty<T>
+└─ BindableProperty<T>
 
-## 关键方法
+BindableList<T>
+└─ ListEvent<T>
 
-- `BindableProperty<T>.Value`：赋值时比较并触发通知。
-- `Register(...)`：添加观察者并返回 `IUnRegister`。
-- `RegisterWithInitValue(...)`：注册后立即回调当前值。
-- `UnRegister(...)`：移除观察者。
-- `BindableList<T>.Add/Remove/Clear`：修改集合并广播 `ListEvent<T>`。
-- `BindableDictionary<K,V>.Add/Remove/Clear`：修改字典并广播 `DictEvent<K,V>`。
+BindableDictionary<K, V>
+└─ DictEvent<K, V>
+```
 
-## 数据流
+## 共通设计
 
-Model 持有 bindable 数据。View 注册回调后，BindableKit 把回调封装成 observer node。数据变化时，节点链表按注册顺序触发。View 销毁时通过 EventKit 的生命周期反注册工具移除观察者。
+- 都使用链表节点保存观察者
+- 都通过 `_iteratingCount` 和 `_isNotifying` 控制通知过程
+- 都支持延迟删除观察者节点
+- 都通过 `IUnRegister` 对接 `EventKit` 生命周期解绑
 
-## 依赖关系
+## 类型详解
 
-- 依赖 EventKit 的 `IUnRegister` 生命周期抽象。
-- 常与 Architecture 的 Model 和 View 搭配使用。
-- 不依赖 Unity 对象，生命周期绑定由 EventKit 扩展提供。
+## `IReadOnlyBindableProperty<T>`
 
-## 扩展点
+### 作用
 
-- 新增集合类型时保持事件对象包含变化类型、key/index、旧值、新值。
-- 新增注册方式时必须返回 `IUnRegister`。
-- 修改通知链表时要注意回调中反注册的安全性。
+定义只读值绑定接口。
 
-## 测试入口
+### 成员
 
-- 在 BindableKit 样例中验证属性、列表、字典变化；如需集中回归，可使用外置验证区的 FrameworkValidation 场景。
-- 修改 observer 回收或反注册逻辑时，应补注册、重复注册、回调中解绑的 EditMode 测试。
+- `Value`
+- `Register(...)`
+- `RegisterWithInitValue(...)`
+
+## `BindableProperty<T>`
+
+### 作用
+
+单值可观察容器。
+
+### 字段
+
+- `_value`
+  当前值
+- `_head / _tail`
+  观察者链表首尾
+- `_iteratingCount`
+  当前通知遍历层数
+- `_isNotifying`
+  当前是否正在通知
+
+### 方法
+
+- `Value`
+  新旧值不同才触发通知
+- `SetValueWithoutNotify(...)`
+  直接赋值，不广播
+- `SetValueForceNotify(...)`
+  无论值是否相同都广播
+- `Notify()`
+  执行观察者通知
+- `Register(...)`
+  注册监听
+- `RegisterWithInitValue(...)`
+  先注册，再立刻回调当前值
+- `UnRegisterAll()`
+  清空全部监听
+
+### 内部结构
+
+#### `ObserverNode`
+
+字段：
+
+- `Action`
+- `Owner`
+- `Previous`
+- `Next`
+- `MarkedForDeletion`
+
+职责：
+
+- 作为监听令牌实现 `IUnRegister`
+- 支持生命周期自动解绑
+- 节点对象池复用
+
+## `BindableList<T>`
+
+### 作用
+
+列表变化可观察容器。
+
+### 事件类型
+
+- `Add`
+- `Remove`
+- `Clear`
+- `Replace`
+
+### 结构
+
+`ListEvent<T>` 包含：
+
+- `Type`
+- `Item`
+- `OldItem`
+- `Index`
+
+### 方法
+
+- `Add(...)`
+- `Remove(...)`
+- `RemoveAt(...)`
+- `Clear()`
+- 索引器设置
+- `Register(...)`
+- `NotifyRefresh()`
+- `UnRegisterAll()`
+
+### 约束
+
+通知回调中禁止修改集合。
+
+## `BindableDictionary<K, V>`
+
+### 作用
+
+字典变化可观察容器。
+
+### 事件类型
+
+- `Add`
+- `Remove`
+- `Clear`
+- `Update`
+
+### 结构
+
+`DictEvent<K, V>` 包含：
+
+- `Type`
+- `Key`
+- `Value`
+- `OldValue`
+
+### 方法
+
+- `Add(...)`
+- `Remove(...)`
+- `Clear()`
+- 索引器设置
+- `Register(...)`
+- `NotifyRefresh()`
+- `UnRegisterAll()`
+
+### 约束
+
+通知回调中禁止修改字典。
+
+## 设计约束
+
+- 通知中禁止递归通知
+- 通知中禁止修改集合
+- 生命周期解绑依赖 `EventKit` 触发器
+- 监听器删除采用延迟清理，避免遍历时断链
+
+## 常见误用
+
+- 在回调里再次修改值或集合
+- 忘记解绑长生命周期监听
+- 用 `SetValueWithoutNotify` 后期待自动刷新
+
+## 测试建议
+
+- 值变化通知
+- 相同值不通知
+- `RegisterWithInitValue` 顺序
+- 列表和字典通知内容
+- 回调中修改集合的保护逻辑

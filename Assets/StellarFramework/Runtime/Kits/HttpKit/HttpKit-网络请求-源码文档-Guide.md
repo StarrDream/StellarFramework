@@ -1,45 +1,204 @@
 # HttpKit / 网络请求源码文档
 
-## 源码位置
+## 模块职责
+
+`HttpKit` 提供统一的 HTTP 请求入口和图片下载工具。
+
+主要负责：
+
+- GET / POST / PUT / DELETE 请求
+- JSON 序列化与反序列化
+- 请求去重与取消控制
+- Token 注入
+- 文件下载
+- 纹理和 Sprite 下载缓存
+
+## 源码文件
 
 - `Runtime/Kits/HttpKit/HttpKit.cs`
 - `Runtime/Kits/HttpKit/HttpImageDownload.cs`
 
-## 核心类型
+## 总体结构
 
-- `HttpResponse`：封装状态码、响应文本、错误、Header 等结果。
-- `RequestConfig`：请求配置。
-- `HttpKit`：MonoBehaviour 单例式请求入口，提供静态 async 和回调接口。
-- `HttpImageDownload`：图片下载和缓存工具。
+```text
+HttpKit
+├─ HttpResponse
+├─ RequestConfig
+├─ _activeCTS
+└─ SendRequestAsync(...)
 
-## 关键方法
+HttpImageDownload
+├─ TextureCache
+├─ SpriteCache
+└─ OngoingTasks
+```
 
-- `HttpKit.Instance`：确保场景中存在请求承载对象。
-- `SetAuthToken` / `GetAuthToken` / `ClearAuthToken`：维护全局认证头。
-- `GetAsync`、`PostAsync`、`PutAsync`、`DeleteAsync`：构建 UnityWebRequest 并返回 `HttpResponse`。
-- `GetJsonAsync<T>`、`PostJsonAsync<TRequest,TResponse>`：请求后进行 JSON 反序列化。
-- `DownloadFileAsync`：下载文件并写入本地路径。
-- `HttpImageDownload.DownloadTextureAsync`：下载 Texture2D 并缓存。
+## 类型详解
 
-## 数据流
+## `HttpResponse`
 
-业务调用静态入口，HttpKit 创建 UnityWebRequest，合并 headers 和认证 token，发送请求，等待完成后把 UnityWebRequest 状态转换成 `HttpResponse`。JSON 接口在成功后反序列化响应体。图片工具下载 Texture 后缓存，并可应用到 Image 或 RawImage。
+### 作用
 
-## 依赖关系
+封装一次 HTTP 请求的结果。
 
-- 依赖 UnityWebRequest。
-- 依赖 UniTask。
-- JSON 接口依赖 Newtonsoft.Json。
-- 图片接口依赖 Unity UI。
+### 字段
 
-## 扩展点
+- `isSuccess`
+- `responseCode`
+- `responseText`
+- `error`
+- `headers`
 
-- 新增默认 Header：在请求构建阶段统一合并。
-- 新增重试策略：包裹发送逻辑，避免业务层重复写循环。
-- 新增认证方式：扩展 tokenType 或 header 生成逻辑。
-- 新增缓存策略：在 `HttpImageDownload` 中扩展 key 和失效策略。
+### 方法
 
-## 测试入口
+- `Deserialize<T>()`
+- `TryDeserialize<T>(out T result)`
 
-- 修改请求构建时，使用本地或测试 HTTP 服务验证 GET/POST/错误码。
-- 修改图片下载时，验证 Image、RawImage、Sprite、Texture 缓存清理。
+## `RequestConfig`
+
+### 作用
+
+请求配置对象。
+
+### 字段
+
+- `autoInjectToken`
+- `headers`
+- `onProgress`
+- `preventDuplicate`
+- `timeout`
+
+## `HttpKit`
+
+### 作用
+
+HTTP 系统核心单例实现。
+
+### 关键字段
+
+- `_instance`
+- `_isQuitting`
+- `_activeCTS`
+- `_requestLock`
+- `_authToken`
+- `_tokenType`
+
+### 关键方法
+
+#### `GetOrCreateInstance()`
+
+创建或获取运行时单例。
+
+#### `SetAuthToken / GetAuthToken / ClearAuthToken / HasAuthToken`
+
+维护鉴权 Token。
+
+#### `SendRequestAsync(...)`
+
+统一请求主链路。
+
+职责：
+
+- 校验 URL 和配置
+- 生成请求唯一 Key
+- 按配置拦截重复请求
+- 创建 `CancellationTokenSource`
+- 构建 `UnityWebRequest`
+- 发起请求并处理结果
+- 请求结束后清理 pending 表
+
+#### `CreateWebRequest(...)`
+
+创建底层 `UnityWebRequest`，注入：
+
+- 请求方法
+- Body
+- 默认请求头
+- Token
+- 超时设置
+
+#### `ProcessResponse(...)`
+
+把 `UnityWebRequest` 转成 `HttpResponse`。
+
+#### `GenerateRequestKey(...)`
+
+基于 `Method + Url + BodyHash` 生成去重键。
+
+#### `CancelRequest(...) / CancelAllRequests()`
+
+取消指定请求或全部请求。
+
+### 对外 API
+
+- `GetAsync(...)`
+- `GetJsonAsync<T>(...)`
+- `PostAsync(...)`
+- `PostJsonAsync<TRequest, TResponse>(...)`
+- `PutAsync(...)`
+- `DeleteAsync(...)`
+- Fire-and-forget 包装版本
+
+## `HttpImageDownload`
+
+### 作用
+
+负责图片资源下载与缓存。
+
+### 内部类型
+
+#### `CacheEntry<T>`
+
+字段：
+
+- `Url`
+- `Asset`
+- `LastAccessTick`
+
+#### `OngoingDownload`
+
+字段：
+
+- `SharedCts`
+- `CompletionSource`
+- `WaiterCount`
+- `IsCompleted`
+
+### 核心缓存
+
+- `TextureCache`
+- `SpriteCache`
+- `OngoingTasks`
+
+### 关键方法
+
+- `DownloadTextureAsync(...)`
+- `DownloadSpriteAsync(...)`
+- `DownloadToImageAsync(...)`
+- `DownloadToRawImageAsync(...)`
+- `ClearCache()`
+- `ClearCache(string imageUrl)`
+
+### 内部方法
+
+- `DownloadTextureInternalAsync(...)`
+- `TryGetCachedTexture(...)`
+- `TryGetCachedSprite(...)`
+- `AddTextureCache(...)`
+- `AddSpriteCache(...)`
+- `TrimTextureCacheIfNeeded()`
+- `TrimSpriteCacheIfNeeded()`
+- `RunOngoingDownloadAsync(...)`
+
+## 设计约束
+
+- `HttpKit` 在退出阶段不可用
+- 重复请求拦截依赖 `requestKey`
+- 图片下载缓存使用简单 LRU 剪枝
+- 同 URL 并发图片下载会复用同一个进行中任务
+
+## 常见误用
+
+- 退出阶段继续发请求
+- 开启 `preventDuplicate` 但 body 不稳定
+- 图片下载后不清理长生命周期缓存

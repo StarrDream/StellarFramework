@@ -1,64 +1,118 @@
 # Samples / 源码文档
 
-Samples 是新人验收和维护者回归的重要入口。它们不是独立小游戏，而是把 Runtime Kit 的最小可用链路做成可运行场景。
+## 模块职责
 
-## 源码位置
+`Samples` 目录承担两种角色：
 
-- `Samples/README.md`：样例总览。
-- `Samples/ArchitectureDemo`：MSV 架构示例。
-- `Samples/KitSamples/README.md`：Kit 样例说明。
-- `Samples/KitSamples/Samples_Index.md`：样例索引。
-- `Samples/KitSamples/Scenes`：可运行场景。
-- `Samples/KitSamples/Scripts`：样例脚本。
-- `Editor/StellarToolsHub/Modules/SampleBuilderHubModule.cs`：样例构建工具入口。
+- 对使用者：提供最小接线示例
+- 对维护者：提供回归和行为验证入口
 
-## 核心类型
+它们不是独立产品，而是用来展示和验证框架各模块的最小可运行链路。
 
-- `SampleBuilderHubModule`：ToolsHub 中负责生成和修复样例的工具模块。
-- 外置验证区中的 `FrameworkValidation` 相关脚本：集中验证 Runtime Kit 主链路。
-- `UIKit` 样例脚本：演示 UI 初始化、打开、关闭和页面栈。
-- `ResKit` 样例脚本：演示 Resources、AB、AA 后端加载。
-- `SettingsKit` 样例脚本：演示设置页、应用、保存和回滚。
+## 源码文件
 
-## 关键方法
+与样例体系直接相关的主要代码包括：
 
-- 样例构建工具的构建按钮逻辑：创建或修复 KitSamples 资源。
-- 各 Playable 场景入口脚本的 `Start` / `Awake`：初始化对应 Kit。
-- UI 样例按钮回调：触发面板打开、栈导航和关闭。
-- ResKit 样例加载方法：分配 loader、加载资源、实例化和释放。
+- `Samples/README.md`
+- `Samples/KitSamples/README.md`
+- `Samples/KitSamples/Editor/ExamplePlayableSceneBuilder.cs`
+- `Samples/ArchitectureDemo/*`
+- 各 Kit 样例脚本
 
-## 核心内容
+## 总体结构
 
-- `FrameworkValidation_Playable.unity`：已迁入外置验证区，优先用于框架开发者做集中回归。
-- `UIKit_Playable.unity`：UIKit 面板、页面栈、UIRoot 和加载策略验证。
-- `ResKit_Playable.unity`：Resources、AB、AA 等加载后端验证。
-- `SettingsKit_Playable.unity`：设置页、保存、应用和回滚验证。
-- `ArchitectureDemo`：MSV 模型、服务、视图交互演示。
+```text
+Samples
+├─ ArchitectureDemo
+├─ KitSamples
+│  ├─ Scenes
+│  ├─ Example_*
+│  └─ Editor
+└─ README / 索引文档
+```
 
-## 数据流
+## 目录结构
 
-1. 用户在 ToolsHub `Quick Start` 或 `样例构建` 中点击构建。
-2. 样例构建器创建或修复样例资源、Prefab、场景和配置。
-3. 用户安装包优先运行 UIKit / ResKit 样例；框架开发者再运行外置验证区的 FrameworkValidation 场景。
-4. 再按具体 Kit 打开单独 Playable 场景。
-5. 修改 Runtime Kit 后，可以回到对应样例场景做行为回归。
+### `ArchitectureDemo`
 
-## 依赖关系
+用于演示：
 
-- 依赖 Runtime Kits。
-- 依赖 `Resources` 中的默认配置和示例资源。
-- 部分资源链路依赖 Generated 目录，例如 AB 的 AssetMap。
-- 构建入口依赖 ToolsHub 的样例构建模块。
+- `Architecture`
+- `Model`
+- `Service`
+- `View`
+- `UI`
 
-## 扩展点
+之间的协作链路。
 
-- 新增 Kit 样例：在 `Samples/KitSamples/Scripts` 添加脚本，在 `Scenes` 添加 Playable 场景。
-- 新增样例资源：放入明确的 Kit 子目录，并在样例构建工具中补生成逻辑。
-- 新增集中验证项：优先补到外置验证区的 `FrameworkValidation_Playable.unity`。
-- 新增文档：更新 `Samples_Index.md` 和对应 Kit 说明文档。
+### `KitSamples`
 
-## 测试入口
+用于分别验证各 Kit 的最小接线方式。
 
-- `QuickStartHubModule` 依赖样例场景路径固定存在。
-- `QuickStartCatalogPolicyTests` 会检查关键样例场景和样例索引存在。
-- 修改样例构建逻辑后，至少重新执行 ToolsHub `构建样例`，并按需打开外置验证区的 FrameworkValidation 场景。
+典型包括：
+
+- `UIKit_Playable`
+- `ResKit_Playable`
+- `SettingsKit_Playable`
+- 其他 Kit 对应场景
+
+## 关联类型与工具
+
+- `ExamplePlayableSceneBuilder`
+  负责样例资源和场景生成
+- 各 `Example_*` 组件
+  负责最小闭环验证
+
+## 与运行时模块的关系
+
+- 样例直接依赖 Runtime Kits
+- 样例资源依赖 `Resources`
+- 部分资源链路依赖 `Generated` 产物
+- 样例入口和资源补齐依赖 ToolsHub 的样例构建逻辑
+
+## 关键构建入口
+
+样例构建通常通过：
+
+- `Quick Start`
+- 样例构建相关 ToolModule
+
+来生成或修复：
+
+- 场景
+- Prefab
+- 示例配置
+- 示例资源
+
+## 关键场景
+
+- `UIKit_Playable.unity`
+- `ResKit_Playable.unity`
+- `SettingsKit_Playable.unity`
+- `ArchitectureDemo` 相关场景
+
+## 运行时调用链
+
+1. 用户从 `Quick Start` 或样例入口触发样例构建
+2. ToolsHub 写入或修复样例资源
+3. 用户打开 Playable 场景
+4. 场景中的样例入口脚本初始化对应 Kit
+5. 通过可见 UI、日志或运行结果验证模块行为
+
+## 设计约束
+
+- 样例路径和场景名带有文档与测试约定
+- 修改样例路径、入口脚本和名称时，要同步更新 Quick Start、README 和测试
+- 样例代码应优先体现“最小闭环”，而不是堆功能
+
+## 常见误用
+
+- 把样例当成正式产品逻辑继续膨胀
+- 改样例路径后不更新文档和测试
+- 样例依赖关系修改后不重跑样例构建
+
+## 测试与验证
+
+- `QuickStartCatalogPolicyTests`
+- `OnboardingSurfacePolicyTests`
+- 手动运行对应 Playable 场景

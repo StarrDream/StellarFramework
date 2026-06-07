@@ -38,7 +38,7 @@ StellarFramework 是一个 Unity 基础开发框架，提供架构分层、UI、
 详细说明：
 
 - [快速开始](Assets/StellarFramework/快速开始.md)
-- [Tools Hub 使用手册](Assets/StellarFramework/Editor/StellarToolsHub/StellarToolsHub-使用手册-Guide.md)
+- [ToolsHub 说明文档](Assets/StellarFramework/Editor/StellarToolsHub/StellarToolsHub-说明文档-Guide.md)
 
 ## 架构
 
@@ -118,9 +118,8 @@ Assets
 
 - [快速开始](Assets/StellarFramework/快速开始.md)
 - [Samples 总览](Assets/StellarFramework/Samples/README.md)
-- [Tools Hub 使用手册](Assets/StellarFramework/Editor/StellarToolsHub/StellarToolsHub-使用手册-Guide.md)
+- [ToolsHub 说明文档](Assets/StellarFramework/Editor/StellarToolsHub/StellarToolsHub-说明文档-Guide.md)
 - [ResKit 统一资源说明](Assets/StellarFramework/Runtime/Kits/Reskit/ResKit-统一资源-说明文档-Guide.md)
 - [UIKit 界面系统说明](Assets/StellarFramework/Runtime/Kits/UIKit/UIKit-界面系统-说明文档-Guide.md)
+- [SettingsKit 设置系统说明](Assets/StellarFramework/Runtime/Kits/SettingsKit/SettingsKit-设置系统-说明文档-Guide.md)
 - [HotUpdateKit 热更新说明](Assets/StellarFramework/Runtime/Kits/HotUpdateKit/HotUpdateKit-热更新-说明文档-Guide.md)
-- [SettingsKit 设置系统说明](Assets/StellarFramework/Runtime/Kits/SettingsKit/SettingsKit-设置系统-Guide.md)
-- [HybridCLR 热更新 Guide](Assets/StellarFramework/Runtime/Kits/HotUpdateKit/HybridCLR-热更新-Guide.md)

@@ -1,61 +1,107 @@
 # Tests / 源码文档
 
-Tests 目录主要放 EditMode 测试，用来保护框架入口、文档策略、ToolsHub 工作流和关键 Runtime 链路。
+## 模块职责
 
-## 源码位置
+`Tests` 目录主要存放 EditMode 测试，用来保护框架入口、文档结构、编辑器工具和关键运行时表面。
 
-- `Tests/EditMode/FrameworkValidation`：框架策略、文档、Quick Start、AA、HotUpdate 等验证测试。
-- `Tests/EditMode`：其他编辑器测试入口。
-- `Runtime/Kits/*`：部分 Kit 的行为通过样例或工具测试间接覆盖。
+它的重点不是“业务逻辑回归”，而是“框架约束不被破坏”。
 
-## 核心类型
+## 源码文件
 
-- `QuickStartCatalogPolicyTests`：文档、README、Quick Start 和双轨文档策略测试。
-- `OnboardingSurfacePolicyTests`：新人入口和 ToolsHub onboarding 策略测试。
-- `AAHotUpdatePublishToolTests`：AA 配置、路径、安全校验和发布逻辑测试。
-- `HotUpdateManifestTests`：Manifest 解析、BOM 和字段校验测试。
-- Addressables/HotUpdate 相关测试：验证 DLL bytes、metadata 和远端 AA 加载链路。
+当前主要覆盖：
 
-## 关键方法
+- `Tests/EditMode/FrameworkValidation/*`
+- `Tests/EditMode/UIKit/*`
+- 以及被这些测试读取的 README、Quick Start、ToolsHub 文档和部分源码
 
-- `QuickStartReferencedPathsExistOnDisk`：检查样例和文档入口存在。
-- `DocumentationDoesNotContainOutdatedAAWorkflowGuidance`：禁止旧 AA 口径回归。
-- `DocumentationHubGroupsDocumentsByAudienceAndPurpose`：检查文档中心分组。
-- `SourceGuideCoversMainSourceReadingRoutes`：检查源码文档覆盖关键类型。
+## 总体结构
 
-## 核心测试类型
+```text
+Tests
+├─ EditMode
+│  ├─ FrameworkValidation
+│  └─ UIKit
+└─ 通过路径读取 README / 文档 / 源码
+```
 
-- 文档策略测试：检查 README 链接、双轨文档、旧文案防回归、源码文档关键类型覆盖。
-- 新人入口测试：检查 Quick Start 是否仍指向固定样例和文档。
-- ToolsHub 测试：检查核心工具入口、AA 配置和发布逻辑。
-- HotUpdate 测试：检查 `HotUpdateManifest` 解析、BOM 处理、SHA 字段等。
-- ResKit/Addressables 测试：检查远端 AA、catalog、dll bytes、metadata 加载链路。
+## 目录结构
 
-## 数据流
+### `Tests/EditMode/FrameworkValidation`
 
-1. Unity Test Runner 加载 EditMode 测试程序集。
-2. 测试通过 `Application.dataPath` 定位 `Assets/StellarFramework`。
-3. 文档测试扫描 Markdown 和 README 链接。
-4. ToolsHub 测试读取 Editor 源码、配置资产或临时目录。
-5. 运行链路测试通过 Addressables、ResKit、HotUpdateKit 验证真实加载结果。
+这部分主要保护：
 
-## 依赖关系
+- README / 文档入口
+- Quick Start / Onboarding
+- Addressables / HotUpdate 发布流程
+- ToolsHub 文档和入口策略
 
-- 依赖 NUnit 和 Unity Test Framework。
-- 文档测试依赖 Markdown 文件路径稳定。
-- AA/HotUpdate 测试依赖 Addressables 和对应测试资源。
-- PlayMode 热更测试可能依赖构建产物，本次文档整理不跑远端热更运行测试。
+### `Tests/EditMode/UIKit`
 
-## 扩展点
+这部分主要保护：
 
-- 新增文档入口时，补 README 链接测试或文档策略测试。
-- 新增 ToolsHub 模块时，补入口存在性或关键按钮文案测试。
-- 新增 Kit 时，补说明文档、源码文档和样例路径测试。
-- 新增热更流程时，先补 Manifest/路径/校验测试，再接运行链路测试。
+- UIKit 公开表面
+- UIKit 运行时快照输出
+- 栈相关行为约束
 
-## 测试入口
+## 代表性测试
 
-- 修改文档：跑 `QuickStartCatalogPolicyTests`。
-- 修改 Quick Start 或样例入口：跑 `OnboardingSurfacePolicyTests`。
-- 修改 AA 发布工具：跑 `AAHotUpdatePublishToolTests` 和必要的 Addressables 加载测试。
-- 修改 Runtime Kit：优先跑对应 Kit 的 EditMode 测试和样例场景。
+- `QuickStartCatalogPolicyTests`
+- `OnboardingSurfacePolicyTests`
+- `AAHotUpdatePublishToolTests`
+- `HotUpdateManifestTests`
+- `UIKitRuntimeSnapshotTests`
+- `UIKitStackSurfacePolicyTests`
+
+## 测试策略
+
+### 文档类测试
+
+目标：
+
+- 防止 README 和文档入口失效
+- 防止旧文档和旧入口回归
+- 防止 Quick Start 链接断裂
+
+### ToolsHub 测试
+
+目标：
+
+- 防止编辑器入口和关键工具路径失效
+- 防止发布和初始化流程约束被破坏
+
+### Runtime 表面测试
+
+目标：
+
+- 保证关键接口名称、快照输出和最低限度行为稳定
+
+## 与文档的关系
+
+文档和测试是联动的：
+
+- 改 README 或快速开始，要同步看文档测试
+- 改 ToolsHub 文档入口，要同步看 onboarding 和 catalog 策略测试
+- 改样例路径，要同步看 Quick Start 策略测试
+
+## 设计约束
+
+- 修改文档入口时要同步更新对应测试
+- 修改 AA / HotUpdate 流程时优先补测试再改逻辑
+- 样例和 Quick Start 的固定路径是测试基线的一部分
+
+## 推荐回归顺序
+
+1. 文档和入口改动
+   跑 `QuickStartCatalogPolicyTests`
+2. Onboarding 改动
+   跑 `OnboardingSurfacePolicyTests`
+3. AA / HotUpdate 改动
+   跑 `AAHotUpdatePublishToolTests` 及相关测试
+4. UIKit 改动
+   跑 `UIKit` 相关 EditMode 测试
+
+## 常见误用
+
+- 改文档但不改测试
+- 改 Quick Start 路径却忘了验证入口策略
+- 改发布流程却只手测、不补自动化约束

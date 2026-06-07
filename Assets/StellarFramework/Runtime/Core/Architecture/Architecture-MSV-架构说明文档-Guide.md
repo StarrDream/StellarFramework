@@ -1,29 +1,62 @@
-# Architecture / MSV 架构说明文档
+# Architecture / 架构说明文档
 
-MSV 是 StellarFramework 的默认业务架构：`Model` 保存状态，`Service` 处理业务能力，`View` 只读取状态并调用服务。它的目标不是限制写法，而是让新人知道“数据放哪、逻辑放哪、UI 调谁”。
+## 模块定位
+
+`Architecture` 是 StellarFramework 的基础运行时架构层。
+
+它的目标不是做“完整业务框架”，而是明确项目里最核心的职责边界：
+
+- `Model`
+  管理状态和数据
+- `Service`
+  管理业务逻辑和系统能力
+- `View`
+  管理界面表现和交互
 
 ## 适用场景
 
-- 需要把游戏入口、状态、服务和界面分开管理。
-- 希望 View 不直接 new Service，也不在 MonoBehaviour 间乱找引用。
-- 需要在样例、工具和测试里复用同一套业务入口。
+适合以下情况：
 
-## 入口 API
+- 希望把状态、逻辑和表现层明确拆开
+- 不希望 MonoBehaviour 之间直接乱找引用
+- 希望运行时模块有统一的注册、初始化和访问入口
+- 希望 View 默认只读状态、不直接修改 Model
 
-- `Architecture<T>.Interface`：获取架构单例入口。
-- `Init()`：初始化架构并注册模块。
-- `RegisterModel(model)`：注册数据模块。
-- `RegisterService(service)`：注册服务模块。
-- `GetModel<T>()`、`GetService<T>()`：在架构内部读取模块。
-- `StellarView`：View 基类，提供 `OnBind()`、`OnUnbind()` 生命周期函数。
-- `IView` 扩展方法：View 内用 `this.GetModel<T>()`、`this.GetService<T>()` 访问架构。
+## 模块组成
 
-## 最小模板
+主要组成包括：
+
+- `Architecture<T>`
+  架构容器入口
+- `IArchitecture / IReadOnlyArchitecture`
+  可变 / 只读访问接口
+- `IModel / IService / IView`
+  模块分层接口
+- `AbstractModel / AbstractService / StellarView`
+  常用基类
+
+## 基本关系
+
+```text
+Architecture<T>
+├─ 注册 Model
+├─ 注册 Service
+└─ 对外提供查询入口
+
+View
+├─ 读取 Model
+└─ 调用 Service
+
+Service
+├─ 读取 Model
+└─ 调用其他 Service
+```
+
+## 最小接入流程
+
+### 1. 定义架构入口
 
 ```csharp
-using StellarFramework;
-using StellarFramework.Bindable;
-
 public sealed class GameApp : Architecture<GameApp>
 {
     protected override void InitModules()
@@ -32,46 +65,51 @@ public sealed class GameApp : Architecture<GameApp>
         RegisterService(new PlayerService());
     }
 }
+```
 
+### 2. 定义 Model
+
+```csharp
 public sealed class PlayerModel : AbstractModel
 {
     public readonly BindableProperty<int> Hp = new BindableProperty<int>(100);
 }
+```
 
+### 3. 定义 Service
+
+```csharp
 public sealed class PlayerService : AbstractService
 {
-    public void Damage(int value)
+    public void TakeDamage(int damage)
     {
         PlayerModel model = GetModel<PlayerModel>();
-        model.Hp.Value -= value;
+        model.Hp.Value = Mathf.Max(0, model.Hp.Value - damage);
     }
 }
 ```
 
-## View 模板
+### 4. 定义 View
 
 ```csharp
-using StellarFramework;
-using UnityEngine;
-
 public sealed class PlayerHudView : StellarView
 {
-    public override IArchitecture Architecture => GameApp.Interface;
+    public override IReadOnlyArchitecture Architecture => GameApp.Interface;
 
     public override void OnBind()
     {
-        this.GetModel<PlayerModel>().Hp.RegisterWithInitValue(OnHpChanged)
+        this.GetReadOnlyModel<IPlayerReadOnlyModel>()
+            ?.RegisterWithInitValue(OnHpChanged)
             .UnRegisterWhenGameObjectDestroyed(gameObject);
     }
 
-    public void OnDamageClicked()
+    public void OnClickDamage()
     {
-        this.GetService<PlayerService>().Damage(1);
+        this.GetService<PlayerService>()?.TakeDamage(10);
     }
 
     private void OnHpChanged(int hp)
     {
-        Debug.Log(hp);
     }
 
     public override void OnUnbind()
@@ -80,27 +118,65 @@ public sealed class PlayerHudView : StellarView
 }
 ```
 
-## 使用规则
+## 生命周期
 
-- `InitModules()` 只做注册，不做耗时加载。
-- Model 不直接操作 Unity 场景对象。
-- Service 可以持有业务能力，但不要直接把 UI 面板当依赖。
-- View 通过 `StellarView` 绑定生命周期，关闭或销毁时释放监听。
-- 只读场景可以暴露 `IReadOnlyArchitecture` 和 `IReadOnlyModel`，避免外部修改状态。
+### 初始化
 
-## ToolsHub 关联
+1. 通过 `GameApp.Interface` 获取实例
+2. 调用 `Init()`
+3. 进入 `InitModules()`
+4. 注册 `Model / Service`
+5. 依次调用各模块的 `Init()`
 
-- `Quick Start` 现在先引导用户跑 UIKit / ResKit 样例；FrameworkValidation 已迁入外置验证区，供框架开发者做集中回归。
-- `文档中心 (Docs)` 可直接阅读架构说明文档和源码文档。
+### 销毁
 
-## 样例和测试
+1. 调用 `Dispose()`
+2. 依次执行 `Service.Deinit()`
+3. 再执行 `Model.Deinit()`
+4. 清空注册表和实例引用
 
-- 样例：`Samples/ArchitectureDemo`
-- 集中验证场景：`Assets/StellarFrameworkVerification/Scenes/FrameworkValidation_Playable.unity`
-- 源码阅读：[Architecture 源码文档](Architecture-MSV-架构源码文档-Guide.md)
+### View 绑定
+
+- `StellarView.Start()` 触发 `OnBind()`
+- `StellarView.OnDestroy()` 触发 `OnUnbind()`
+
+## 使用约束
+
+- `InitModules()` 只做注册，不做重逻辑和耗时加载
+- `Model` 不直接操作场景对象
+- `Service` 不直接依赖具体 UI 面板
+- `View` 默认只读状态，通过 `Service` 驱动行为
+- `Model / Service` 只在初始化阶段注册
+
+## 多架构使用
+
+适用于：
+
+- 一个全局架构
+- 一个或多个场景 / 玩法局部架构
+
+例如：
+
+- `GlobalApp`
+  常驻数据、账号、设置
+- `BattleApp`
+  战斗状态、战斗服务
+
+关键原则：
+
+- 全局架构常驻
+- 场景架构随场景初始化和销毁
+- `View` 必须明确返回自己所属的 `Architecture`
 
 ## 常见问题
 
-- 找不到 Model：确认架构入口调用过 `Init()`，并且 `InitModules()` 注册了对应 Model。
-- View 调不到 Service：确认 View 的 `Architecture` 属性返回正确的架构实例。
-- 监听重复触发：确认 View 销毁或禁用时解绑，优先使用 `UnRegisterWhenGameObjectDestroyed` 等生命周期辅助方法。
+- `GetModel` / `GetService` 返回空
+  通常是没 `Init()`、没注册，或架构已经销毁。
+- View 生命周期里重复监听
+  需要把监听绑定到 `OnBind / OnUnbind` 或生命周期解绑接口。
+- 想给 View 暴露只读状态
+  用 `IReadOnlyModel` 契约，不要直接暴露可变 Model。
+
+## 相关文档
+
+- [Architecture 源码文档](Architecture-MSV-架构源码文档-Guide.md)

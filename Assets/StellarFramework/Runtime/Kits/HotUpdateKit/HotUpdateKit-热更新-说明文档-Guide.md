@@ -1,47 +1,115 @@
 # HotUpdateKit / 热更新说明文档
 
-HotUpdateKit 负责把资源热更新和 HybridCLR 代码热更新串成启动流程。资源版本、catalog/hash、bundle 下载和缓存由 Addressables 官方机制负责；框架负责 `HotUpdateManifest`、DLL SHA256 校验、AOT metadata 加载和入口方法调用。
+## 模块定位
 
-## 入口 API
+`HotUpdateKit` 负责把资源热更新和 `HybridCLR` 代码热更新收敛成一套统一的运行时入口。
 
-- `HotUpdateKit.Configure(...)`：注入资源热更策略和代码热更策略。
-- `HotUpdateKit.InitializeAsync(...)`：初始化资源热更系统。
-- `HotUpdateKit.CheckResourceUpdatesAsync(keys)`：检查 Addressables catalog 和下载大小。
-- `HotUpdateKit.DownloadResourceUpdatesAsync(keys, progress)`：下载资源依赖。
-- `HotUpdateKit.RunCodeHotUpdateAsync(...)`：运行 HybridCLR 代码热更。
-- `HotUpdateKit.RunStartupHotUpdateAsync(...)`：启动期代码热更快捷入口；当前等价于调用 `RunCodeHotUpdateAsync(...)`。
-- `HybridCLRHook.LoadMetadataForAOTAssembliesAsync(...)`：加载 AOT metadata。
-- `HybridCLRHook.LoadAndStartHotUpdateAssembly(bytes)`：加载热更 DLL 并调用入口。
+职责边界：
 
-资源热更检查、catalog 更新和下载仍需显式调用 `InitializeAsync`、`CheckResourceUpdatesAsync`、`DownloadResourceUpdatesAsync`。
+- Addressables 负责 `catalog / hash / bundle` 的检查、下载和缓存
+- `HotUpdateKit` 负责 `Manifest`、DLL SHA256、AOT metadata 和热更入口调度
 
-## ToolsHub 流程
+## 模块结构
 
-本地内置 AA：
+运行时主要由三层组成：
 
-1. 打开 `AA 配置与发布`。
-2. 选择 `本地内置 AA`。
-3. 点击 `一键本地内置构建`。
-4. 资源和 Manifest 进入 `StreamingAssets/aa`。
+- `HotUpdateKit`
+  对外门面，负责资源策略、代码策略和设置对象
+- `HotUpdateManifest`
+  描述代码热更新产物
+- `HybridCLRHook / HybridCLRAAHotUpdateRunner`
+  负责加载 metadata、校验 DLL、执行热更入口
 
-远端热更 AA：
+## 核心入口
 
-1. 选择 `远端热更 AA`。
-2. 设置发布目录或 URL。
-3. 点击 `一键远端热更发布`。
-4. 工具导出 DLL、metadata、Manifest，构建 Addressables，复制 catalog/hash/bundle 到远端目录。
+- `HotUpdateKit.Configure(...)`
+- `HotUpdateKit.InitializeAsync(...)`
+- `HotUpdateKit.CheckResourceUpdatesAsync(...)`
+- `HotUpdateKit.DownloadResourceUpdatesAsync(...)`
+- `HotUpdateKit.RunCodeHotUpdateAsync(...)`
+- `HotUpdateKit.RunStartupHotUpdateAsync(...)`
 
-## 相关专题
+## 启动流程
 
-- [AA 本地内置](AA-LocalBuiltIn-Guide.md)
-- [AA 远端热更](AA-RemoteHotUpdate-Guide.md)
-- [HotUpdateManifest](HotUpdateManifest-Guide.md)
-- [HybridCLR 热更新](HybridCLR-热更新-Guide.md)
-- [HotUpdateKit 源码文档](HotUpdateKit-热更新-源码文档-Guide.md)
+### 资源热更新
+
+1. `InitializeAsync(...)`
+2. `CheckResourceUpdatesAsync(...)`
+3. `DownloadResourceUpdatesAsync(...)`
+
+### 代码热更新
+
+1. 读取 `HotUpdateSettings`
+2. 加载 `HotUpdateManifest`
+3. 下载或读取 `dll.bytes` 和 `AOT metadata`
+4. 校验 SHA256
+5. 调用 `HybridCLRHook.LoadMetadataForAOTAssembliesAsync(...)`
+6. 调用 `HybridCLRHook.LoadAndStartHotUpdateAssembly(...)`
+
+## Manifest
+
+`HotUpdateManifest.json` 是代码热更新的运行时事实来源。
+
+典型字段：
+
+- `hotUpdateAssemblyKey`
+- `hotUpdateAssemblySha256`
+- `hotUpdateEntryClass`
+- `hotUpdateEntryMethod`
+- `aotMetadataKeys`
+
+建议：
+
+- 不手写 Manifest
+- 统一由 ToolsHub 导出 `dll.bytes` 时生成
+- Manifest、catalog、hash、bundle 必须来自同一批产物
+
+## Addressables 模式
+
+### 本地内置 AA
+
+特点：
+
+- 资源和 Manifest 一起进入 `StreamingAssets/aa`
+- 适合随包发布
+- 不做远端下载
+
+### 远端热更 AA
+
+特点：
+
+- 旧 Player 不重打包
+- 通过远端 `HotUpdateManifest.json`、catalog、hash、bundle 更新资源和热更 DLL
+- 可用 HTTP/CDN，也可先用本地 `file:///` 目录模拟
+
+## HybridCLR 约定
+
+运行时要求：
+
+- 已安装并配置 `HybridCLR`
+- 已启用 `HYBRIDCLR_ENABLE`
+- 热更程序集已导出为 `.dll.bytes`
+- AOT metadata 已导出为 `.dll.bytes`
+- `HotUpdateSettings` 配置的入口类和方法与热更程序集一致
+
+## ToolsHub 关联
+
+- `AA 配置与发布`
+  负责本地内置 AA 和远端热更 AA 的统一发布入口
+- `HybridCLR DLL 导出`
+  负责导出 `.dll.bytes`、`AOT metadata` 和 `HotUpdateManifest.json`
 
 ## 常见问题
 
-- 远端不更新：检查 `.hash` 和 RemoteLoadPath。
-- Manifest 解析失败：确认 JSON 没损坏，框架已处理 UTF-8 BOM。
-- DLL SHA 不匹配：Manifest 和 DLL 不是同一批发布。
-- Metadata 加载失败：确认 AOT metadata key 在 Addressables 中可加载。
+- 远端没有更新
+  检查 `.hash`、`RemoteLoadPath` 和 Manifest 地址。
+- Manifest 解析失败
+  检查 JSON 是否损坏；框架会处理 UTF-8 BOM。
+- DLL SHA 不匹配
+  Manifest 和 DLL 不是同一批导出结果。
+- Metadata 加载失败
+  检查 `AOT metadata` key 是否可通过 Addressables 正常加载。
+
+## 相关文档
+
+- [HotUpdateKit 源码文档](HotUpdateKit-热更新-源码文档-Guide.md)

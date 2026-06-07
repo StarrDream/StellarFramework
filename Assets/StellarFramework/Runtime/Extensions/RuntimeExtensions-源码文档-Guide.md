@@ -1,63 +1,222 @@
 # Runtime Extensions / 源码文档
 
-Runtime 扩展方法是框架给 Unity 常用类型补的轻量工具层。它们不应该承载业务逻辑，只解决重复、低风险、可复用的小操作。
+## 模块职责
 
-## 源码位置
+`Runtime Extensions` 提供面向 Unity 常用类型的轻量扩展方法和协程辅助能力。
 
-- `Runtime/Core/CoroutineRunner.cs`：全局协程 Runner。
-- `Runtime/Extensions/CollectionExtensions.cs`
-- `Runtime/Extensions/ColorExtensions.cs`
-- `Runtime/Extensions/CoroutineExtensions.cs`
-- `Runtime/Extensions/GameObjectExtensions.cs`
-- `Runtime/Extensions/LayerExtensions.cs`
-- `Runtime/Extensions/RectTransformExtensions.cs`
-- `Runtime/Extensions/StringExtensions.cs`
-- `Runtime/Extensions/TransformExtensions.cs`
-- `Runtime/Extensions/VectorExtensions.cs`
+它的目标是：
 
-## 核心类型
+- 减少重复样板代码
+- 提供低风险、小颗粒的帮助方法
+- 避免把复杂业务逻辑塞进工具扩展层
 
-- `CoroutineRunner`：继承 `MonoSingleton<CoroutineRunner>`，给非 MonoBehaviour 代码提供协程承载点。
-- `CollectionExtensions`：集合安全遍历、判空、取值辅助。
-- `ColorExtensions`：颜色转换和透明度调整。
-- `CoroutineExtensions`：协程启动、停止和等待封装。
-- `GameObjectExtensions`：GameObject 激活、组件获取、层级查找等常用操作。
-- `LayerExtensions`：LayerMask 和 layer 判断辅助。
-- `RectTransformExtensions`：UI 坐标、锚点、尺寸和布局辅助。
-- `StringExtensions`：字符串判空、格式、转换辅助。
-- `TransformExtensions`：Transform 层级查找、位置、子节点操作辅助。
-- `VectorExtensions`：Vector2/3 常用计算辅助。
+## 源码文件
 
-## 关键方法
+主要文件包括：
 
-扩展文件通常没有复杂状态。读源码时按这个顺序判断能否安全使用：
+- `CollectionExtensions.cs`
+- `ColorExtensions.cs`
+- `CoroutineExtensions.cs`
+- `GameObjectExtensions.cs`
+- `LayerExtensions.cs`
+- `RectTransformExtensions.cs`
+- `StringExtensions.cs`
+- `TransformExtensions.cs`
+- `VectorExtensions.cs`
+- `RenderPipelineCompatibility.cs`
+- `Runtime/Core/CoroutineRunner.cs`
 
-1. 看第一个参数类型，例如 `this Transform`、`this GameObject`。
-2. 看 null 处理策略，确认是否会静默返回或抛错。
-3. 看是否分配临时集合，频繁调用时注意 GC。
-4. 看是否会修改 Transform、GameObject、RectTransform 状态。
-5. 看方法是否只适合 Editor/调试，不要误用到热路径。
+## 总体结构
 
-## 数据流
+```text
+Runtime Extensions
+├─ Collection / String / Vector / Color
+├─ Transform / RectTransform / GameObject / Layer
+├─ CoroutineExtensions
+└─ CoroutineRunner / RenderPipelineCompatibility
+```
 
-业务代码调用扩展方法后，扩展方法直接操作 Unity 对象或返回计算结果。扩展层不保存全局状态，除 `CoroutineRunner` 通过 SingletonKit 保留一个全局实例。
+## 类型详解
 
-## 依赖关系
+## `IDeepCopyable<T>`
 
-- 依赖 UnityEngine。
-- `CoroutineRunner` 依赖 `SingletonKit`。
-- UI 坐标相关扩展依赖 Unity UI 常用类型。
-- 不依赖 ToolsHub、ResKit、UIKit 等业务 Kit。
+### 作用
 
-## 扩展点
+为集合扩展中的深拷贝约定提供接口。
 
-- 新增扩展文件时按 Unity 类型拆分，不要把所有工具塞进一个类。
-- 扩展方法必须短小、可预测，避免隐藏耗时加载或资源释放。
-- 会修改对象状态的方法，方法名要体现动作，例如 `Set...`、`Reset...`、`Destroy...`。
-- 对热路径方法尽量避免 LINQ 和临时 List。
+### 成员
 
-## 测试入口
+- 通常约定具体实现者提供可深拷贝能力
 
-- 扩展方法通常通过 Kit 样例间接覆盖。
-- 修改集合、Transform、RectTransform 扩展时，应补 EditMode 单测或在对应 Kit 样例中验证。
-- 修改 `CoroutineRunner` 时需要确认 `MonoSingleton<T>` 行为没有被破坏。
+## `CollectionExtensions`
+
+### 作用
+
+集合辅助扩展。
+
+常见用途：
+
+- 安全遍历
+- 空集合判断
+- 集合复制
+- 查找辅助
+
+## `ColorExtensions`
+
+### 作用
+
+颜色辅助扩展。
+
+常见用途：
+
+- 修改 Alpha
+- 颜色格式转换
+
+## `LayerExtensions`
+
+### 作用
+
+Layer 和 `LayerMask` 辅助。
+
+常见用途：
+
+- Layer 判断
+- Mask 拼装或匹配
+
+## `StringExtensions`
+
+### 作用
+
+字符串辅助扩展。
+
+常见用途：
+
+- 格式化
+- 判空或转换
+- 小型字符串处理
+
+## `VectorExtensions`
+
+### 作用
+
+向量辅助扩展。
+
+常见用途：
+
+- `Vector2 / Vector3` 的便捷计算
+- 小型插值、偏移、取整等辅助
+
+## `RectTransformExtensions`
+
+### 作用
+
+UI 布局扩展。
+
+常见用途：
+
+- 拉伸填满父节点
+- 重置锚点和偏移
+- 快速设置位置、尺寸
+
+这是 UIKit 和样例 UI 中经常依赖的一层。
+
+## `TransformExtensions`
+
+### 作用
+
+`Transform` 辅助扩展。
+
+### 内部类型 `TransformStruct`
+
+用于打包：
+
+- `position`
+- `rotation`
+- `scale`
+
+可用于保存和恢复局部变换状态。
+
+## `GameObjectExtensions`
+
+### 作用
+
+`GameObject` 扩展。
+
+常见用途：
+
+- 组件获取辅助
+- 子节点查找
+- 批量层级处理
+- 激活 / 销毁辅助
+
+### 内部类型 `TransformDepth`
+
+用于某些层级遍历和排序逻辑。
+
+### 内部桥接 `UnityEditorInternalBridge`
+
+用于 Editor 环境下的兼容处理。
+
+## `RenderPipelineCompatibility`
+
+### 作用
+
+处理运行时渲染管线兼容性。
+
+### 类型
+
+- `FrameworkRenderPipelineFamily`
+- `RenderPipelineCompatibility`
+
+它用于帮助框架和样例根据当前渲染管线做兼容判断。
+
+## `CoroutineHandle`
+
+### 作用
+
+`CoroutineExtensions` 中的协程句柄包装。
+
+用于：
+
+- 持有协程引用
+- 停止协程
+- 和取消触发器协作
+
+## `CoroutineCancellationTrigger`
+
+### 作用
+
+协程取消辅助组件。
+
+通常挂在 `GameObject` 上，在生命周期结束时终止相关协程。
+
+## `CoroutineRunner`
+
+### 作用
+
+为非 `MonoBehaviour` 代码提供统一协程承载点。
+
+### 运行方式
+
+- 本质上通常是全局或单例型 Runner
+- 用于桥接旧协程链路和需要在非组件中发起协程的场景
+
+## 设计约束
+
+- 扩展方法必须短小、明确、可预测
+- 不应在扩展层偷偷引入复杂依赖
+- 热路径扩展应尽量避免额外分配
+- 修改对象状态的方法要有明确命名和意图
+
+## 常见误用
+
+- 在扩展层塞入复杂业务逻辑
+- 在高频调用中隐式分配临时集合
+- 把 `CoroutineRunner` 当作通用业务入口而不是底层承载工具
+
+## 测试与验证
+
+- 高频扩展的空值处理
+- `CoroutineRunner` 生命周期
+- `RectTransform` 扩展的常见 UI 场景
+- 渲染管线兼容判断是否符合预期

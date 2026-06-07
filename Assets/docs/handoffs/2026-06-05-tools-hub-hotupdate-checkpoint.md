@@ -23,7 +23,7 @@ This is a temporary handoff commit for environment switching, not a claim that t
 
 Key files:
 
-- `Assets/StellarFramework/Editor/StellarToolsHub/StellarToolsHub-使用手册-Guide.md`
+- `Assets/StellarFramework/Editor/StellarToolsHub/StellarToolsHub-说明文档-Guide.md`
 - `Assets/StellarFramework/Tests/EditMode/FrameworkValidation/QuickStartCatalogPolicyTests.cs`
 
 ### 2. AA workflow tooling was moved under a dedicated Addressables module folder

@@ -1,50 +1,222 @@
 # AudioKit / 音频系统源码文档
 
-## 源码位置
+## 模块职责
 
-- `Runtime/Kits/AudioKit/AudioKit.cs`：静态业务入口。
-- `Runtime/Kits/AudioKit/Core/AudioManager.cs`：运行时音频管理器。
-- `Runtime/Kits/AudioKit/Core/AudioDefines.cs`：Mixer 参数和常量。
-- `Runtime/Kits/AudioKit/Core/AudioLoader/IAudioLoader.cs`：加载器接口。
-- `Runtime/Kits/AudioKit/Core/AudioLoader/DefaultResKitAudioLoader.cs`：默认 ResKit 音频加载器。
+`AudioKit` 提供统一的音频播放入口，内部由 `AudioManager` 负责具体执行。
 
-## 核心类型
+当前模块负责：
 
-- `AudioKit`：外部唯一静态入口。
-- `AudioManager`：继承 `MonoSingleton<AudioManager>`，持有 AudioSource、Mixer 和 loader。
-- `SoundPriority`：音效播放优先级。
-- `IAudioLoader`：音频资源加载和释放接口。
-- `DefaultResKitAudioLoader<TLoader>`：把 ResKit loader 适配成 AudioKit loader。
-- `AudioDefines`：音频分组、Mixer 参数、默认常量。
+- 初始化音频系统
+- 播放和切换 BGM
+- 播放 2D / 3D 音效
+- 音量与开关设置持久化
+- 通过 `IAudioLoader` 对接资源加载后端
 
-## 关键方法
+## 源码文件
 
-- `AudioKit.Init<TLoader>(AudioMixer mixer)`：创建默认 ResKit loader 并初始化 AudioManager。
-- `AudioKit.Init(AudioMixer mixer, IAudioLoader customLoader)`：注入第三方音频 loader。
-- `AudioKit.PlayMusic`：走 AudioManager 的 BGM 通道，支持淡入淡出。
-- `AudioKit.PlaySound` / `PlaySound3D`：分配音效通道并播放。
-- `AudioKit.MusicVolume` / `SoundVolume`：同步到 Mixer 参数。
-- `AudioManager` 内部播放方法：负责 AudioSource 创建、复用和停止。
+- `Runtime/Kits/AudioKit/AudioKit.cs`
+- `Runtime/Kits/AudioKit/Core/AudioManager.cs`
+- `Runtime/Kits/AudioKit/Core/AudioDefines.cs`
+- `Runtime/Kits/AudioKit/Core/AudioLoader/IAudioLoader.cs`
+- `Runtime/Kits/AudioKit/Core/AudioLoader/DefaultResKitAudioLoader.cs`
 
-## 数据流
+## 总体结构
 
-业务调用 `AudioKit`，静态入口转发到 `AudioManager.Instance`。AudioManager 使用 `IAudioLoader` 加载 `AudioClip`，把 clip 填入 BGM 或 SFX AudioSource，播放完成后按策略释放或复用。
+```text
+AudioKit
+└─ AudioManager.Instance
+   ├─ BGM 双 AudioSource
+   ├─ SFX 对象池
+   ├─ IAudioLoader
+   └─ PlayerPrefs 设置
+```
 
-## 依赖关系
+## 调用链
 
-- 依赖 Unity AudioSource 和 AudioMixer。
-- 默认 loader 依赖 ResKit。
-- 继承链依赖 SingletonKit 的 `MonoSingleton<T>`。
-- SettingsKit 通过 `AudioKitSettingsAdapter` 操作音量和开关。
+### 初始化
 
-## 扩展点
+1. 业务调用 `AudioKit.Init(...)`
+2. 创建默认 `IAudioLoader` 或使用自定义 loader
+3. 调用 `AudioManager.Instance.Init(mixer, loader)`
+4. 初始化 BGM 轨道、SFX 池、音量设置
 
-- 接入第三方资源系统：实现 `IAudioLoader` 后调用 `AudioKit.Init(mixer, loader)`。
-- 增加音频分组：扩展 AudioManager 的通道和 Mixer 参数。
-- 接入设置页：通过 SettingsKit adapter 读写 `MusicVolume`、`SoundVolume`、`MusicOn`、`SoundOn`。
+### 播放音效
 
-## 测试入口
+1. 业务调用 `PlaySound` 或 `PlaySound3D`
+2. `AudioManager.PlaySoundInternal(...)`
+3. 校验初始化状态与音效开关
+4. 必要时按优先级淘汰低优先级音效
+5. 异步加载 `AudioClip`
+6. 从对象池分配 `AudioSource`
+7. 播放并登记到 `_activeSounds`
 
-- `AudioKit 音频中心`：检查 Mixer 和参数。
-- `SettingsKit_Playable.unity`：验证音量设置应用。
-- 修改播放策略后，手动验证 BGM 切换、2D 音效、3D 音效和停止逻辑。
+### 播放 BGM
+
+1. 业务调用 `PlayMusic`
+2. 取消旧切换任务
+3. 异步加载新 `AudioClip`
+4. 在双轨 BGM Source 间做淡入淡出切换
+
+## 类型详解
+
+## `IAudioLoader`
+
+### 作用
+
+定义音频资源加载策略接口。
+
+### 方法
+
+- `LoadAudioAsync(string path, CancellationToken cancellationToken)`
+- `Release()`
+
+## `DefaultResKitAudioLoader<TLoader>`
+
+### 作用
+
+基于 `ResKit` 的默认音频加载器实现。
+
+### 字段
+
+- `_resLoader : IResLoader`
+
+### 方法
+
+- 构造函数中分配 `ResKit` loader
+- `LoadAudioAsync(...)` 异步加载 `AudioClip`
+- `Release()` 回收 `ResKit` loader
+
+## `SoundPriority`
+
+### 枚举值
+
+- `Low`
+- `Normal`
+- `High`
+- `Critical`
+
+用于音效池已满时的淘汰策略。
+
+## `AudioManager`
+
+### 作用
+
+音频系统核心实现，负责播放、切换、池化、设置管理。
+
+### 关键字段
+
+- `_audioLoader`
+- `_mixer`
+- `_bgmGroup / _sfxGroup`
+- `_bgmSourceA / _bgmSourceB`
+- `_isUsingSourceA`
+- `_currentBgmPath / _requestedBgmPath`
+- `_sfxPool`
+- `_activeSounds`
+- `_managerCTS`
+- `_bgmSwitchCTS`
+- `_isInitialized`
+- `_musicVolume / _soundVolume`
+- `_isMusicOn / _isSoundOn`
+
+### 内部类型
+
+#### `ActiveSoundInfo`
+
+字段：
+
+- `Source`
+- `FollowTarget`
+- `Priority`
+
+用于登记当前活跃音效。
+
+### 关键方法
+
+#### `Init(...)`
+
+音频系统初始化入口。
+
+职责：
+
+- 校验 `AudioMixer` 和 loader
+- 初始化混音器分组
+- 初始化 BGM 双轨
+- 初始化 SFX 对象池
+- 读取本地设置
+
+#### `PlaySoundInternal(...)`
+
+统一音效入口。
+
+职责：
+
+- 拦截未初始化或已关闭音效
+- 音效池满时尝试淘汰低优先级音效
+- 异步加载音频并播放
+
+#### `TryEvictLowPrioritySound(...)`
+
+从活跃音效中找最低优先级对象，必要时淘汰。
+
+#### `PlayMusic(...)`
+
+统一 BGM 切换入口。
+
+职责：
+
+- 拦截未初始化和非法路径
+- 避免对当前曲目重复切换
+- 创建新的切换任务
+
+#### `PlayMusicAsync(...)`
+
+执行 BGM 资源加载与淡入淡出切换。
+
+#### `StopMusic()`
+
+停止双轨 BGM 并清理当前记录。
+
+#### `SetMusicVolume / SetSoundVolume / SetMusicOn / SetSoundOn`
+
+修改运行时设置并写入 `PlayerPrefs`。
+
+#### `ApplyMixerVolume(...)`
+
+把线性音量转换为分贝值写入 `AudioMixer`。
+
+## `AudioKit`
+
+### 作用
+
+对外静态门面。
+
+### 方法
+
+- `Init<TLoader>(AudioMixer mixer)`
+- `Init(AudioMixer mixer, IAudioLoader customLoader)`
+- `PlayMusic(...)`
+- `StopMusic()`
+- `PlaySound(...)`
+- `PlaySound3D(...)`
+
+### 属性
+
+- `MusicVolume`
+- `SoundVolume`
+- `MusicOn`
+- `SoundOn`
+
+## 设计约束
+
+- 使用前必须先 `Init`
+- 音效加载必须经 `IAudioLoader`
+- 音效池容量有限，超过上限走优先级淘汰
+- BGM 使用双轨淡入淡出
+
+## 常见误用
+
+- 未初始化直接播放
+- 没有提供有效 `AudioMixer`
+- 3D 音效跟随目标为空
+- 切换场景时忘记考虑单例生命周期

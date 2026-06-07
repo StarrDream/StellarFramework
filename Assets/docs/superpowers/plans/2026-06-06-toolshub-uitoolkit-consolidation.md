@@ -62,7 +62,7 @@
 
 **Files:**
 - Modify as needed: `StellarFramework/Tests/EditMode/FrameworkValidation/QuickStartCatalogPolicyTests.cs`
-- Modify as needed: `StellarFramework/Editor/StellarToolsHub/StellarToolsHub-使用手册-Guide.md`
+- Modify as needed: `StellarFramework/Editor/StellarToolsHub/StellarToolsHub-说明文档-Guide.md`
 - Modify as needed: `StellarFramework/Editor/StellarToolsHub/StellarToolsHub-源码文档-Guide.md`
 
 - [ ] Run the targeted framework validation tests for ToolsHub policy coverage.

@@ -1,64 +1,337 @@
 # UIKit / 界面系统源码文档
 
-## 源码位置
+## 模块职责
 
-- `Runtime/Kits/UIKit/UIKit.cs`：UI 门面、面板字典、页面栈、快照和压力测试。
-- `Runtime/Kits/UIKit/UIPanelBase.cs`：面板基类、层级和生命周期。
-- `Runtime/Kits/UIKit/UIKitSettings.cs`：UI 配置资产。
-- `Runtime/Kits/UIKit/IUILoadStrategy.cs`：UI 加载策略接口。
-- `Runtime/Kits/UIKit/ResKitUILoadStrategy.cs`：通过 ResKit 加载 UI Prefab。
-- `Runtime/Kits/UIKit/UIAutoBind.cs`：UI 自动绑定标记。
-- `Editor/StellarToolsHub/Modules/UIKitHubModule.cs`：UIKit 工具入口。
+`UIKit` 负责框架内的面板生命周期和 UI 根节点管理。
 
-## 核心类型
+主要职责：
 
-- `UIKit`：继承 `MonoSingleton<UIKit>`，是 UI 系统唯一运行时入口。
-- `UIKitRuntimeSnapshot`：运行时面板、栈、加载状态快照。
-- `UIPanelBase`：所有 UI 面板基类。
-- `UIPanelDataBase`：面板打开数据基类。
-- `UIPanelBase.PanelLayer`：面板层级。
-- `UIPanelBase.PanelCanvasRole`：Canvas 角色。
-- `IUILoadStrategy`：UI Prefab 加载和释放接口。
-- `ResKitUILoadStrategy`：用 ResKit 作为 UI 加载后端。
-- `UIKitSettings`：UIRoot、面板路径、加载方式、层级等配置。
-- `UIAutoBind`：标记需要生成绑定字段的节点。
+- 初始化 `UIRoot`
+- 管理 `Canvas / Layer`
+- 管理面板缓存
+- 管理异步加载中任务
+- 打开、关闭、预加载面板
+- 管理面板栈和全屏遮挡关系
 
-## 关键方法
+## 源码文件
 
-- `UIKit.InitAsync()`：加载 settings、创建或查找 UIRoot、初始化加载策略和层级。
-- `UIKit.Open<TPanel>` / `OpenAsync<TPanel>`：加载或复用面板并调用生命周期。
-- `UIKit.Push<TPanel>` / `PushAsync<TPanel>`：打开页面并维护页面栈。
-- `UIKit.Pop` / `PopTo<TPanel>` / `ClearStack`：栈导航。
-- `UIKit.Close<TPanel>` / `ClosePanel(Type)` / `CloseAllPanels`：关闭面板。
-- `UIKit.DestroyAllPanels`：销毁所有面板实例并清空状态。
-- `UIKit.Preload<TPanel>` / `PreloadAsync<TPanel>`：提前加载面板但不显示。
-- `UIKit.TakeSnapshot`：生成审计快照。
-- `UIPanelBase.OnOpen` / `OnClose` / `OnPause` / `OnResume`：面板生命周期。
-- `UIPanelBase.TryGetPanelData<T>`：安全读取面板数据。
+- `Runtime/Kits/UIKit/UIKit.cs`
+- `Runtime/Kits/UIKit/UIPanelBase.cs`
+- `Runtime/Kits/UIKit/LoadStrategy/IUILoadStrategy.cs`
+- `Runtime/Kits/UIKit/LoadStrategy/ResKitUILoadStrategy.cs`
+- `Runtime/Kits/UIKit/AutoBind/UIAutoBind.cs`
+- `Runtime/Kits/UIKit/Editor/UIKitEditor.cs`
+- `Runtime/Kits/UIKit/Editor/UIAutoBindEditor.cs`
 
-## 数据流
+## 总体结构
 
-启动时，`UIKit.InitAsync` 读取 `UIKitSettings`，准备 UIRoot、层级 Canvas 和 `IUILoadStrategy`。业务调用 `UIKit.OpenAsync<TPanel>` 时，UIKit 按 panel 类型查找配置路径，通过加载策略加载 Prefab，实例化到对应 layer，调用面板 `OnOpen(data)`。页面栈调用 `PushAsync` 时，新页面进入栈顶；如果新页面是 Full Screen，下层面板会 `OnPause` 并隐藏。`Pop` 时关闭栈顶并恢复下层页面。
+```text
+UIKit
+├─ RootCanvas / StaticCanvas / DynamicCanvas
+├─ _layers
+├─ _roleLayers
+├─ _panelCache
+├─ _panelNames
+├─ _panelLoadingTasks
+├─ _panelStack
+└─ _loadStrategy
 
-## 依赖关系
+UIPanelBase
+├─ PanelLayer
+├─ PanelCanvasRole
+└─ 面板生命周期
+```
 
-- 依赖 SingletonKit 的 `MonoSingleton<UIKit>`。
-- 默认加载策略依赖 ResKit。
-- 热更 UI 依赖 Addressables 或其他 ResKit 后端。
-- UI 自动绑定和工具侧生成依赖 ToolsHub 的 UIKit 模块。
-- 样例资源依赖 Resources 中的 UIRoot 和 Samples 生成物。
+## 初始化调用链
 
-## 扩展点
+1. `Configure(loadStrategy)` 或 `Configure(settings)`
+2. `Init()` 或 `InitAsync()`
+3. `EnsureDefaultStrategy()`
+4. 加载 `UIRoot`
+5. `SetupUIRoot(...)`
+6. `BuildLayerMap(...)`
+7. 记录 `RootCanvas / StaticCanvas / DynamicCanvas`
+8. `RegisterStackCallbacks()`
 
-- 新增加载后端：实现 `IUILoadStrategy`，并在 `UIKitSettings` 或初始化逻辑中接入。
-- 新增面板：继承 `UIPanelBase`，配置路径，按需定义 `UIPanelDataBase`。
-- 新增层级：扩展 `PanelLayer` 和 UIRoot 层级创建逻辑。
-- 新增绑定生成规则：扩展 `UIAutoBind` 和 ToolsHub UIKit 工具。
-- 新增运行时审计：扩展 `UIKitRuntimeSnapshot`，ToolsHub 可读取快照展示。
+## 面板打开调用链
 
-## 测试入口
+1. `OpenPanel<T>()` 或 `OpenPanelAsync<T>()`
+2. `GetOrLoadPanelInternalSync/Async<T>()`
+3. 若无缓存则 `CreatePanelSync/Async<T>()`
+4. `CreatePanelFromPrefab<T>()`
+5. 写入 `_panelCache` 和 `_panelNames`
+6. `OpenExistingPanel(...)`
+7. 调用面板 `OnOpen(data)`
 
-- `UIKit_Playable.unity`：UI 打开、关闭、页面栈和样例面板。
-- 外置验证区的 `FrameworkValidation_Playable.unity`：集中验证 UI 入口。
-- ToolsHub `UIKit 工具`：绑定生成和样例修复。
-- 修改加载、关闭或栈逻辑后，至少验证 OpenAsync、PushAsync、Pop、Full Screen 暂停恢复、DestroyAllPanels。
+## 堆栈调用链
+
+1. `Push<T>()` 或 `PushAsync<T>()`
+2. `PushToStack(panel)`
+3. `EvaluateStackVisibility()`
+4. 若上层存在全屏面板，则下层被暂停/隐藏
+5. `Pop()` / `PopTo<T>()` / `ClearStack()` 通过关闭面板驱动栈变化
+
+## 类型详解
+
+## `UIKitRuntimeSnapshot`
+
+### 作用
+
+用于输出当前 UIKit 运行时状态快照。
+
+### 字段
+
+- `IsInitialized`
+- `IsInitializing`
+- `IsDisposed`
+- `HasRootCanvas`
+- `HasStaticCanvas`
+- `HasDynamicCanvas`
+- `LoadStrategyName`
+- `CachedPanels`
+- `ActivePanels`
+- `LoadingPanels`
+
+### 属性
+
+- `CachedPanelCount`
+- `ActivePanelCount`
+- `LoadingPanelCount`
+
+### 方法
+
+- `Empty(reason)`
+- `ToMultilineString()`
+- `ToString()`
+
+## `UIKit`
+
+### 作用
+
+UI 系统核心管理器，继承 `MonoSingleton<UIKit>`。
+
+### 关键字段
+
+- `_loadStrategy`
+  当前 UI 加载策略。
+- `_settings`
+  UI 运行时配置。
+- `_isInitialized`
+- `_isInitializing`
+- `_isDisposed`
+- `_layers`
+  默认层级映射。
+- `_roleLayers`
+  按 `Static / Dynamic` 区分的层级映射。
+- `_panelCache`
+  面板类型到面板实例缓存。
+- `_panelNames`
+  面板类型到 prefab 名称映射。
+- `_panelLoadingTasks`
+  面板类型到加载中任务映射。
+- `_panelStack`
+  当前栈式打开的面板列表。
+- `_destroyCts`
+  在对象销毁时取消异步任务。
+- `_stackCallbacksRegistered`
+  是否已注册全局栈回调。
+
+### 关键属性
+
+- `RootCanvas`
+- `StaticCanvas`
+- `DynamicCanvas`
+- `RootScaler`
+- `UICamera`
+
+### 关键方法
+
+#### `Configure(IUILoadStrategy loadStrategy)`
+
+显式注入加载策略。
+
+约束：
+
+- 已初始化或初始化中时禁止调用
+- `loadStrategy` 不能为空
+
+#### `Configure(UIKitSettings settings)`
+
+用配置构造默认 `ResKitUILoadStrategy`。
+
+#### `Init()`
+
+同步初始化入口。
+
+职责：
+
+- 检查状态
+- 确保加载策略存在
+- 同步加载 `UIRoot`
+- 校验 `UIRoot` 结构
+- 建立层级映射
+
+#### `InitAsync()`
+
+异步初始化入口，和 `Init()` 逻辑一致，只是 UIRoot 走异步加载。
+
+#### `EnsureDefaultStrategy()`
+
+当外部没有手动配置策略时，自动从 `UIKitSettings` 创建默认策略。
+
+#### `SetupUIRoot(...)`
+
+职责：
+
+- 实例化 `UIRoot`
+- 提取 `Canvas / CanvasScaler / Camera`
+- 构建 `Dynamic / Static` 层映射
+- 设置 `DontDestroyOnLoad`
+
+#### `BuildLayerMap(...)`
+
+构建 `PanelLayer -> Transform` 映射。
+
+#### `SetResolution(...)`
+
+调整 `CanvasScaler` 参考分辨率。
+
+## 静态 API
+
+### 打开 / 关闭
+
+- `Open<TPanel>(...)`
+- `OpenAsync<TPanel>(...)`
+- `Close<TPanel>()`
+
+### 预加载
+
+- `Preload<TPanel>()`
+- `PreloadAsync<TPanel>()`
+
+### 栈操作
+
+- `Push<TPanel>(...)`
+- `PushAsync<TPanel>(...)`
+- `Pop()`
+- `PopTo<TPanel>()`
+- `ClearStack()`
+
+### 诊断
+
+- `TakeSnapshot()`
+- `LogSnapshot()`
+- `StressOpenCloseAsync<TPanel>(...)`
+
+## 面板创建和缓存
+
+### `OpenPanelInternalSync/Async<TPanel>()`
+
+在确保 UIKit 就绪后：
+
+- 从缓存获取面板
+- 或创建新面板
+- 再交给 `OpenExistingPanel(...)`
+
+### `OpenExistingPanel(...)`
+
+职责：
+
+- 激活面板
+- 调整层级顺序
+- 恢复 `CanvasGroup`
+- 调用 `OnOpen(data)`
+
+### `CreatePanelSync<TPanel>() / CreatePanelAsyncInternal<TPanel>()`
+
+职责：
+
+- 通过 `_loadStrategy` 加载 prefab
+- 交给 `CreatePanelFromPrefab<TPanel>()`
+
+### `CreatePanelFromPrefab<TPanel>()`
+
+职责：
+
+- 实例化 prefab
+- 获取 `UIPanelBase` 组件
+- 挂到正确 Layer
+- 设置 `RectTransform`
+- 调用 `OnInit()`
+- 写入 `_panelCache` 和 `_panelNames`
+
+## 面板栈
+
+### `PushToStack(...)`
+
+- 把面板放入栈顶
+- 若已存在则先移除旧位置
+- 重新评估可见性
+
+### `RemoveFromStack(...)`
+
+- 从栈中移除指定面板
+- 重新评估可见性
+
+### `TryPop()`
+
+- 关闭栈顶面板
+
+### `TryPopTo<TPanel>()`
+
+- 逐步关闭直到目标面板成为栈顶
+
+### `ClearStackInternal()`
+
+- 关闭全部栈面板
+
+### `EvaluateStackVisibility()`
+
+找到最高层全屏面板，然后决定哪些面板需要：
+
+- `OnPause()`
+- `OnResume()`
+- `CanvasGroup.alpha = 0/1`
+- `interactable`
+- `blocksRaycasts`
+
+## `IUILoadStrategy`
+
+### 作用
+
+抽象 UIKit 对 UIRoot 和面板 prefab 的加载方式。
+
+至少承担：
+
+- 加载 UIRoot
+- 加载面板 prefab
+- 释放缓存资源
+- 声明是否支持同步加载
+
+## `ResKitUILoadStrategy`
+
+### 作用
+
+默认 UIKit 加载策略，使用 `ResKit` 和 `UIKitSettings` 组织资源路径。
+
+## 设计约束
+
+- UIKit 必须先初始化
+- 加载中的同类型面板必须去重
+- 同步打开依赖当前策略支持同步加载
+- 栈逻辑只作用于显式 Push 的面板
+
+## 常见误用
+
+- `InitAsync()` 前就直接打开面板
+- prefab 不包含目标 `UIPanelBase` 组件
+- UIRoot 结构不符合预期层级
+- 在栈逻辑之外手动改面板可见性，导致 pause/resume 状态紊乱
+
+## 测试建议
+
+- UIRoot 结构校验
+- 同步/异步打开
+- 加载去重
+- 栈顶全屏遮挡逻辑
+- Snapshot 输出

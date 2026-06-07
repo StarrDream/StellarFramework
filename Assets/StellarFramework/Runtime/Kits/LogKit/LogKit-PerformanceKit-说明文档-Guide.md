@@ -1,31 +1,43 @@
-# LogKit / PerformanceKit 说明文档
+# LogKit / 日志与性能说明文档
 
-LogKit 提供统一日志入口，PerformanceKit 提供简单性能测量、内存日志和 GC 触发工具。它们适合框架和样例调试，不替代专业 Profiler。
+`LogKit` 提供统一日志入口，`PerformanceUtil` 提供开发期性能和内存辅助工具。
 
-## 入口 API
+## 核心入口
 
-- `LogKit.SetLogger(logger)`：替换日志实现。
-- `LogKit.Log(...)`、`LogWarning(...)`、`LogError(...)`
-- `LogKit.LogException(exception)`
-- `LogKit.Assert(condition, message)`
-- `PerformanceUtil.MeasureExecutionTime(action, name)`
+- `LogKit.SetLogger(...)`
+- `LogKit.Log(...)`
+- `LogKit.LogWarning(...)`
+- `LogKit.LogError(...)`
+- `LogKit.LogException(...)`
+- `LogKit.Assert(...)`
+- `PerformanceUtil.MeasureExecutionTime(...)`
 - `PerformanceUtil.LogMemoryUsage()`
 - `PerformanceUtil.ForceGarbageCollection()`
 
-## 使用模板
+## 使用建议
+
+- 常规运行日志通过 `Log / LogWarning`
+- 错误分支用 `LogError`
+- 开发期断言用 `Assert`
+- 性能测量只作为轻量辅助，不代替 Profiler
+
+## 自定义日志后端
+
+如需写入文件、接入远端日志系统或项目自有日志系统，实现 `ILogger` 后调用：
 
 ```csharp
-LogKit.Log("加载完成");
-LogKit.AssertNotNull(config, "配置不能为空");
-
-PerformanceUtil.MeasureExecutionTime(() =>
-{
-    BuildCache();
-}, "BuildCache");
+LogKit.SetLogger(customLogger);
 ```
 
 ## 常见问题
 
-- 日志想写入文件：实现 `ILogger` 并 `SetLogger`。
-- Assert 没阻止流程：Assert 是调试辅助，业务仍需自己 return 或 throw。
-- 性能测量不准：用 Unity Profiler 做最终判断。
+- 想输出到文件
+  自定义 `ILogger`。
+- Assert 没阻断流程
+  Assert 是开发期辅助，不代替显式 `return / throw`。
+- 性能数据不够准
+  用 Unity Profiler 做最终分析。
+
+## 相关文档
+
+- [LogKit 源码文档](LogKit-PerformanceKit-源码文档-Guide.md)
