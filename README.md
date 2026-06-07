@@ -40,6 +40,22 @@ StellarFramework 是一个 Unity 基础开发框架，提供架构分层、UI、
 - [快速开始](Assets/StellarFramework/快速开始.md)
 - [Tools Hub 使用手册](Assets/StellarFramework/Editor/StellarToolsHub/StellarToolsHub-使用手册-Guide.md)
 
+## 架构
+
+StellarFramework 以 `Architecture` 作为基础架构层，核心组织方式是：
+
+- `Model` 负责状态与数据
+- `Service` 负责业务逻辑与系统能力
+- `View` 负责表现层交互
+
+在这套基础分层之上，`UIKit`、`ResKit`、`HotUpdateKit`、`SettingsKit` 等 Kit 作为功能模块接入项目运行时；`Tools Hub` 和各类 Editor Modules 负责样例构建、资源工作流、热更新配置、代码生成和调试辅助。
+
+整体上可以理解为三层：
+
+- `Architecture`：项目主架构
+- `Runtime Kits`：功能模块
+- `Editor Modules / Tools Hub`：编辑器工作流与辅助工具
+
 ## 目录结构
 
 ```text
