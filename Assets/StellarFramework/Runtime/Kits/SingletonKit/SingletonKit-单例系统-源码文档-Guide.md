@@ -210,7 +210,8 @@ SingletonFactory
 行为：
 
 - 纯 C# 走 `PureSingletonCreators`
-- `MonoBehaviour` 走预制体实例化或空对象创建
+- `MonoBehaviour` 且 `ResourcePath` 为空时创建空 `GameObject` 并 `AddComponent`
+- `MonoBehaviour` 且 `ResourcePath` 非空时通过 `Resources.Load<GameObject>(ResourcePath)` 加载 prefab 并实例化
 - 可选择挂到 `[SingletonContainer]`
 
 ## 设计约束
