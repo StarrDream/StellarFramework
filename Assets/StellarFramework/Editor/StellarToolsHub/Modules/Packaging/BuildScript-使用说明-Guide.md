@@ -3,6 +3,9 @@
 `BuildScript` 提供 Unity batchmode 命令行构建入口，供本地脚本、CI/CD 自动化出包使用。
 无需打开编辑器点 ToolsHub，一条命令即可构建指定平台并输出到指定目录。
 
+> ✅ 已实测验证：StandaloneWindows64 构建成功（约 83 秒，产物 926.9MB）。
+> 下方"注意事项"中的坑均为实测踩坑记录。
+
 ## 位置
 
 `Assets/StellarFramework/Editor/StellarToolsHub/Modules/Packaging/BuildScript.cs`
@@ -10,9 +13,9 @@
 ## 命令行用法
 
 ```bash
-# Windows (PowerShell)
+# Windows (PowerShell) — 推荐用 cmd 批处理（见注意事项 2）
 & "C:\Program Files\Unity\Hub\Editor\2022.3.62f3c1\Editor\Unity.exe" `
-  -batchmode -quit -nographics -projectPath "C:\GitProjects\StellarFramework" `
+  -batchmode -quit -projectPath "C:\GitProjects\StellarFramework" `
   -executeMethod StellarFramework.Build.BuildScript.PerformBuild `
   -buildTarget StandaloneWindows64 `
   -output BuildArtifacts/StandaloneWindows64 `
@@ -21,13 +24,18 @@
 
 # Android
 & "C:\Program Files\Unity\Hub\Editor\2022.3.62f3c1\Editor\Unity.exe" `
-  -batchmode -quit -nographics -projectPath "C:\GitProjects\StellarFramework" `
+  -batchmode -quit -projectPath "C:\GitProjects\StellarFramework" `
   -executeMethod StellarFramework.Build.BuildScript.PerformBuild `
   -buildTarget Android `
   -output BuildArtifacts/Android `
   -version 1.2.3 `
   -logFile build.log
 ```
+
+> ⚠️ **重要**：实测发现 PowerShell `Start-Process -ArgumentList` 数组传递会**吞掉 `-executeMethod` 之后的自定义参数**，
+> 导致 executeMethod 不执行（1 秒退出、无构建）。可靠做法见下方"注意事项 2"。已实测可行的方式：
+> 用环境变量传自定义参数（`UNITY_BUILD_TARGET` / `UNITY_OUTPUT_DIR`），命令行只保留 Unity 标准参数。
+> 或在 cmd 批处理中确保所有 Unity 参数在自定义参数之前、且执行方式为直接调用。
 
 ## 参数说明
 
@@ -73,6 +81,36 @@
 
 ## 注意事项
 
-- `-nographics` 在 Windows 上可用；Android 构建需要 Android SDK/NDK 已配置（Unity Hub 安装时勾选）。
-- 构建前建议先运行一次样例构建器（ToolsHub → Quick Start）确保场景与资源完整。
+以下均为实测踩坑记录：
+
+1. **`-nographics` 在 Windows 上会导致 batchmode 只输出版本号退出**。Windows 构建**不要加** `-nographics`（它主要给 Linux CI 用）。
+2. **参数传递**：实测发现以下方式会导致 `-executeMethod` 之后的自定义参数被吞、构建不执行（1 秒退出）：
+   - PowerShell `Start-Process -ArgumentList <数组>`（数组拼接时吞参数）
+   - 自定义参数（`-buildTarget` 等）与 Unity 参数混排时
+   
+   可靠做法（已实测）：
+   - **方式 A（推荐）**：命令行只保留 Unity 标准参数，自定义参数用环境变量：
+     ```bash
+     $env:UNITY_BUILD_TARGET = "StandaloneWindows64"
+     $env:UNITY_OUTPUT_DIR = "BuildArtifacts/StandaloneWindows64"
+     & "C:\Program Files\Unity\Hub\Editor\2022.3.62f3c1\Editor\Unity.exe" `
+       -batchmode -quit -projectPath "C:\GitProjects\StellarFramework" `
+       -executeMethod StellarFramework.Build.BuildScript.PerformBuild `
+       -logFile build.log
+     ```
+   - **方式 B**：cmd 批处理，Unity 参数在前、自定义参数在后，直接调用（实测可行）：
+     ```cmd
+     @echo off
+     cd /d C:\GitProjects\StellarFramework
+     "C:\Program Files\Unity\Hub\Editor\2022.3.62f3c1\Editor\Unity.exe" -batchmode -quit ^
+       -projectPath "C:\GitProjects\StellarFramework" ^
+       -executeMethod StellarFramework.Build.BuildScript.PerformBuild ^
+       -buildTarget StandaloneWindows64 ^
+       -output C:\GitProjects\StellarFramework\BuildArtifacts\StandaloneWindows64 ^
+       -version 1.0.0 ^
+       -logFile C:\GitProjects\StellarFramework\Logs\cli-build.log
+     ```
+3. **构建前需关闭已打开该项目的 Unity 编辑器**（batchmode 与编辑器争用项目锁），并删除残留的 `Temp/UnityLockfile`（强制杀进程后可能残留，导致 batchmode 拒绝打开项目）。
+4. Android 构建需要 Android SDK/NDK 已配置（Unity Hub 安装时勾选）。
+5. 构建前建议先运行一次样例构建器（ToolsHub → Quick Start）确保场景与资源完整。
 - 热更新产物（`HotUpdate.dll.bytes` / AA bundles）需另行通过 ToolsHub 的 `AA 配置与发布` 生成，`BuildScript` 不负责热更产物。
