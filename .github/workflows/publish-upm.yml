@@ -60,6 +60,10 @@ jobs:
               find "$OUT/$F" -type d -name "Tests" -prune -exec rm -rf {} +
             fi
           done
+          # UPM 包 asmdef 必须用程序集名引用，不能用 GUID：把 UniTask GUID 替换为程序集名
+          find "$OUT" -name "*.asmdef" -print0 | while IFS= read -r -d '' f; do
+            sed -i 's/GUID:f51ebe6a0ceec4240a699833d6309b23/UniTask/g; s/GUID:5c01796d064528144a599661eaab93a6/UniTask.Linq/g' "$f"
+          done
           # package.json
           cat > "$OUT/package.json" <<EOF
           {
