@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using UnityEditor;
 using UnityEngine;
@@ -691,7 +692,8 @@ namespace StellarFramework.Editor.Modules
 
         public override void OnGUI()
         {
-            EditorGUILayout.HelpBox($"在 {ProjectRoot} 下创建项目初始化目录结构。已存在的目录会跳过，不会覆盖任何内容。",
+            EditorGUILayout.HelpBox(
+                $"在 {ProjectRoot} 下创建项目初始化目录结构，并生成业务入口模板（GameApp / GameEntry）。\n已存在的目录或脚本会跳过，不会覆盖任何内容。",
                 MessageType.Info);
 
             if (PrimaryButton("创建初始化目录"))
@@ -720,10 +722,89 @@ namespace StellarFramework.Editor.Modules
                 created++;
             }
 
+            // 生成业务入口模板（已存在则跳过，绝不覆盖用户代码）。
+            WriteTemplateFileIfMissing(ProjectRoot + "/Scripts/GameApp.cs", GameAppTemplate);
+            WriteTemplateFileIfMissing(ProjectRoot + "/Scripts/GameEntry.cs", GameEntryTemplate);
+
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
             Debug.Log($"[创建初始化目录] 完成，新增 {created} 个目录，位置：{ProjectRoot}");
-            Window.ShowNotification(new GUIContent($"已创建 {created} 个目录"));
+            Window.ShowNotification(new GUIContent($"已创建 {created} 个目录 + 业务入口模板"));
         }
+
+        private static void WriteTemplateFileIfMissing(string assetPath, string content)
+        {
+            if (File.Exists(ToAbsoluteProjectPath(assetPath)))
+            {
+                return;
+            }
+
+            File.WriteAllText(ToAbsoluteProjectPath(assetPath), content);
+        }
+
+        private static string ToAbsoluteProjectPath(string assetRelativePath)
+        {
+            string projectRoot = Directory.GetParent(Application.dataPath)?.FullName ?? Application.dataPath;
+            return Path.Combine(projectRoot, assetRelativePath.Replace('/', Path.DirectorySeparatorChar));
+        }
+
+        // 模板内容暴露给测试验证（GameEntryPolicyTests）。
+        public const string GameAppTemplate =
+            "using StellarFramework;\n" +
+            "\n" +
+            "// 你的游戏架构入口\n" +
+            "public class GameApp : Architecture<GameApp>\n" +
+            "{\n" +
+            "    protected override void InitModules()\n" +
+            "    {\n" +
+            "    }\n" +
+            "}\n";
+
+        public const string GameEntryTemplate =
+            "using UnityEngine;\n" +
+            "\n" +
+            "/// <summary>\n" +
+            "/// 你的游戏入口\n" +
+            "/// 我负责拉起全局业务架构，不在这里承载业务逻辑。\n" +
+            "/// </summary>\n" +
+            "public class GameEntry : MonoBehaviour\n" +
+            "{\n" +
+            "    private bool _isStarted;\n" +
+            "\n" +
+            "    private void Start()\n" +
+            "    {\n" +
+            "        if (_isStarted)\n" +
+            "        {\n" +
+            "            Debug.LogWarning($\"[GameEntry] 重复启动已忽略, TriggerObject={gameObject.name}\");\n" +
+            "            return;\n" +
+            "        }\n" +
+            "\n" +
+            "        _isStarted = true;\n" +
+            "\n" +
+            "        if (GameApp.Interface == null)\n" +
+            "        {\n" +
+            "            Debug.LogError($\"[GameEntry] 启动失败: GameApp.Interface 为空, TriggerObject={gameObject.name}\");\n" +
+            "            return;\n" +
+            "        }\n" +
+            "\n" +
+            "        GameApp.Interface.Init();\n" +
+            "        Debug.Log($\"[GameEntry] 业务架构初始化完成, TriggerObject={gameObject.name}\");\n" +
+            "    }\n" +
+            "\n" +
+            "    private void OnApplicationQuit()\n" +
+            "    {\n" +
+            "        if (!_isStarted)\n" +
+            "        {\n" +
+            "            return;\n" +
+            "        }\n" +
+            "\n" +
+            "        if (GameApp.Interface != null && GameApp.Interface.State == StellarFramework.ArchitectureState.Initialized)\n" +
+            "        {\n" +
+            "            GameApp.Interface.Dispose();\n" +
+            "        }\n" +
+            "\n" +
+            "        _isStarted = false;\n" +
+            "    }\n" +
+            "}\n";
     }
 }
