@@ -726,26 +726,4 @@ namespace StellarFramework.Editor.Modules
             Window.ShowNotification(new GUIContent($"已创建 {created} 个目录"));
         }
     }
-
-    [StellarTool("导出 UPM 包", "框架核心", 31)]
-    public class UpmExportModule : ToolModule
-    {
-        public override string Icon => "d_PackageManager";
-        public override string Description => "导出标准 UPM 包 (com.stellar.framework)，供发布到 GitHub upm 分支后由开发者安装/更新。";
-
-        public override void OnGUI()
-        {
-            EditorGUILayout.HelpBox(
-                $"导出 UPM 包（{StellarFrameworkUPMExporter.PackageName} v{StellarFrameworkUPMExporter.PackageVersion}）。\n" +
-                "镜像 Runtime + Editor 到 BuildArtifacts/UpmPackage，组装 package.json。\n" +
-                "发布后开发者通过 Package Manager 一键安装/更新。",
-                MessageType.Info);
-
-            if (PrimaryButton("导出 UPM 包"))
-            {
-                StellarFrameworkUPMExporter.ExportUPM();
-                Window.ShowNotification(new GUIContent("UPM 包已导出"));
-            }
-        }
-    }
 }
