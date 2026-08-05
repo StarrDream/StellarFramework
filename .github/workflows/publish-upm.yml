@@ -50,13 +50,11 @@ jobs:
           set -e
           OUT="upm-out/com.stellar.framework"
           mkdir -p "$OUT"
-          # 镜像 Runtime / Editor（排除 Samples、Tests）
+          # 镜像 Runtime / Editor（排除 Samples、Tests；保留所有 .meta 使 GUID 稳定）
           for F in Runtime Editor; do
             if [ -d "Assets/StellarFramework/$F" ]; then
               mkdir -p "$OUT/$F"
               cp -r "Assets/StellarFramework/$F/." "$OUT/$F/"
-              # 删除 .meta，但保留 asmdef.meta（UPM PackageCache 中无 meta 的 asmdef 会被忽略）
-              find "$OUT/$F" -name "*.meta" ! -name "*.asmdef.meta" -delete
               find "$OUT/$F" -type d -name "Samples" -prune -exec rm -rf {} +
               find "$OUT/$F" -type d -name "Tests" -prune -exec rm -rf {} +
             fi

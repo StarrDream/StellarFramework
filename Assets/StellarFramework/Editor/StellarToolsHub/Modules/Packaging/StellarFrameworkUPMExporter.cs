@@ -112,18 +112,10 @@ namespace StellarFramework.Editor.Modules
 
                 string destFile = Path.Combine(destDir, relPath);
 
-                // UPM 包在不可变的 PackageCache 中，asmdef 没有 .meta 会被忽略（导致程序集不编译）。
-                // 因此 asmdef 的 .meta 必须保留（含 GUID，供包内/跨包程序集互引用）。
-                // 其余资源的 .meta 可删除。
-                bool isAsmdef = relPath.EndsWith(".asmdef", System.StringComparison.OrdinalIgnoreCase);
-                bool isAsmdefMeta = relPath.EndsWith(".asmdef.meta", System.StringComparison.OrdinalIgnoreCase);
-
-                if (fileName.EndsWith(".meta", System.StringComparison.OrdinalIgnoreCase) && !isAsmdefMeta)
-                {
-                    continue;
-                }
-
-                if (isAsmdef)
+                // UPM 包所有文件的 .meta 都必须保留（GUID 稳定，避免 .cs/.asset 等资源引用断裂；
+                // PackageCache 是不可变文件夹，缺 meta 的 asmdef 会被忽略导致程序集不编译）。
+                // 仅 asmdef 内容做 GUID->程序集名替换（UPM 包内引用必须用程序集名）。
+                if (relPath.EndsWith(".asmdef", System.StringComparison.OrdinalIgnoreCase))
                 {
                     //   f51ebe6a = UniTask, 5c01796d = UniTask.Linq, ee69db06 = StellarFramework.Runtime
                     string text = File.ReadAllText(file);
