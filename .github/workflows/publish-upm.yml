@@ -21,7 +21,9 @@ jobs:
         with:
           fetch-depth: 0      # 需要完整历史以创建/更新 upm 分支
 
-      # 提取 tag 名作为版本号（v1.0.0 -> 1.0.0）
+      # 提取版本号（v1.0.0 -> 1.0.0）。
+      # 手动触发(workflow_dispatch)时 ref_type 是 branch，此时从 UPMExporter 的 PackageVersion 常量读取。
+      # 注意：Windows bash 不支持 grep -P 的 \K，改用 sed 提取，兼容性好。
       - name: Read version
         id: version
         shell: bash
@@ -29,11 +31,17 @@ jobs:
           if [ "${{ github.ref_type }}" = "tag" ]; then
             TAG="${{ github.ref_name }}"
           else
-            TAG="v$(grep -oP '\"version\": \"\K[^\"]+' Assets/StellarFramework/Editor/StellarToolsHub/Modules/Packaging/StellarFrameworkUPMExporter.cs | head -1)"
+            VER=$(sed -n 's/.*PackageVersion = "\([^"]*\)".*/\1/p' Assets/StellarFramework/Editor/StellarToolsHub/Modules/Packaging/StellarFrameworkUPMExporter.cs | head -1)
+            if [ -z "$VER" ]; then
+              echo "::error::Could not read PackageVersion from StellarFrameworkUPMExporter.cs"
+              exit 1
+            fi
+            TAG="v$VER"
           fi
           VERSION="${TAG#v}"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "Read version: $TAG"
 
       # 组装 UPM 镜像目录（不依赖 Unity，纯 shell 复制 Runtime/Editor + 写 package.json）
       - name: Assemble UPM package
