@@ -19,7 +19,6 @@ namespace StellarFrameworkVerification.Editor
 
         private string _playerRootDirectory = string.Empty;
         private string _lastSummary = "等待执行。";
-        private bool _hasVerificationFailure;
         private Vector2 _scroll;
         private readonly List<string> _details = new List<string>();
 
@@ -286,7 +285,6 @@ namespace StellarFrameworkVerification.Editor
         private void SetFailure(string summary, string extra = null)
         {
             _lastSummary = summary;
-            _hasVerificationFailure = true;
             if (!string.IsNullOrWhiteSpace(extra))
             {
                 _details.Add(extra);

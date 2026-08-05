@@ -661,4 +661,69 @@ namespace StellarFramework.Editor.Modules
         public override void OnDisable() => _panel.Deactivate();
         public override void OnSelectionChange() => _panel.HandleSelectionChange();
     }
+
+    // =========================================================
+    // 初始化目录
+    // =========================================================
+
+    [StellarTool("创建初始化目录", "框架核心", 30)]
+    public class InitProjectFoldersModule : ToolModule
+    {
+        public override string Icon => "d_Folder Icon";
+        public override string Description => "在 Assets/_Project 下创建项目初始化目录结构。";
+
+        private const string ProjectRoot = "Assets/_Project";
+
+        private static readonly string[] Folders =
+        {
+            "Art",
+            "Audio",
+            "Configs",
+            "Prefabs",
+            "Scenes",
+            "Scripts",
+            "Addressables",
+            "Resources",
+            "Tests",
+            "Tools",
+            "ThirdParty"
+        };
+
+        public override void OnGUI()
+        {
+            EditorGUILayout.HelpBox($"在 {ProjectRoot} 下创建项目初始化目录结构。已存在的目录会跳过，不会覆盖任何内容。",
+                MessageType.Info);
+
+            if (PrimaryButton("创建初始化目录"))
+            {
+                CreateFolders();
+            }
+        }
+
+        private void CreateFolders()
+        {
+            if (!AssetDatabase.IsValidFolder(ProjectRoot))
+            {
+                AssetDatabase.CreateFolder("Assets", "_Project");
+            }
+
+            int created = 0;
+            for (int i = 0; i < Folders.Length; i++)
+            {
+                string folderPath = ProjectRoot + "/" + Folders[i];
+                if (AssetDatabase.IsValidFolder(folderPath))
+                {
+                    continue;
+                }
+
+                AssetDatabase.CreateFolder(ProjectRoot, Folders[i]);
+                created++;
+            }
+
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+            Debug.Log($"[创建初始化目录] 完成，新增 {created} 个目录，位置：{ProjectRoot}");
+            Window.ShowNotification(new GUIContent($"已创建 {created} 个目录"));
+        }
+    }
 }
