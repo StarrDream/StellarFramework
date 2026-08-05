@@ -1,0 +1,26 @@
+{
+    "name": "StellarFramework.PlayMode.Tests",
+    "rootNamespace": "",
+    "references": [
+        "StellarFramework.EventKit",
+        "StellarFramework.BindableKit",
+        "StellarFramework.UIKit",
+        "StellarFramework.ResKit",
+        "StellarFramework.PoolKit",
+        "StellarFramework.SingletonKit",
+        "StellarFramework.Samples.Runtime",
+        "GUID:f51ebe6a0ceec4240a699833d6309b23"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "optionalUnityReferences": [
+        "TestAssemblies"
+    ],
+    "noEngineReferences": false
+}

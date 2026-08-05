@@ -1,0 +1,49 @@
+name: CI Build
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build (${{ matrix.target }})
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [ StandaloneWindows64, Android ]
+    env:
+      UNITY_EDITOR_VERSION: 2022.3.62f3c1
+      BUILD_OUTPUT: BuildArtifacts/${{ matrix.target }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          lfs: false
+
+      # 使用 game-ci/unity-builder 自动安装指定版本 Unity。
+      # 注意：需要仓库配置 UNITY_LICENSE（免费的个人激活 .ulf）。
+      # 本地构建（无 license）请参考 BuildScript-使用说明-Guide.md 中的命令行方式。
+      - name: Unity Build (${{ matrix.target }})
+        uses: game-ci/unity-builder@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+        with:
+          unityVersion: ${{ env.UNITY_EDITOR_VERSION }}
+          targetPlatform: ${{ matrix.target }}
+          buildMethod: StellarFramework.Build.BuildScript.PerformBuild
+          projectPath: .
+          versioning: Semantic
+
+      - name: Upload Artifact (${{ matrix.target }})
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-${{ matrix.target }}
+          path: build/${{ matrix.target }}
+          if-no-files-found: warn
