@@ -476,6 +476,13 @@ namespace StellarFramework.Event
 
         public static void ClearAll<T>() where T : Enum
         {
+            // 清理池中 Token 的生命周期绑定引用，防止 Token 池持有已销毁 Trigger 的残留引用。
+            while (EventBox<T>.TokenPool.Count > 0)
+            {
+                EnumEventToken<T> token = EventBox<T>.TokenPool.Pop();
+                token.UnbindLifecycleTriggers();
+            }
+
             EventBox<T>.EventTable.Clear();
             EventBox<T>.TokenPool.Clear();
             EventBox<T>.LookupTable.Clear();

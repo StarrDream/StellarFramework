@@ -656,7 +656,17 @@ namespace StellarFramework.UI
 
                 if (panel.gameObject.activeSelf)
                 {
-                    panel.OnClose();
+                    // 与 ClosePanelInternal 一致：OnClose 期间标记为"关闭中"，
+                    // 防止 OnPanelClosedGlobal 订阅者在回调中再次关闭同一面板导致双重关闭/递归。
+                    Instance._closingPanels.Add(panelType);
+                    try
+                    {
+                        panel.OnClose();
+                    }
+                    finally
+                    {
+                        Instance._closingPanels.Remove(panelType);
+                    }
 
                     // OnClose 中可能销毁了面板，必须检查后再访问 CanvasGroup / gameObject。
                     if (panel == null)
