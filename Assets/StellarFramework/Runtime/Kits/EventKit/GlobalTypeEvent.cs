@@ -103,6 +103,7 @@ namespace StellarFramework.Event
                     return;
                 }
 
+                token.UnbindLifecycleTriggers();
                 token.Handler = null;
                 token.IsRegistered = false;
                 token.IsRecycled = true;
@@ -114,6 +115,16 @@ namespace StellarFramework.Event
                 public Action<T> Handler;
                 public bool IsRecycled;
                 public bool IsRegistered;
+
+                /// <summary>
+                /// 记录本 Token 绑定过的生命周期触发器。
+                /// 主动回收时必须从这些触发器中移除自身，否则池化复用的 Token 会在旧宿主销毁时被误取消注册（use-after-free）。
+                /// </summary>
+                private readonly HashSet<EventUnregisterTrigger> _destroyTriggers =
+                    new HashSet<EventUnregisterTrigger>();
+
+                private readonly HashSet<EventUnregisterOnDisableTrigger> _disableTriggers =
+                    new HashSet<EventUnregisterOnDisableTrigger>();
 
                 public void UnRegister()
                 {
@@ -148,6 +159,7 @@ namespace StellarFramework.Event
                     }
 
                     trigger.Add(this);
+                    _destroyTriggers.Add(trigger);
                     return this;
                 }
 
@@ -183,7 +195,28 @@ namespace StellarFramework.Event
                     }
 
                     trigger.Add(this);
+                    _disableTriggers.Add(trigger);
                     return this;
+                }
+
+                /// <summary>
+                /// 回收前解除全部生命周期绑定，防止池化复用后旧触发器误操作新回调。
+                /// </summary>
+                internal void UnbindLifecycleTriggers()
+                {
+                    foreach (EventUnregisterTrigger trigger in _destroyTriggers)
+                    {
+                        trigger?.Remove(this);
+                    }
+
+                    _destroyTriggers.Clear();
+
+                    foreach (EventUnregisterOnDisableTrigger trigger in _disableTriggers)
+                    {
+                        trigger?.Remove(this);
+                    }
+
+                    _disableTriggers.Clear();
                 }
             }
         }

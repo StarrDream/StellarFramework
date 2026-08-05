@@ -136,6 +136,9 @@ namespace StellarFramework
         public static Transform ClearChildren(this Transform parent)
         {
             if (parent == null) return parent;
+
+            // 注意：Play 模式下 SafeDestroy 使用 Object.Destroy（延迟到帧末），
+            // 因此调用后 parent.childCount 不会立即归零。需要立即清除请使用 ClearChildrenImmediate。
             for (var i = parent.childCount - 1; i >= 0; i--)
             {
                 var child = parent.GetChild(i);

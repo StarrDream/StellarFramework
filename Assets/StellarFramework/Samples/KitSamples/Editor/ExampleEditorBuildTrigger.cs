@@ -31,7 +31,14 @@ namespace StellarFramework.Examples
                 return;
             }
 
-            ExamplePlayableSceneBuilder.BuildPlayableScenes();
+            // 仅当样例核心资源（UIRoot）缺失时才触发构建，
+            // 避免仓库内样例已生成时，每次加载场景都做全量 AssetDatabase 刷新。
+            if (AssetDatabase.LoadAssetAtPath<GameObject>(
+                    "Assets/StellarFramework/Resources/UIPanel/UIRoot.prefab") == null)
+            {
+                ExamplePlayableSceneBuilder.BuildPlayableScenes();
+            }
+
             DestroyImmediate(this);
         }
     }

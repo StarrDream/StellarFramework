@@ -228,6 +228,16 @@ namespace StellarFramework.Bindable
             public ObserverNode Next;
             public bool MarkedForDeletion;
 
+            /// <summary>
+            /// 记录本节点绑定过的生命周期触发器。
+            /// 回收时必须从这些触发器中移除自身，防止池化复用后旧触发器误取消新注册（use-after-free）。
+            /// </summary>
+            private readonly HashSet<EventUnregisterTrigger> _destroyTriggers =
+                new HashSet<EventUnregisterTrigger>();
+
+            private readonly HashSet<EventUnregisterOnDisableTrigger> _disableTriggers =
+                new HashSet<EventUnregisterOnDisableTrigger>();
+
             private static readonly Stack<ObserverNode> Pool = new Stack<ObserverNode>();
 
             public static ObserverNode Allocate(Action<T> action, BindableProperty<T> owner)
@@ -243,12 +253,30 @@ namespace StellarFramework.Bindable
 
             public void Recycle()
             {
+                UnbindLifecycleTriggers();
                 Action = null;
                 Owner = null;
                 Previous = null;
                 Next = null;
                 MarkedForDeletion = false;
                 Pool.Push(this);
+            }
+
+            internal void UnbindLifecycleTriggers()
+            {
+                foreach (EventUnregisterTrigger trigger in _destroyTriggers)
+                {
+                    trigger?.Remove(this);
+                }
+
+                _destroyTriggers.Clear();
+
+                foreach (EventUnregisterOnDisableTrigger trigger in _disableTriggers)
+                {
+                    trigger?.Remove(this);
+                }
+
+                _disableTriggers.Clear();
             }
 
             public void UnRegister()
@@ -274,6 +302,7 @@ namespace StellarFramework.Bindable
                 }
 
                 trigger.Add(this);
+                _destroyTriggers.Add(trigger);
                 return this;
             }
 
@@ -308,6 +337,7 @@ namespace StellarFramework.Bindable
                 }
 
                 trigger.Add(this);
+                _disableTriggers.Add(trigger);
                 return this;
             }
         }

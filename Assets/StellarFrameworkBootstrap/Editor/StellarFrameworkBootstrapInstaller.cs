@@ -108,6 +108,8 @@ namespace StellarFrameworkBootstrap
                 case BootstrapWorkflowStage.Idle:
                 case BootstrapWorkflowStage.Complete:
                 case BootstrapWorkflowStage.Failed:
+                    // 终态：退订 update，避免安装结束后 Tick 每帧空转。
+                    UnsubscribeTick();
                     return;
 
                 case BootstrapWorkflowStage.ExtractPayload:
@@ -168,6 +170,17 @@ namespace StellarFrameworkBootstrap
             EditorApplication.update -= Tick;
             EditorApplication.update += Tick;
             _isInitialized = true;
+        }
+
+        private static void UnsubscribeTick()
+        {
+            if (!_isInitialized)
+            {
+                return;
+            }
+
+            EditorApplication.update -= Tick;
+            _isInitialized = false;
         }
 
         private static void HandleExtractPayload()
@@ -304,6 +317,17 @@ namespace StellarFrameworkBootstrap
         {
             if (EditorApplication.isCompiling || EditorApplication.isUpdating)
             {
+                return;
+            }
+
+            // 校验 payload 是否真正导入成功：
+            // AssetDatabase.ImportPackage 是 void，无法直接得知成败，
+            // 因此检查框架核心标记资产是否存在；缺失即判定导入失败。
+            if (!AssetDatabase.IsValidFolder("Assets/StellarFramework") ||
+                AssetDatabase.LoadAssetAtPath<UnityEngine.TextAsset>(
+                    "Assets/StellarFramework/StellarFramework.asmdef") == null)
+            {
+                Fail("完整框架 payload 未成功导入（缺少 Assets/StellarFramework/StellarFramework.asmdef）。请重新安装。");
                 return;
             }
 

@@ -17,7 +17,7 @@ MonoBehaviour:
     serializedVersion: 2
     Hash: 00000000000000000000000000000000
   m_OptimizeCatalogSize: 0
-  m_BuildRemoteCatalog: 0
+  m_BuildRemoteCatalog: 1
   m_BundleLocalCatalog: 0
   m_CatalogRequestsTimeout: 0
   m_DisableCatalogUpdateOnStart: 0
@@ -59,9 +59,9 @@ MonoBehaviour:
       m_ProfileName: Stellar Local Built-in
       m_Values:
       - m_Id: 59dcae6239e0abe4dbd20741e5245765
-        m_Value: 
+        m_Value: ServerData/HotUpdate/[BuildTarget]
       - m_Id: 5ab95aa309579d540b79ba98877eedd8
-        m_Value: 
+        m_Value: http://[PrivateIpAddress]/HotUpdate/[BuildTarget]
       - m_Id: 999194c739426194b989b047a4df15f1
         m_Value: '[UnityEditor.EditorUserBuildSettings.activeBuildTarget]'
       - m_Id: d4558f0558d2be5439d8132c3c9d0dcb
@@ -73,9 +73,9 @@ MonoBehaviour:
       m_ProfileName: Stellar Remote HotUpdate
       m_Values:
       - m_Id: 59dcae6239e0abe4dbd20741e5245765
-        m_Value: D:/HotUpdate/StandaloneWindows64
+        m_Value: ServerData/HotUpdate/[BuildTarget]
       - m_Id: 5ab95aa309579d540b79ba98877eedd8
-        m_Value: file:///D:/HotUpdate/StandaloneWindows64
+        m_Value: http://[PrivateIpAddress]/HotUpdate/[BuildTarget]
       - m_Id: 999194c739426194b989b047a4df15f1
         m_Value: '[UnityEditor.EditorUserBuildSettings.activeBuildTarget]'
       - m_Id: d4558f0558d2be5439d8132c3c9d0dcb

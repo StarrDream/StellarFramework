@@ -1,7 +1,29 @@
 {
   "dependencies": {
+    "cn.tuanjie.ai.generators": {
+      "version": "file:../.codely-cli/extensions/TJGenerators/Packages/cn.tuanjie.ai.generators",
+      "depth": 0,
+      "source": "local",
+      "dependencies": {
+        "cn.tuanjie.codely.bridge": "1.0.69",
+        "com.unity.modules.jsonserialize": "1.0.0",
+        "com.unity.modules.unitywebrequest": "1.0.0",
+        "com.unity.modules.video": "1.0.0",
+        "com.unity.editorcoroutines": "1.0.1"
+      }
+    },
+    "cn.tuanjie.codely.bridge": {
+      "version": "1.0.74",
+      "depth": 0,
+      "source": "registry",
+      "dependencies": {
+        "com.unity.ext.nunit": "1.0.6",
+        "com.unity.ugui": "1.0.0"
+      },
+      "url": "https://packages.unity.cn"
+    },
     "com.code-philosophy.hybridclr": {
-      "version": "https://github.com/focus-creative-games/hybridclr_unity.git",
+      "version": "https://github.com/focus-creative-games/hybridclr_unity.git#4feac30cb2e105992986c737f7f54992b8300e1a",
       "depth": 0,
       "source": "git",
       "dependencies": {},
@@ -46,7 +68,7 @@
       "url": "https://packages.unity.cn"
     },
     "com.unity.editorcoroutines": {
-      "version": "1.0.0",
+      "version": "1.0.1",
       "depth": 1,
       "source": "registry",
       "dependencies": {},
@@ -54,7 +76,7 @@
     },
     "com.unity.ext.nunit": {
       "version": "1.0.6",
-      "depth": 2,
+      "depth": 1,
       "source": "registry",
       "dependencies": {},
       "url": "https://packages.unity.cn"

@@ -290,6 +290,17 @@ namespace StellarFrameworkBootstrap
                 return;
             }
 
+            // 安全保护：仅当 Bootstrap 目录只包含安装器已知文件时才自动删除，
+            // 防止用户误放入的自定义文件被永久删除（AssetDatabase.DeleteAsset 不可恢复）。
+            if (!BootstrapFolderContainsOnlyInstallerFiles())
+            {
+                ClearPendingBootstrapCleanupRequest();
+                Debug.LogWarning(
+                    "StellarFrameworkBootstrap: 检测到安装器目录中包含非标准文件，已跳过自动清理。请人工检查 Assets/StellarFrameworkBootstrap 后手动删除。");
+                BootstrapInstallerSafeComplete();
+                return;
+            }
+
             if (AssetDatabase.DeleteAsset(BootstrapAssetRoot))
             {
                 ClearPendingBootstrapCleanupRequest();
@@ -308,6 +319,58 @@ namespace StellarFrameworkBootstrap
             ClearPendingBootstrapCleanupRequest();
             Debug.LogWarning("StellarFrameworkBootstrap: 安装后未能自动删除 Assets/StellarFrameworkBootstrap，请手动清理该目录。");
             BootstrapInstallerSafeComplete();
+        }
+
+        /// <summary>
+        /// 校验 Bootstrap 目录是否只包含安装器已知文件。
+        /// 允许：*.cs / *.md / *.bytes / *.unitypackage / *.json 及其 .meta；目录结构仅 Editor / Payloads。
+        /// 其余任何文件（如 .txt/.png/.prefab/.unity）都视为用户自定义内容，触发跳过删除。
+        /// </summary>
+        private static bool BootstrapFolderContainsOnlyInstallerFiles()
+        {
+            if (!AssetDatabase.IsValidFolder(BootstrapAssetRoot))
+            {
+                return false;
+            }
+
+            string absoluteRoot = ToAbsoluteProjectPath(BootstrapAssetRoot);
+            if (!Directory.Exists(absoluteRoot))
+            {
+                return false;
+            }
+
+            string[] allowedExtensions =
+            {
+                ".cs", ".md", ".bytes", ".unitypackage", ".json",
+                ".cs.meta", ".md.meta", ".bytes.meta", ".unitypackage.meta", ".json.meta"
+            };
+
+            string[] files = Directory.GetFiles(absoluteRoot, "*", SearchOption.AllDirectories);
+            for (int i = 0; i < files.Length; i++)
+            {
+                string fileName = Path.GetFileName(files[i]);
+                if (fileName == null || fileName.StartsWith("."))
+                {
+                    continue;
+                }
+
+                bool allowed = false;
+                for (int j = 0; j < allowedExtensions.Length; j++)
+                {
+                    if (fileName.EndsWith(allowedExtensions[j], StringComparison.OrdinalIgnoreCase))
+                    {
+                        allowed = true;
+                        break;
+                    }
+                }
+
+                if (!allowed)
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         private static void ClearPendingBootstrapCleanupRequest()
@@ -394,6 +457,12 @@ namespace StellarFrameworkBootstrap
         private static void BootstrapInstallerSafeComplete()
         {
             StellarFrameworkBootstrapInstaller.MarkCleanupCompleted();
+        }
+
+        private static string ToAbsoluteProjectPath(string assetRelativePath)
+        {
+            string projectRoot = Directory.GetParent(Application.dataPath)?.FullName ?? Application.dataPath;
+            return Path.Combine(projectRoot, assetRelativePath.Replace('/', Path.DirectorySeparatorChar));
         }
     }
 }

@@ -193,6 +193,13 @@ namespace StellarFramework.Editor
         private static void EnsureUIRootPrefab()
         {
             const string path = GeneratedUiFolder + "/UIRoot.prefab";
+
+            // 已存在则跳过，绝不覆盖用户对 UIRoot 的定制（Canvas 排序、引用等）。
+            if (AssetDatabase.LoadAssetAtPath<GameObject>(path) != null)
+            {
+                return;
+            }
+
             GameObject root = new GameObject("UIRoot", typeof(RectTransform));
             root.layer = LayerMask.NameToLayer("UI");
 
@@ -259,6 +266,13 @@ namespace StellarFramework.Editor
         private static void EnsureExamplePanelPrefab()
         {
             const string path = GeneratedUiFolder + "/ExamplePanel.prefab";
+
+            // 已存在则跳过，绝不覆盖用户定制。
+            if (AssetDatabase.LoadAssetAtPath<GameObject>(path) != null)
+            {
+                return;
+            }
+
             GameObject panel = new GameObject("ExamplePanel", typeof(RectTransform), typeof(CanvasRenderer), typeof(CanvasGroup));
             RectTransform panelRect = panel.GetComponent<RectTransform>();
             panelRect.sizeDelta = new Vector2(720f, 420f);
@@ -301,6 +315,13 @@ namespace StellarFramework.Editor
         private static void EnsureArchitectureDemoPanelPrefab()
         {
             const string path = ArchitectureDemoPanelFolder + "/Panel_Main.prefab";
+
+            // 已存在则跳过，绝不覆盖用户定制。
+            if (AssetDatabase.LoadAssetAtPath<GameObject>(path) != null)
+            {
+                return;
+            }
+
             GameObject panel = new GameObject("Panel_Main", typeof(RectTransform), typeof(CanvasRenderer), typeof(CanvasGroup));
             panel.layer = LayerMask.NameToLayer("UI");
             RectTransform panelRect = panel.GetComponent<RectTransform>();
@@ -432,7 +453,7 @@ namespace StellarFramework.Editor
             Bullet existing = AssetDatabase.LoadAssetAtPath<Bullet>(path);
             if (existing != null)
             {
-                RefreshPrefabMaterial(path, _blueMaterial, Vector3.one * 0.35f);
+                // 已存在则不重置材质/缩放，保护用户定制。
                 return existing;
             }
 
@@ -521,7 +542,7 @@ namespace StellarFramework.Editor
 
             if (AssetDatabase.LoadAssetAtPath<GameObject>(path) != null)
             {
-                RefreshPrefabMaterial(path, material, scale);
+                // 已存在则不重置材质/缩放，保护用户定制。
                 return;
             }
 
@@ -545,62 +566,29 @@ namespace StellarFramework.Editor
             if (material == null)
             {
                 material = new Material(shader);
-            }
-            else if (shader != null && material.shader != shader)
-            {
-                material.shader = shader;
-            }
 
-            if (material.HasProperty("_BaseColor"))
-            {
-                material.SetColor("_BaseColor", color);
-            }
-            else if (material.HasProperty("_Color"))
-            {
-                material.SetColor("_Color", color);
-            }
+                if (material.HasProperty("_BaseColor"))
+                {
+                    material.SetColor("_BaseColor", color);
+                }
+                else if (material.HasProperty("_Color"))
+                {
+                    material.SetColor("_Color", color);
+                }
 
-            if (AssetDatabase.GetAssetPath(material) == string.Empty)
-            {
                 AssetDatabase.CreateAsset(material, path);
             }
             else
             {
-                EditorUtility.SetDirty(material);
+                // 已存在：仅当 shader 缺失（丢失引用）时修复，绝不覆盖用户自定义 shader 与颜色。
+                if (shader != null && material.shader == null)
+                {
+                    material.shader = shader;
+                    EditorUtility.SetDirty(material);
+                }
             }
 
             return material;
-        }
-
-        private static void RefreshPrefabMaterial(string path, Material material, Vector3 scale)
-        {
-            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
-            if (prefab == null || material == null)
-            {
-                return;
-            }
-
-            GameObject instance = PrefabUtility.InstantiatePrefab(prefab) as GameObject;
-            if (instance == null)
-            {
-                return;
-            }
-
-            try
-            {
-                instance.transform.localScale = scale;
-                Renderer renderer = instance.GetComponent<Renderer>();
-                if (renderer != null)
-                {
-                    renderer.sharedMaterial = material;
-                }
-
-                PrefabUtility.SaveAsPrefabAsset(instance, path);
-            }
-            finally
-            {
-                Object.DestroyImmediate(instance);
-            }
         }
 
         private static void WriteToneWavIfMissing(string path, float frequency, float durationSeconds)

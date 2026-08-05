@@ -26,12 +26,12 @@ MonoBehaviour:
   - codehotfix
   addressablesDefaultUpdateKeys:
   - hotupdate
-  hotUpdateManifestPathOrUrl: file:///D:/HotUpdate/StandaloneWindows64/HotUpdateManifest.json
-  hotUpdateManifestFallbackToStreamingAssets: 0
-  hotUpdateManifestFallbackToResources: 0
+  hotUpdateManifestPathOrUrl: 
+  hotUpdateManifestFallbackToStreamingAssets: 1
+  hotUpdateManifestFallbackToResources: 1
   hotUpdateManifestHttpTimeoutSeconds: 30
   hotUpdateAssemblyKey: Assets/GameHotUpdate/Code/HotUpdate.dll.bytes
-  hotUpdateAssemblySha256: 82bb7e922f887a9460e44c5c2a282239ac5d9722dca1f0a7bf2e0536b18cb77c
+  hotUpdateAssemblySha256: e3d707b53fecb9a748d3fd837635c2c2e13a9ac126c517dd2a1fb5be89457544
   hotUpdateEntryClass: HotUpdate.HotUpdateMain
   hotUpdateEntryMethod: Main
   aotMetadataKeys:

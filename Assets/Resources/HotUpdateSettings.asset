@@ -21,11 +21,12 @@ MonoBehaviour:
   hotUpdateManifestFallbackToStreamingAssets: 1
   hotUpdateManifestFallbackToResources: 1
   hotUpdateManifestHttpTimeoutSeconds: 30
-  hotUpdateAssemblyKey: HotUpdate.dll.bytes
-  hotUpdateAssemblySha256: 
+  hotUpdateAssemblyKey: Assets/GameHotUpdate/Code/HotUpdate.dll.bytes
+  hotUpdateAssemblySha256: e3d707b53fecb9a748d3fd837635c2c2e13a9ac126c517dd2a1fb5be89457544
   hotUpdateEntryClass: HotUpdate.HotUpdateMain
   hotUpdateEntryMethod: Main
   aotMetadataKeys:
-  - mscorlib.dll.bytes
-  - System.dll.bytes
-  - System.Core.dll.bytes
+  - Assets/GameHotUpdate/Metadata/mscorlib.dll.bytes
+  - Assets/GameHotUpdate/Metadata/System.dll.bytes
+  - Assets/GameHotUpdate/Metadata/System.Core.dll.bytes
+  - Assets/GameHotUpdate/Metadata/UnityEngine.CoreModule.dll.bytes

@@ -8,6 +8,19 @@ namespace StellarFramework
     {
         private static ILogger _logger = new UnityLogger();
 
+        private static bool _logErrorEnabled = true;
+
+        /// <summary>
+        /// 错误日志总开关。
+        /// LogError 不随 ENABLE_LOG 宏裁剪（框架内部大量用于"非致命错误返回路径"），
+        /// 需要关闭时（如正式发布包）显式置为 false。
+        /// </summary>
+        public static bool LogErrorEnabled
+        {
+            get => _logErrorEnabled;
+            set => _logErrorEnabled = value;
+        }
+
         /// <summary>
         /// 注入自定义日志处理器
         /// </summary>
@@ -63,11 +76,21 @@ namespace StellarFramework
         /// </summary>
         public static void LogError(object msg)
         {
+            if (!_logErrorEnabled)
+            {
+                return;
+            }
+
             _logger.LogError(msg?.ToString());
         }
 
         public static void LogError(object script, object msg)
         {
+            if (!_logErrorEnabled)
+            {
+                return;
+            }
+
             if (script == null)
             {
                 _logger.LogError($"[NullScript] {msg}");

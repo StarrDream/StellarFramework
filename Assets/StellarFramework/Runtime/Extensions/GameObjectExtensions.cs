@@ -506,6 +506,8 @@ namespace StellarFramework
         /// <summary>
         /// 检查 Tag 是否在项目中定义
         /// 我显式遍历已定义标签，避免通过异常流控制业务逻辑。
+        /// Runtime 下无法枚举已定义标签（UnityEditorInternal 仅 Editor 可用），
+        /// 直接放行让 FindGameObjectWithTag 尝试——它对无效 Tag 只返回 null，不会抛异常。
         /// </summary>
         private static bool IsTagDefined(string tag)
         {
@@ -517,7 +519,8 @@ namespace StellarFramework
             string[] tags = UnityEditorInternalBridge.GetTags();
             if (tags == null || tags.Length == 0)
             {
-                return false;
+                // Runtime：无法枚举 Tag，放行尝试查找。
+                return true;
             }
 
             for (int i = 0; i < tags.Length; i++)

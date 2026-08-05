@@ -406,6 +406,13 @@ namespace StellarFramework
                     break;
                 }
 
+                // 被 SpriteCache 引用的纹理不参与淘汰，
+                // 否则 Sprite 会持有已销毁的纹理导致显示白屏（双缓存互相销毁）。
+                if (IsTextureReferencedBySprite(pair.Value.Asset))
+                {
+                    continue;
+                }
+
                 if (pair.Value.LastAccessTick < minTick)
                 {
                     minTick = pair.Value.LastAccessTick;
@@ -427,6 +434,28 @@ namespace StellarFramework
             }
 
             TextureCache.Remove(lruKey);
+        }
+
+        /// <summary>
+        /// 判断纹理是否仍被某个缓存的 Sprite 引用。
+        /// 仅在需要淘汰纹理时调用，缓存规模上限（128）内遍历可接受。
+        /// </summary>
+        private static bool IsTextureReferencedBySprite(Texture2D texture)
+        {
+            if (texture == null)
+            {
+                return false;
+            }
+
+            foreach (KeyValuePair<string, CacheEntry<Sprite>> pair in SpriteCache)
+            {
+                if (pair.Value?.Asset != null && pair.Value.Asset.texture == texture)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private static void TrimSpriteCacheIfNeeded()

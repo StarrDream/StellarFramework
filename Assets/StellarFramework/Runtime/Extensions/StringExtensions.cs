@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace StellarFramework
@@ -7,7 +8,7 @@ namespace StellarFramework
     {
         /// <summary>
         /// 检查两个字符串的字符匹配数量是否达到指定值
-        /// 我使用固定计数数组替代 ToList 与 Remove，避免额外 GC 与 O(N²) 级别字符删除开销。
+        /// 我使用字典统计输入字符，避免为每个 char 槽位分配 int[char.MaxValue+1]（约 256KB）的固定数组。
         /// 这里按 char 逐个匹配，适合常规 ASCII 与大多数短文本场景，不承担复杂自然语言分词职责。
         /// </summary>
         public static bool CheckCharMatch(this string incomingStr, string targetStr, int needCount)
@@ -29,22 +30,25 @@ namespace StellarFramework
                 return false;
             }
 
-            int[] counts = new int[char.MaxValue + 1];
+            // 只统计输入字符串中实际出现的字符，避免 256KB 固定分配。
+            Dictionary<char, int> counts = new Dictionary<char, int>(Mathf.Min(incomingStr.Length, 128));
             for (int i = 0; i < incomingStr.Length; i++)
             {
-                counts[incomingStr[i]]++;
+                char c = incomingStr[i];
+                counts.TryGetValue(c, out int count);
+                counts[c] = count + 1;
             }
 
             int matchCounter = 0;
             for (int i = 0; i < targetStr.Length; i++)
             {
                 char c = targetStr[i];
-                if (counts[c] <= 0)
+                if (!counts.TryGetValue(c, out int count) || count <= 0)
                 {
                     continue;
                 }
 
-                counts[c]--;
+                counts[c] = count - 1;
                 matchCounter++;
                 if (matchCounter >= needCount)
                 {

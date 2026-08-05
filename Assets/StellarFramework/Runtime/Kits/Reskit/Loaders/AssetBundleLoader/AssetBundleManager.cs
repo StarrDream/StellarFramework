@@ -834,8 +834,10 @@ namespace StellarFramework.Res.AB
 
         private string GetBundlePath(string bundleName)
         {
-            string lowerBundleName = bundleName.ToLowerInvariant();
-            return $"{BasePath}/{PlatformName}/{lowerBundleName}";
+            // 直接使用 manifest 中的原始 Bundle 名拼接路径。
+            // 强制 ToLowerInvariant 会在 Android/iOS 等大小写敏感文件系统上
+            // 与构建产物文件名不一致，导致 AssetBundle.LoadFromFile 找不到文件。
+            return $"{BasePath}/{PlatformName}/{bundleName}";
         }
 
         private void MarkBundleFailed(BundleRecord record, string error)

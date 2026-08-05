@@ -155,6 +155,13 @@ namespace StellarFramework
 
         private static T _instance;
 
+        static Architecture()
+        {
+            // 域重载 / 进入 Play Mode 时重置静态实例，
+            // 防止残留上一次 Play 会话的"僵尸实例"（Reload Domain=false 时尤其关键）。
+            ArchitectureRuntimeReset.Register(() => _instance = null);
+        }
+
         public static T Interface
         {
             get
@@ -201,8 +208,8 @@ namespace StellarFramework
                 _instance = (T)this;
             }
 
-            InitModules();
-
+            // 先全量校验 Model/Service 再逐个 Init，
+            // 避免"部分初始化后才发现空对象回滚状态"导致下次 Init 重复初始化。
             foreach (IModel model in _models.Values)
             {
                 if (model == null)
@@ -212,8 +219,6 @@ namespace StellarFramework
                     _state = ArchitectureState.Uninitialized;
                     return;
                 }
-
-                model.Init();
             }
 
             foreach (IService service in _services.Values)
@@ -225,7 +230,15 @@ namespace StellarFramework
                     _state = ArchitectureState.Uninitialized;
                     return;
                 }
+            }
 
+            foreach (IModel model in _models.Values)
+            {
+                model.Init();
+            }
+
+            foreach (IService service in _services.Values)
+            {
                 service.Init();
             }
 
@@ -509,6 +522,40 @@ namespace StellarFramework
         public abstract void OnBind();
 
         public abstract void OnUnbind();
+    }
+
+    #endregion
+
+    #region 6. 架构运行时状态重置
+
+    /// <summary>
+    /// 为泛型 Architecture&lt;T&gt; 提供域重载 / 进入 Play Mode 时的静态状态重置。
+    /// 泛型类的 [RuntimeInitializeOnLoadMethod] 行为不稳定，因此由非泛型类统一注册并触发。
+    /// </summary>
+    public static class ArchitectureRuntimeReset
+    {
+        private static readonly HashSet<Action> _resets = new HashSet<Action>();
+
+        public static void Register(Action reset)
+        {
+            if (reset == null)
+            {
+                return;
+            }
+
+            _resets.Add(reset);
+        }
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        public static void ResetAll()
+        {
+            foreach (Action reset in _resets)
+            {
+                reset?.Invoke();
+            }
+
+            _resets.Clear();
+        }
     }
 
     #endregion

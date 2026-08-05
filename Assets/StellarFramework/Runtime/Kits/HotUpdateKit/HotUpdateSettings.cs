@@ -46,16 +46,17 @@ namespace StellarFramework.HotUpdate
         [SerializeField] private int hotUpdateManifestHttpTimeoutSeconds = 30;
 
         [Header("HybridCLR Code Update")]
-        [SerializeField] private string hotUpdateAssemblyKey = "HotUpdate.dll.bytes";
+        [SerializeField] private string hotUpdateAssemblyKey = "Assets/GameHotUpdate/Code/HotUpdate.dll.bytes";
         [SerializeField] private string hotUpdateAssemblySha256 = string.Empty;
         [SerializeField] private string hotUpdateEntryClass = "HotUpdate.HotUpdateMain";
         [SerializeField] private string hotUpdateEntryMethod = "Main";
         [SerializeField]
         private string[] aotMetadataKeys =
         {
-            "mscorlib.dll.bytes",
-            "System.dll.bytes",
-            "System.Core.dll.bytes"
+            "Assets/GameHotUpdate/Metadata/mscorlib.dll.bytes",
+            "Assets/GameHotUpdate/Metadata/System.dll.bytes",
+            "Assets/GameHotUpdate/Metadata/System.Core.dll.bytes",
+            "Assets/GameHotUpdate/Metadata/UnityEngine.CoreModule.dll.bytes"
         };
 
         public bool AddressablesUpdateCatalogsOnCheck => addressablesUpdateCatalogsOnCheck;

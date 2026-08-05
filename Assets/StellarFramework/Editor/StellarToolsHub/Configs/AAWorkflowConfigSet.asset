@@ -43,8 +43,8 @@ MonoBehaviour:
     ConfigureBundledGroups: 1
     IncludedGroupNames: []
     LocalOutputDirectory: '[StreamingAssets]/aa'
-    RemoteBuildDirectory: D:/HotUpdate/[BuildTarget]
-    RemotePublishDirectory: D:/HotUpdate/[BuildTarget]
+    RemoteBuildDirectory: ServerData/HotUpdate/[BuildTarget]
+    RemotePublishDirectory: ServerData/HotUpdate/[BuildTarget]
     RemoteLoadPathOrUrl: 
     ManifestPathOrUrl: 
     TestPlayerRootDirectory: 

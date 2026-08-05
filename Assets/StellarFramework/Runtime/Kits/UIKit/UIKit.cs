@@ -99,6 +99,12 @@ namespace StellarFramework.UI
             new Dictionary<Type, UniTaskCompletionSource<UIPanelBase>>();
 
         private readonly List<UIPanelBase> _panelStack = new List<UIPanelBase>(16);
+
+        /// <summary>
+        /// 正在执行 OnClose 的面板类型集合，用于拦截级联递归关闭。
+        /// </summary>
+        private readonly HashSet<Type> _closingPanels = new HashSet<Type>();
+
         private CancellationTokenSource _destroyCts = new CancellationTokenSource();
         private bool _stackCallbacksRegistered;
 
@@ -642,9 +648,24 @@ namespace StellarFramework.UI
                     continue;
                 }
 
+                // 跳过正在执行 OnClose 的面板，避免双重关闭。
+                if (Instance._closingPanels.Contains(panelType))
+                {
+                    continue;
+                }
+
                 if (panel.gameObject.activeSelf)
                 {
                     panel.OnClose();
+
+                    // OnClose 中可能销毁了面板，必须检查后再访问 CanvasGroup / gameObject。
+                    if (panel == null)
+                    {
+                        Instance._panelCache.Remove(panelType);
+                        Instance._panelNames.Remove(panelType);
+                        continue;
+                    }
+
                     panel.CanvasGroup.interactable = false;
                     panel.CanvasGroup.blocksRaycasts = false;
                     panel.gameObject.SetActive(false);
@@ -836,12 +857,37 @@ namespace StellarFramework.UI
                 return;
             }
 
+            // 防重入：OnClose 触发 OnPanelClosedGlobal 时，若订阅者再次关闭同类型面板，
+            // 直接拦截，避免级联递归导致栈溢出。
+            if (_closingPanels.Contains(panelType))
+            {
+                return;
+            }
+
             if (panel.gameObject.activeSelf)
             {
-                panel.OnClose();
-                panel.CanvasGroup.interactable = false;
-                panel.CanvasGroup.blocksRaycasts = false;
-                panel.gameObject.SetActive(false);
+                _closingPanels.Add(panelType);
+                try
+                {
+                    panel.OnClose();
+
+                    // OnClose 中可能销毁了面板（如 DestroyOnClose 或业务代码 Destroy），
+                    // 必须检查后再访问 CanvasGroup / gameObject，否则 NRE / MissingReferenceException。
+                    if (panel == null)
+                    {
+                        _panelCache.Remove(panelType);
+                        _panelNames.Remove(panelType);
+                        return;
+                    }
+
+                    panel.CanvasGroup.interactable = false;
+                    panel.CanvasGroup.blocksRaycasts = false;
+                    panel.gameObject.SetActive(false);
+                }
+                finally
+                {
+                    _closingPanels.Remove(panelType);
+                }
             }
 
             RemoveFromStack(panel);
@@ -1326,6 +1372,7 @@ namespace StellarFramework.UI
             _panelCache.Clear();
             _panelNames.Clear();
             _panelStack.Clear();
+            _closingPanels.Clear();
             _layers.Clear();
             _roleLayers.Clear();
 

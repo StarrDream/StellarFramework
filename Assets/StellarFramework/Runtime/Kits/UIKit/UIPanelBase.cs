@@ -34,6 +34,10 @@ namespace StellarFramework.UI
         [Tooltip("Fullscreen panels pause and hide lower stack panels.")]
         [SerializeField] protected bool isFullScreen = false;
 
+        [Header("Root")]
+        [Tooltip("面板主内容根节点。可在 Inspector 中显式绑定；未绑定时自动查找名为 root 的子节点。")]
+        [SerializeField] private GameObject rootNode;
+
         private CanvasGroup _canvasGroup;
         private RectTransform _rectTransform;
         private GameObject _rootObj;
@@ -77,6 +81,13 @@ namespace StellarFramework.UI
             {
                 if (_rootObj != null)
                 {
+                    return _rootObj;
+                }
+
+                // 优先使用 Inspector 绑定的根节点；未绑定时再自动查找名为 root 的子节点。
+                if (rootNode != null)
+                {
+                    _rootObj = rootNode;
                     return _rootObj;
                 }
 

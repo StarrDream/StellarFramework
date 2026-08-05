@@ -38,8 +38,8 @@ namespace StellarFramework.Editor.Modules
         public bool ConfigureBundledGroups = true;
         public List<string> IncludedGroupNames = new List<string>();
         public string LocalOutputDirectory = "[StreamingAssets]/aa";
-        public string RemoteBuildDirectory = "D:/HotUpdate/[BuildTarget]";
-        public string RemotePublishDirectory = "D:/HotUpdate/[BuildTarget]";
+        public string RemoteBuildDirectory = "ServerData/HotUpdate/[BuildTarget]";
+        public string RemotePublishDirectory = "ServerData/HotUpdate/[BuildTarget]";
         public string RemoteLoadPathOrUrl = "";
         public string ManifestPathOrUrl = "";
         public string TestPlayerRootDirectory = "";
@@ -79,8 +79,8 @@ namespace StellarFramework.Editor.Modules
                 Mode = AAWorkflowMode.RemoteHotUpdate,
                 AddressablesProfileName = "Stellar Remote HotUpdate",
                 LocalOutputDirectory = "[StreamingAssets]/aa",
-                RemoteBuildDirectory = "D:/HotUpdate/[BuildTarget]",
-                RemotePublishDirectory = "D:/HotUpdate/[BuildTarget]",
+                RemoteBuildDirectory = "ServerData/HotUpdate/[BuildTarget]",
+                RemotePublishDirectory = "ServerData/HotUpdate/[BuildTarget]",
                 RemoteLoadPathOrUrl = "",
                 ManifestPathOrUrl = "",
                 EnableRemoteCatalog = true,
@@ -149,7 +149,8 @@ namespace StellarFramework.Editor.Modules
             {
                 if (string.IsNullOrWhiteSpace(RemotePublishDirectory))
                 {
-                    RemotePublishDirectory = "D:/HotUpdate/[BuildTarget]";
+                    // 默认使用项目根内的相对路径，避免硬编码 Windows 专用 D:/ 盘符导致跨平台/CI 失败。
+                    RemotePublishDirectory = "ServerData/HotUpdate/[BuildTarget]";
                 }
 
                 if (string.IsNullOrWhiteSpace(RemoteBuildDirectory))

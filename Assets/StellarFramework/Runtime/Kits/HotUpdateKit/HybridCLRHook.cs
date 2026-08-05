@@ -795,6 +795,12 @@ namespace StellarFramework.HotUpdate
             actualSha256 = ComputeSha256(bytes);
             if (string.IsNullOrWhiteSpace(expectedSha256))
             {
+                if (!strictProduction)
+                {
+                    LogKit.LogWarning(
+                        "[HybridCLRHook] HotUpdateAssemblySha256 is empty. Development build skips SHA256 verification, but release (strict) builds will block startup. Re-export dll.bytes to embed the SHA256.");
+                }
+
                 return !strictProduction;
             }
 

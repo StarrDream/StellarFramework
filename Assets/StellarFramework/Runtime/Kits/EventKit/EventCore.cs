@@ -177,6 +177,20 @@ namespace StellarFramework.Event
             _unRegisters.Add(unRegister);
         }
 
+        /// <summary>
+        /// 解除绑定：当 Token 被主动回收时调用。
+        /// 防止已回收并复用的 Token 在宿主对象销毁时被误取消注册（use-after-free）。
+        /// </summary>
+        public void Remove(IUnRegister unRegister)
+        {
+            if (unRegister == null)
+            {
+                return;
+            }
+
+            _unRegisters.Remove(unRegister);
+        }
+
         private void OnDestroy()
         {
             foreach (IUnRegister unRegister in _unRegisters)
@@ -207,6 +221,20 @@ namespace StellarFramework.Event
             }
 
             _unRegisters.Add(unRegister);
+        }
+
+        /// <summary>
+        /// 解除绑定：当 Token 被主动回收时调用。
+        /// 防止已回收并复用的 Token 在宿主对象失活时被误取消注册（use-after-free）。
+        /// </summary>
+        public void Remove(IUnRegister unRegister)
+        {
+            if (unRegister == null)
+            {
+                return;
+            }
+
+            _unRegisters.Remove(unRegister);
         }
 
         private void OnDisable()

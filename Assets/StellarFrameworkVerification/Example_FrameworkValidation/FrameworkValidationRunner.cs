@@ -545,6 +545,14 @@ private void ValidateHotUpdateSettings()
             {
                 _lastAction = $"执行完成：{label}";
                 _isRunning = false;
+
+                // 关键：每个动作完成后，若有失败项必须显式告警，
+                // 防止验证"假通过"（此前失败只显示在报告文本里，容易被遗漏）。
+                if (_report.HasFailures)
+                {
+                    Debug.LogError(
+                        $"[FrameworkValidation] 验收失败：共 {_report.Count(FrameworkValidationStatus.Failed)} 项失败。Action={label}，请处理后再验收。");
+                }
             }
         }
 
