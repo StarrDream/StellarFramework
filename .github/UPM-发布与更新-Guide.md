@@ -99,7 +99,15 @@ git push origin main --tags
 | git URL `#v1.0.0` | 手动改成新 tag（如 `#v1.1.0`） |
 | 本地包 | 重新指向新目录 |
 
-**依赖自动处理**：package.json 里声明了 UniTask / Newtonsoft / Addressables / HybridCLR 等依赖，UPM 自动补齐。
+**依赖自动处理**：package.json 里声明了 Addressables / Newtonsoft / uGUI / TMP 等 registry 依赖，UPM 自动补齐。
+
+> ⚠️ **git 依赖需手动添加**：UPM 的 `dependencies` 只接受 SemVer 版本号，不接受 git URL。
+> 因此 **UniTask** 和 **HybridCLR**（git 依赖）不写在包依赖里，开发者需在自己的 `manifest.json` 手动添加：
+> ```json
+> "com.cysharp.unitask": "https://github.com/Cysharp/UniTask.git?path=src/UniTask/Assets/Plugins/UniTask",
+> "com.code-philosophy.hybridclr": "https://github.com/focus-creative-games/hybridclr_unity.git#4feac30cb2e105992986c737f7f54992b8300e1a"
+> ```
+> （这两个也是本仓库 `Packages/manifest.json` 中已声明的版本，保持与框架一致。）
 
 ---
 

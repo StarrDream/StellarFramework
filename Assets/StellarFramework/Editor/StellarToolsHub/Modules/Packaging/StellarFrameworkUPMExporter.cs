@@ -62,12 +62,12 @@ namespace StellarFramework.Editor.Modules
 
         private static void WritePackageJson(string packageDir)
         {
+            // UPM 的 package.json dependencies 只接受 SemVer 版本号，不接受 git URL。
+            // 因此 git 依赖（UniTask / HybridCLR）不写进 dependencies，由开发者在自身 manifest.json 手动添加（见 UPM-发布与更新-Guide.md）。
             var dependencies = new Dictionary<string, string>
             {
-                { "com.cysharp.unitask", "https://github.com/Cysharp/UniTask.git?path=src/UniTask/Assets/Plugins/UniTask" },
                 { "com.unity.nuget.newtonsoft-json", "3.2.2" },
                 { "com.unity.addressables", "1.22.3" },
-                { "com.code-philosophy.hybridclr", "https://github.com/focus-creative-games/hybridclr_unity.git#4feac30cb2e105992986c737f7f54992b8300e1a" },
                 { "com.unity.ugui", "1.0.0" },
                 { "com.unity.textmeshpro", "3.0.7" }
             };
