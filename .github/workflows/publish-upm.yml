@@ -76,28 +76,30 @@ jobs:
           find "$OUT" -type f | head -5
 
       # 推送到 upm 分支（仅包内容）
-      # 做法：git subtree split 从当前提交生成只含 upm-out/ 的干净提交 → 强推 upm
+      # 做法：在独立目录 git init（只含包内容）→ 强推 origin upm，完全不碰主仓库工作区
       - name: Push to upm branch
         shell: bash
         run: |
           set -e
+          # 独立目录，只放包内容
+          PUB_DIR="$RUNNER_TEMP/upm-publish"
+          rm -rf "$PUB_DIR"
+          mkdir -p "$PUB_DIR"
+          cp -r upm-out/com.stellar.framework/. "$PUB_DIR/"
+
+          cd "$PUB_DIR"
+          git init -q
           git config user.name "github-actions"
           git config user.email "actions@github.com"
-          git remote set-url origin "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
-
-          # subtree split：把 upm-out/ 目录拆成独立提交（保留历史）
-          # 若 upm 分支已存在，从它继续；否则从当前提交开始
-          if git rev-parse --verify origin/upm >/dev/null 2>&1; then
-            BASE="origin/upm"
-          else
-            BASE="HEAD"
-          fi
-
-          git subtree split --prefix=upm-out/com.stellar.framework --branch=upm-tmp "$BASE" || \
-            git subtree split --prefix=upm-out/com.stellar.framework --branch=upm-tmp
+          git checkout -q -b upm
+          git add -A
+          git commit -q -m "chore: publish UPM package ${{ steps.version.outputs.tag }}"
 
           # 强推 upm 分支
-          git push origin upm-tmp:upm --force
+          git remote add origin "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
+          git push -q origin upm --force
+
+          echo "✅ Pushed upm branch"
 
       - name: Summary
         run: echo "✅ UPM package ${{ steps.version.outputs.tag }} pushed to upm branch"
