@@ -119,12 +119,14 @@ namespace StellarFramework.Editor.Modules
                 string destFile = Path.Combine(destDir, relPath);
 
                 // UPM 包的 asmdef 必须用程序集名引用，不能用 GUID（GUID 只对 Assets 下有效）。
-                // 镜像时把已知的 UniTask GUID 替换为程序集名。
+                // 镜像时把已知 GUID 替换为程序集名：
+                //   f51ebe6a = UniTask, 5c01796d = UniTask.Linq, ee69db06 = StellarFramework.Runtime
                 if (relPath.EndsWith(".asmdef", System.StringComparison.OrdinalIgnoreCase))
                 {
                     string text = File.ReadAllText(file);
                     text = text.Replace("GUID:f51ebe6a0ceec4240a699833d6309b23", "UniTask");
                     text = text.Replace("GUID:5c01796d064528144a599661eaab93a6", "UniTask.Linq");
+                    text = text.Replace("GUID:ee69db06ccc61304d96f7862cc10f3f9", "StellarFramework.Runtime");
                     File.WriteAllText(destFile, text);
                 }
                 else
