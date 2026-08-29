@@ -7,7 +7,7 @@ namespace StellarFrameworkBootstrap
     {
         private Vector2 _scroll;
 
-        [MenuItem("StellarFramework/单包安装器")]
+        [MenuItem("StellarFramework/安装/单包安装器")]
         public static void Open()
         {
             StellarFrameworkBootstrapWindow window = GetWindow<StellarFrameworkBootstrapWindow>("单包安装器");

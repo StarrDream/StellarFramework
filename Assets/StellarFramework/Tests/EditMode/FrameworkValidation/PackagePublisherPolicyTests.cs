@@ -12,8 +12,8 @@ namespace StellarFramework.Tests.FrameworkValidation
             string source = ReadAssetText(
                 "Assets/StellarFramework/Editor/StellarToolsHub/Modules/Packaging/StellarFrameworkPackagePublisher.cs");
 
-            Assert.That(source, Does.Contain("StellarFramework/Packages"));
-            Assert.That(source, Does.Contain("导出单包安装版"));
+            Assert.That(source, Does.Contain("ExportSinglePackageInstaller"));
+            Assert.That(source, Does.Not.Contain("[MenuItem(\"StellarFramework/Packages"));
             Assert.That(source, Does.Contain("StellarFramework.unitypackage"));
         }
 
@@ -127,7 +127,7 @@ namespace StellarFramework.Tests.FrameworkValidation
             Assert.That(bootstrapAsmdef, Does.Contain("\"references\": []"));
             Assert.That(bootstrapAsmdef, Does.Not.Contain("UniTask"));
             Assert.That(bootstrapAsmdef, Does.Not.Contain("Newtonsoft"));
-            Assert.That(bootstrapWindow, Does.Contain("StellarFramework/单包安装器"));
+            Assert.That(bootstrapWindow, Does.Contain("StellarFramework/安装/单包安装器"));
             Assert.That(bootstrapWindow, Does.Contain("一键安装 StellarFramework"));
             Assert.That(bootstrapWindow, Does.Not.Contain("安装基础框架"));
             Assert.That(bootstrapWindow, Does.Not.Contain("安装完整热更新框架"));

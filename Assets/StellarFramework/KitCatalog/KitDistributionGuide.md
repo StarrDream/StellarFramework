@@ -96,6 +96,8 @@
 
 ## 原始工程维护约定
 
+原始框架工程还提供独立的 `StellarFramework/Framework Source/Kit Package Exporter` 窗口。它不属于 ToolsHub：可多选 Kit、预览并去重依赖闭包、导出为一个 `.unitypackage` 和同名依赖说明。窗口与组合导出器位于 `Modules/Packaging`，该目录已被所有消费者分发路径排除，因此业务项目不会携带它。
+
 新增或拆分 Kit 时，同步更新：
 
 1. `KitDistributionCatalog.json` Profile 与依赖闭包；

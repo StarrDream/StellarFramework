@@ -59,7 +59,6 @@ namespace StellarFramework.Editor.Modules
             "using Object = UnityEngine.Object;"
         };
 
-        [MenuItem("StellarFramework/Packages/导出单包安装版")]
         public static void ExportSinglePackageInstaller()
         {
             string exportDirectory = ToProjectPath(ExportRoot);
@@ -80,21 +79,18 @@ namespace StellarFramework.Editor.Modules
             EditorUtility.RevealInFinder(publicPackageOutputPath);
         }
 
-        [MenuItem("StellarFramework/Packages/导出独立文件/Architecture.cs")]
         public static void ExportStandaloneArchitecture()
         {
             string outputPath = ExportStandaloneArchitectureInternal();
             EditorUtility.RevealInFinder(outputPath);
         }
 
-        [MenuItem("StellarFramework/Packages/导出独立文件/Extensions.cs")]
         public static void ExportStandaloneExtensions()
         {
             string outputPath = ExportStandaloneExtensionsInternal();
             EditorUtility.RevealInFinder(outputPath);
         }
 
-        [MenuItem("StellarFramework/Packages/导出独立文件/全部")]
         public static void ExportAllStandaloneSources()
         {
             ExportStandaloneArchitectureInternal();
@@ -102,196 +98,156 @@ namespace StellarFramework.Editor.Modules
             EditorUtility.RevealInFinder(extensionsOutputPath);
         }
 
-        [MenuItem("StellarFramework/Packages/导出 Kit/EventKit")]
         public static void ExportEventKitPackage()
         {
             ExportKitPackageAndReveal("eventkit");
         }
 
-        [MenuItem("StellarFramework/Packages/导出 Kit/ActionKit")]
         public static void ExportActionKitPackage()
         {
             ExportKitPackageAndReveal("actionkit");
         }
 
-        [MenuItem("StellarFramework/Packages/导出组合 Kit/AudioKit.Core")]
         public static void ExportAudioKitCorePackage()
         {
             ExportKitPackageAndReveal("audiokit.core");
         }
 
-        [MenuItem("StellarFramework/Packages/导出组合 Kit/AudioKit.ResKitAdapter")]
         public static void ExportAudioKitResKitAdapterPackage()
         {
             ExportKitPackageAndReveal("audiokit.reskit");
         }
 
-        [MenuItem("StellarFramework/Packages/导出 Kit/BindableKit")]
         public static void ExportBindableKitPackage()
         {
             ExportKitPackageAndReveal("bindablekit");
         }
 
-        [MenuItem("StellarFramework/Packages/导出组合 Kit/ConfigKit.Core")]
         public static void ExportConfigKitCorePackage()
         {
             ExportKitPackageAndReveal("configkit.core");
         }
 
-        [MenuItem("StellarFramework/Packages/导出组合 Kit/ConfigKit.NewtonsoftJson")]
         public static void ExportConfigKitJsonPackage()
         {
             ExportKitPackageAndReveal("configkit.json");
         }
 
-        [MenuItem("StellarFramework/Packages/导出组合 Kit/SettingsKit.Core")]
         public static void ExportSettingsKitCorePackage()
         {
             ExportKitPackageAndReveal("settingskit.core");
         }
 
-        [MenuItem("StellarFramework/Packages/导出组合 Kit/SettingsKit.UnityAdapters")]
         public static void ExportSettingsKitUnityAdaptersPackage()
         {
             ExportKitPackageAndReveal("settingskit.unity");
         }
 
-        [MenuItem("StellarFramework/Packages/导出组合 Kit/SettingsKit.AudioKitAdapter")]
         public static void ExportSettingsKitAudioKitAdapterPackage()
         {
             ExportKitPackageAndReveal("settingskit.audiokit");
         }
 
-        [MenuItem("StellarFramework/Packages/导出 Kit/FSMKit")]
         public static void ExportFsmKitPackage()
         {
             ExportKitPackageAndReveal("fsmkit");
         }
 
-        [MenuItem("StellarFramework/Packages/导出 Kit/PoolKit")]
         public static void ExportPoolKitPackage()
         {
             ExportKitPackageAndReveal("poolkit");
         }
 
-        [MenuItem("StellarFramework/Packages/导出 Kit/SingletonKit")]
         public static void ExportSingletonKitPackage()
         {
             ExportKitPackageAndReveal("singletonkit");
         }
 
-        [MenuItem("StellarFramework/Packages/导出 Kit/ToolsHub.Core")]
         public static void ExportToolsHubCorePackage()
         {
             ExportKitPackageAndReveal("toolshub.core");
         }
 
-        [MenuItem("StellarFramework/Packages/导出 Kit/HttpKit")]
         public static void ExportHttpKitPackage()
         {
             ExportKitPackageAndReveal("httpkit");
         }
 
-        [MenuItem("StellarFramework/Packages/导出 Kit/LogKit")]
         public static void ExportLogKitPackage()
         {
             ExportKitPackageAndReveal("logkit");
         }
 
-        [MenuItem("StellarFramework/Packages/导出组合 Kit/ResKit.Core")]
         public static void ExportResKitCorePackage()
         {
             ExportKitPackageAndReveal("reskit.core");
         }
 
-        [MenuItem("StellarFramework/Packages/导出组合 Kit/ResKit.AssetBundle")]
         public static void ExportResKitAssetBundlePackage()
         {
             ExportKitPackageAndReveal("reskit.assetbundle");
         }
 
-        [MenuItem("StellarFramework/Packages/导出组合 Kit/ResKit.Addressables")]
         public static void ExportResKitAddressablesPackage()
         {
             ExportKitPackageAndReveal("reskit.addressables");
         }
 
-        [MenuItem("StellarFramework/Packages/导出组合 Kit/UIKit.Core")]
         public static void ExportUIKitCorePackage()
         {
             ExportKitPackageAndReveal("uikit.core");
         }
 
-        [MenuItem("StellarFramework/Packages/导出组合 Kit/UIKit.ResKitAdapter")]
         public static void ExportUIKitResKitAdapterPackage()
         {
             ExportKitPackageAndReveal("uikit.reskit");
         }
 
-        [MenuItem("StellarFramework/Packages/导出组合 Kit/HotUpdate.Core")]
         public static void ExportHotUpdateCorePackage()
         {
             ExportKitPackageAndReveal("hotupdate.core");
         }
 
-        [MenuItem("StellarFramework/Packages/导出组合 Kit/HotUpdate.Addressables")]
         public static void ExportHotUpdateAddressablesPackage()
         {
             ExportKitPackageAndReveal("hotupdate.addressables");
         }
 
-        [MenuItem("StellarFramework/Packages/导出组合 Kit/HotUpdate.HybridCLR")]
         public static void ExportHotUpdateHybridClrPackage()
         {
             ExportKitPackageAndReveal("hotupdate.hybridclr");
         }
 
-        [MenuItem("StellarFramework/Packages/导出样例/ActionKit")]
         public static void ExportActionKitSamplePackage() => ExportKitPackageAndReveal("samples.actionkit");
 
-        [MenuItem("StellarFramework/Packages/导出样例/AudioKit")]
         public static void ExportAudioKitSamplePackage() => ExportKitPackageAndReveal("samples.audiokit");
 
-        [MenuItem("StellarFramework/Packages/导出样例/BindableKit")]
         public static void ExportBindableKitSamplePackage() => ExportKitPackageAndReveal("samples.bindablekit");
 
-        [MenuItem("StellarFramework/Packages/导出样例/ConfigKit")]
         public static void ExportConfigKitSamplePackage() => ExportKitPackageAndReveal("samples.configkit");
 
-        [MenuItem("StellarFramework/Packages/导出样例/EventKit")]
         public static void ExportEventKitSamplePackage() => ExportKitPackageAndReveal("samples.eventkit");
 
-        [MenuItem("StellarFramework/Packages/导出样例/FSMKit")]
         public static void ExportFsmKitSamplePackage() => ExportKitPackageAndReveal("samples.fsmkit");
 
-        [MenuItem("StellarFramework/Packages/导出样例/HttpKit")]
         public static void ExportHttpKitSamplePackage() => ExportKitPackageAndReveal("samples.httpkit");
 
-        [MenuItem("StellarFramework/Packages/导出样例/LogKit")]
         public static void ExportLogKitSamplePackage() => ExportKitPackageAndReveal("samples.logkit");
 
-        [MenuItem("StellarFramework/Packages/导出样例/PoolKit")]
         public static void ExportPoolKitSamplePackage() => ExportKitPackageAndReveal("samples.poolkit");
 
-        [MenuItem("StellarFramework/Packages/导出样例/ResKit")]
         public static void ExportResKitSamplePackage() => ExportKitPackageAndReveal("samples.reskit");
 
-        [MenuItem("StellarFramework/Packages/导出样例/SettingsKit")]
         public static void ExportSettingsKitSamplePackage() => ExportKitPackageAndReveal("samples.settingskit");
 
-        [MenuItem("StellarFramework/Packages/导出样例/SingletonKit")]
         public static void ExportSingletonKitSamplePackage() => ExportKitPackageAndReveal("samples.singletonkit");
 
-        [MenuItem("StellarFramework/Packages/导出样例/UIKit")]
         public static void ExportUIKitSamplePackage() => ExportKitPackageAndReveal("samples.uikit");
 
-        [MenuItem("StellarFramework/Packages/导出样例/Architecture")]
         public static void ExportArchitectureSamplePackage() => ExportKitPackageAndReveal("samples.architecture");
 
-        [MenuItem("StellarFramework/Packages/导出样例/HotUpdate.HybridCLR")]
         public static void ExportHotUpdateHybridClrSamplePackage() => ExportKitPackageAndReveal("samples.hotupdate.hybridclr");
 
-        [MenuItem("StellarFramework/Packages/导出样例/全部可选样例")]
         public static void ExportAllOptionalSamplePackages()
         {
             foreach (string profileId in OptionalSampleProfileIds)
@@ -369,6 +325,99 @@ namespace StellarFramework.Editor.Modules
             WriteKitDependencyGuide(exportDirectory, profile, closure);
             AssetDatabase.Refresh();
             return outputPath;
+        }
+
+        /// <summary>
+        /// Exports multiple selected Kit profiles into one unitypackage. Dependencies are deduplicated by profile id.
+        /// This API is intentionally only compiled in the framework source project's Packaging directory.
+        /// </summary>
+        internal static string ExportKitPackageGroupInternal(IEnumerable<string> profileIds, string outputFileName)
+        {
+            string[] selectedIds = (profileIds ?? Enumerable.Empty<string>())
+                .Where(profileId => !string.IsNullOrWhiteSpace(profileId))
+                .Distinct(StringComparer.Ordinal)
+                .ToArray();
+            if (selectedIds.Length == 0)
+            {
+                throw new InvalidOperationException("Select at least one Kit profile before exporting.");
+            }
+
+            DistributionCatalog catalog = LoadDistributionCatalog();
+            var profilesById = catalog.profiles.ToDictionary(profile => profile.id, StringComparer.Ordinal);
+            var selectedProfiles = new List<DistributionProfile>(selectedIds.Length);
+            var closureById = new Dictionary<string, DistributionProfile>(StringComparer.Ordinal);
+
+            foreach (string profileId in selectedIds)
+            {
+                if (!profilesById.TryGetValue(profileId, out DistributionProfile profile))
+                {
+                    throw new InvalidOperationException($"Unknown Kit distribution profile: {profileId}");
+                }
+
+                selectedProfiles.Add(profile);
+                foreach (DistributionProfile dependency in ResolveProfileClosure(catalog, profile))
+                {
+                    closureById[dependency.id] = dependency;
+                }
+            }
+
+            List<DistributionProfile> closure = closureById.Values
+                .OrderBy(profile => profile.displayName, StringComparer.Ordinal)
+                .ToList();
+            if (closure.Any(profile => profile.availability != "available"))
+            {
+                string unavailable = string.Join(", ", closure
+                    .Where(profile => profile.availability != "available")
+                    .Select(profile => profile.displayName));
+                throw new InvalidOperationException($"Selected Kit profiles have unavailable dependencies: {unavailable}");
+            }
+
+            if (closure.Any(profile => profile.sourcePaths == null || profile.sourcePaths.Length == 0))
+            {
+                throw new InvalidOperationException("Selected Kit profiles contain an incomplete export profile.");
+            }
+
+            string[] assetPaths = GetAssetsForProfiles(closure);
+            if (assetPaths.Length == 0)
+            {
+                throw new InvalidOperationException("Selected Kit profiles have no exportable assets.");
+            }
+
+            string exportDirectory = ToProjectPath(KitExportRoot);
+            Directory.CreateDirectory(exportDirectory);
+            string fileName = NormalizePackageFileName(outputFileName);
+            string outputPath = Path.Combine(exportDirectory, fileName);
+            AssetDatabase.ExportPackage(assetPaths, outputPath, ExportPackageOptions.Recurse);
+            WriteCombinedKitDependencyGuide(exportDirectory, fileName, selectedProfiles, closure);
+            AssetDatabase.Refresh();
+            return outputPath;
+        }
+
+        internal static DistributionProfile[] GetSourceProjectExportProfiles()
+        {
+            return LoadDistributionCatalog().profiles
+                .Where(profile => profile.availability == "available")
+                .Where(profile => profile.kind != "single-file" && profile.kind != "sample")
+                // Generated support is selected transitively with its owning Kit. It is not a useful standalone choice.
+                .Where(profile => profile.kind != "generated-support")
+                .OrderBy(profile => profile.displayName, StringComparer.Ordinal)
+                .ToArray();
+        }
+
+        internal static DistributionProfile[] GetSourceProjectSampleProfiles()
+        {
+            return LoadDistributionCatalog().profiles
+                .Where(profile => profile.availability == "available")
+                .Where(profile => profile.kind == "sample")
+                .OrderBy(profile => profile.displayName, StringComparer.Ordinal)
+                .ToArray();
+        }
+
+        internal static bool IsFrameworkSourceProject()
+        {
+            return File.Exists(ToProjectPath(DistributionCatalogPath)) &&
+                   File.Exists(ToProjectPath(
+                       "Assets/StellarFramework/Editor/StellarToolsHub/Modules/Packaging/StellarFrameworkPackagePublisher.cs"));
         }
 
         internal static string[] GetBaseFrameworkAssetPaths()
@@ -489,6 +538,21 @@ namespace StellarFramework.Editor.Modules
         private static string NormalizePath(string assetPath)
         {
             return assetPath.Replace('\\', '/');
+        }
+
+        private static string NormalizePackageFileName(string outputFileName)
+        {
+            string fileName = string.IsNullOrWhiteSpace(outputFileName)
+                ? "StellarFramework-CombinedKits.unitypackage"
+                : outputFileName.Trim();
+            foreach (char invalidCharacter in Path.GetInvalidFileNameChars())
+            {
+                fileName = fileName.Replace(invalidCharacter, '-');
+            }
+
+            return fileName.EndsWith(".unitypackage", StringComparison.OrdinalIgnoreCase)
+                ? fileName
+                : fileName + ".unitypackage";
         }
 
         private static string ReadProjectAssetText(string assetPath)
@@ -629,6 +693,34 @@ namespace StellarFramework.Editor.Modules
             File.WriteAllText(guidePath, builder.ToString(), new UTF8Encoding(false));
         }
 
+        private static void WriteCombinedKitDependencyGuide(string outputDirectory, string outputFileName,
+            IEnumerable<DistributionProfile> selectedProfiles, IEnumerable<DistributionProfile> closure)
+        {
+            string guidePath = Path.Combine(outputDirectory,
+                Path.GetFileNameWithoutExtension(outputFileName) + "-Dependencies.md");
+            var builder = new StringBuilder();
+            builder.AppendLine("# StellarFramework 组合 Kit 导入说明");
+            builder.AppendLine();
+            builder.AppendLine($"导入 `{outputFileName}` 即可获得所选 Kit 及其去重后的依赖闭包。");
+            builder.AppendLine();
+            AppendGuideList(builder, "本次选择的 Kit", selectedProfiles
+                .Select(profile => profile.displayName)
+                .Distinct(StringComparer.Ordinal)
+                .OrderBy(name => name)
+                .ToArray(), "无");
+            AppendGuideList(builder, "本包已包含的 Kit", closure
+                .Select(profile => profile.displayName)
+                .Distinct(StringComparer.Ordinal)
+                .OrderBy(name => name)
+                .ToArray(), "无");
+            AppendGuideList(builder, "需要安装的 UPM 包", closure
+                .SelectMany(profile => profile.requiredUpm ?? Array.Empty<string>())
+                .Distinct(StringComparer.Ordinal)
+                .OrderBy(packageName => packageName)
+                .ToArray(), "无");
+            File.WriteAllText(guidePath, builder.ToString(), new UTF8Encoding(false));
+        }
+
         private static void AppendGuideList(StringBuilder builder, string title, string[] values, string emptyValue)
         {
             builder.AppendLine($"## {title}");
@@ -688,7 +780,7 @@ namespace StellarFramework.Editor.Modules
                 "# StellarFramework 单包安装说明\r\n\r\n" +
                 "## 使用方式\r\n\r\n" +
                 "只需要导入 `StellarFramework.unitypackage` 这一个包。\r\n\r\n" +
-                "导入后打开 `StellarFramework/单包安装器`，点击“一键安装 StellarFramework”，安装器会继续完成依赖安装和完整框架导入。\r\n\r\n" +
+                "导入后打开 `StellarFramework/安装/单包安装器`，点击“一键安装 StellarFramework”，安装器会继续完成依赖安装和完整框架导入。\r\n\r\n" +
                 "## 自动安装的依赖\r\n\r\n" +
                 "- UniTask (`com.cysharp.unitask`)\r\n" +
                 "- Newtonsoft.Json (`com.unity.nuget.newtonsoft-json`)\r\n" +
@@ -712,16 +804,17 @@ namespace StellarFramework.Editor.Modules
         };
 
         [Serializable]
-        private sealed class DistributionCatalog
+        internal sealed class DistributionCatalog
         {
             public DistributionProfile[] profiles;
         }
 
         [Serializable]
-        private sealed class DistributionProfile
+        internal sealed class DistributionProfile
         {
             public string id;
             public string displayName;
+            public string kind;
             public string availability;
             public string output;
             public string[] sourcePaths;

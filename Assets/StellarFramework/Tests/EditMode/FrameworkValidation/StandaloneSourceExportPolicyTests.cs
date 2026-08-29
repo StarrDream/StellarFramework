@@ -14,8 +14,8 @@ namespace StellarFramework.Tests.FrameworkValidation
             string source = ReadAssetText(
                 "Assets/StellarFramework/Editor/StellarToolsHub/Modules/Packaging/StellarFrameworkPackagePublisher.cs");
 
-            Assert.That(source, Does.Contain("导出独立文件/Architecture.cs"));
-            Assert.That(source, Does.Contain("导出独立文件/Extensions.cs"));
+            Assert.That(source, Does.Contain("ExportStandaloneArchitecture"));
+            Assert.That(source, Does.Contain("ExportStandaloneExtensions"));
             Assert.That(source, Does.Contain("StellarArchitecture.cs"));
             Assert.That(source, Does.Contain("StellarExtensions.cs"));
         }
@@ -108,8 +108,8 @@ namespace StellarFramework.Tests.FrameworkValidation
             Assert.That(catalog, Does.Contain("StellarFramework-BindableKit.unitypackage"));
             Assert.That(catalog, Does.Contain("StellarFramework-HttpKit.unitypackage"));
             Assert.That(publisher, Does.Contain("ExportKitPackageInternal"));
-            Assert.That(publisher, Does.Contain("导出 Kit/EventKit"));
-            Assert.That(publisher, Does.Contain("导出 Kit/ActionKit"));
+            Assert.That(publisher, Does.Contain("ExportEventKitPackage"));
+            Assert.That(publisher, Does.Contain("ExportActionKitPackage"));
         }
 
         [Test]
@@ -249,7 +249,7 @@ namespace StellarFramework.Tests.FrameworkValidation
             Assert.That(publisher, Does.Contain("ResolveProfileClosure"));
             Assert.That(publisher, Does.Contain("requiredProfileIds"));
             Assert.That(publisher, Does.Contain("excludedSourcePaths"));
-            Assert.That(publisher, Does.Contain("导出组合 Kit/ResKit.AssetBundle"));
+            Assert.That(publisher, Does.Contain("ExportResKitAssetBundlePackage"));
             Assert.That(catalog, Does.Contain("\"id\": \"reskit.core\""));
             Assert.That(catalog, Does.Contain("StellarFramework-ResKit-AssetBundle.unitypackage"));
             Assert.That(catalog, Does.Contain("StellarFramework-ResKit-Addressables.unitypackage"));
@@ -303,9 +303,32 @@ namespace StellarFramework.Tests.FrameworkValidation
             Assert.That(uiKitSampleAsmdef, Does.Contain("StellarFramework.UIKit"));
             Assert.That(supportAsmdef, Does.Contain("StellarFramework.Samples.Support"));
             Assert.That(supportAsmdef, Does.Contain("\"references\": []"));
-            Assert.That(publisher, Does.Contain("导出样例/UIKit"));
-            Assert.That(publisher, Does.Contain("导出样例/全部可选样例"));
+            Assert.That(publisher, Does.Contain("ExportUIKitSamplePackage"));
+            Assert.That(publisher, Does.Contain("ExportAllOptionalSamplePackages"));
             Assert.That(publisher, Does.Contain("OptionalSampleProfileIds"));
+        }
+
+        [Test]
+        public void SourceOnlyExporterWindowCombinesSelectedKitClosures()
+        {
+            string publisher = ReadAssetText(
+                "Assets/StellarFramework/Editor/StellarToolsHub/Modules/Packaging/StellarFrameworkPackagePublisher.cs");
+            string window = ReadAssetText(
+                "Assets/StellarFramework/Editor/StellarToolsHub/Modules/Packaging/StellarFrameworkPackageExportWindow.cs");
+
+            Assert.That(publisher, Does.Contain("ExportKitPackageGroupInternal"));
+            Assert.That(publisher, Does.Contain("NormalizePackageFileName"));
+            Assert.That(publisher, Does.Contain("WriteCombinedKitDependencyGuide"));
+            Assert.That(publisher, Does.Contain("IsFrameworkSourceProject"));
+            Assert.That(publisher, Does.Contain("Modules/Packaging"));
+            Assert.That(window, Does.Contain("Framework Source/Kit Package Exporter"));
+            Assert.That(window, Does.Contain("ExportKitPackageGroupInternal"));
+            Assert.That(window, Does.Contain("自动合并依赖"));
+            Assert.That(window, Does.Contain("独立 Kit"));
+            Assert.That(window, Does.Contain("有依赖 / 适配器"));
+            Assert.That(window, Does.Contain("Architecture.cs"));
+            Assert.That(window, Does.Contain("Extensions.cs"));
+            Assert.That(window, Does.Not.Contain("StellarFrameworkTools"));
         }
 
         [Test]
@@ -368,7 +391,7 @@ namespace StellarFramework.Tests.FrameworkValidation
             Assert.That(catalog, Does.Contain("Modules/SingletonKit"));
             Assert.That(catalog, Does.Contain("Modules/ResKit"));
             Assert.That(catalog, Does.Contain("Modules/AssetBundle"));
-            Assert.That(publisher, Does.Contain("导出 Kit/ToolsHub.Core"));
+            Assert.That(publisher, Does.Contain("ExportToolsHubCorePackage"));
         }
 
         [Test]
@@ -384,8 +407,8 @@ namespace StellarFramework.Tests.FrameworkValidation
             Assert.That(catalog, Does.Contain("StellarFramework-HotUpdate-HybridCLR.unitypackage"));
             Assert.That(catalog, Does.Contain("\"excludedCapabilities\": [\"Addressables\", \"HybridCLR\", \"CodeHotUpdate\"]"));
             Assert.That(catalog, Does.Contain("com.code-philosophy.hybridclr"));
-            Assert.That(publisher, Does.Contain("导出组合 Kit/HotUpdate.Core"));
-            Assert.That(publisher, Does.Contain("导出组合 Kit/HotUpdate.HybridCLR"));
+            Assert.That(publisher, Does.Contain("ExportHotUpdateCorePackage"));
+            Assert.That(publisher, Does.Contain("ExportHotUpdateHybridClrPackage"));
         }
 
         [Test]
