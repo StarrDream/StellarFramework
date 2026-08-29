@@ -29,7 +29,7 @@
 
 - Unity 编译：无 Console error。
 - 分发边界测试：21/21 通过，覆盖单文件导出、Adapter 排除、ToolsHub 程序集识别和依赖闭包声明。
-- 完整 EditMode：156 通过、1 个 Explicit 跳过；跳过项是需要 Player/IL2CPP 环境的 HybridCLR AA 全链路用例。
+- 完整 EditMode：159 通过、1 个 Explicit 跳过；跳过项是需要 Player/IL2CPP 环境的 HybridCLR AA 全链路用例。
 - 已实际导出并核对依赖说明：AudioKit.Core / ResKitAdapter、SettingsKit.Core / UnityAdapters / AudioKitAdapter、ConfigKit.Core / NewtonsoftJson。
 - HotUpdate.HybridCLR 的完整启动路径已单独验证通过。
 
@@ -43,3 +43,5 @@
 4. 对 Addressables、HybridCLR 这类外部插件层，确认未安装插件时入口隐藏，安装后才显示。
 
 > 本机曾尝试对 `ToolsHub.Core` 执行空白工程导入烟测，但 Unity LicensingClient 的 IPC 通道在启动阶段超时（返回码 199），因此该项未计为通过；需在许可服务可用的 Unity 环境重跑。
+
+> 生产放行还必须在目标平台 IL2CPP Player 上执行 `HybridClrAaRunnerCanEnterHotUpdate` 等价的真实远端发布烟测：下载 catalog、bundle、Manifest、DLL 与 AOT metadata，完成 SHA256 校验并进入热更入口。该步骤不能由编辑器测试或离线构建替代。

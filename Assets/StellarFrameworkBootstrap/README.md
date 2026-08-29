@@ -5,7 +5,7 @@
 ## 使用步骤
 
 1. 只需导入一个包：`StellarFramework.unitypackage`
-2. 打开 `StellarFramework -> 单包安装器`
+2. 打开 `StellarFramework -> 安装 -> 单包安装器`
 3. 点击 `一键安装 StellarFramework`
 4. 安装器会自动安装依赖，并导入完整 StellarFramework 框架
 

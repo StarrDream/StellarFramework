@@ -15,6 +15,16 @@ namespace StellarFramework.Tests.FrameworkValidation
             Assert.That(source, Does.Contain("Hello HybridCLR , 热更成功 ;"));
         }
 
+        [Test]
+        public void SingletonGeneratorExcludesOptionalAddressablesHotUpdateAssembly()
+        {
+            string source = File.ReadAllText(ToAbsoluteAssetPath(
+                "Assets/StellarFramework/Runtime/Kits/SingletonKit/Editor/SingletonGenerator.cs"));
+
+            Assert.That(source, Does.Contain("StellarFramework.HotUpdateKit.Addressables"));
+            Assert.That(source, Does.Contain("OptionalHotUpdateAddressablesRuntimeAssemblyName"));
+        }
+
         private static string ToAbsoluteAssetPath(string assetPath)
         {
             string projectRoot = Directory.GetParent(Application.dataPath)?.FullName ?? Application.dataPath;

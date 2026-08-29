@@ -1,6 +1,6 @@
 # StellarFramework Kit 分发矩阵
 
-本目录只服务于框架原始工程。业务项目只导入由 `StellarFramework/Packages` 导出的 `.unitypackage`，不需要导入本目录、测试或发布工具。
+本目录只服务于框架原始工程。业务项目只导入由 `StellarFramework/Framework Source/Kit Package Exporter` 导出的 `.unitypackage`，不需要导入本目录、测试或发布工具。
 
 ## 导出规则
 
@@ -11,10 +11,10 @@
 
 ## 单文件
 
-| 目标 | 菜单 | 结果 | 不带入 |
+| 目标 | 导出入口 | 结果 | 不带入 |
 | --- | --- | --- | --- |
-| Architecture | `导出独立文件/Architecture.cs` | `StellarArchitecture.cs` | 所有 Kit、Addressables、HybridCLR、代码热更 |
-| Extensions | `导出独立文件/Extensions.cs` | `StellarExtensions.cs` | 所有 Kit、Addressables、HybridCLR、代码热更 |
+| Architecture | `独立文件 -> 导出 Architecture.cs` | `StellarArchitecture.cs` | 所有 Kit、Addressables、HybridCLR、代码热更 |
+| Extensions | `独立文件 -> 导出 Extensions.cs` | `StellarExtensions.cs` | 所有 Kit、Addressables、HybridCLR、代码热更 |
 
 这两个文件只适合希望直接拷贝源码的用户；其中原有 LogKit 调用会转换为 `UnityEngine.Debug`。
 
@@ -59,7 +59,7 @@
 
 ## 可选样例包
 
-核心 Kit 包不携带 `Samples`。需要示例时，从 `StellarFramework/Packages/导出样例` 选择一个单独导出；导出器会把示例代码、对应可运行场景、必需的预制体/资源和它所需的 Kit 闭包一起写入同一个 `.unitypackage`。
+核心 Kit 包不携带 `Samples`。需要示例时，在 `Kit Package Exporter -> 样例包` 中选择一个或多个样例；导出器会把示例代码、对应可运行场景、必需的预制体/资源和它所需的 Kit 闭包一起写入同一个 `.unitypackage`。
 
 | 样例 | 自动包含的能力 | 不会带入 |
 | --- | --- | --- |
@@ -97,6 +97,8 @@
 ## 原始工程维护约定
 
 原始框架工程还提供独立的 `StellarFramework/Framework Source/Kit Package Exporter` 窗口。它不属于 ToolsHub：可多选 Kit、预览并去重依赖闭包、导出为一个 `.unitypackage` 和同名依赖说明。窗口与组合导出器位于 `Modules/Packaging`，该目录已被所有消费者分发路径排除，因此业务项目不会携带它。
+
+窗口会将 Profile 分为“独立 Kit”和“有依赖 / 适配器”：前者不自动带入其他 StellarFramework Kit，后者会直接列出并自动合并依赖。Addressables、HybridCLR 与代码热更均只在明确选择相关 Adapter/Profile 后进入导出包。
 
 新增或拆分 Kit 时，同步更新：
 

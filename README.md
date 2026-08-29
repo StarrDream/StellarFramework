@@ -15,13 +15,18 @@ StellarFramework 是一个 Unity 基础开发框架，提供架构分层、UI、
 
 ### 接入已有项目
 
-将 `Assets/StellarFramework` 和相关依赖目录接入到现有项目中。
+在原框架工程中打开 `StellarFramework -> Framework Source -> Kit Package Exporter`，按需选择 Kit、样例或独立源码文件。导出器会自动合并所选 Kit 的依赖，并在包旁生成依赖说明。
+
+- 只需要架构或静态扩展：导出 `Architecture.cs`、`Extensions.cs`，不引入任何 Kit。
+- 只需要 UI：导出 `UIKit.Core`；它默认使用 Resources，不依赖 ResKit。
+- 需要资源加载：按需选 `ResKit.Core`、`ResKit.AssetBundle` 或 `ResKit.Addressables`。
+- 需要代码热更：再显式选择 `HotUpdate.AddressablesAdapter` 与 `HotUpdate.HybridCLR`；不会被基础 Kit 隐式带入。
 
 ### 单包安装
 
 - 可以使用仓库 `Release` 中已导出的 `unitypackage`
 - 也可以使用当前工程自行导出 `StellarFramework.unitypackage`
-- 导入后打开 `StellarFramework -> 单包安装器`
+- 导入后打开 `StellarFramework -> 安装 -> 单包安装器`
 
 详细说明：
 
@@ -48,7 +53,7 @@ StellarFramework 以 `Architecture` 作为基础架构层，核心组织方式�
 - `Service` 负责业务逻辑与系统能力
 - `View` 负责表现层交互
 
-在这套基础分层之上，`UIKit`、`ResKit`、`HotUpdateKit`、`SettingsKit` 等 Kit 作为功能模块接入项目运行时；`Tools Hub` 和各类 Editor Modules 负责样例构建、资源工作流、热更新配置、代码生成和调试辅助。
+在这套基础分层之上，`UIKit`、`ResKit`、`SettingsKit` 等 Kit 可按需接入项目运行时；`HotUpdateKit`、Addressables 与 HybridCLR 是明确选择的可选层。`Tools Hub` 和各类 Editor Modules 负责样例构建、资源工作流、热更新配置、代码生成和调试辅助。
 
 整体上可以理解为三层：
 
@@ -123,3 +128,4 @@ Assets
 - [UIKit 界面系统说明](Assets/StellarFramework/Runtime/Kits/UIKit/UIKit-界面系统-说明文档-Guide.md)
 - [SettingsKit 设置系统说明](Assets/StellarFramework/Runtime/Kits/SettingsKit/SettingsKit-设置系统-说明文档-Guide.md)
 - [HotUpdateKit 热更新说明](Assets/StellarFramework/Runtime/Kits/HotUpdateKit/HotUpdateKit-热更新-说明文档-Guide.md)
+- [Kit 分发矩阵与生产验收基线](Assets/StellarFramework/KitCatalog/KitExportValidationMatrix.md)

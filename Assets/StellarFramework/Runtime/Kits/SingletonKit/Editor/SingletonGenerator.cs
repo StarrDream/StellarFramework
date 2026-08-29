@@ -16,6 +16,8 @@ namespace StellarFramework.Editor
     public class SingletonGenerator : IPreprocessBuildWithReport
     {
         private const string OptionalAddressablesRuntimeAssemblyName = "StellarFramework.ResKit.Addressables";
+        private const string OptionalHotUpdateAddressablesRuntimeAssemblyName =
+            "StellarFramework.HotUpdateKit.Addressables";
 
         public int callbackOrder => 0;
 
@@ -137,6 +139,7 @@ namespace StellarFramework.Editor
             string namespaceName = type.Namespace ?? string.Empty;
             string assemblyName = type.Assembly.GetName().Name ?? string.Empty;
             return string.Equals(assemblyName, OptionalAddressablesRuntimeAssemblyName, StringComparison.Ordinal) ||
+                   string.Equals(assemblyName, OptionalHotUpdateAddressablesRuntimeAssemblyName, StringComparison.Ordinal) ||
                    namespaceName.StartsWith("StellarFramework.Examples", StringComparison.Ordinal) ||
                    string.Equals(type.FullName, "StellarFramework.UI.UIStackManager", StringComparison.Ordinal);
         }

@@ -2,7 +2,7 @@
 
 ## 模块定位
 
-`HotUpdateKit` 负责把资源热更新和 `HybridCLR` 代码热更新收敛成一套统一的运行时入口。
+`HotUpdateKit` 把资源热更新和 `HybridCLR` 代码热更新收敛成一套统一的运行时入口，但这些能力均为可选层，不会随基础 Kit 自动引入。
 
 职责边界：
 
@@ -19,6 +19,14 @@
   描述代码热更新产物
 - `HybridCLRHook / HybridCLRAAHotUpdateRunner`
   负责加载 metadata、校验 DLL、执行热更入口
+
+## 按需安装边界
+
+- `HotUpdate.Core`：只提供策略接口、Manifest 与明确的不可用结果；不依赖 Addressables、HybridCLR，也不包含代码热更实现。
+- `HotUpdate.AddressablesAdapter`：在 `HotUpdate.Core + ResKit.Addressables` 之上提供 AA 资源热更新。
+- `HotUpdate.HybridCLR`：在 Addressables 适配层之上提供 DLL、AOT metadata 与代码热更入口；只有此层需要 HybridCLR。
+
+未选择这些 Profile 的项目不会因为 ResKit、UIKit 或 ToolsHub 而被要求安装 HybridCLR。
 
 ## 核心入口
 
@@ -91,6 +99,15 @@
 - 热更程序集已导出为 `.dll.bytes`
 - AOT metadata 已导出为 `.dll.bytes`
 - `HotUpdateSettings` 配置的入口类和方法与热更程序集一致
+
+## 生产放行门禁
+
+编辑器验证用于检查配置、依赖边界和失败诊断；真实发布还必须在每个目标平台的 IL2CPP Player 完成以下验收：
+
+1. 从发布 CDN 下载 catalog、bundle、Manifest、DLL 与所有 metadata。
+2. 校验 Manifest 与 DLL 的 SHA256，并验证 catalog/hash/bundle 属于同一批产物。
+3. 成功加载 AOT metadata、进入热更入口，并验证失败时能阻断启动或回退到稳定版本。
+4. 在断网、旧 catalog、损坏 DLL、缺失 metadata 四种场景验证可观测错误与回滚策略。
 
 ## ToolsHub 关联
 
