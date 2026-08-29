@@ -61,7 +61,7 @@ namespace StellarFrameworkBootstrap
             new PackageSpec
             {
                 PackageId = "com.code-philosophy.hybridclr",
-                GitUrl = "https://github.com/focus-creative-games/hybridclr_unity.git"
+                GitUrl = "https://github.com/focus-creative-games/hybridclr_unity.git#4feac30cb2e105992986c737f7f54992b8300e1a"
             }
         };
 

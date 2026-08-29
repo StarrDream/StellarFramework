@@ -332,6 +332,36 @@ namespace StellarFramework.Tests.FrameworkValidation
         }
 
         [Test]
+        public void KitExportsInstallOnlyTheirDeclaredUpmDependencies()
+        {
+            string publisher = ReadAssetText(
+                "Assets/StellarFramework/Editor/StellarToolsHub/Modules/Packaging/StellarFrameworkPackagePublisher.cs");
+            string installer = ReadAssetText(
+                "Assets/StellarFramework/Editor/KitDependencyInstaller/StellarFrameworkKitDependencyInstaller.cs");
+            string catalog = ReadAssetText("Assets/StellarFramework/KitCatalog/KitDistributionCatalog.json");
+
+            Assert.That(publisher, Does.Contain("AddKitDependencyInstallerAssets"));
+            Assert.That(publisher, Does.Contain("GetRequiredUpm"));
+            Assert.That(publisher, Does.Contain("requiredUpm.Length == 0"));
+            Assert.That(publisher, Does.Contain("自动调用 Unity Package Manager"));
+            Assert.That(publisher, Does.Contain("UpmPackageSources"));
+            Assert.That(publisher, Does.Contain("KitDependencyInstallerRequestPrefix"));
+            Assert.That(installer, Does.Contain("[InitializeOnLoad]"));
+            Assert.That(installer, Does.Contain("RequestSearchPattern"));
+            Assert.That(installer, Does.Contain("Client.Add(missingPackage.source)"));
+            Assert.That(installer, Does.Contain("PackageDependency[] dependencies"));
+            Assert.That(installer, Does.Not.Contain("com.code-philosophy.hybridclr"));
+            Assert.That(installer, Does.Not.Contain("com.unity.addressables"));
+            Assert.That(publisher, Does.Contain("com.cysharp.unitask"));
+            Assert.That(publisher, Does.Contain("com.unity.nuget.newtonsoft-json"));
+            Assert.That(publisher, Does.Contain("com.unity.addressables"));
+            Assert.That(publisher, Does.Contain("com.unity.ugui"));
+            Assert.That(publisher, Does.Contain("com.code-philosophy.hybridclr"));
+            Assert.That(publisher, Does.Contain("4feac30cb2e105992986c737f7f54992b8300e1a"));
+            Assert.That(catalog, Does.Contain("\"requiredUpm\""));
+        }
+
+        [Test]
         public void ToolsHubAvailabilityCheckRejectsMissingAssemblyAtRuntime()
         {
             Type attributeType = Type.GetType(

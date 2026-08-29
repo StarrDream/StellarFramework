@@ -25,6 +25,11 @@ namespace StellarFramework.Editor.Modules
         private const string ArchitectureStandaloneOutputFileName = "StellarArchitecture.cs";
         private const string ExtensionsStandaloneOutputFileName = "StellarExtensions.cs";
         private const string ArchitectureSourcePath = "Assets/StellarFramework/Runtime/Core/Architecture/StellarFramework.cs";
+        private const string KitDependencyInstallerSourcePath =
+            "Assets/StellarFramework/Editor/KitDependencyInstaller/StellarFrameworkKitDependencyInstaller.cs";
+        private const string KitDependencyInstallerRequestRoot =
+            "Assets/StellarFramework/Editor/KitDependencyInstaller";
+        private const string KitDependencyInstallerRequestPrefix = "__StellarFramework-KitDependencies-";
 
         private static readonly string[] OptionalSampleProfileIds =
         {
@@ -33,6 +38,22 @@ namespace StellarFramework.Editor.Modules
             "samples.reskit", "samples.settingskit", "samples.singletonkit", "samples.uikit",
             "samples.architecture", "samples.hotupdate.hybridclr"
         };
+
+        private static readonly IReadOnlyDictionary<string, string> UpmPackageSources =
+            new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                {
+                    "com.cysharp.unitask",
+                    "https://github.com/Cysharp/UniTask.git?path=src/UniTask/Assets/Plugins/UniTask"
+                },
+                { "com.unity.nuget.newtonsoft-json", "com.unity.nuget.newtonsoft-json@3.2.2" },
+                { "com.unity.addressables", "com.unity.addressables@1.22.3" },
+                { "com.unity.ugui", "com.unity.ugui@1.0.0" },
+                {
+                    "com.code-philosophy.hybridclr",
+                    "https://github.com/focus-creative-games/hybridclr_unity.git#4feac30cb2e105992986c737f7f54992b8300e1a"
+                }
+            };
 
         private static readonly string[] ExtensionSourcePaths =
         {
@@ -321,9 +342,20 @@ namespace StellarFramework.Editor.Modules
             string exportDirectory = ToProjectPath(KitExportRoot);
             Directory.CreateDirectory(exportDirectory);
             string outputPath = Path.Combine(exportDirectory, profile.output);
-            AssetDatabase.ExportPackage(assetPaths, outputPath, ExportPackageOptions.Recurse);
-            WriteKitDependencyGuide(exportDirectory, profile, closure);
-            AssetDatabase.Refresh();
+            string requestAssetPath = null;
+            try
+            {
+                assetPaths = AddKitDependencyInstallerAssets(assetPaths, closure, profile.output, profile.displayName,
+                    out requestAssetPath);
+                AssetDatabase.ExportPackage(assetPaths, outputPath, ExportPackageOptions.Recurse);
+                WriteKitDependencyGuide(exportDirectory, profile, closure);
+            }
+            finally
+            {
+                DeleteKitDependencyInstallRequest(requestAssetPath);
+                AssetDatabase.Refresh();
+            }
+
             return outputPath;
         }
 
@@ -387,9 +419,23 @@ namespace StellarFramework.Editor.Modules
             Directory.CreateDirectory(exportDirectory);
             string fileName = NormalizePackageFileName(outputFileName);
             string outputPath = Path.Combine(exportDirectory, fileName);
-            AssetDatabase.ExportPackage(assetPaths, outputPath, ExportPackageOptions.Recurse);
-            WriteCombinedKitDependencyGuide(exportDirectory, fileName, selectedProfiles, closure);
-            AssetDatabase.Refresh();
+            string requestAssetPath = null;
+            try
+            {
+                string displayName = string.Join(" + ", selectedProfiles
+                    .Select(profile => profile.displayName)
+                    .OrderBy(name => name, StringComparer.Ordinal));
+                assetPaths = AddKitDependencyInstallerAssets(assetPaths, closure, fileName, displayName,
+                    out requestAssetPath);
+                AssetDatabase.ExportPackage(assetPaths, outputPath, ExportPackageOptions.Recurse);
+                WriteCombinedKitDependencyGuide(exportDirectory, fileName, selectedProfiles, closure);
+            }
+            finally
+            {
+                DeleteKitDependencyInstallRequest(requestAssetPath);
+                AssetDatabase.Refresh();
+            }
+
             return outputPath;
         }
 
@@ -658,6 +704,79 @@ namespace StellarFramework.Editor.Modules
                 .ToArray();
         }
 
+        private static string[] AddKitDependencyInstallerAssets(IEnumerable<string> assetPaths,
+            IEnumerable<DistributionProfile> profiles, string packageFileName, string displayName,
+            out string requestAssetPath)
+        {
+            requestAssetPath = null;
+            string[] requiredUpm = GetRequiredUpm(profiles);
+            if (requiredUpm.Length == 0)
+            {
+                return assetPaths.ToArray();
+            }
+
+            if (!File.Exists(ToProjectPath(KitDependencyInstallerSourcePath)))
+            {
+                throw new FileNotFoundException("Kit dependency installer source was not found.",
+                    ToProjectPath(KitDependencyInstallerSourcePath));
+            }
+
+            string requestId = Path.GetFileNameWithoutExtension(packageFileName);
+            string safeRequestId = Regex.Replace(requestId ?? "KitDependencies", "[^A-Za-z0-9_.-]", "-");
+            requestAssetPath = KitDependencyInstallerRequestRoot + "/" + KitDependencyInstallerRequestPrefix +
+                               safeRequestId + ".json";
+            string requestDirectory = ToProjectPath(KitDependencyInstallerRequestRoot);
+            Directory.CreateDirectory(requestDirectory);
+            AssetDatabase.DeleteAsset(requestAssetPath);
+
+            var request = new KitDependencyInstallRequest
+            {
+                requestId = safeRequestId,
+                displayName = displayName,
+                dependencies = requiredUpm.Select(packageId =>
+                {
+                    if (!UpmPackageSources.TryGetValue(packageId, out string source))
+                    {
+                        throw new InvalidOperationException($"No package source is configured for {packageId}.");
+                    }
+
+                    return new KitDependencyPackageSource
+                    {
+                        packageId = packageId,
+                        source = source
+                    };
+                }).ToArray()
+            };
+            File.WriteAllText(ToProjectPath(requestAssetPath), JsonUtility.ToJson(request, true), new UTF8Encoding(false));
+            AssetDatabase.ImportAsset(requestAssetPath, ImportAssetOptions.ForceSynchronousImport);
+
+            return assetPaths
+                .Concat(new[] { KitDependencyInstallerSourcePath, requestAssetPath })
+                .Distinct(StringComparer.Ordinal)
+                .OrderBy(path => path, StringComparer.Ordinal)
+                .ToArray();
+        }
+
+        private static void DeleteKitDependencyInstallRequest(string requestAssetPath)
+        {
+            if (string.IsNullOrWhiteSpace(requestAssetPath))
+            {
+                return;
+            }
+
+            AssetDatabase.DeleteAsset(requestAssetPath);
+        }
+
+        private static string[] GetRequiredUpm(IEnumerable<DistributionProfile> profiles)
+        {
+            return profiles
+                .SelectMany(profile => profile.requiredUpm ?? Array.Empty<string>())
+                .Where(packageId => !string.IsNullOrWhiteSpace(packageId))
+                .Distinct(StringComparer.Ordinal)
+                .OrderBy(packageId => packageId, StringComparer.Ordinal)
+                .ToArray();
+        }
+
         private static bool IsIncludedInProfile(string assetPath, DistributionProfile profile)
         {
             bool insideSource = profile.sourcePaths.Any(sourcePath => IsPathInside(assetPath, sourcePath));
@@ -684,11 +803,12 @@ namespace StellarFramework.Editor.Modules
             builder.AppendLine($"导入 `{profile.output}` 即可获得此 Kit 的源代码。");
             builder.AppendLine();
             AppendGuideList(builder, "本包已包含的 Kit", closure.Select(candidate => candidate.displayName).ToArray(), "无");
-            AppendGuideList(builder, "需要安装的 UPM 包", closure
-                .SelectMany(candidate => candidate.requiredUpm ?? Array.Empty<string>())
-                .Distinct(StringComparer.Ordinal)
-                .OrderBy(packageName => packageName)
-                .ToArray(), "无");
+            string[] requiredUpm = GetRequiredUpm(closure);
+            builder.AppendLine(requiredUpm.Length > 0
+                ? "导入后会自动调用 Unity Package Manager 安装下列 UPM 包。"
+                : "本包没有额外 UPM 依赖，因此不会附带依赖安装器。");
+            builder.AppendLine();
+            AppendGuideList(builder, "自动安装的 UPM 包", requiredUpm, "无");
             AppendGuideList(builder, "不会引入的能力", profile.excludedCapabilities, "无");
             File.WriteAllText(guidePath, builder.ToString(), new UTF8Encoding(false));
         }
@@ -713,11 +833,12 @@ namespace StellarFramework.Editor.Modules
                 .Distinct(StringComparer.Ordinal)
                 .OrderBy(name => name)
                 .ToArray(), "无");
-            AppendGuideList(builder, "需要安装的 UPM 包", closure
-                .SelectMany(profile => profile.requiredUpm ?? Array.Empty<string>())
-                .Distinct(StringComparer.Ordinal)
-                .OrderBy(packageName => packageName)
-                .ToArray(), "无");
+            string[] requiredUpm = GetRequiredUpm(closure);
+            builder.AppendLine(requiredUpm.Length > 0
+                ? "导入后会自动调用 Unity Package Manager 安装下列 UPM 包。"
+                : "本包没有额外 UPM 依赖，因此不会附带依赖安装器。");
+            builder.AppendLine();
+            AppendGuideList(builder, "自动安装的 UPM 包", requiredUpm, "无");
             File.WriteAllText(guidePath, builder.ToString(), new UTF8Encoding(false));
         }
 
@@ -825,9 +946,25 @@ namespace StellarFramework.Editor.Modules
             public string[] excludedCapabilities;
         }
 
+        [Serializable]
+        private sealed class KitDependencyInstallRequest
+        {
+            public string requestId;
+            public string displayName;
+            public KitDependencyPackageSource[] dependencies;
+        }
+
+        [Serializable]
+        private sealed class KitDependencyPackageSource
+        {
+            public string packageId;
+            public string source;
+        }
+
         private static readonly string[] FullPayloadExcludedPrefixes =
         {
             "Assets/StellarFramework/Editor/StellarToolsHub/Modules/Packaging",
+            "Assets/StellarFramework/Editor/KitDependencyInstaller",
             "Assets/StellarFramework/Samples/KitSamples/Scenes",
             "Assets/StellarFramework/Samples/KitSamples/Generated",
             "Assets/StellarFramework/Samples/KitSamples/Example_ResKit/Addressables",
