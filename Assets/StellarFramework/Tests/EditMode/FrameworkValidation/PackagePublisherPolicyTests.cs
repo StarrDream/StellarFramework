@@ -18,6 +18,16 @@ namespace StellarFramework.Tests.FrameworkValidation
         }
 
         [Test]
+        public void SourceProjectPackageManifestHasNoAuthorMachinePathDependencies()
+        {
+            string manifest = ReadAssetText("Packages/manifest.json");
+            string packageLock = ReadAssetText("Packages/packages-lock.json");
+
+            Assert.That(manifest, Does.Not.Contain("\"file:"));
+            Assert.That(packageLock, Does.Not.Contain("\"source\": \"local\""));
+        }
+
+        [Test]
         public void PackagePublisherStillKeepsBasePayloadExclusions()
         {
             string source = ReadAssetText(

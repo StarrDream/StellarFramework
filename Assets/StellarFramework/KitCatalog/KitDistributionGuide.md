@@ -1,6 +1,6 @@
 # StellarFramework Kit 分发矩阵
 
-本目录只服务于框架原始工程。业务项目只导入由 `StellarFramework/Framework Source/Kit Package Exporter` 导出的 `.unitypackage`，不需要导入本目录、测试或发布工具。
+本目录只服务于框架原始工程。这个 GitHub 仓库用于维护框架源码、导出器、样例与测试，不承载任何业务项目代码。业务项目只导入由 `StellarFramework/Framework Source/Kit Package Exporter` 导出的 `.unitypackage`，不需要导入本目录、测试或发布工具。
 
 ## 导出规则
 

@@ -2,6 +2,15 @@
 
 StellarFramework 是一个 Unity 基础开发框架，提供架构分层、UI、资源加载、热更新、设置系统，以及配套的编辑器工具、样例和文档。
 
+## 仓库定位
+
+这个 GitHub 仓库是 **StellarFramework 的原始开发工程**，不是任何游戏或业务项目。
+
+- 仓库负责维护框架源码、Kit 导出器、Tools Hub、测试、样例模板和验证资源。
+- `Samples`、`GameHotUpdate`、`StellarFrameworkVerification` 只用于演示与框架验收；不承载真实游戏业务。
+- 请不要在这个仓库中提交业务玩法、业务场景、线上地址、账号密钥或项目专属配置。
+- 业务开发者应从此工程导出所需内容，再导入到自己的 Unity 业务项目：可选择单 Kit、多个 Kit 的组合包、独立 `Architecture.cs` / `Extensions.cs`，或完整单包安装版。
+
 ## 运行环境
 
 - Unity `2022.3 LTS`
@@ -9,9 +18,14 @@ StellarFramework 是一个 Unity 基础开发框架，提供架构分层、UI、
 
 ## 安装
 
-### 直接打开工程
+### Clone 并维护框架
 
-使用 Unity 打开当前工程即可。
+1. Clone 本仓库。
+2. 使用 Unity `2022.3.62f3c1`（或兼容的 Unity 2022.3 LTS / Unity 6000.x）打开根目录。
+3. 首次打开时 Unity 会解析公开 UPM 依赖；请确保本机已安装 Git 且可访问 GitHub/Unity Package Registry。
+4. 打开 `StellarFramework -> Framework Source -> Kit Package Exporter`，导出业务项目实际需要的内容。
+
+本仓库的 `manifest.json` 不包含任何本机 `file:` 路径依赖；普通开发者 clone 后不需要拥有作者机器上的工具目录。
 
 ### 接入已有项目
 
