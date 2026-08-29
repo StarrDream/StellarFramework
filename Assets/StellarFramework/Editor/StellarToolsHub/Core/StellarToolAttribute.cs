@@ -14,6 +14,12 @@ namespace StellarFramework.Editor
         public int Order { get; private set; }
 
         /// <summary>
+        /// 此模块需要已加载的程序集名称。未满足时 Tools Hub 不显示该模块，
+        /// 以便导入方可自由组合 Kit 而无需维护工具清单。
+        /// </summary>
+        public string[] RequiredAssemblyNames { get; set; } = Array.Empty<string>();
+
+        /// <summary>
         /// 注册工具
         /// </summary>
         /// <param name="title">工具标题</param>

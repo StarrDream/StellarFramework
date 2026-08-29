@@ -1,0 +1,5 @@
+{
+    "name": "StellarFramework.Samples.FSMKit",
+    "references": ["StellarFramework.FSMKit"],
+    "autoReferenced": false
+}

@@ -1,0 +1,5 @@
+{
+    "name": "StellarFramework.Samples.ConfigKit",
+    "references": ["StellarFramework.ConfigKit.Json", "GUID:f51ebe6a0ceec4240a699833d6309b23"],
+    "autoReferenced": false
+}

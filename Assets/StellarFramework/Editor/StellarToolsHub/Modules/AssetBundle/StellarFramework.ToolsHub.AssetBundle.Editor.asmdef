@@ -1,0 +1,17 @@
+{
+    "name": "StellarFramework.ToolsHub.AssetBundle.Editor",
+    "rootNamespace": "",
+    "references": [
+        "StellarFramework.ToolsHub.Editor",
+        "StellarFramework.ResKit.AssetBundle"
+    ],
+    "includePlatforms": ["Editor"],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

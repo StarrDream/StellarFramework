@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using StellarFramework.Audio;
-using StellarFramework.Res;
 using StellarFramework.Settings;
 using UnityEngine;
 using UnityEngine.Audio;
@@ -133,7 +132,7 @@ namespace StellarFramework.Examples
                 return;
             }
 
-            AudioKit.Init(_mainMixer, new ExampleAudioFallbackLoader<ResourceLoader>());
+            AudioKit.Init(_mainMixer, new ResourcesAudioLoader());
             AudioKit.PlayMusic("Audio/BGM/MainTheme", 0.5f);
         }
 

@@ -1894,7 +1894,12 @@ namespace StellarFramework.Editor.Modules
         }
     }
 
-    [StellarTool("AA 配置与发布", "资源管理", 1)]
+    [StellarTool("AA 配置与发布", "资源管理", 1,
+        RequiredAssemblyNames = new[]
+        {
+            "StellarFramework.ResKit.Addressables",
+            "StellarFramework.HotUpdateKit.Addressables"
+        })]
     public sealed class AAWorkflowPublishHubModule : ToolModule
     {
         private static readonly string[] TabNames =

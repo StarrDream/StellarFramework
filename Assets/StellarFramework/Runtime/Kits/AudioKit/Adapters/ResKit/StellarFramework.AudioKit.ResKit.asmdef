@@ -1,0 +1,19 @@
+{
+    "name": "StellarFramework.AudioKit.ResKit",
+    "rootNamespace": "",
+    "references": [
+        "StellarFramework.AudioKit",
+        "StellarFramework.PoolKit",
+        "StellarFramework.ResKit",
+        "GUID:f51ebe6a0ceec4240a699833d6309b23"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

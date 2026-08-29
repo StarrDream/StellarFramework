@@ -9,7 +9,8 @@ namespace StellarFramework.Editor.Modules
     /// AudioKit 的 Hub 入口模块
     /// 职责: 将 AudioKit 注册到 StellarFramework Tools Hub，提供混音器的自动化诊断与配置引导
     /// </summary>
-    [StellarTool("AudioKit 音频中心", "框架核心", 5)]
+    [StellarTool("AudioKit 音频中心", "框架核心", 5,
+        RequiredAssemblyNames = new[] { "StellarFramework.AudioKit" })]
     public class AudioKitHubModule : ToolModule
     {
         public override string Icon => "d_AudioMixerController Icon";

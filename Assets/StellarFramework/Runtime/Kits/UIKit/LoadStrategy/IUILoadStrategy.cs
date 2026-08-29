@@ -1,6 +1,5 @@
 using System.Threading;
 using Cysharp.Threading.Tasks;
-using StellarFramework.Res;
 using UnityEngine;
 
 namespace StellarFramework.UI
@@ -29,7 +28,9 @@ namespace StellarFramework.UI
         public const string DefaultResourcesPath = "UIKitSettings";
 
         [Header("Loading")]
-        [SerializeField] private ResLoadBackend defaultLoadBackend = ResLoadBackend.Default;
+        [SerializeField] private string defaultLoadStrategyKey = "Resources";
+        // 保留原 defaultLoadBackend 的序列化字段名，确保已存在的 UIKitSettings 资源可被 ResKit 适配器读取。
+        [SerializeField] private int defaultLoadBackend;
         [SerializeField] private string customLoaderKey = string.Empty;
         [SerializeField] private bool allowSyncLoad = true;
 
@@ -37,7 +38,10 @@ namespace StellarFramework.UI
         [SerializeField] private string uiRootPath = "UIPanel/UIRoot";
         [SerializeField] private string panelPathFormat = "UIPanel/{0}";
 
-        public ResLoadBackend DefaultLoadBackend => defaultLoadBackend;
+        public string DefaultLoadStrategyKey => string.IsNullOrWhiteSpace(defaultLoadStrategyKey)
+            ? "Resources"
+            : defaultLoadStrategyKey.Trim();
+        public int LegacyResLoadBackendValue => defaultLoadBackend;
         public string CustomLoaderKey => customLoaderKey;
         public bool AllowSyncLoad => allowSyncLoad;
         public string UIRootPath => uiRootPath;

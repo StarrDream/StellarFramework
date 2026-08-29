@@ -18,7 +18,8 @@
 - `Runtime/Kits/AudioKit/Core/AudioManager.cs`
 - `Runtime/Kits/AudioKit/Core/AudioDefines.cs`
 - `Runtime/Kits/AudioKit/Core/AudioLoader/IAudioLoader.cs`
-- `Runtime/Kits/AudioKit/Core/AudioLoader/DefaultResKitAudioLoader.cs`
+- `Runtime/Kits/AudioKit/Core/AudioLoader/ResourcesAudioLoader.cs`
+- `Runtime/Kits/AudioKit/Adapters/ResKit/AudioKitResKitAdapter.cs`（可选）
 
 ## 总体结构
 
@@ -70,7 +71,13 @@ AudioKit
 - `LoadAudioAsync(string path, CancellationToken cancellationToken)`
 - `Release()`
 
-## `DefaultResKitAudioLoader<TLoader>`
+## `ResourcesAudioLoader`
+
+### 作用
+
+`AudioKit.Core` 的默认加载器，通过 Unity `Resources.Load` 加载 `AudioClip`，不依赖 ResKit。
+
+## `DefaultResKitAudioLoader<TLoader>`（可选 Adapter）
 
 ### 作用
 
@@ -193,7 +200,7 @@ AudioKit
 
 ### 方法
 
-- `Init<TLoader>(AudioMixer mixer)`
+- `Init(AudioMixer mixer)`（Resources 默认加载）
 - `Init(AudioMixer mixer, IAudioLoader customLoader)`
 - `PlayMusic(...)`
 - `StopMusic()`
@@ -206,6 +213,8 @@ AudioKit
 - `SoundVolume`
 - `MusicOn`
 - `SoundOn`
+
+安装 `AudioKit.ResKitAdapter` 后，可通过 `AudioKitResKit.Init<TLoader>(mixer)` 使用 ResKit。
 
 ## 设计约束
 

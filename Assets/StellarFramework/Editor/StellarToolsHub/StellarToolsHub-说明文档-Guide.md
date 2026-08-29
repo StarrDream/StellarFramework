@@ -19,12 +19,14 @@ StellarFramework -> Tools Hub
 
 ## 主要分组
 
+左侧分组固定顺序如下：
+
 - `Start Here`
 - `资源管理`
 - `框架核心`
 - `热更新`
 - `样例支持`
-- `生产工具`
+- `生产力`
 - `常用工具`
 
 ## 新手路线
@@ -45,12 +47,16 @@ StellarFramework -> Tools Hub
 - `UIKit 工具`
 - `SettingsKit 设置中心`
 - `ConfigKit 配置中心`
+- `HybridCLR DLL 导出`
+
+`AA 配置与发布` 提供 `一键本地内置构建` 与 `一键远端热更发布`；启用 HybridCLR 后可在 `HybridCLR DLL 导出` 中导出热更 DLL。
 
 ## 使用建议
 
 - 日常入口优先用 `Quick Start`
 - 框架文档统一从 `文档中心` 查看
 - Addressables / HybridCLR 发布统一走 `AA 配置与发布`
+- 欢迎使用 StellarFramework：可从 Start Here 的欢迎页进入 30 分钟上手，并在任意模块中返回欢迎页。
 
 ## 相关文档
 

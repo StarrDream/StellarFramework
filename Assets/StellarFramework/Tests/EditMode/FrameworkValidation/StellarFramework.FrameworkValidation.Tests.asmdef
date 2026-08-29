@@ -2,11 +2,11 @@
   "name": "StellarFramework.FrameworkValidation.Tests",
   "rootNamespace": "StellarFramework.Tests",
   "references": [
-    "StellarFramework.Samples.Runtime",
     "StellarFramework.Verification.Runtime",
     "StellarFramework.ToolsHub.Editor",
     "StellarFramework.HotUpdateKit",
     "StellarFramework.ResKit",
+    "StellarFramework.ResKit.AssetBundle",
     "StellarFramework.SingletonKit",
     "UniTask"
   ],

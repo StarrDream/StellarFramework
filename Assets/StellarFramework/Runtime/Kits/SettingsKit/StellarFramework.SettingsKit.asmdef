@@ -2,7 +2,6 @@
     "name": "StellarFramework.SettingsKit",
     "rootNamespace": "",
     "references": [
-        "StellarFramework.LogKit",
         "StellarFramework.SingletonKit"
     ],
     "includePlatforms": [],

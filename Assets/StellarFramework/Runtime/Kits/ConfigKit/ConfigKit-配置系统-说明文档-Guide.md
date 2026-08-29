@@ -4,6 +4,13 @@
 
 `ConfigKit` 负责统一加载和缓存配置文件。
 
+## 分发层级
+
+- `ConfigKit.Core`：文本配置读取、StreamingAssets / PersistentDataPath 覆盖规则，以及 `IConfigTextSource` 自定义来源接口；不依赖 Newtonsoft Json。
+- `ConfigKit.NewtonsoftJson`：现有 `ConfigKit`、`NormalConfig`、`NetConfig` 和 JSON 编辑器，作为可选适配包。
+
+只想使用自定义文本、二进制或其他序列化方案时，只导入 Core 并实现 `IConfigTextSource` 即可。
+
 适合处理：
 
 - 随包配置

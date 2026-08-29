@@ -220,7 +220,7 @@ namespace StellarFramework.Tests.ResKit
         private static void EnsureAddressablesHotUpdateStrategyInstalled()
         {
             const string strategyTypeName =
-                "StellarFramework.Res.AddressablesPackageHotUpdateStrategy, StellarFramework.ResKit.Addressables";
+                "StellarFramework.Res.AddressablesPackageHotUpdateStrategy, StellarFramework.HotUpdateKit.Addressables";
 
             System.Type strategyType = System.Type.GetType(strategyTypeName);
             Assert.That(strategyType, Is.Not.Null, "Addressables hot update strategy type was not found.");

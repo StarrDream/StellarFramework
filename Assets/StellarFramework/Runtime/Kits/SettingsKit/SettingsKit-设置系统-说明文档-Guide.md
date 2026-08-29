@@ -35,6 +35,8 @@
 - `ISettingsPageProvider`
   页面提供器接口
 
+`SettingsKit.Core` 只依赖 SingletonKit；AudioKit、Unity 图形、语言和输入系统通过可选 Adapter 连接，因此可单独导入到任意项目。
+
 ## 标准接入流程
 
 ```csharp

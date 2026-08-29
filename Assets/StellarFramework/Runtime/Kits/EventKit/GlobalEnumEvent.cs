@@ -92,14 +92,14 @@ namespace StellarFramework.Event
             {
                 if (gameObject == null)
                 {
-                    LogKit.LogError($"[GlobalEnumEvent] 生命周期绑定失败: gameObject 为空, EventKey={Key}");
+                    Debug.LogError($"[GlobalEnumEvent] 生命周期绑定失败: gameObject 为空, EventKey={Key}");
                     UnRegister();
                     return this;
                 }
 
                 if (!CustomUnRegister.TryAttachDestroyTrigger(gameObject, out EventUnregisterTrigger trigger))
                 {
-                    LogKit.LogError(
+                    Debug.LogError(
                         $"[GlobalEnumEvent] 生命周期绑定失败: 无法挂载销毁触发器, EventKey={Key}, TriggerObject={gameObject.name}");
                     UnRegister();
                     return this;
@@ -114,7 +114,7 @@ namespace StellarFramework.Event
             {
                 if (mono == null)
                 {
-                    LogKit.LogError($"[GlobalEnumEvent] 生命周期绑定失败: mono 为空, EventKey={Key}");
+                    Debug.LogError($"[GlobalEnumEvent] 生命周期绑定失败: mono 为空, EventKey={Key}");
                     UnRegister();
                     return this;
                 }
@@ -126,7 +126,7 @@ namespace StellarFramework.Event
             {
                 if (mono == null || mono.gameObject == null)
                 {
-                    LogKit.LogError($"[GlobalEnumEvent] 生命周期绑定失败: mono 或 gameObject 为空, EventKey={Key}");
+                    Debug.LogError($"[GlobalEnumEvent] 生命周期绑定失败: mono 或 gameObject 为空, EventKey={Key}");
                     UnRegister();
                     return this;
                 }
@@ -134,7 +134,7 @@ namespace StellarFramework.Event
                 if (!CustomUnRegister.TryAttachDisableTrigger(mono.gameObject,
                         out EventUnregisterOnDisableTrigger trigger))
                 {
-                    LogKit.LogError(
+                    Debug.LogError(
                         $"[GlobalEnumEvent] 生命周期绑定失败: 无法挂载失活触发器, EventKey={Key}, TriggerObject={mono.gameObject.name}");
                     UnRegister();
                     return this;
@@ -192,7 +192,7 @@ namespace StellarFramework.Event
                 return true;
             }
 
-            LogKit.LogError($"[GlobalEnumEvent] 注册失败: Key '{key}' 的委托签名不匹配, Expected={existedType}, Actual={cbType}");
+            Debug.LogError($"[GlobalEnumEvent] 注册失败: Key '{key}' 的委托签名不匹配, Expected={existedType}, Actual={cbType}");
             return false;
         }
 
@@ -329,7 +329,7 @@ namespace StellarFramework.Event
                 return true;
             }
 
-            LogKit.LogError(
+            Debug.LogError(
                 $"[GlobalEnumEvent] 广播失败: Key '{key}' 的委托签名与当前 Broadcast 调用不匹配, ActualDelegateType={d.GetType().Name}, ExpectedDelegateType={typeof(TDelegate).Name}");
             return false;
         }
@@ -342,7 +342,7 @@ namespace StellarFramework.Event
         {
             if (callback == null)
             {
-                LogKit.LogError($"[GlobalEnumEvent] 注册失败: 回调为空, Key={key}");
+                Debug.LogError($"[GlobalEnumEvent] 注册失败: 回调为空, Key={key}");
                 return new CustomUnRegister(null);
             }
 
@@ -353,7 +353,7 @@ namespace StellarFramework.Event
 
             if (ContainsRegistration(key, callback))
             {
-                LogKit.LogWarning($"[GlobalEnumEvent] 检测到重复注册，已拦截, Key={key}, Method={callback.Method.Name}");
+                Debug.LogWarning($"[GlobalEnumEvent] 检测到重复注册，已拦截, Key={key}, Method={callback.Method.Name}");
                 return new CustomUnRegister(null);
             }
 

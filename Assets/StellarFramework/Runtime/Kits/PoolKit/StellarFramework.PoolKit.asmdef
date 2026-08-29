@@ -1,9 +1,7 @@
 {
     "name": "StellarFramework.PoolKit",
     "rootNamespace": "",
-    "references": [
-        "StellarFramework.LogKit"
-    ],
+    "references": [],
     "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,

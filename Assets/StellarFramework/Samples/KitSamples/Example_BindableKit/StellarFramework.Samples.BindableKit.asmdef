@@ -1,0 +1,5 @@
+{
+    "name": "StellarFramework.Samples.BindableKit",
+    "references": ["StellarFramework.BindableKit", "StellarFramework.EventKit", "StellarFramework.LogKit"],
+    "autoReferenced": false
+}

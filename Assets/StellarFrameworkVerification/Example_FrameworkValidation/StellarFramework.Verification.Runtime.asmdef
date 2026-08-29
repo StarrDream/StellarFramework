@@ -2,10 +2,12 @@
     "name": "StellarFramework.Verification.Runtime",
     "rootNamespace": "",
     "references": [
-        "StellarFramework.Samples.Runtime",
+        "StellarFramework.Samples.ResKit",
+        "StellarFramework.Samples.UIKit",
         "StellarFramework.HotUpdateKit",
         "StellarFramework.PoolKit",
         "StellarFramework.ResKit",
+        "StellarFramework.ResKit.AssetBundle",
         "StellarFramework.SingletonKit",
         "StellarFramework.UIKit",
         "UniTask"

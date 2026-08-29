@@ -1,0 +1,17 @@
+{
+    "name": "StellarFramework.ToolsHub.ResKit.Editor",
+    "rootNamespace": "",
+    "references": [
+        "StellarFramework.ToolsHub.Editor",
+        "StellarFramework.ResKit"
+    ],
+    "includePlatforms": ["Editor"],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

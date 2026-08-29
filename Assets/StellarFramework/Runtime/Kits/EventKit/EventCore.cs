@@ -61,14 +61,14 @@ namespace StellarFramework.Event
         {
             if (gameObject == null)
             {
-                LogKit.LogError("[CustomUnRegister] 生命周期绑定失败: gameObject 为空");
+                Debug.LogError("[CustomUnRegister] 生命周期绑定失败: gameObject 为空");
                 UnRegister();
                 return this;
             }
 
             if (!TryAttachDestroyTrigger(gameObject, out EventUnregisterTrigger trigger))
             {
-                LogKit.LogError($"[CustomUnRegister] 生命周期绑定失败: 无法挂载销毁触发器, TriggerObject={gameObject.name}");
+                Debug.LogError($"[CustomUnRegister] 生命周期绑定失败: 无法挂载销毁触发器, TriggerObject={gameObject.name}");
                 UnRegister();
                 return this;
             }
@@ -81,7 +81,7 @@ namespace StellarFramework.Event
         {
             if (mono == null)
             {
-                LogKit.LogError("[CustomUnRegister] 生命周期绑定失败: mono 为空");
+                Debug.LogError("[CustomUnRegister] 生命周期绑定失败: mono 为空");
                 UnRegister();
                 return this;
             }
@@ -93,14 +93,14 @@ namespace StellarFramework.Event
         {
             if (mono == null || mono.gameObject == null)
             {
-                LogKit.LogError("[CustomUnRegister] 生命周期绑定失败: mono 或 gameObject 为空");
+                Debug.LogError("[CustomUnRegister] 生命周期绑定失败: mono 或 gameObject 为空");
                 UnRegister();
                 return this;
             }
 
             if (!TryAttachDisableTrigger(mono.gameObject, out EventUnregisterOnDisableTrigger trigger))
             {
-                LogKit.LogError($"[CustomUnRegister] 生命周期绑定失败: 无法挂载失活触发器, TriggerObject={mono.gameObject.name}");
+                Debug.LogError($"[CustomUnRegister] 生命周期绑定失败: 无法挂载失活触发器, TriggerObject={mono.gameObject.name}");
                 UnRegister();
                 return this;
             }
@@ -170,7 +170,7 @@ namespace StellarFramework.Event
         {
             if (unRegister == null)
             {
-                LogKit.LogError($"[EventUnregisterTrigger] Add 失败: unRegister 为空, TriggerObject={gameObject.name}");
+                Debug.LogError($"[EventUnregisterTrigger] Add 失败: unRegister 为空, TriggerObject={gameObject.name}");
                 return;
             }
 
@@ -215,7 +215,7 @@ namespace StellarFramework.Event
         {
             if (unRegister == null)
             {
-                LogKit.LogError(
+                Debug.LogError(
                     $"[EventUnregisterOnDisableTrigger] Add 失败: unRegister 为空, TriggerObject={gameObject.name}");
                 return;
             }

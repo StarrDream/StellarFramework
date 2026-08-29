@@ -1,0 +1,5 @@
+{
+    "name": "StellarFramework.Samples.ResKit",
+    "references": ["StellarFramework.ResKit", "StellarFramework.ResKit.AssetBundle", "StellarFramework.LogKit", "StellarFramework.PoolKit", "StellarFramework.SingletonKit", "GUID:f51ebe6a0ceec4240a699833d6309b23"],
+    "autoReferenced": false
+}

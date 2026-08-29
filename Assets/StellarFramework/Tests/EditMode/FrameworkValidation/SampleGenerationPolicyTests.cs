@@ -59,7 +59,7 @@ namespace StellarFramework.Tests.FrameworkValidation
             Assert.That(builder, Does.Contain("MaterializeTemplateFolder(ArchitectureDemoTemplateFolder"));
             Assert.That(builder, Does.Contain("FindPreferredLitShader"));
             Assert.That(builder, Does.Not.Contain("RenderPipelineManager.currentPipeline"));
-            Assert.That(builder, Does.Contain("RefreshPrefabMaterial("));
+            Assert.That(builder, Does.Contain("LoadOrCreateMaterial("));
             Assert.That(builder, Does.Contain("TestSphere_AA.prefab"));
             Assert.That(builder, Does.Contain("TestCapsule_AB.prefab"));
             Assert.That(builder, Does.Contain("TestCube_Res.prefab"));
@@ -83,7 +83,7 @@ namespace StellarFramework.Tests.FrameworkValidation
         [Test]
         public void MaterialConverterUsesPipelineCompatibilityAndBuiltInFallbackMessaging()
         {
-            string source = ReadAssetText("Assets/StellarFramework/Editor/StellarToolsHub/Modules/URPMaterialConverterWindow.cs");
+            string source = ReadAssetText("Assets/StellarFramework/Editor/StellarToolsHub/Modules/RuntimeTools/URPMaterialConverterWindow.cs");
 
             Assert.That(source, Does.Contain("RenderPipelineCompatibility"));
             Assert.That(source, Does.Contain("FrameworkRenderPipelineFamily.BuiltIn"));

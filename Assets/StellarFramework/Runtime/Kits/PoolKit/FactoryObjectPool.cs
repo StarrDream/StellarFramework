@@ -3,7 +3,7 @@
 // ----------------------------------------------------------------------------------
 // 职责：核心工厂对象池。
 // 改造说明：
-// 1. 将双重回收（Double Recycle）的检测升级为 LogKit.Assert，在开发期强制阻断。
+// 1. 将双重回收（Double Recycle）的检测升级为开发期断言，在开发期强制阻断。
 // 2. 增加 Allocate 和 Recycle 时的空引用断言。
 // ==================================================================================
 
@@ -33,7 +33,7 @@ namespace StellarFramework.Pool
             Action<T> destroyMethod = null,
             int maxCount = 50)
         {
-            LogKit.AssertNotNull(factoryMethod,
+            PoolKitDiagnostics.AssertNotNull(factoryMethod,
                 $"[FactoryObjectPool] 初始化失败: factoryMethod 不能为空，泛型类型: {typeof(T).Name}");
 
             _factoryMethod = factoryMethod;
@@ -58,7 +58,7 @@ namespace StellarFramework.Pool
 
         public bool Recycle(T item)
         {
-            LogKit.AssertNotNull(item, $"[FactoryObjectPool] Recycle 失败: 试图回收空对象，泛型类型: {typeof(T).Name}");
+            PoolKitDiagnostics.AssertNotNull(item, $"[FactoryObjectPool] Recycle 失败: 试图回收空对象，泛型类型: {typeof(T).Name}");
             if (item == null) return false;
 
             if (_pool.Count >= _maxCount)
@@ -70,7 +70,7 @@ namespace StellarFramework.Pool
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
             // Fail-Fast: 严格拦截双重回收。双重回收会导致同一个对象在池中存在两份，
             // 下次 Allocate 时会被分配给两个不同的系统，引发极其严重的逻辑串线。
-            LogKit.Assert(_checkSet.Add(item),
+            PoolKitDiagnostics.Assert(_checkSet.Add(item),
                 $"[FactoryObjectPool] 致命错误: 试图回收已经在池中的对象 (双重回收)，触发对象类型: {typeof(T).Name}");
 #endif
 

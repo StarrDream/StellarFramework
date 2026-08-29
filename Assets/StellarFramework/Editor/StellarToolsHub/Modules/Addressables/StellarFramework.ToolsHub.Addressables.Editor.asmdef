@@ -3,8 +3,11 @@
     "rootNamespace": "",
     "references": [
         "StellarFramework.ToolsHub.Editor",
+        "StellarFramework.ToolsHub.HotUpdateKit.Editor",
         "StellarFramework.HotUpdateKit",
+        "StellarFramework.HotUpdateKit.Addressables",
         "StellarFramework.ResKit",
+        "StellarFramework.ResKit.Addressables",
         "Unity.Addressables.Editor",
         "Unity.Addressables",
         "Unity.ResourceManager"

@@ -1,9 +1,7 @@
 {
     "name": "StellarFramework.SingletonKit",
     "rootNamespace": "",
-    "references": [
-        "StellarFramework.LogKit"
-    ],
+    "references": [],
     "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,

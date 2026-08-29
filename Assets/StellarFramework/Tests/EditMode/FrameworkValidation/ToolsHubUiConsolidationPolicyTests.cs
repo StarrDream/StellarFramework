@@ -50,7 +50,7 @@ namespace StellarFramework.Tests.FrameworkValidation
                 ReadAssetText("Assets/StellarFramework/Editor/StellarToolsHub/Modules/ActionKit/ActionEngineEditorWindow.cs"),
                 Does.Not.Contain(": EditorWindow"));
             Assert.That(
-                ReadAssetText("Assets/StellarFramework/Editor/StellarToolsHub/Modules/URPMaterialConverterWindow.cs"),
+                ReadAssetText("Assets/StellarFramework/Editor/StellarToolsHub/Modules/RuntimeTools/URPMaterialConverterWindow.cs"),
                 Does.Not.Contain(": EditorWindow"));
             Assert.That(
                 ReadAssetText("Assets/StellarFramework/Editor/StellarToolsHub/Modules/ConfigKit/ConfigKitWindow.cs"),

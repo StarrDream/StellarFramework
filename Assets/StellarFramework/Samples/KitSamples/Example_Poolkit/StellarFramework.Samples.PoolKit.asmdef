@@ -1,0 +1,5 @@
+{
+    "name": "StellarFramework.Samples.PoolKit",
+    "references": ["StellarFramework.PoolKit"],
+    "autoReferenced": false
+}

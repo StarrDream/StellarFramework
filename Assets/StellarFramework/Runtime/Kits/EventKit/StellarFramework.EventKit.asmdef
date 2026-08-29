@@ -1,9 +1,7 @@
 {
     "name": "StellarFramework.EventKit",
     "rootNamespace": "",
-    "references": [
-        "StellarFramework.LogKit"
-    ],
+    "references": [],
     "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,

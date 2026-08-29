@@ -4,19 +4,20 @@
 
 `ConfigKit` 负责统一配置加载、缓存和访问。
 
-当前模块分成两层：
+当前模块分成两个可独立分发的层级：
 
-- `ConfigCore`
-  处理底层路径、`UnityWebRequest`、BOM 清理、JSON 解析
-- `ConfigKit`
-  处理配置实例缓存、去重加载和按名称访问
+- `ConfigKit.Core`
+  提供 `IConfigTextSource`、默认 StreamingAssets 文本来源和路径工具；不预设序列化格式。
+- `ConfigKit.NewtonsoftJson`
+  提供 `ConfigCore` JSON 解析桥接、`ConfigKit` 缓存门面、`NormalConfig` 和 `NetConfig`。
 
 ## 源码文件
 
-- `Runtime/Kits/ConfigKit/ConfigKit.cs`
-- `Runtime/Kits/ConfigKit/Core/ConfigCore.cs`
-- `Runtime/Kits/ConfigKit/Configs/NormalConfig.cs`
-- `Runtime/Kits/ConfigKit/Configs/NetConfig.cs`
+- `Runtime/Kits/ConfigKit/Core/ConfigTextSource.cs`
+- `Runtime/Kits/ConfigKit/Adapters/NewtonsoftJson/ConfigJsonLoader.cs`
+- `Runtime/Kits/ConfigKit/Adapters/NewtonsoftJson/ConfigKitJson.cs`
+- `Runtime/Kits/ConfigKit/Adapters/NewtonsoftJson/NormalConfig.cs`
+- `Runtime/Kits/ConfigKit/Adapters/NewtonsoftJson/NetConfig.cs`
 
 ## 总体结构
 

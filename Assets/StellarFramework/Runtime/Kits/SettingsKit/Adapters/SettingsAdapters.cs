@@ -2,38 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
-using StellarFramework.Audio;
 using UnityEngine;
 
 namespace StellarFramework.Settings
 {
-    public sealed class AudioKitSettingsAdapter : IAudioSettingsAdapter
-    {
-        public float MusicVolume
-        {
-            get => AudioKit.MusicVolume;
-            set => AudioKit.MusicVolume = value;
-        }
-
-        public float SoundVolume
-        {
-            get => AudioKit.SoundVolume;
-            set => AudioKit.SoundVolume = value;
-        }
-
-        public bool MusicOn
-        {
-            get => AudioKit.MusicOn;
-            set => AudioKit.MusicOn = value;
-        }
-
-        public bool SoundOn
-        {
-            get => AudioKit.SoundOn;
-            set => AudioKit.SoundOn = value;
-        }
-    }
-
     public sealed class UnityGraphicsSettingsAdapter : IGraphicsSettingsAdapter
     {
         private readonly List<SettingChoiceOption> _frameRateOptions = new List<SettingChoiceOption>

@@ -24,7 +24,8 @@
 - `Runtime/Kits/SettingsKit/Core/SettingsMenuOverlay.cs`
 - `Runtime/Kits/SettingsKit/Core/SettingsKitSingletonRegister.cs`
 - `Runtime/Kits/SettingsKit/Providers/BuiltinSettingsProviders.cs`
-- `Runtime/Kits/SettingsKit/Adapters/SettingsAdapters.cs`
+- `Runtime/Kits/SettingsKit/Adapters/SettingsAdapters.cs`（可选 Unity Adapter）
+- `Runtime/Kits/SettingsKit/Adapters/AudioKit/AudioKitSettingsAdapter.cs`（可选 AudioKit Adapter）
 
 ## 总体结构
 
@@ -708,21 +709,21 @@ SettingsContracts
 - `DefaultSettingsInstaller`
 - 若干默认页面 provider
 
-### `SettingsAdapters.cs`
+### `SettingsAdapters.cs`（可选 Unity Adapter）
 
 提供默认运行时适配器：
 
-- `AudioKitSettingsAdapter`
 - `UnityGraphicsSettingsAdapter`
 - `SimpleLanguageSettingsAdapter`
 - `SimpleInputBindingAdapter`
 
 它们的职责是把 SettingsKit 的通用设置定义映射到真实系统：
 
-- `AudioKit`
 - Unity 图形设置
 - 语言系统
 - 输入绑定系统
+
+`AudioKitSettingsAdapter` 位于独立的 `SettingsKit.AudioKitAdapter` 包，只有需要音频设置映射时才导入。
 
 ## 设计约束
 

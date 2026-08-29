@@ -1,0 +1,17 @@
+{
+    "name": "StellarFramework.ToolsHub.AudioKit.Editor",
+    "rootNamespace": "",
+    "references": [
+        "StellarFramework.ToolsHub.Editor",
+        "StellarFramework.AudioKit"
+    ],
+    "includePlatforms": ["Editor"],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

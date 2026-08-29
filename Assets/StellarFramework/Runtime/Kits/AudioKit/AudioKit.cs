@@ -1,6 +1,5 @@
 ﻿using UnityEngine;
 using UnityEngine.Audio;
-using StellarFramework.Res;
 
 namespace StellarFramework.Audio
 {
@@ -11,12 +10,11 @@ namespace StellarFramework.Audio
     public static class AudioKit
     {
         /// <summary>
-        /// 初始化音频系统 (使用默认的 ResKit 加载策略)
+        /// 初始化音频系统（使用 Unity Resources 默认加载策略）。
         /// 必须在游戏启动时调用，注入 AudioMixer 以启用硬件级混音
         /// </summary>
-        /// <typeparam name="TLoader">指定的 ResLoader 类型 (如 ResourceLoader, AddressableLoader)</typeparam>
         /// <param name="mixer">配置好的混音器</param>
-        public static void Init<TLoader>(AudioMixer mixer) where TLoader : ResLoader, new()
+        public static void Init(AudioMixer mixer)
         {
             if (mixer == null)
             {
@@ -24,8 +22,7 @@ namespace StellarFramework.Audio
                 return;
             }
 
-            IAudioLoader defaultLoader = new DefaultResKitAudioLoader<TLoader>();
-            AudioManager.Instance.Init(mixer, defaultLoader);
+            AudioManager.Instance.Init(mixer, new ResourcesAudioLoader());
         }
 
         /// <summary>

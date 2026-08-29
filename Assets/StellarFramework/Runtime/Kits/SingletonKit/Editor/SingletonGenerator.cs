@@ -9,6 +9,7 @@ using UnityEditor;
 using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
 using UnityEngine;
+using LogKit = StellarFramework.SingletonKitDiagnostics;
 
 namespace StellarFramework.Editor
 {

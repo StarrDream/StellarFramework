@@ -1,8 +1,7 @@
 {
-    "name": "StellarFramework.SettingsKit.Adapters",
+    "name": "StellarFramework.SettingsKit.UnityAdapters",
     "rootNamespace": "",
     "references": [
-        "StellarFramework.AudioKit",
         "StellarFramework.SettingsKit"
     ],
     "includePlatforms": [],

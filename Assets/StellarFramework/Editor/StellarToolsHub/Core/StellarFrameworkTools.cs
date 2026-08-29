@@ -561,6 +561,11 @@ namespace StellarFramework.Editor
                     continue;
                 }
 
+                if (!IsModuleAvailable(attr))
+                {
+                    continue;
+                }
+
                 try
                 {
                     ToolModule module = (ToolModule)Activator.CreateInstance(type);
@@ -632,6 +637,24 @@ namespace StellarFramework.Editor
                 .SelectMany(GetLoadableTypes)
                 .Where(type => type != null && typeof(ToolModule).IsAssignableFrom(type));
 #endif
+        }
+
+        private static bool IsModuleAvailable(StellarToolAttribute attribute)
+        {
+            string[] requiredAssemblyNames = attribute.RequiredAssemblyNames;
+            if (requiredAssemblyNames == null || requiredAssemblyNames.Length == 0)
+            {
+                return true;
+            }
+
+            HashSet<string> loadedAssemblyNames = new HashSet<string>(
+                AppDomain.CurrentDomain.GetAssemblies()
+                    .Select(assembly => assembly.GetName().Name),
+                StringComparer.Ordinal);
+
+            return requiredAssemblyNames.All(requiredAssemblyName =>
+                !string.IsNullOrWhiteSpace(requiredAssemblyName) &&
+                loadedAssemblyNames.Contains(requiredAssemblyName));
         }
 
 #if !UNITY_2019_2_OR_NEWER

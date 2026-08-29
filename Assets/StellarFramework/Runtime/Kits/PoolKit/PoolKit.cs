@@ -43,14 +43,14 @@ namespace StellarFramework.Pool
         {
             if (obj == null)
             {
-                LogKit.LogError($"[PoolKit] Recycle<T> 失败: 试图回收空对象, DeclaredType={typeof(T).Name}");
+                PoolKitDiagnostics.LogError($"[PoolKit] Recycle<T> 失败: 试图回收空对象, DeclaredType={typeof(T).Name}");
                 return;
             }
 
             Type realType = obj.GetType();
             if (realType != typeof(T))
             {
-                LogKit.LogError(
+                PoolKitDiagnostics.LogError(
                     $"[PoolKit] Recycle<T> 失败: 禁止以父类型或错误声明类型回收对象, DeclaredType={typeof(T).Name}, RealType={realType.Name}\n" +
                     "请显式以真实类型调用 PoolKit.Recycle<真实类型>(obj)，避免运行时弱类型回收。");
                 return;
@@ -67,11 +67,11 @@ namespace StellarFramework.Pool
         {
             if (obj == null)
             {
-                LogKit.LogError("[PoolKit] Recycle(object) 失败: obj 为空");
+                PoolKitDiagnostics.LogError("[PoolKit] Recycle(object) 失败: obj 为空");
                 return;
             }
 
-            LogKit.LogError($"[PoolKit] Recycle(object) 已禁用: 禁止弱类型回收, RealType={obj.GetType().Name}\n" +
+            PoolKitDiagnostics.LogError($"[PoolKit] Recycle(object) 已禁用: 禁止弱类型回收, RealType={obj.GetType().Name}\n" +
                             "请改为显式调用强类型接口 PoolKit.Recycle<真实类型>(obj)。");
         }
 

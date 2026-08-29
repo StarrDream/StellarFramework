@@ -77,7 +77,6 @@ namespace StellarFramework.Res
             // 内置后端预注册进统一注册表。
             // 注册仅是登记工厂委托，不会触发实例化，因此无初始化顺序/循环依赖风险。
             _factories[KeyResources] = request => Allocate<ResourceLoader>();
-            _factories[KeyAssetBundle] = request => Allocate<AssetBundleLoader>();
         }
 
         /// <summary>

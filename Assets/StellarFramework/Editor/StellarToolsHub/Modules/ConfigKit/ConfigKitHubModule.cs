@@ -9,7 +9,8 @@ namespace StellarFramework.Editor.Modules
     /// ConfigKit 的 Hub 入口模块
     /// 职责: 将 ConfigKit 注册到 StellarFramework Tools Hub，提供统一的 Dashboard 入口
     /// </summary>
-    [StellarTool("ConfigKit 配置中心", "框架核心", 4)]
+    [StellarTool("ConfigKit 配置中心", "框架核心", 4,
+        RequiredAssemblyNames = new[] { "StellarFramework.ConfigKit.Json" })]
     public class ConfigKitHubModule : ToolModule
     {
         private readonly ConfigKitWindow _panel = new ConfigKitWindow();

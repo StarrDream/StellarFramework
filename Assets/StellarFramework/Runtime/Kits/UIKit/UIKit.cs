@@ -69,6 +69,8 @@ namespace StellarFramework.UI
     public class UIKit : MonoSingleton<UIKit>
     {
         private const string UI_ROOT_NAME = "UIRoot";
+        private static Func<UIKitSettings, IUILoadStrategy> _defaultLoadStrategyFactory =
+            settings => new ResourcesUILoadStrategy(settings);
 
         private IUILoadStrategy _loadStrategy;
         private UIKitSettings _settings;
@@ -137,7 +139,7 @@ namespace StellarFramework.UI
             }
 
             _settings = settings != null ? settings : UIKitSettings.LoadOrCreateDefault();
-            _loadStrategy = new ResKitUILoadStrategy(_settings);
+            _loadStrategy = CreateDefaultLoadStrategy(_settings);
         }
 
         public void Init()
@@ -265,7 +267,25 @@ namespace StellarFramework.UI
             }
 
             _settings = _settings != null ? _settings : UIKitSettings.LoadOrCreateDefault();
-            _loadStrategy = new ResKitUILoadStrategy(_settings);
+            _loadStrategy = CreateDefaultLoadStrategy(_settings);
+        }
+
+        public static void RegisterDefaultLoadStrategyFactory(Func<UIKitSettings, IUILoadStrategy> factory)
+        {
+            if (factory == null)
+            {
+                Debug.LogError("[UIKit] RegisterDefaultLoadStrategyFactory failed: factory is null.");
+                return;
+            }
+
+            _defaultLoadStrategyFactory = factory;
+        }
+
+        private static IUILoadStrategy CreateDefaultLoadStrategy(UIKitSettings settings)
+        {
+            return _defaultLoadStrategyFactory != null
+                ? _defaultLoadStrategyFactory.Invoke(settings)
+                : new ResourcesUILoadStrategy(settings);
         }
 
         private bool SetupUIRoot(GameObject rootPrefab)

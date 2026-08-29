@@ -1,9 +1,11 @@
 {
   "name": "StellarFramework.FrameworkValidation.Addressables.Tests",
   "rootNamespace": "StellarFramework.Tests",
-  "references": [
+    "references": [
     "StellarFramework.ToolsHub.Addressables.Editor",
-    "StellarFramework.HotUpdateKit",
+        "StellarFramework.HotUpdateKit",
+        "StellarFramework.HotUpdateKit.HybridCLR",
+    "StellarFramework.HotUpdateKit.Addressables",
     "StellarFramework.ResKit",
     "StellarFramework.ResKit.Addressables",
     "StellarFramework.SingletonKit",

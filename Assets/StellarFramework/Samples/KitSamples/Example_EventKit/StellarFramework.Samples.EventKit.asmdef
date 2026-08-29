@@ -1,0 +1,5 @@
+{
+    "name": "StellarFramework.Samples.EventKit",
+    "references": ["StellarFramework.EventKit", "StellarFramework.LogKit"],
+    "autoReferenced": false
+}

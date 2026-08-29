@@ -4,7 +4,8 @@ using UnityEngine;
 
 namespace StellarFramework.Editor.Modules
 {
-    [StellarTool("UIKit 工具", "框架核心", 0)]
+    [StellarTool("UIKit 工具", "框架核心", 0,
+        RequiredAssemblyNames = new[] { "StellarFramework.UIKit" })]
     public class UIKitHubModule : ToolModule
     {
         public override string Icon => "d_Canvas Icon";

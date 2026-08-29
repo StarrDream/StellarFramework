@@ -14,13 +14,13 @@ namespace StellarFramework.Event
         {
             if (onEvent == null)
             {
-                LogKit.LogError($"[GlobalTypeEvent] 注册失败: 回调为空, EventType={typeof(T).Name}");
+                Debug.LogError($"[GlobalTypeEvent] 注册失败: 回调为空, EventType={typeof(T).Name}");
                 return new CustomUnRegister(null);
             }
 
             if (EventBox<T>.Contains(onEvent))
             {
-                LogKit.LogWarning(
+                Debug.LogWarning(
                     $"[GlobalTypeEvent] 检测到重复注册，已拦截, EventType={typeof(T).Name}, Method={onEvent.Method.Name}");
                 return new CustomUnRegister(null);
             }
@@ -145,14 +145,14 @@ namespace StellarFramework.Event
                 {
                     if (gameObject == null)
                     {
-                        LogKit.LogError($"[GlobalTypeEvent] 生命周期绑定失败: gameObject 为空, EventType={typeof(T).Name}");
+                        Debug.LogError($"[GlobalTypeEvent] 生命周期绑定失败: gameObject 为空, EventType={typeof(T).Name}");
                         UnRegister();
                         return this;
                     }
 
                     if (!CustomUnRegister.TryAttachDestroyTrigger(gameObject, out EventUnregisterTrigger trigger))
                     {
-                        LogKit.LogError(
+                        Debug.LogError(
                             $"[GlobalTypeEvent] 生命周期绑定失败: 无法挂载销毁触发器, EventType={typeof(T).Name}, TriggerObject={gameObject.name}");
                         UnRegister();
                         return this;
@@ -167,7 +167,7 @@ namespace StellarFramework.Event
                 {
                     if (mono == null)
                     {
-                        LogKit.LogError($"[GlobalTypeEvent] 生命周期绑定失败: mono 为空, EventType={typeof(T).Name}");
+                        Debug.LogError($"[GlobalTypeEvent] 生命周期绑定失败: mono 为空, EventType={typeof(T).Name}");
                         UnRegister();
                         return this;
                     }
@@ -179,7 +179,7 @@ namespace StellarFramework.Event
                 {
                     if (mono == null || mono.gameObject == null)
                     {
-                        LogKit.LogError(
+                        Debug.LogError(
                             $"[GlobalTypeEvent] 生命周期绑定失败: mono 或 gameObject 为空, EventType={typeof(T).Name}");
                         UnRegister();
                         return this;
@@ -188,7 +188,7 @@ namespace StellarFramework.Event
                     if (!CustomUnRegister.TryAttachDisableTrigger(mono.gameObject,
                             out EventUnregisterOnDisableTrigger trigger))
                     {
-                        LogKit.LogError(
+                        Debug.LogError(
                             $"[GlobalTypeEvent] 生命周期绑定失败: 无法挂载失活触发器, EventType={typeof(T).Name}, TriggerObject={mono.gameObject.name}");
                         UnRegister();
                         return this;

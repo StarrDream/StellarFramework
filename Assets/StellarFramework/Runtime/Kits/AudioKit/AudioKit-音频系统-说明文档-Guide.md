@@ -21,15 +21,23 @@
   运行时核心管理器
 - `IAudioLoader`
   音频资源加载接口
-- `DefaultResKitAudioLoader<TLoader>`
-  基于 `ResKit` 的默认音频加载器
+- `ResourcesAudioLoader`
+  `AudioKit.Core` 自带的 Resources 默认加载器
+- `AudioKitResKit` / `DefaultResKitAudioLoader<TLoader>`
+  仅由可选 `AudioKit.ResKitAdapter` 提供的 ResKit 接入
 
 ## 初始化方式
 
-### 使用 ResKit Loader
+### 使用 Resources（AudioKit.Core 默认）
 
 ```csharp
-AudioKit.Init<ResourceLoader>(mixer);
+AudioKit.Init(mixer);
+```
+
+### 使用 ResKit Loader（安装 AudioKit.ResKitAdapter）
+
+```csharp
+AudioKitResKit.Init<ResourceLoader>(mixer);
 ```
 
 ### 使用自定义 Loader
@@ -43,6 +51,8 @@ AudioKit.Init(mixer, customLoader);
 - 有可用的 `AudioMixer`
 - Mixer 中已配置 BGM / SFX 分组
 - 有可用的音频资源加载器
+
+`AudioKit.Core` 不依赖 ResKit。使用 Addressables、YooAsset 或任意自定义资源方案时，可实现 `IAudioLoader` 后调用 `AudioKit.Init(mixer, customLoader)`。
 
 ## 常用调用
 

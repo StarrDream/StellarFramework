@@ -1,0 +1,636 @@
+{
+  "schemaVersion": 1,
+  "catalogId": "stellarframework.distribution",
+  "description": "Declarative export profiles for the source framework project. Runtime code remains modular; profiles describe business-project artifacts.",
+  "profiles": [
+    {
+      "id": "actionkit",
+      "displayName": "ActionKit",
+      "kind": "kit-with-dependencies",
+      "availability": "available",
+      "output": "StellarFramework-ActionKit.unitypackage",
+      "sourcePaths": [
+        "Assets/StellarFramework/Runtime/Kits/ActionKit",
+        "Assets/StellarFramework/Editor/StellarToolsHub/Modules/ActionKit"
+      ],
+      "requiredProfileIds": ["logkit", "poolkit", "toolshub.core"],
+      "requiredKits": ["LogKit", "PoolKit", "ToolsHub.Core"],
+      "requiredUpm": ["com.cysharp.unitask"],
+      "optionalCapabilities": [],
+      "excludedCapabilities": ["Addressables", "HybridCLR", "CodeHotUpdate"]
+    },
+    {
+      "id": "bindablekit",
+      "displayName": "BindableKit",
+      "kind": "kit-with-dependencies",
+      "availability": "available",
+      "output": "StellarFramework-BindableKit.unitypackage",
+      "sourcePaths": ["Assets/StellarFramework/Runtime/Kits/BindableKit"],
+      "requiredProfileIds": ["eventkit", "logkit"],
+      "requiredKits": ["EventKit", "LogKit"],
+      "requiredUpm": [],
+      "optionalCapabilities": [],
+      "excludedCapabilities": ["Addressables", "HybridCLR", "CodeHotUpdate"]
+    },
+    {
+      "id": "httpkit",
+      "displayName": "HttpKit",
+      "kind": "kit-with-dependencies",
+      "availability": "available",
+      "output": "StellarFramework-HttpKit.unitypackage",
+      "sourcePaths": ["Assets/StellarFramework/Runtime/Kits/HttpKit"],
+      "requiredProfileIds": ["logkit"],
+      "requiredKits": ["LogKit"],
+      "requiredUpm": ["com.cysharp.unitask", "com.unity.nuget.newtonsoft-json"],
+      "optionalCapabilities": [],
+      "excludedCapabilities": ["Addressables", "HybridCLR", "CodeHotUpdate"]
+    },
+    {
+      "id": "standalone.architecture",
+      "displayName": "Architecture.cs",
+      "kind": "single-file",
+      "availability": "available",
+      "output": "StellarArchitecture.cs",
+      "sourcePaths": [
+        "Assets/StellarFramework/Runtime/Core/Architecture/StellarFramework.cs"
+      ],
+      "requiredKits": [],
+      "requiredUpm": [],
+      "optionalCapabilities": [],
+      "excludedCapabilities": ["Addressables", "HybridCLR", "CodeHotUpdate"]
+    },
+    {
+      "id": "standalone.extensions",
+      "displayName": "Extensions.cs",
+      "kind": "single-file",
+      "availability": "available",
+      "output": "StellarExtensions.cs",
+      "sourceRoot": "Assets/StellarFramework/Runtime/Extensions",
+      "requiredKits": [],
+      "requiredUpm": [],
+      "optionalCapabilities": [],
+      "excludedCapabilities": ["Addressables", "HybridCLR", "CodeHotUpdate"]
+    },
+    {
+      "id": "runtime.core",
+      "displayName": "Runtime.Core",
+      "kind": "shared-runtime",
+      "availability": "available",
+      "output": "StellarFramework-Runtime-Core.unitypackage",
+      "sourcePaths": [
+        "Assets/StellarFramework/StellarFramework.asmdef",
+        "Assets/StellarFramework/Runtime/Core",
+        "Assets/StellarFramework/Runtime/Extensions"
+      ],
+      "requiredProfileIds": ["logkit", "singletonkit"],
+      "requiredKits": ["LogKit", "SingletonKit"],
+      "requiredUpm": ["com.cysharp.unitask", "com.unity.nuget.newtonsoft-json"],
+      "optionalCapabilities": [],
+      "excludedCapabilities": ["Addressables", "HybridCLR", "CodeHotUpdate"]
+    },
+    {
+      "id": "toolshub.core",
+      "displayName": "ToolsHub.Core",
+      "kind": "tooling",
+      "availability": "available",
+      "output": "StellarFramework-ToolsHub-Core.unitypackage",
+      "sourcePaths": [
+        "Assets/StellarFramework/Editor/StellarToolsHub/StellarFramework.Editor.asmdef",
+        "Assets/StellarFramework/Editor/StellarToolsHub/Core",
+        "Assets/StellarFramework/Editor/StellarToolsHub/Modules/BuiltinModules.cs",
+        "Assets/StellarFramework/Editor/StellarToolsHub/Modules/CombinedMeshColliderWindow.cs",
+        "Assets/StellarFramework/Editor/StellarToolsHub/Modules/DictionarySerializerWindow.cs",
+        "Assets/StellarFramework/Editor/StellarToolsHub/Modules/DocumentationHubModule.cs",
+        "Assets/StellarFramework/Editor/StellarToolsHub/Modules/FindUsedAssetsTool.cs",
+        "Assets/StellarFramework/Editor/StellarToolsHub/Modules/FolderContentCopyTool.cs",
+        "Assets/StellarFramework/Editor/StellarToolsHub/Modules/KitInstallationHubModule.cs",
+        "Assets/StellarFramework/Editor/StellarToolsHub/Modules/ListSerializerWindow.cs",
+        "Assets/StellarFramework/Editor/StellarToolsHub/Modules/QuickStartHubModule.cs",
+        "Assets/StellarFramework/Editor/StellarToolsHub/Modules/WorkflowHubModules.cs",
+        "Assets/StellarFramework/Editor/StellarToolsHub/Modules/DevTools"
+      ],
+      "requiredKits": [],
+      "requiredUpm": [],
+      "optionalCapabilities": ["GenericEditorTools", "ImportedKitDetection"],
+      "excludedCapabilities": ["Addressables", "HybridCLR", "CodeHotUpdate"]
+    },
+    {
+      "id": "eventkit",
+      "displayName": "EventKit",
+      "kind": "kit",
+      "availability": "available",
+      "output": "StellarFramework-EventKit.unitypackage",
+      "sourcePaths": [
+        "Assets/StellarFramework/Runtime/Kits/EventKit",
+        "Assets/StellarFramework/Editor/StellarToolsHub/Modules/EventKit"
+      ],
+      "requiredProfileIds": ["toolshub.core"],
+      "requiredKits": ["ToolsHub.Core"],
+      "requiredUpm": [],
+      "optionalCapabilities": [],
+      "excludedCapabilities": ["HybridCLR", "CodeHotUpdate"]
+    },
+    {
+      "id": "configkit.core",
+      "displayName": "ConfigKit.Core",
+      "kind": "kit-with-dependencies",
+      "availability": "available",
+      "output": "StellarFramework-ConfigKit-Core.unitypackage",
+      "sourcePaths": ["Assets/StellarFramework/Runtime/Kits/ConfigKit"],
+      "excludedSourcePaths": ["Assets/StellarFramework/Runtime/Kits/ConfigKit/Adapters"],
+      "requiredKits": [],
+      "requiredUpm": ["com.cysharp.unitask"],
+      "optionalCapabilities": ["StreamingAssetsTextLoading", "CustomConfigTextSource"],
+      "excludedCapabilities": ["NewtonsoftJson", "Addressables", "HybridCLR", "CodeHotUpdate"]
+    },
+    {
+      "id": "configkit.json",
+      "displayName": "ConfigKit.NewtonsoftJson",
+      "kind": "kit-with-dependencies",
+      "availability": "available",
+      "output": "StellarFramework-ConfigKit-NewtonsoftJson.unitypackage",
+      "sourcePaths": [
+        "Assets/StellarFramework/Runtime/Kits/ConfigKit/Adapters/NewtonsoftJson",
+        "Assets/StellarFramework/Editor/StellarToolsHub/Modules/ConfigKit"
+      ],
+      "requiredProfileIds": ["configkit.core", "toolshub.core"],
+      "requiredKits": ["ConfigKit.Core", "ToolsHub.Core"],
+      "requiredUpm": ["com.cysharp.unitask", "com.unity.nuget.newtonsoft-json"],
+      "optionalCapabilities": ["JObjectConfiguration", "NormalConfig", "NetConfig"],
+      "excludedCapabilities": ["Addressables", "HybridCLR", "CodeHotUpdate"]
+    },
+    {
+      "id": "settingskit.core",
+      "displayName": "SettingsKit.Core",
+      "kind": "kit-with-dependencies",
+      "availability": "available",
+      "output": "StellarFramework-SettingsKit-Core.unitypackage",
+      "sourcePaths": ["Assets/StellarFramework/Runtime/Kits/SettingsKit"],
+      "excludedSourcePaths": ["Assets/StellarFramework/Runtime/Kits/SettingsKit/Adapters"],
+      "requiredProfileIds": ["singletonkit"],
+      "requiredKits": ["SingletonKit"],
+      "requiredUpm": [],
+      "optionalCapabilities": ["PlayerPrefsSettings", "CustomSettingsStorage", "CustomSettingsProviders"],
+      "excludedCapabilities": ["AudioKit", "Addressables", "HybridCLR", "CodeHotUpdate"]
+    },
+    {
+      "id": "settingskit.unity",
+      "displayName": "SettingsKit.UnityAdapters",
+      "kind": "kit-with-dependencies",
+      "availability": "available",
+      "output": "StellarFramework-SettingsKit-UnityAdapters.unitypackage",
+      "sourcePaths": [
+        "Assets/StellarFramework/Runtime/Kits/SettingsKit/Adapters/SettingsAdapters.cs",
+        "Assets/StellarFramework/Runtime/Kits/SettingsKit/Adapters/StellarFramework.SettingsKit.Adapters.asmdef"
+      ],
+      "requiredProfileIds": ["settingskit.core"],
+      "requiredKits": ["SettingsKit.Core"],
+      "requiredUpm": [],
+      "optionalCapabilities": ["UnityGraphicsSettings", "SimpleLanguageSettings", "SimpleInputSettings"],
+      "excludedCapabilities": ["AudioKit", "Addressables", "HybridCLR", "CodeHotUpdate"]
+    },
+    {
+      "id": "settingskit.audiokit",
+      "displayName": "SettingsKit.AudioKitAdapter",
+      "kind": "kit-with-dependencies",
+      "availability": "available",
+      "output": "StellarFramework-SettingsKit-AudioKitAdapter.unitypackage",
+      "sourcePaths": ["Assets/StellarFramework/Runtime/Kits/SettingsKit/Adapters/AudioKit"],
+      "requiredProfileIds": ["settingskit.core", "audiokit.core"],
+      "requiredKits": ["SettingsKit.Core", "AudioKit.Core"],
+      "requiredUpm": ["com.cysharp.unitask"],
+      "optionalCapabilities": ["AudioKitSettings"],
+      "excludedCapabilities": ["ResKit", "Addressables", "HybridCLR", "CodeHotUpdate"]
+    },
+    {
+      "id": "fsmkit",
+      "displayName": "FSMKit",
+      "kind": "kit",
+      "availability": "available",
+      "output": "StellarFramework-FSMKit.unitypackage",
+      "sourcePaths": [
+        "Assets/StellarFramework/Runtime/Kits/FSMKit"
+      ],
+      "requiredKits": [],
+      "requiredUpm": [],
+      "optionalCapabilities": [],
+      "excludedCapabilities": ["HybridCLR", "CodeHotUpdate"]
+    },
+    {
+      "id": "poolkit",
+      "displayName": "PoolKit",
+      "kind": "kit",
+      "availability": "available",
+      "output": "StellarFramework-PoolKit.unitypackage",
+      "sourcePaths": [
+        "Assets/StellarFramework/Runtime/Kits/PoolKit"
+      ],
+      "requiredKits": [],
+      "requiredUpm": [],
+      "optionalCapabilities": [],
+      "excludedCapabilities": ["HybridCLR", "CodeHotUpdate"]
+    },
+    {
+      "id": "singletonkit",
+      "displayName": "SingletonKit",
+      "kind": "kit",
+      "availability": "available",
+      "output": "StellarFramework-SingletonKit.unitypackage",
+      "sourcePaths": [
+        "Assets/StellarFramework/Runtime/Kits/SingletonKit",
+        "Assets/StellarFramework/Editor/StellarToolsHub/Modules/SingletonKit"
+      ],
+      "requiredProfileIds": ["toolshub.core"],
+      "requiredKits": ["ToolsHub.Core"],
+      "requiredUpm": [],
+      "optionalCapabilities": [],
+      "excludedCapabilities": ["HybridCLR", "CodeHotUpdate"]
+    },
+    {
+      "id": "logkit",
+      "displayName": "LogKit",
+      "kind": "kit",
+      "availability": "available",
+      "output": "StellarFramework-LogKit.unitypackage",
+      "sourcePaths": ["Assets/StellarFramework/Runtime/Kits/LogKit"],
+      "requiredKits": [],
+      "requiredUpm": [],
+      "optionalCapabilities": [],
+      "excludedCapabilities": ["HybridCLR", "CodeHotUpdate"]
+    },
+    {
+      "id": "generated.assetmap",
+      "displayName": "Generated.AssetMap",
+      "kind": "generated-support",
+      "availability": "available",
+      "output": "StellarFramework-Generated-AssetMap.unitypackage",
+      "sourcePaths": ["Assets/StellarFramework/Generated/AssetMap"],
+      "requiredKits": [],
+      "requiredUpm": [],
+      "optionalCapabilities": [],
+      "excludedCapabilities": ["Addressables", "HybridCLR", "CodeHotUpdate"]
+    },
+    {
+      "id": "reskit.core",
+      "displayName": "ResKit.Core",
+      "kind": "kit-with-dependencies",
+      "availability": "available",
+      "output": "StellarFramework-ResKit-Core.unitypackage",
+      "sourcePaths": [
+        "Assets/StellarFramework/Runtime/Kits/Reskit",
+        "Assets/StellarFramework/Editor/StellarToolsHub/Modules/ResKit"
+      ],
+      "excludedSourcePaths": [
+        "Assets/StellarFramework/Runtime/Kits/Reskit/Loaders/AddressableLoader",
+        "Assets/StellarFramework/Runtime/Kits/Reskit/Loaders/AssetBundleLoader"
+      ],
+      "requiredProfileIds": ["logkit", "poolkit", "singletonkit", "generated.assetmap", "toolshub.core"],
+      "requiredKits": ["LogKit", "PoolKit", "SingletonKit", "Generated.AssetMap", "ToolsHub.Core"],
+      "requiredUpm": ["com.cysharp.unitask"],
+      "optionalCapabilities": ["ResourcesResourceLoading", "CustomResourceLoading"],
+      "excludedCapabilities": ["Addressables", "HybridCLR", "CodeHotUpdate"]
+    },
+    {
+      "id": "audiokit.core",
+      "displayName": "AudioKit.Core",
+      "kind": "kit-with-dependencies",
+      "availability": "available",
+      "output": "StellarFramework-AudioKit-Core.unitypackage",
+      "sourcePaths": [
+        "Assets/StellarFramework/Runtime/Kits/AudioKit",
+        "Assets/StellarFramework/Editor/StellarToolsHub/Modules/AudioKit"
+      ],
+      "excludedSourcePaths": [
+        "Assets/StellarFramework/Runtime/Kits/AudioKit/Adapters/ResKit"
+      ],
+      "requiredProfileIds": ["poolkit", "singletonkit", "toolshub.core"],
+      "requiredKits": ["PoolKit", "SingletonKit", "ToolsHub.Core"],
+      "requiredUpm": ["com.cysharp.unitask"],
+      "optionalCapabilities": ["ResourcesAudioLoading", "CustomAudioLoading"],
+      "excludedCapabilities": ["ResKit", "Addressables", "HybridCLR", "CodeHotUpdate"]
+    },
+    {
+      "id": "audiokit.reskit",
+      "displayName": "AudioKit.ResKitAdapter",
+      "kind": "kit-with-dependencies",
+      "availability": "available",
+      "output": "StellarFramework-AudioKit-ResKitAdapter.unitypackage",
+      "sourcePaths": [
+        "Assets/StellarFramework/Runtime/Kits/AudioKit/Adapters/ResKit"
+      ],
+      "requiredProfileIds": ["audiokit.core", "reskit.core"],
+      "requiredKits": ["AudioKit.Core", "ResKit.Core"],
+      "requiredUpm": ["com.cysharp.unitask"],
+      "optionalCapabilities": ["ResKitAudioLoading"],
+      "excludedCapabilities": ["Addressables", "HybridCLR", "CodeHotUpdate"]
+    },
+    {
+      "id": "reskit.assetbundle",
+      "displayName": "ResKit.AssetBundle",
+      "kind": "kit-with-dependencies",
+      "availability": "available",
+      "output": "StellarFramework-ResKit-AssetBundle.unitypackage",
+      "sourcePaths": [
+        "Assets/StellarFramework/Runtime/Kits/Reskit/Loaders/AssetBundleLoader",
+        "Assets/StellarFramework/Editor/StellarToolsHub/Modules/AssetBundle"
+      ],
+      "requiredProfileIds": ["reskit.core"],
+      "requiredKits": ["reskit.core", "poolkit", "singletonkit", "logkit", "generated.assetmap"],
+      "requiredUpm": ["com.cysharp.unitask"],
+      "optionalCapabilities": [],
+      "excludedCapabilities": ["Addressables", "HybridCLR", "CodeHotUpdate"]
+    },
+    {
+      "id": "reskit.addressables",
+      "displayName": "ResKit.Addressables",
+      "kind": "kit-with-dependencies",
+      "availability": "available",
+      "output": "StellarFramework-ResKit-Addressables.unitypackage",
+      "sourcePaths": ["Assets/StellarFramework/Runtime/Kits/Reskit/Loaders/AddressableLoader"],
+      "requiredProfileIds": ["reskit.core"],
+      "requiredKits": ["reskit.core", "poolkit", "singletonkit", "logkit"],
+      "requiredUpm": ["com.cysharp.unitask", "com.unity.addressables"],
+      "optionalCapabilities": ["AddressablesResourceLoading"],
+      "excludedCapabilities": ["HybridCLR", "CodeHotUpdate"]
+    },
+    {
+      "id": "hotupdate.core",
+      "displayName": "HotUpdate.Core",
+      "kind": "kit-with-dependencies",
+      "availability": "available",
+      "output": "StellarFramework-HotUpdate-Core.unitypackage",
+      "sourcePaths": ["Assets/StellarFramework/Runtime/Kits/HotUpdateKit"],
+      "excludedSourcePaths": [
+        "Assets/StellarFramework/Runtime/Kits/HotUpdateKit/Adapters/Addressables",
+        "Assets/StellarFramework/Runtime/Kits/HotUpdateKit/Adapters/HybridCLR"
+      ],
+      "requiredProfileIds": ["reskit.core", "httpkit"],
+      "requiredKits": ["ResKit.Core", "HttpKit"],
+      "requiredUpm": ["com.cysharp.unitask", "com.unity.nuget.newtonsoft-json"],
+      "optionalCapabilities": ["HotUpdateStrategyAbstraction"],
+      "excludedCapabilities": ["Addressables", "HybridCLR", "CodeHotUpdate"]
+    },
+    {
+      "id": "hotupdate.addressables",
+      "displayName": "HotUpdate.AddressablesAdapter",
+      "kind": "kit-with-dependencies",
+      "availability": "available",
+      "output": "StellarFramework-HotUpdate-Addressables.unitypackage",
+      "sourcePaths": [
+        "Assets/StellarFramework/Runtime/Kits/HotUpdateKit/Adapters/Addressables",
+        "Assets/StellarFramework/Editor/StellarToolsHub/Modules/Addressables",
+        "Assets/StellarFramework/Editor/StellarToolsHub/Modules/HotUpdateKit"
+      ],
+      "requiredProfileIds": ["hotupdate.core", "reskit.addressables"],
+      "requiredKits": ["HotUpdate.Core", "ResKit.Addressables"],
+      "requiredUpm": ["com.cysharp.unitask", "com.unity.addressables"],
+      "optionalCapabilities": ["AddressablesResourceHotUpdate"],
+      "excludedCapabilities": ["HybridCLR"]
+    },
+    {
+      "id": "uikit.core",
+      "displayName": "UIKit.Core",
+      "kind": "kit",
+      "availability": "available",
+      "output": "StellarFramework-UIKit-Core.unitypackage",
+      "sourcePaths": [
+        "Assets/StellarFramework/Runtime/Kits/UIKit",
+        "Assets/StellarFramework/Editor/StellarToolsHub/Modules/UIKit"
+      ],
+      "excludedSourcePaths": [
+        "Assets/StellarFramework/Runtime/Kits/UIKit/Adapters/ResKit"
+      ],
+      "requiredProfileIds": ["runtime.core", "poolkit", "toolshub.core"],
+      "requiredKits": ["Runtime.Core", "PoolKit", "ToolsHub.Core"],
+      "requiredUpm": ["com.cysharp.unitask", "com.unity.ugui", "com.unity.nuget.newtonsoft-json"],
+      "optionalCapabilities": ["ResourcesUILoadStrategy", "CustomUILoadStrategy"],
+      "excludedCapabilities": ["ResKit", "Addressables", "HybridCLR", "CodeHotUpdate"]
+    },
+    {
+      "id": "uikit.reskit",
+      "displayName": "UIKit.ResKitAdapter",
+      "kind": "kit-with-dependencies",
+      "availability": "available",
+      "output": "StellarFramework-UIKit-ResKitAdapter.unitypackage",
+      "sourcePaths": [
+        "Assets/StellarFramework/Runtime/Kits/UIKit/Adapters/ResKit"
+      ],
+      "requiredProfileIds": ["uikit.core", "reskit.core"],
+      "requiredKits": ["UIKit.Core", "ResKit.Core"],
+      "requiredUpm": ["com.cysharp.unitask", "com.unity.ugui"],
+      "optionalCapabilities": ["ResKitUILoadStrategy"],
+      "excludedCapabilities": ["Addressables", "HybridCLR", "CodeHotUpdate"]
+    },
+    {
+      "id": "samples.actionkit",
+      "displayName": "Sample.ActionKit",
+      "kind": "sample",
+      "availability": "available",
+      "output": "StellarFramework-Sample-ActionKit.unitypackage",
+      "sourcePaths": ["Assets/StellarFramework/Samples/KitSamples/Example_ActionKit", "Assets/StellarFramework/Samples/KitSamples/Common", "Assets/StellarFramework/Samples/KitSamples/Scenes/ActionKit_Playable.unity"],
+      "requiredProfileIds": ["actionkit"],
+      "requiredKits": ["ActionKit"],
+      "requiredUpm": ["com.unity.ugui"],
+      "optionalCapabilities": [],
+      "excludedCapabilities": ["Addressables", "HybridCLR", "CodeHotUpdate"]
+    },
+    {
+      "id": "samples.audiokit",
+      "displayName": "Sample.AudioKit",
+      "kind": "sample",
+      "availability": "available",
+      "output": "StellarFramework-Sample-AudioKit.unitypackage",
+      "sourcePaths": ["Assets/StellarFramework/Samples/KitSamples/Example_AudioKit", "Assets/StellarFramework/Samples/KitSamples/Common", "Assets/StellarFramework/Samples/KitSamples/Scenes/AudioKit_Playable.unity", "Assets/StellarFramework/Resources/Audio"],
+      "requiredProfileIds": ["audiokit.core", "reskit.core"],
+      "requiredKits": ["AudioKit.Core", "ResKit.Core"],
+      "requiredUpm": ["com.cysharp.unitask"],
+      "optionalCapabilities": ["CustomResKitBackedAudioLoader"],
+      "excludedCapabilities": ["Addressables", "HybridCLR", "CodeHotUpdate"]
+    },
+    {
+      "id": "samples.bindablekit",
+      "displayName": "Sample.BindableKit",
+      "kind": "sample",
+      "availability": "available",
+      "output": "StellarFramework-Sample-BindableKit.unitypackage",
+      "sourcePaths": ["Assets/StellarFramework/Samples/KitSamples/Example_BindableKit", "Assets/StellarFramework/Samples/KitSamples/Common", "Assets/StellarFramework/Samples/KitSamples/Scenes/BindableKit_Playable.unity"],
+      "requiredProfileIds": ["bindablekit"],
+      "requiredKits": ["BindableKit"],
+      "requiredUpm": [],
+      "optionalCapabilities": [],
+      "excludedCapabilities": ["Addressables", "HybridCLR", "CodeHotUpdate"]
+    },
+    {
+      "id": "samples.configkit",
+      "displayName": "Sample.ConfigKit",
+      "kind": "sample",
+      "availability": "available",
+      "output": "StellarFramework-Sample-ConfigKit.unitypackage",
+      "sourcePaths": ["Assets/StellarFramework/Samples/KitSamples/Example_ConfigKit", "Assets/StellarFramework/Samples/KitSamples/Common", "Assets/StellarFramework/Samples/KitSamples/Scenes/ConfigKit_Playable.unity"],
+      "requiredProfileIds": ["configkit.json"],
+      "requiredKits": ["ConfigKit.NewtonsoftJson"],
+      "requiredUpm": ["com.cysharp.unitask", "com.unity.nuget.newtonsoft-json"],
+      "optionalCapabilities": [],
+      "excludedCapabilities": ["Addressables", "HybridCLR", "CodeHotUpdate"]
+    },
+    {
+      "id": "samples.eventkit",
+      "displayName": "Sample.EventKit",
+      "kind": "sample",
+      "availability": "available",
+      "output": "StellarFramework-Sample-EventKit.unitypackage",
+      "sourcePaths": ["Assets/StellarFramework/Samples/KitSamples/Example_EventKit", "Assets/StellarFramework/Samples/KitSamples/Common", "Assets/StellarFramework/Samples/KitSamples/Scenes/EventKit_Playable.unity"],
+      "requiredProfileIds": ["eventkit", "logkit"],
+      "requiredKits": ["EventKit", "LogKit"],
+      "requiredUpm": [],
+      "optionalCapabilities": [],
+      "excludedCapabilities": ["Addressables", "HybridCLR", "CodeHotUpdate"]
+    },
+    {
+      "id": "samples.fsmkit",
+      "displayName": "Sample.FSMKit",
+      "kind": "sample",
+      "availability": "available",
+      "output": "StellarFramework-Sample-FSMKit.unitypackage",
+      "sourcePaths": ["Assets/StellarFramework/Samples/KitSamples/Example_FSMKit", "Assets/StellarFramework/Samples/KitSamples/Common", "Assets/StellarFramework/Samples/KitSamples/Scenes/FSMKit_Playable.unity", "Assets/StellarFramework/Samples/KitSamples/Generated"],
+      "requiredProfileIds": ["fsmkit"],
+      "requiredKits": ["FSMKit"],
+      "requiredUpm": [],
+      "optionalCapabilities": [],
+      "excludedCapabilities": ["Addressables", "HybridCLR", "CodeHotUpdate"]
+    },
+    {
+      "id": "samples.httpkit",
+      "displayName": "Sample.HttpKit",
+      "kind": "sample",
+      "availability": "available",
+      "output": "StellarFramework-Sample-HttpKit.unitypackage",
+      "sourcePaths": ["Assets/StellarFramework/Samples/KitSamples/Example_Httpkit", "Assets/StellarFramework/Samples/KitSamples/Common", "Assets/StellarFramework/Samples/KitSamples/Scenes/HttpKit_Playable.unity"],
+      "requiredProfileIds": ["httpkit"],
+      "requiredKits": ["HttpKit"],
+      "requiredUpm": ["com.cysharp.unitask", "com.unity.ugui", "com.unity.nuget.newtonsoft-json"],
+      "optionalCapabilities": ["NetworkDemoWithOfflineFallback"],
+      "excludedCapabilities": ["Addressables", "HybridCLR", "CodeHotUpdate"]
+    },
+    {
+      "id": "samples.logkit",
+      "displayName": "Sample.LogKit",
+      "kind": "sample",
+      "availability": "available",
+      "output": "StellarFramework-Sample-LogKit.unitypackage",
+      "sourcePaths": ["Assets/StellarFramework/Samples/KitSamples/Example_LogKit", "Assets/StellarFramework/Samples/KitSamples/Common", "Assets/StellarFramework/Samples/KitSamples/Scenes/LogKit_Playable.unity"],
+      "requiredProfileIds": ["logkit"],
+      "requiredKits": ["LogKit"],
+      "requiredUpm": [],
+      "optionalCapabilities": [],
+      "excludedCapabilities": ["Addressables", "HybridCLR", "CodeHotUpdate"]
+    },
+    {
+      "id": "samples.poolkit",
+      "displayName": "Sample.PoolKit",
+      "kind": "sample",
+      "availability": "available",
+      "output": "StellarFramework-Sample-PoolKit.unitypackage",
+      "sourcePaths": ["Assets/StellarFramework/Samples/KitSamples/Example_Poolkit", "Assets/StellarFramework/Samples/KitSamples/Common", "Assets/StellarFramework/Samples/KitSamples/Scenes/PoolKit_Playable.unity", "Assets/StellarFramework/Samples/KitSamples/Generated"],
+      "requiredProfileIds": ["poolkit"],
+      "requiredKits": ["PoolKit"],
+      "requiredUpm": [],
+      "optionalCapabilities": [],
+      "excludedCapabilities": ["Addressables", "HybridCLR", "CodeHotUpdate"]
+    },
+    {
+      "id": "samples.reskit",
+      "displayName": "Sample.ResKit",
+      "kind": "sample",
+      "availability": "available",
+      "output": "StellarFramework-Sample-ResKit.unitypackage",
+      "sourcePaths": ["Assets/StellarFramework/Samples/KitSamples/Example_ResKit", "Assets/StellarFramework/Samples/KitSamples/Common", "Assets/StellarFramework/Samples/KitSamples/Scenes/ResKit_Playable.unity"],
+      "requiredProfileIds": ["reskit.assetbundle"],
+      "requiredKits": ["ResKit.AssetBundle"],
+      "requiredUpm": ["com.cysharp.unitask"],
+      "optionalCapabilities": ["AddressablesSceneContentWhenResKitAddressablesIsInstalled"],
+      "excludedCapabilities": ["HybridCLR", "CodeHotUpdate"]
+    },
+    {
+      "id": "samples.settingskit",
+      "displayName": "Sample.SettingsKit",
+      "kind": "sample",
+      "availability": "available",
+      "output": "StellarFramework-Sample-SettingsKit.unitypackage",
+      "sourcePaths": ["Assets/StellarFramework/Samples/KitSamples/Example_SettingsKit", "Assets/StellarFramework/Samples/KitSamples/Common", "Assets/StellarFramework/Samples/KitSamples/Scenes/SettingsKit_Playable.unity", "Assets/StellarFramework/Samples/KitSamples/Generated", "Assets/StellarFramework/Resources/Audio"],
+      "requiredProfileIds": ["settingskit.unity", "settingskit.audiokit"],
+      "requiredKits": ["SettingsKit.UnityAdapters", "SettingsKit.AudioKitAdapter"],
+      "requiredUpm": ["com.cysharp.unitask"],
+      "optionalCapabilities": [],
+      "excludedCapabilities": ["Addressables", "HybridCLR", "CodeHotUpdate"]
+    },
+    {
+      "id": "samples.singletonkit",
+      "displayName": "Sample.SingletonKit",
+      "kind": "sample",
+      "availability": "available",
+      "output": "StellarFramework-Sample-SingletonKit.unitypackage",
+      "sourcePaths": ["Assets/StellarFramework/Samples/KitSamples/Example_SingletonKit", "Assets/StellarFramework/Samples/KitSamples/Common", "Assets/StellarFramework/Samples/KitSamples/Scenes/SingletonKit_Playable.unity"],
+      "requiredProfileIds": ["singletonkit", "logkit"],
+      "requiredKits": ["SingletonKit", "LogKit"],
+      "requiredUpm": [],
+      "optionalCapabilities": [],
+      "excludedCapabilities": ["Addressables", "HybridCLR", "CodeHotUpdate"]
+    },
+    {
+      "id": "samples.uikit",
+      "displayName": "Sample.UIKit",
+      "kind": "sample",
+      "availability": "available",
+      "output": "StellarFramework-Sample-UIKit.unitypackage",
+      "sourcePaths": ["Assets/StellarFramework/Samples/KitSamples/Example_UIKit", "Assets/StellarFramework/Samples/KitSamples/Common", "Assets/StellarFramework/Samples/KitSamples/Scenes/UIKit_Playable.unity", "Assets/StellarFramework/Resources/UIPanel/UIRoot.prefab", "Assets/StellarFramework/Resources/UIPanel/ExamplePanel.prefab"],
+      "requiredProfileIds": ["uikit.core"],
+      "requiredKits": ["UIKit.Core"],
+      "requiredUpm": ["com.cysharp.unitask", "com.unity.ugui"],
+      "optionalCapabilities": ["ResourcesUILoadStrategy"],
+      "excludedCapabilities": ["ResKit", "Addressables", "HybridCLR", "CodeHotUpdate"]
+    },
+    {
+      "id": "samples.architecture",
+      "displayName": "Sample.Architecture",
+      "kind": "sample",
+      "availability": "available",
+      "output": "StellarFramework-Sample-Architecture.unitypackage",
+      "sourcePaths": ["Assets/StellarFramework/Samples/ArchitectureDemo", "Assets/StellarFramework/Resources/UIPanel/UIRoot.prefab"],
+      "requiredProfileIds": ["actionkit", "bindablekit", "uikit.core"],
+      "requiredKits": ["ActionKit", "BindableKit", "UIKit.Core"],
+      "requiredUpm": ["com.cysharp.unitask", "com.unity.ugui", "com.unity.nuget.newtonsoft-json"],
+      "optionalCapabilities": ["ResourcesUILoadStrategy"],
+      "excludedCapabilities": ["ResKit", "Addressables", "HybridCLR", "CodeHotUpdate"]
+    },
+    {
+      "id": "samples.hotupdate.hybridclr",
+      "displayName": "Sample.HotUpdate.HybridCLR",
+      "kind": "sample",
+      "availability": "available",
+      "output": "StellarFramework-Sample-HotUpdate-HybridCLR.unitypackage",
+      "sourcePaths": ["Assets/StellarFramework/Samples/KitSamples/Example_HotUpdateKit", "Assets/StellarFramework/Samples/KitSamples/Scenes/HotUpdateKit_Playable.unity"],
+      "requiredProfileIds": ["hotupdate.hybridclr"],
+      "requiredKits": ["HotUpdate.HybridCLR"],
+      "requiredUpm": ["com.cysharp.unitask", "com.unity.addressables", "com.code-philosophy.hybridclr"],
+      "optionalCapabilities": ["Addressables", "HybridCLR", "CodeHotUpdate"],
+      "excludedCapabilities": []
+    },
+    {
+      "id": "hotupdate.hybridclr",
+      "displayName": "HotUpdate.HybridCLR",
+      "kind": "kit-with-dependencies",
+      "availability": "available",
+      "output": "StellarFramework-HotUpdate-HybridCLR.unitypackage",
+      "sourcePaths": [
+        "Assets/StellarFramework/Runtime/Kits/HotUpdateKit/Adapters/HybridCLR",
+        "Assets/StellarFramework/Editor/StellarToolsHub/Modules/HotUpdateKit"
+      ],
+      "requiredProfileIds": ["hotupdate.addressables"],
+      "requiredKits": ["HotUpdate.AddressablesAdapter"],
+      "requiredUpm": ["com.cysharp.unitask", "com.unity.addressables", "com.code-philosophy.hybridclr"],
+      "optionalCapabilities": ["Addressables", "HybridCLR", "CodeHotUpdate"],
+      "excludedCapabilities": []
+    }
+  ]
+}

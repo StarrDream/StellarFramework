@@ -1,0 +1,5 @@
+{
+    "name": "StellarFramework.Samples.SettingsKit",
+    "references": ["StellarFramework.SettingsKit", "StellarFramework.SettingsKit.AudioKit", "StellarFramework.SettingsKit.UnityAdapters", "StellarFramework.AudioKit", "GUID:f51ebe6a0ceec4240a699833d6309b23"],
+    "autoReferenced": false
+}

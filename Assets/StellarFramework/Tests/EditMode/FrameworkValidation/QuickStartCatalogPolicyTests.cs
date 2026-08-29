@@ -94,13 +94,13 @@ namespace StellarFramework.Tests.FrameworkValidation
         [Test]
         public void ResourceManagementModulesUseFixedOrderWeights()
         {
-            string assetBundleSource = ReadAssetText("Assets/StellarFramework/Editor/StellarToolsHub/Modules/AssetBundleToolModule.cs");
+            string assetBundleSource = ReadAssetText("Assets/StellarFramework/Editor/StellarToolsHub/Modules/AssetBundle/AssetBundleToolModule.cs");
             string addressablesSource = ReadAssetText("Assets/StellarFramework/Editor/StellarToolsHub/Modules/Addressables/AAHotUpdatePublishToolModule.cs");
             string resKitSource = ReadAssetText("Assets/StellarFramework/Editor/StellarToolsHub/Modules/ResKit/ResKitAuditHubModule.cs");
 
-            Assert.That(assetBundleSource, Does.Contain("[StellarTool(\"资源打包 (AssetBundle)\", \"资源管理\", 0)]"));
-            Assert.That(addressablesSource, Does.Contain("[StellarTool(\"AA 配置与发布\", \"资源管理\", 1)]"));
-            Assert.That(resKitSource, Does.Contain("[StellarTool(\"ResKit 资源审计\", \"资源管理\", 2)]"));
+            Assert.That(assetBundleSource, Does.Contain("[StellarTool(\"资源打包 (AssetBundle)\", \"资源管理\", 0,"));
+            Assert.That(addressablesSource, Does.Contain("[StellarTool(\"AA 配置与发布\", \"资源管理\", 1,"));
+            Assert.That(resKitSource, Does.Contain("[StellarTool(\"ResKit 资源审计\", \"资源管理\", 2,"));
         }
 
         [Test]
@@ -180,10 +180,10 @@ namespace StellarFramework.Tests.FrameworkValidation
         [Test]
         public void ToolsHubGroupsMoveAssetPipelinesIntoResourceManagement()
         {
-            string assetBundleSource = ReadAssetText("Assets/StellarFramework/Editor/StellarToolsHub/Modules/AssetBundleToolModule.cs");
+            string assetBundleSource = ReadAssetText("Assets/StellarFramework/Editor/StellarToolsHub/Modules/AssetBundle/AssetBundleToolModule.cs");
             string addressablesSource = ReadAssetText("Assets/StellarFramework/Editor/StellarToolsHub/Modules/Addressables/AAHotUpdatePublishToolModule.cs");
             string resKitSource = ReadAssetText("Assets/StellarFramework/Editor/StellarToolsHub/Modules/ResKit/ResKitAuditHubModule.cs");
-            string hybridClrSource = ReadAssetText("Assets/StellarFramework/Editor/StellarToolsHub/Modules/HybridCLRHotUpdateAssetExporter.cs");
+            string hybridClrSource = ReadAssetText("Assets/StellarFramework/Editor/StellarToolsHub/Modules/HotUpdateKit/HybridCLRHotUpdateAssetExporter.cs");
 
             Assert.That(assetBundleSource, Does.Contain("[StellarTool(\"资源打包 (AssetBundle)\", \"资源管理\""));
             Assert.That(addressablesSource, Does.Contain("[StellarTool(\"AA 配置与发布\", \"资源管理\""));
@@ -194,7 +194,7 @@ namespace StellarFramework.Tests.FrameworkValidation
         [Test]
         public void AssetBundleToolDefinesInitializationGate()
         {
-            string source = ReadAssetText("Assets/StellarFramework/Editor/StellarToolsHub/Modules/AssetBundleToolModule.cs");
+            string source = ReadAssetText("Assets/StellarFramework/Editor/StellarToolsHub/Modules/AssetBundle/AssetBundleToolModule.cs");
 
             Assert.That(source, Does.Contain("初始化AB"));
             Assert.That(source, Does.Contain("AssetMap"));
@@ -205,7 +205,7 @@ namespace StellarFramework.Tests.FrameworkValidation
             Assert.That(source, Does.Contain("BuildBundles(revealInFinder: false, showDialogOnFailure: false)"));
             Assert.That(source, Does.Contain("已构建默认 AssetBundle 和当前平台 Manifest"));
             Assert.That(source, Does.Contain("TestCapsule_AB_Auto.mat"));
-            Assert.That(source, Does.Contain("RenderPipelineCompatibility.FindPreferredLitShader()"));
+            Assert.That(source, Does.Contain("private static Shader FindPreferredLitShader()"));
         }
 
         [Test]
