@@ -1,46 +1,44 @@
 # StellarFramework
 
-StellarFramework 是一个 Unity 基础开发框架，提供架构分层、UI、资源加载、热更新、设置系统，以及配套的编辑器工具、样例和文档。
+StellarFramework 是一个 Unity 基础开发框架，包含架构分层、UI、资源加载、配置、事件、设置、热更新和配套编辑器工具。
 
-## 仓库定位
+## 概览
 
-这个 GitHub 仓库是 **StellarFramework 的原始开发工程**，不是任何游戏或业务项目。
+本工程包含框架源码、Kit 导出器、Tools Hub、样例和验证内容。业务项目通过导出包按需接入框架能力。
 
-- 仓库负责维护框架源码、Kit 导出器、Tools Hub、测试、样例模板和验证资源。
-- `Samples`、`GameHotUpdate`、`StellarFrameworkVerification` 只用于演示与框架验收；不承载真实游戏业务。
-- 请不要在这个仓库中提交业务玩法、业务场景、线上地址、账号密钥或项目专属配置。
-- 业务开发者应从此工程导出所需内容，再导入到自己的 Unity 业务项目：可选择单 Kit、多个 Kit 的组合包、独立 `Architecture.cs` / `Extensions.cs`，或完整单包安装版。
+- `Samples`、`GameHotUpdate`、`StellarFrameworkVerification` 用于示例和框架验证。
+- `Kit Package Exporter` 用于导出单 Kit、组合 Kit、样例包和独立 `Architecture.cs` / `Extensions.cs`。
+- `StellarFramework.unitypackage` 用于完整框架的一键安装。
 
 ## 运行环境
 
 - Unity `2022.3 LTS`
 - Unity `6000.x`
 
-## 安装
+## 使用方式
 
-### Clone 并维护框架
+### 打开框架工程
 
-1. Clone 本仓库。
-2. 使用 Unity `2022.3.62f3c1`（或兼容的 Unity 2022.3 LTS / Unity 6000.x）打开根目录。
-3. 首次打开时 Unity 会解析公开 UPM 依赖；请确保本机已安装 Git 且可访问 GitHub/Unity Package Registry。
-4. 打开 `StellarFramework -> Framework Source -> Kit Package Exporter`，导出业务项目实际需要的内容。
+使用 Unity `2022.3.62f3c1`（或兼容的 Unity 2022.3 LTS / Unity 6000.x）打开工程根目录。首次打开会解析 UniTask、Addressables、HybridCLR 等 UPM 依赖。
 
-本仓库的 `manifest.json` 不包含任何本机 `file:` 路径依赖；普通开发者 clone 后不需要拥有作者机器上的工具目录。
+导出入口：`StellarFramework -> Framework Source -> Kit Package Exporter`。
 
-### 接入已有项目
+### 按需导出
 
-在原框架工程中打开 `StellarFramework -> Framework Source -> Kit Package Exporter`，按需选择 Kit、样例或独立源码文件。导出器会自动合并所选 Kit 的依赖，并在包旁生成依赖说明。
+导出器会自动合并所选 Kit 的依赖，并在包旁生成依赖说明。
 
-- 只需要架构或静态扩展：导出 `Architecture.cs`、`Extensions.cs`，不引入任何 Kit。
-- 只需要 UI：导出 `UIKit.Core`；它默认使用 Resources，不依赖 ResKit。
-- 需要资源加载：按需选 `ResKit.Core`、`ResKit.AssetBundle` 或 `ResKit.Addressables`。
-- 需要代码热更：再显式选择 `HotUpdate.AddressablesAdapter` 与 `HotUpdate.HybridCLR`；不会被基础 Kit 隐式带入。
+| 目标 | 导出内容 |
+| --- | --- |
+| 架构或静态扩展 | `Architecture.cs`、`Extensions.cs`，不引入 Kit |
+| UI | `UIKit.Core`；默认使用 Resources，不依赖 ResKit |
+| 资源加载 | `ResKit.Core`、`ResKit.AssetBundle` 或 `ResKit.Addressables` |
+| 资源与代码热更 | `HotUpdate.AddressablesAdapter`、`HotUpdate.HybridCLR` |
 
 ### 单包安装
 
-- 可以使用仓库 `Release` 中已导出的 `unitypackage`
-- 也可以使用当前工程自行导出 `StellarFramework.unitypackage`
-- 导入后打开 `StellarFramework -> 安装 -> 单包安装器`
+- 导入 `StellarFramework.unitypackage`。
+- 打开 `StellarFramework -> 安装 -> 单包安装器`。
+- 点击 `一键安装 StellarFramework`。
 
 详细说明：
 
@@ -48,11 +46,10 @@ StellarFramework 是一个 Unity 基础开发框架，提供架构分层、UI、
 
 ## 快速开始
 
-1. 打开 `StellarFramework -> Tools Hub`
-2. 进入 `Start Here -> Quick Start`
-3. 执行样例构建
-4. 运行 `UIKit_Playable.unity`
-5. 运行 `ResKit_Playable.unity`
+1. 打开 `StellarFramework -> Tools Hub`。
+2. 进入 `Start Here -> Quick Start`。
+3. 执行样例构建。
+4. 运行 `UIKit_Playable.unity` 或 `ResKit_Playable.unity`。
 
 详细说明：
 
