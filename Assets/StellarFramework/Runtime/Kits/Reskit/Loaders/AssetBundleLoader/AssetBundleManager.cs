@@ -504,9 +504,14 @@ namespace StellarFramework.Res.AB
                 return;
             }
 
-            string path = $"{BasePath}/{PlatformName}/{SHADER_BUNDLE_NAME}";
-            AssetBundle bundle = AssetBundle.LoadFromFile(path);
-            ProcessShaderBundle(bundle);
+            var acquiredBundles = new List<string>();
+            if (!LoadBundleRecursiveSync(SHADER_BUNDLE_NAME, acquiredBundles))
+            {
+                LogKit.LogError("[AssetBundleManager] shaders 包加载失败，AB 材质可能显示为紫色。");
+                return;
+            }
+
+            ProcessShaderBundle(GetRecord(SHADER_BUNDLE_NAME).Bundle);
         }
 
         private async UniTask LoadGlobalShadersAsync(CancellationToken cancellationToken)
@@ -522,9 +527,14 @@ namespace StellarFramework.Res.AB
                 return;
             }
 
-            string path = $"{BasePath}/{PlatformName}/{SHADER_BUNDLE_NAME}";
-            AssetBundle bundle = await LoadBundlePlatformSafeAsync(path, cancellationToken);
-            ProcessShaderBundle(bundle);
+            var acquiredBundles = new List<string>();
+            if (!await LoadBundleRecursiveAsync(SHADER_BUNDLE_NAME, acquiredBundles, cancellationToken))
+            {
+                LogKit.LogError("[AssetBundleManager] shaders 包异步加载失败，AB 材质可能显示为紫色。");
+                return;
+            }
+
+            ProcessShaderBundle(GetRecord(SHADER_BUNDLE_NAME).Bundle);
         }
 
         private void ProcessShaderBundle(AssetBundle bundle)
@@ -534,7 +544,7 @@ namespace StellarFramework.Res.AB
                 return;
             }
 
-            bundle.LoadAllAssets();
+            Shader[] shaders = bundle.LoadAllAssets<Shader>();
             ShaderVariantCollection[] svcs = bundle.LoadAllAssets<ShaderVariantCollection>();
             for (int i = 0; i < svcs.Length; i++)
             {
@@ -555,7 +565,14 @@ namespace StellarFramework.Res.AB
             record.RefCount = int.MaxValue;
             record.State = AssetBundleLoadState.Loaded;
             record.LastError = null;
-            LogKit.Log("[AssetBundleManager] Shader 预热完成");
+            if (shaders.Length == 0 && svcs.Length == 0)
+            {
+                LogKit.LogWarning("[AssetBundleManager] shaders 包中没有 Shader 或 ShaderVariantCollection；请重新执行 AB 构建。");
+            }
+            else
+            {
+                LogKit.Log($"[AssetBundleManager] Shader 预热完成: Shaders={shaders.Length}, Collections={svcs.Length}");
+            }
         }
 
         private bool LoadBundleRecursiveSync(string bundleName, List<string> acquiredBundles)

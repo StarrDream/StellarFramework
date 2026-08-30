@@ -734,6 +734,8 @@ namespace StellarFramework.Editor.Modules
                 dependencies = CreatePackageDependencies(GetRequiredUpm(profiles)),
                 payloadAssetPath = payloadAssetPath,
                 expectedAssetPaths = GetPayloadVerificationPaths(payloadAssetPaths),
+                flattenRuntimeSources = profiles.Any(profile =>
+                    string.Equals(profile.id, "runtime.core", StringComparison.Ordinal)),
                 createAddressablesSettings = GetRequiredUpm(profiles)
                     .Contains("com.unity.addressables", StringComparer.Ordinal)
             };
@@ -985,6 +987,7 @@ namespace StellarFramework.Editor.Modules
             public KitBootstrapPackageDependency[] dependencies;
             public string payloadAssetPath;
             public string[] expectedAssetPaths;
+            public bool flattenRuntimeSources;
             public bool createAddressablesSettings;
         }
 

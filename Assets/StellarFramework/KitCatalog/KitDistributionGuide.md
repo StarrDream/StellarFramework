@@ -7,6 +7,7 @@
 - 每个可导出 Profile 都声明自己的源路径、依赖 Profile、UPM 依赖和明确排除的能力。
 - 导出时会自动计算依赖闭包；开发者只选择目标 Kit，不必手动猜测依赖顺序。
 - 每个 Kit 包均采用 Bootstrap + Payload 两段式导入：先导入无第三方依赖的安装器，再安装该包依赖闭包中缺失的 UPM 包，最后导入 Kit 源码 Payload。没有 UPM 依赖的 Kit 会直接进入 Payload 导入阶段。
+- 当依赖闭包包含 `Runtime.Core` 时，安装完成后会自动整理为 `Runtime/StellarArchitecture.cs` 和 `Runtime/StellarExtensions.cs` 两个文件。框架原始工程继续保持 `Core`、`Extensions` 的职责拆分；Kit 本身、Editor 工具、资源和 asmdef 不会被错误地合并。
 - 可选能力必须作为独立 Adapter/Profile 交付，绝不因为导入基础 Kit 而被隐式带入。
 - 每个导出包旁会生成同名 `*-Dependencies.md`，这是对最终包内容的可读回执。
 

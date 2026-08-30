@@ -14,12 +14,14 @@
 - 字符串辅助
 - `Transform / RectTransform / GameObject` 辅助
 - 颜色、向量、层级辅助
-- `CoroutineRunner` 协程承载点
+- 协程扩展和协程句柄
 
 使用约束：
 
 - 扩展方法应当短小、明确、可预测
 - 不应在这里塞入复杂流程或业务规则
+
+`CoroutineRunner` 已独立为 `Runtime Tools` 的协程承载工具，不属于扩展方法层。
 
 相关文档：
 

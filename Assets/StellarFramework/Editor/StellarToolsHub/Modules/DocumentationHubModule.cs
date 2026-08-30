@@ -663,7 +663,8 @@ namespace StellarFramework.Editor.Modules
             }
 
             if ((normalized.StartsWith("Runtime/Core/", StringComparison.OrdinalIgnoreCase)
-                    || normalized.StartsWith("Runtime/Extensions/", StringComparison.OrdinalIgnoreCase))
+                    || normalized.StartsWith("Runtime/Extensions/", StringComparison.OrdinalIgnoreCase)
+                    || normalized.StartsWith("Runtime/Tools/", StringComparison.OrdinalIgnoreCase))
                 && fileNameWithoutExtension.Contains("源码文档"))
             {
                 return "架构/Runtime 源码文档";
@@ -682,7 +683,8 @@ namespace StellarFramework.Editor.Modules
                 return "Samples/Tests/Generated/Resources 文档";
             }
 
-            if (normalized.StartsWith("Runtime/Core/", StringComparison.OrdinalIgnoreCase))
+            if (normalized.StartsWith("Runtime/Core/", StringComparison.OrdinalIgnoreCase)
+                || normalized.StartsWith("Runtime/Tools/", StringComparison.OrdinalIgnoreCase))
             {
                 return "架构/Runtime 源码文档";
             }

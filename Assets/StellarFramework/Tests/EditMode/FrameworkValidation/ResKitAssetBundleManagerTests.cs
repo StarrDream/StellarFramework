@@ -71,6 +71,24 @@ namespace StellarFramework.Tests.FrameworkValidation
             Assert.That(source, Does.Not.Contain("AssetBundle.LoadFromFile(altPath)"));
         }
 
+        [Test]
+        public void AssetBundlePipelineRetainsAndWarmsShadersForPlayerBuilds()
+        {
+            string builder = ReadAssetText(
+                "Assets/StellarFramework/Editor/StellarToolsHub/Modules/AssetBundle/AssetBundleToolModule.cs");
+            string manager = ReadAssetText(
+                "Assets/StellarFramework/Runtime/Kits/Reskit/Loaders/AssetBundleLoader/AssetBundleManager.cs");
+
+            Assert.That(builder, Does.Contain("EnsureAlwaysIncludedShaders"));
+            Assert.That(builder, Does.Contain("m_AlwaysIncludedShaders"));
+            Assert.That(builder, Does.Contain("ShaderVariantCollectionAssetPath"));
+            Assert.That(builder, Does.Contain("EnsureShaderVariantCollection"));
+            Assert.That(manager, Does.Contain("LoadBundleRecursiveSync(SHADER_BUNDLE_NAME"));
+            Assert.That(manager, Does.Contain("LoadBundleRecursiveAsync(SHADER_BUNDLE_NAME"));
+            Assert.That(manager, Does.Contain("ShaderVariantCollection"));
+            Assert.That(manager, Does.Contain("材质可能显示为紫色"));
+        }
+
         private static void SetPrivateField<T>(ResKitRuntimeSettings settings, string fieldName, T value)
         {
             FieldInfo field = typeof(ResKitRuntimeSettings).GetField(

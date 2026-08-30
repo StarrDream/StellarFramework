@@ -24,7 +24,6 @@
 - `TransformExtensions.cs`
 - `VectorExtensions.cs`
 - `RenderPipelineCompatibility.cs`
-- `Runtime/Core/CoroutineRunner.cs`
 
 ## 总体结构
 
@@ -33,7 +32,7 @@ Runtime Extensions
 ├─ Collection / String / Vector / Color
 ├─ Transform / RectTransform / GameObject / Layer
 ├─ CoroutineExtensions
-└─ CoroutineRunner / RenderPipelineCompatibility
+└─ RenderPipelineCompatibility
 ```
 
 ## 类型详解
@@ -190,17 +189,6 @@ UI 布局扩展。
 
 通常挂在 `GameObject` 上，在生命周期结束时终止相关协程。
 
-## `CoroutineRunner`
-
-### 作用
-
-为非 `MonoBehaviour` 代码提供统一协程承载点。
-
-### 运行方式
-
-- 本质上通常是全局或单例型 Runner
-- 用于桥接旧协程链路和需要在非组件中发起协程的场景
-
 ## 设计约束
 
 - 扩展方法必须短小、明确、可预测
@@ -212,11 +200,9 @@ UI 布局扩展。
 
 - 在扩展层塞入复杂业务逻辑
 - 在高频调用中隐式分配临时集合
-- 把 `CoroutineRunner` 当作通用业务入口而不是底层承载工具
 
 ## 测试与验证
 
 - 高频扩展的空值处理
-- `CoroutineRunner` 生命周期
 - `RectTransform` 扩展的常见 UI 场景
 - 渲染管线兼容判断是否符合预期

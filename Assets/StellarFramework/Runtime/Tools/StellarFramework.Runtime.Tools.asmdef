@@ -1,9 +1,7 @@
 {
-    "name": "StellarFramework.Runtime",
+    "name": "StellarFramework.Runtime.Tools",
     "rootNamespace": "",
-    "references": [
-        "StellarFramework.LogKit"
-    ],
+    "references": [],
     "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,

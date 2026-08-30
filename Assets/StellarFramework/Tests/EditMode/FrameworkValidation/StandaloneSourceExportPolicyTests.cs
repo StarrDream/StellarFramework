@@ -50,6 +50,41 @@ namespace StellarFramework.Tests.FrameworkValidation
         }
 
         [Test]
+        public void RuntimeToolsProfileIsIndependentFromRuntimeCoreAndOptionalPackages()
+        {
+            string catalog = ReadAssetText("Assets/StellarFramework/KitCatalog/KitDistributionCatalog.json");
+            string runner = ReadAssetText("Assets/StellarFramework/Runtime/Tools/CoroutineRunner.cs");
+            string asmdef = ReadAssetText("Assets/StellarFramework/Runtime/Tools/StellarFramework.Runtime.Tools.asmdef");
+
+            Assert.That(catalog, Does.Contain("\"id\": \"runtime.tools\""));
+            Assert.That(catalog, Does.Contain("StellarFramework-Runtime-Tools.unitypackage"));
+            Assert.That(catalog, Does.Contain("\"requiredProfileIds\": [\"runtime.core\", \"poolkit\", \"singletonkit\", \"toolshub.core\"]"));
+            Assert.That(catalog, Does.Contain("\"id\": \"reskit.assetbundle\""));
+            Assert.That(catalog, Does.Contain("\"requiredKits\": [\"ResKit.Core\"]"));
+            Assert.That(runner, Does.Not.Contain("MonoSingleton<"));
+            Assert.That(runner, Does.Not.Contain("LogKit."));
+            Assert.That(runner, Does.Not.Contain("[Singleton"));
+            Assert.That(asmdef, Does.Contain("\"references\": []"));
+        }
+
+        [Test]
+        public void KitExportsFlattenSharedRuntimeIntoArchitectureAndExtensionsFiles()
+        {
+            string publisher = ReadAssetText(
+                "Assets/StellarFramework/Editor/StellarToolsHub/Modules/Packaging/StellarFrameworkPackagePublisher.cs");
+            string bootstrap = ReadAssetText(
+                "Assets/StellarFramework/Editor/KitPackageBootstrap/StellarFrameworkKitPackageBootstrapInstaller.cs");
+
+            Assert.That(publisher, Does.Contain("flattenRuntimeSources = profiles.Any"));
+            Assert.That(bootstrap, Does.Contain("TryFlattenRuntimeSources"));
+            Assert.That(bootstrap, Does.Contain("Assets/StellarFramework/Runtime/StellarArchitecture.cs"));
+            Assert.That(bootstrap, Does.Contain("Assets/StellarFramework/Runtime/StellarExtensions.cs"));
+            Assert.That(bootstrap, Does.Contain("AssetDatabase.DeleteAsset(RuntimeArchitectureSourcePath)"));
+            Assert.That(bootstrap, Does.Contain("RestoreRuntimeSources"));
+            Assert.That(bootstrap, Does.Contain("StellarFramework-Architecture-"));
+        }
+
+        [Test]
         public void EventKitHasNoFrameworkAssemblyDependency()
         {
             string asmdef = ReadAssetText(

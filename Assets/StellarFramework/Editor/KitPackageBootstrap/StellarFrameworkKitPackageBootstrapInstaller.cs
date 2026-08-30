@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Text;
 using System.Text.RegularExpressions;
 using UnityEditor;
 using UnityEditor.PackageManager;
@@ -27,6 +28,26 @@ namespace StellarFramework.Editor.KitBootstrap
         private const string PendingRequestSessionKey = "StellarFramework.KitBootstrap.PendingRequest";
         private const string PendingPayloadSessionKey = "StellarFramework.KitBootstrap.PendingPayload";
         private const string ProcessedSessionKey = "StellarFramework.KitBootstrap.Processed";
+        private const string RuntimeArchitectureSourcePath =
+            "Assets/StellarFramework/Runtime/Core/Architecture/StellarFramework.cs";
+        private const string RuntimeExtensionsSourceRoot = "Assets/StellarFramework/Runtime/Extensions";
+        private const string FlattenedArchitectureOutputPath =
+            "Assets/StellarFramework/Runtime/StellarArchitecture.cs";
+        private const string FlattenedExtensionsOutputPath =
+            "Assets/StellarFramework/Runtime/StellarExtensions.cs";
+        private const string FlattenedRuntimeMarker =
+            "// StellarFramework kit export: generated runtime source";
+
+        private static readonly string[] ExtensionUsingDirectives =
+        {
+            "using System;",
+            "using System.Collections;",
+            "using System.Collections.Generic;",
+            "using System.Text;",
+            "using UnityEngine;",
+            "using UnityEngine.Rendering;",
+            "using Object = UnityEngine.Object;"
+        };
 
         private static AddRequest _currentRequest;
         private static string _currentRequestAssetPath;
@@ -200,6 +221,13 @@ namespace StellarFramework.Editor.KitBootstrap
                 return true;
             }
 
+            if (!TryFlattenRuntimeSources(request))
+            {
+                LogFailureOnce(requestAssetPath, "runtime-source-flattening",
+                    "[StellarFramework] Kit payload 的 Runtime 源码合并失败，已保留原始源码和安装器以便修复后重试。");
+                return true;
+            }
+
             string tempPackagePath = SessionState.GetString(PendingPayloadSessionKey, string.Empty);
             AssetDatabase.DeleteAsset(requestAssetPath);
             AssetDatabase.DeleteAsset(request.payloadAssetPath);
@@ -214,6 +242,159 @@ namespace StellarFramework.Editor.KitBootstrap
         {
             return request.expectedAssetPaths != null && request.expectedAssetPaths.Length > 0 &&
                    request.expectedAssetPaths.All(path => File.Exists(ToAbsoluteProjectPath(path)));
+        }
+
+        /// <summary>
+        /// Framework sources remain split by responsibility. A business-project Kit import replaces only the
+        /// shared Runtime Core sources with two generated files in the same Runtime assembly: Architecture and
+        /// Extensions. Kit assemblies, editor tooling, assets and asmdefs keep their original boundaries.
+        /// </summary>
+        private static bool TryFlattenRuntimeSources(BootstrapRequest request)
+        {
+            if (!request.flattenRuntimeSources)
+            {
+                return true;
+            }
+
+            string architectureAbsolutePath = ToAbsoluteProjectPath(RuntimeArchitectureSourcePath);
+            string extensionsAbsolutePath = ToAbsoluteProjectPath(RuntimeExtensionsSourceRoot);
+            if (!File.Exists(architectureAbsolutePath) || !Directory.Exists(extensionsAbsolutePath))
+            {
+                return false;
+            }
+
+            string[] extensionSourcePaths = Directory.GetFiles(extensionsAbsolutePath, "*.cs", SearchOption.TopDirectoryOnly)
+                .OrderBy(path => path, StringComparer.Ordinal)
+                .ToArray();
+            if (extensionSourcePaths.Length == 0 ||
+                !CanReplaceFlattenedOutput(FlattenedArchitectureOutputPath) ||
+                !CanReplaceFlattenedOutput(FlattenedExtensionsOutputPath))
+            {
+                return false;
+            }
+
+            string architectureSource = File.ReadAllText(architectureAbsolutePath);
+            var originalExtensionSources = extensionSourcePaths.ToDictionary(path => path, File.ReadAllText,
+                StringComparer.Ordinal);
+            string extensionsSource = BuildFlattenedExtensionsSource(originalExtensionSources);
+            string tempArchitecturePath = Path.Combine(Path.GetTempPath(),
+                "StellarFramework-Architecture-" + Guid.NewGuid().ToString("N") + ".tmp");
+            string tempExtensionsPath = Path.Combine(Path.GetTempPath(),
+                "StellarFramework-Extensions-" + Guid.NewGuid().ToString("N") + ".tmp");
+            try
+            {
+                // Prepare both generated files before touching imported sources. If this step fails, the
+                // business project remains exactly as it was before the installer ran.
+                File.WriteAllText(tempArchitecturePath, BuildFlattenedHeader("Architecture") + architectureSource,
+                    new UTF8Encoding(false));
+                File.WriteAllText(tempExtensionsPath, extensionsSource, new UTF8Encoding(false));
+
+                AssetDatabase.StartAssetEditing();
+                try
+                {
+                    AssetDatabase.DeleteAsset(FlattenedArchitectureOutputPath);
+                    AssetDatabase.DeleteAsset(FlattenedExtensionsOutputPath);
+                    AssetDatabase.DeleteAsset(RuntimeArchitectureSourcePath);
+                    foreach (string extensionSourcePath in extensionSourcePaths)
+                    {
+                        AssetDatabase.DeleteAsset(ToProjectRelativePath(extensionSourcePath));
+                    }
+
+                    File.Copy(tempArchitecturePath, ToAbsoluteProjectPath(FlattenedArchitectureOutputPath), true);
+                    File.Copy(tempExtensionsPath, ToAbsoluteProjectPath(FlattenedExtensionsOutputPath), true);
+                }
+                finally
+                {
+                    AssetDatabase.StopAssetEditing();
+                }
+
+                AssetDatabase.ImportAsset(FlattenedArchitectureOutputPath, ImportAssetOptions.ForceSynchronousImport);
+                AssetDatabase.ImportAsset(FlattenedExtensionsOutputPath, ImportAssetOptions.ForceSynchronousImport);
+                AssetDatabase.Refresh();
+                return File.Exists(ToAbsoluteProjectPath(FlattenedArchitectureOutputPath)) &&
+                       File.Exists(ToAbsoluteProjectPath(FlattenedExtensionsOutputPath));
+            }
+            catch (Exception exception)
+            {
+                RestoreRuntimeSources(architectureSource, originalExtensionSources);
+                Debug.LogError("[StellarFramework] Runtime 源码合并异常: " + exception.Message);
+                return false;
+            }
+            finally
+            {
+                TryDeleteFile(tempArchitecturePath);
+                TryDeleteFile(tempExtensionsPath);
+            }
+        }
+
+        private static bool CanReplaceFlattenedOutput(string outputAssetPath)
+        {
+            string absolutePath = ToAbsoluteProjectPath(outputAssetPath);
+            return !File.Exists(absolutePath) ||
+                   File.ReadAllText(absolutePath).StartsWith(FlattenedRuntimeMarker, StringComparison.Ordinal);
+        }
+
+        private static void RestoreRuntimeSources(string architectureSource,
+            IReadOnlyDictionary<string, string> extensionSources)
+        {
+            try
+            {
+                AssetDatabase.StartAssetEditing();
+                try
+                {
+                    AssetDatabase.DeleteAsset(FlattenedArchitectureOutputPath);
+                    AssetDatabase.DeleteAsset(FlattenedExtensionsOutputPath);
+                    File.WriteAllText(ToAbsoluteProjectPath(RuntimeArchitectureSourcePath), architectureSource,
+                        new UTF8Encoding(false));
+                    foreach (KeyValuePair<string, string> extensionSource in extensionSources)
+                    {
+                        File.WriteAllText(extensionSource.Key, extensionSource.Value, new UTF8Encoding(false));
+                    }
+                }
+                finally
+                {
+                    AssetDatabase.StopAssetEditing();
+                }
+
+                AssetDatabase.Refresh();
+            }
+            catch (Exception restoreException)
+            {
+                Debug.LogError("[StellarFramework] Runtime 源码恢复失败: " + restoreException.Message);
+            }
+        }
+
+        private static string BuildFlattenedExtensionsSource(IReadOnlyDictionary<string, string> extensionSources)
+        {
+            var builder = new StringBuilder(32 * 1024);
+            builder.Append(BuildFlattenedHeader("Extensions"));
+            foreach (string usingDirective in ExtensionUsingDirectives)
+            {
+                builder.AppendLine(usingDirective);
+            }
+
+            builder.AppendLine();
+            foreach (KeyValuePair<string, string> extensionSource in extensionSources.OrderBy(pair => pair.Key,
+                         StringComparer.Ordinal))
+            {
+                builder.AppendLine("// Source: " + ToProjectRelativePath(extensionSource.Key));
+                builder.AppendLine(RemoveTopLevelUsingDirectives(extensionSource.Value).Trim());
+                builder.AppendLine();
+            }
+
+            return builder.ToString();
+        }
+
+        private static string BuildFlattenedHeader(string sourceName)
+        {
+            return FlattenedRuntimeMarker + "\r\n" +
+                   "// " + sourceName + " was merged during Kit import. Edit the framework source project, not this file.\r\n" +
+                   "// </auto-generated>\r\n\r\n";
+        }
+
+        private static string RemoveTopLevelUsingDirectives(string source)
+        {
+            return Regex.Replace(source, @"^using\s+[^\r\n]+;\s*\r?\n", string.Empty, RegexOptions.Multiline);
         }
 
         private static void EnsureDefaultAddressablesSettings()
@@ -350,6 +531,13 @@ namespace StellarFramework.Editor.KitBootstrap
             return Path.Combine(projectRoot, projectRelativePath.Replace('/', Path.DirectorySeparatorChar));
         }
 
+        private static string ToProjectRelativePath(string absolutePath)
+        {
+            string projectRoot = Directory.GetParent(Application.dataPath)?.FullName ?? Application.dataPath;
+            string relativePath = absolutePath.Substring(projectRoot.Length).TrimStart(Path.DirectorySeparatorChar, '/');
+            return relativePath.Replace(Path.DirectorySeparatorChar, '/');
+        }
+
         [Serializable]
         private sealed class BootstrapRequest
         {
@@ -358,6 +546,7 @@ namespace StellarFramework.Editor.KitBootstrap
             public PackageDependency[] dependencies;
             public string payloadAssetPath;
             public string[] expectedAssetPaths;
+            public bool flattenRuntimeSources;
             public bool createAddressablesSettings;
         }
 

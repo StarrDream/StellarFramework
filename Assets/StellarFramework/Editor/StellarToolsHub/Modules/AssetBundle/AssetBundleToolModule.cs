@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.Rendering;
 
 namespace StellarFramework.Editor
 {
@@ -21,6 +22,13 @@ namespace StellarFramework.Editor
         RequiredAssemblyNames = new[] { "StellarFramework.ResKit.AssetBundle" })]
     public class AssetBundleToolModule : ToolModule
     {
+        private sealed class ShaderCollectionResult
+        {
+            public readonly HashSet<Shader> Shaders = new HashSet<Shader>();
+            public readonly HashSet<Material> Materials = new HashSet<Material>();
+            public readonly List<string> BundleAssignmentWarnings = new List<string>();
+        }
+
         private sealed class AssetBundleWorkspaceStatus
         {
             public bool HasDefaultRule;
@@ -52,6 +60,9 @@ namespace StellarFramework.Editor
         private const string DefaultSampleMaterialPath =
             "Assets/StellarFramework/Samples/KitSamples/Example_ResKit/Art/AssetBundle/TestCapsule_AB_Auto.mat";
         private const string AssetMapAssetPath = "Assets/StellarFramework/Generated/AssetMap/AssetMap.cs";
+        private const string ShaderVariantCollectionAssetPath =
+            "Assets/StellarFramework/Generated/AssetBundleShaders/AssetBundleShaderVariants.shadervariants";
+        private const string GraphicsSettingsAssetPath = "ProjectSettings/GraphicsSettings.asset";
 
         public override string Icon => "d_PreMatCube";
         public override string Description => "可视化的 AB 包依赖分析、冗余检测与构建工具。";
@@ -617,8 +628,21 @@ namespace StellarFramework.Editor
                     }
                 }
 
-                // 自动归集 Shader
-                AutoGroupShaders(allAssetPaths);
+                // Shader 不只是一个普通依赖：Player 构建会裁剪未显式保留的 Shader / Variant，
+                // 即使 AB 文件存在，运行时材质也可能变成紫色。因此构建时同时做 Bundle 归集、
+                // Player Shader 保留和实际材质 Variant 的预热集合生成。
+                ShaderCollectionResult shaderResult = AutoGroupShaders(allAssetPaths);
+                int retainedShaderCount = EnsureAlwaysIncludedShaders(shaderResult.Shaders);
+                EnsureShaderVariantCollection(allAssetPaths, shaderResult.Materials);
+                if (retainedShaderCount > 0)
+                {
+                    Debug.Log($"[ABTool] 已将 {retainedShaderCount} 个 AB Shader 加入 GraphicsSettings 的 Always Included Shaders。");
+                }
+
+                foreach (string warning in shaderResult.BundleAssignmentWarnings)
+                {
+                    Debug.LogWarning("[ABTool] " + warning);
+                }
 
                 EditorUtility.DisplayProgressBar("AssetBundle", "正在标记资源...", 0.5f);
 
@@ -655,12 +679,23 @@ namespace StellarFramework.Editor
             }
         }
 
-        private void AutoGroupShaders(Dictionary<string, string> assetMap)
+        private ShaderCollectionResult AutoGroupShaders(Dictionary<string, string> assetMap)
         {
+            var result = new ShaderCollectionResult();
             var shadersToAdd = new HashSet<string>();
 
-            foreach (var kvp in assetMap)
+            foreach (var kvp in assetMap.ToArray())
             {
+                Material material = AssetDatabase.LoadAssetAtPath<Material>(kvp.Key);
+                if (material != null)
+                {
+                    result.Materials.Add(material);
+                    if (material.shader != null)
+                    {
+                        result.Shaders.Add(material.shader);
+                    }
+                }
+
                 string[] deps = AssetDatabase.GetDependencies(kvp.Key, true);
                 foreach (var depPath in deps)
                 {
@@ -670,6 +705,11 @@ namespace StellarFramework.Editor
                     if (type == typeof(Shader) || type == typeof(ShaderVariantCollection))
                     {
                         shadersToAdd.Add(depPath);
+                        Shader shader = AssetDatabase.LoadAssetAtPath<Shader>(depPath);
+                        if (shader != null)
+                        {
+                            result.Shaders.Add(shader);
+                        }
                     }
                 }
             }
@@ -688,6 +728,140 @@ namespace StellarFramework.Editor
                     assetMap.Add(shaderPath, SHADER_BUNDLE_NAME);
                 }
             }
+
+            foreach (Shader shader in result.Shaders)
+            {
+                string shaderPath = AssetDatabase.GetAssetPath(shader);
+                if (!string.IsNullOrWhiteSpace(shaderPath) && !assetMap.ContainsKey(shaderPath))
+                {
+                    AssetImporter importer = AssetImporter.GetAtPath(shaderPath);
+                    if (importer != null)
+                    {
+                        assetMap.Add(shaderPath, SHADER_BUNDLE_NAME);
+                    }
+                    else
+                    {
+                        result.BundleAssignmentWarnings.Add(
+                            $"Shader 无法写入 AssetBundle 标签，将依赖 Always Included Shaders 保留：{shader.name}");
+                    }
+                }
+            }
+
+            return result;
+        }
+
+        private static int EnsureAlwaysIncludedShaders(IEnumerable<Shader> shaders)
+        {
+            Shader[] requiredShaders = shaders
+                .Where(shader => shader != null)
+                .Distinct()
+                .ToArray();
+            if (requiredShaders.Length == 0)
+            {
+                return 0;
+            }
+
+            UnityEngine.Object graphicsSettings = AssetDatabase.LoadAllAssetsAtPath(GraphicsSettingsAssetPath)
+                .FirstOrDefault();
+            if (graphicsSettings == null)
+            {
+                Debug.LogWarning("[ABTool] 未找到 GraphicsSettings.asset，无法保留 AB Shader。");
+                return 0;
+            }
+
+            var serializedSettings = new SerializedObject(graphicsSettings);
+            SerializedProperty alwaysIncludedShaders = serializedSettings.FindProperty("m_AlwaysIncludedShaders");
+            if (alwaysIncludedShaders == null || !alwaysIncludedShaders.isArray)
+            {
+                Debug.LogWarning("[ABTool] GraphicsSettings 不包含 Always Included Shaders 配置，无法自动保留 AB Shader。");
+                return 0;
+            }
+
+            var existingShaders = new HashSet<Shader>();
+            for (int i = 0; i < alwaysIncludedShaders.arraySize; i++)
+            {
+                Shader existing = alwaysIncludedShaders.GetArrayElementAtIndex(i).objectReferenceValue as Shader;
+                if (existing != null)
+                {
+                    existingShaders.Add(existing);
+                }
+            }
+
+            int addedCount = 0;
+            foreach (Shader shader in requiredShaders)
+            {
+                if (!existingShaders.Add(shader))
+                {
+                    continue;
+                }
+
+                int index = alwaysIncludedShaders.arraySize;
+                alwaysIncludedShaders.InsertArrayElementAtIndex(index);
+                alwaysIncludedShaders.GetArrayElementAtIndex(index).objectReferenceValue = shader;
+                addedCount++;
+            }
+
+            if (addedCount > 0)
+            {
+                serializedSettings.ApplyModifiedProperties();
+                AssetDatabase.SaveAssets();
+            }
+
+            return addedCount;
+        }
+
+        private static void EnsureShaderVariantCollection(Dictionary<string, string> assetMap,
+            IEnumerable<Material> materials)
+        {
+            Material[] shaderMaterials = materials.Where(material => material != null && material.shader != null)
+                .Distinct()
+                .ToArray();
+            if (shaderMaterials.Length == 0)
+            {
+                return;
+            }
+
+            string directory = Path.GetDirectoryName(ShaderVariantCollectionAssetPath);
+            if (!AssetDatabase.IsValidFolder(directory))
+            {
+                Directory.CreateDirectory(directory);
+                AssetDatabase.Refresh();
+            }
+
+            ShaderVariantCollection collection = AssetDatabase.LoadAssetAtPath<ShaderVariantCollection>(
+                ShaderVariantCollectionAssetPath);
+            if (collection == null)
+            {
+                collection = new ShaderVariantCollection();
+                AssetDatabase.CreateAsset(collection, ShaderVariantCollectionAssetPath);
+            }
+            else
+            {
+                collection.Clear();
+            }
+
+            int variantCount = 0;
+            foreach (Material material in shaderMaterials)
+            {
+                try
+                {
+                    var variant = new ShaderVariantCollection.ShaderVariant(
+                        material.shader, PassType.Normal, material.shaderKeywords);
+                    if (collection.Add(variant))
+                    {
+                        variantCount++;
+                    }
+                }
+                catch (ArgumentException exception)
+                {
+                    Debug.LogWarning($"[ABTool] 无法记录 Shader Variant: {material.shader.name}, Error={exception.Message}");
+                }
+            }
+
+            EditorUtility.SetDirty(collection);
+            AssetDatabase.SaveAssets();
+            assetMap[ShaderVariantCollectionAssetPath] = SHADER_BUNDLE_NAME;
+            Debug.Log($"[ABTool] ShaderVariantCollection 已生成，记录 {variantCount} 个材质 Variant。");
         }
 
         private bool BuildBundles(bool revealInFinder = true, bool showDialogOnFailure = true)

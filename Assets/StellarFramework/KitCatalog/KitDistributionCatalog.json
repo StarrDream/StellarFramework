@@ -82,9 +82,23 @@
         "Assets/StellarFramework/Runtime/Core",
         "Assets/StellarFramework/Runtime/Extensions"
       ],
-      "requiredProfileIds": ["logkit", "singletonkit"],
-      "requiredKits": ["LogKit", "SingletonKit"],
-      "requiredUpm": ["com.cysharp.unitask", "com.unity.nuget.newtonsoft-json"],
+      "requiredProfileIds": ["logkit"],
+      "requiredKits": ["LogKit"],
+      "requiredUpm": [],
+      "optionalCapabilities": [],
+      "excludedCapabilities": ["Addressables", "HybridCLR", "CodeHotUpdate"]
+    },
+    {
+      "id": "runtime.tools",
+      "displayName": "Runtime Tools",
+      "kind": "shared-runtime",
+      "availability": "available",
+      "output": "StellarFramework-Runtime-Tools.unitypackage",
+      "sourcePaths": [
+        "Assets/StellarFramework/Runtime/Tools"
+      ],
+      "requiredKits": [],
+      "requiredUpm": [],
       "optionalCapabilities": [],
       "excludedCapabilities": ["Addressables", "HybridCLR", "CodeHotUpdate"]
     },
@@ -335,7 +349,7 @@
         "Assets/StellarFramework/Editor/StellarToolsHub/Modules/AssetBundle"
       ],
       "requiredProfileIds": ["reskit.core"],
-      "requiredKits": ["reskit.core", "poolkit", "singletonkit", "logkit", "generated.assetmap"],
+      "requiredKits": ["ResKit.Core"],
       "requiredUpm": ["com.cysharp.unitask"],
       "optionalCapabilities": [],
       "excludedCapabilities": ["Addressables", "HybridCLR", "CodeHotUpdate"]
@@ -348,7 +362,7 @@
       "output": "StellarFramework-ResKit-Addressables.unitypackage",
       "sourcePaths": ["Assets/StellarFramework/Runtime/Kits/Reskit/Loaders/AddressableLoader"],
       "requiredProfileIds": ["reskit.core"],
-      "requiredKits": ["reskit.core", "poolkit", "singletonkit", "logkit"],
+      "requiredKits": ["ResKit.Core"],
       "requiredUpm": ["com.cysharp.unitask", "com.unity.addressables"],
       "optionalCapabilities": ["AddressablesResourceLoading"],
       "excludedCapabilities": ["HybridCLR", "CodeHotUpdate"]
@@ -400,8 +414,8 @@
       "excludedSourcePaths": [
         "Assets/StellarFramework/Runtime/Kits/UIKit/Adapters/ResKit"
       ],
-      "requiredProfileIds": ["runtime.core", "poolkit", "toolshub.core"],
-      "requiredKits": ["Runtime.Core", "PoolKit", "ToolsHub.Core"],
+      "requiredProfileIds": ["runtime.core", "poolkit", "singletonkit", "toolshub.core"],
+      "requiredKits": ["Runtime.Core", "PoolKit", "SingletonKit", "ToolsHub.Core"],
       "requiredUpm": ["com.cysharp.unitask", "com.unity.ugui", "com.unity.nuget.newtonsoft-json"],
       "optionalCapabilities": ["ResourcesUILoadStrategy", "CustomUILoadStrategy"],
       "excludedCapabilities": ["ResKit", "Addressables", "HybridCLR", "CodeHotUpdate"]
