@@ -25,11 +25,11 @@ namespace StellarFramework.Editor.Modules
         private const string ArchitectureStandaloneOutputFileName = "StellarArchitecture.cs";
         private const string ExtensionsStandaloneOutputFileName = "StellarExtensions.cs";
         private const string ArchitectureSourcePath = "Assets/StellarFramework/Runtime/Core/Architecture/StellarFramework.cs";
-        private const string KitDependencyInstallerSourcePath =
-            "Assets/StellarFramework/Editor/KitDependencyInstaller/StellarFrameworkKitDependencyInstaller.cs";
-        private const string KitDependencyInstallerRequestRoot =
-            "Assets/StellarFramework/Editor/KitDependencyInstaller";
-        private const string KitDependencyInstallerRequestPrefix = "__StellarFramework-KitDependencies-";
+        private const string KitBootstrapSourcePath =
+            "Assets/StellarFramework/Editor/KitPackageBootstrap/StellarFrameworkKitPackageBootstrapInstaller.cs";
+        private const string KitBootstrapRoot = "Assets/StellarFramework/Editor/KitPackageBootstrap";
+        private const string KitBootstrapRequestPrefix = "__StellarFramework-KitBootstrap-";
+        private const string KitBootstrapPayloadPrefix = "__StellarFramework-KitPayload-";
 
         private static readonly string[] OptionalSampleProfileIds =
         {
@@ -333,8 +333,8 @@ namespace StellarFramework.Editor.Modules
                 throw new InvalidOperationException($"Kit distribution profile is incomplete: {profile.displayName}");
             }
 
-            string[] assetPaths = GetAssetsForProfiles(closure);
-            if (assetPaths.Length == 0)
+            string[] payloadAssetPaths = GetAssetsForProfiles(closure);
+            if (payloadAssetPaths.Length == 0)
             {
                 throw new InvalidOperationException($"Kit distribution profile has no exportable assets: {profile.displayName}");
             }
@@ -342,17 +342,20 @@ namespace StellarFramework.Editor.Modules
             string exportDirectory = ToProjectPath(KitExportRoot);
             Directory.CreateDirectory(exportDirectory);
             string outputPath = Path.Combine(exportDirectory, profile.output);
-            string requestAssetPath = null;
+            string[] bootstrapAssetPaths = null;
+            string temporaryPayloadPath = CreateTemporaryPayloadPath();
             try
             {
-                assetPaths = AddKitDependencyInstallerAssets(assetPaths, closure, profile.output, profile.displayName,
-                    out requestAssetPath);
-                AssetDatabase.ExportPackage(assetPaths, outputPath, ExportPackageOptions.Recurse);
+                AssetDatabase.ExportPackage(payloadAssetPaths, temporaryPayloadPath, ExportPackageOptions.Recurse);
+                bootstrapAssetPaths = CreateKitBootstrapAssets(closure, profile.output, profile.displayName,
+                    payloadAssetPaths, temporaryPayloadPath);
+                AssetDatabase.ExportPackage(bootstrapAssetPaths, outputPath, ExportPackageOptions.Recurse);
                 WriteKitDependencyGuide(exportDirectory, profile, closure);
             }
             finally
             {
-                DeleteKitDependencyInstallRequest(requestAssetPath);
+                DeleteKitBootstrapAssets(bootstrapAssetPaths);
+                DeleteTemporaryPayload(temporaryPayloadPath);
                 AssetDatabase.Refresh();
             }
 
@@ -409,8 +412,8 @@ namespace StellarFramework.Editor.Modules
                 throw new InvalidOperationException("Selected Kit profiles contain an incomplete export profile.");
             }
 
-            string[] assetPaths = GetAssetsForProfiles(closure);
-            if (assetPaths.Length == 0)
+            string[] payloadAssetPaths = GetAssetsForProfiles(closure);
+            if (payloadAssetPaths.Length == 0)
             {
                 throw new InvalidOperationException("Selected Kit profiles have no exportable assets.");
             }
@@ -419,20 +422,23 @@ namespace StellarFramework.Editor.Modules
             Directory.CreateDirectory(exportDirectory);
             string fileName = NormalizePackageFileName(outputFileName);
             string outputPath = Path.Combine(exportDirectory, fileName);
-            string requestAssetPath = null;
+            string[] bootstrapAssetPaths = null;
+            string temporaryPayloadPath = CreateTemporaryPayloadPath();
             try
             {
                 string displayName = string.Join(" + ", selectedProfiles
                     .Select(profile => profile.displayName)
                     .OrderBy(name => name, StringComparer.Ordinal));
-                assetPaths = AddKitDependencyInstallerAssets(assetPaths, closure, fileName, displayName,
-                    out requestAssetPath);
-                AssetDatabase.ExportPackage(assetPaths, outputPath, ExportPackageOptions.Recurse);
+                AssetDatabase.ExportPackage(payloadAssetPaths, temporaryPayloadPath, ExportPackageOptions.Recurse);
+                bootstrapAssetPaths = CreateKitBootstrapAssets(closure, fileName, displayName,
+                    payloadAssetPaths, temporaryPayloadPath);
+                AssetDatabase.ExportPackage(bootstrapAssetPaths, outputPath, ExportPackageOptions.Recurse);
                 WriteCombinedKitDependencyGuide(exportDirectory, fileName, selectedProfiles, closure);
             }
             finally
             {
-                DeleteKitDependencyInstallRequest(requestAssetPath);
+                DeleteKitBootstrapAssets(bootstrapAssetPaths);
+                DeleteTemporaryPayload(temporaryPayloadPath);
                 AssetDatabase.Refresh();
             }
 
@@ -704,67 +710,92 @@ namespace StellarFramework.Editor.Modules
                 .ToArray();
         }
 
-        private static string[] AddKitDependencyInstallerAssets(IEnumerable<string> assetPaths,
-            IEnumerable<DistributionProfile> profiles, string packageFileName, string displayName,
-            out string requestAssetPath)
+        private static string[] CreateKitBootstrapAssets(IEnumerable<DistributionProfile> profiles,
+            string packageFileName, string displayName, IEnumerable<string> payloadAssetPaths, string payloadSourcePath)
         {
-            requestAssetPath = null;
-            string[] requiredUpm = GetRequiredUpm(profiles);
-            if (requiredUpm.Length == 0)
+            if (!File.Exists(ToProjectPath(KitBootstrapSourcePath)))
             {
-                return assetPaths.ToArray();
-            }
-
-            if (!File.Exists(ToProjectPath(KitDependencyInstallerSourcePath)))
-            {
-                throw new FileNotFoundException("Kit dependency installer source was not found.",
-                    ToProjectPath(KitDependencyInstallerSourcePath));
+                throw new FileNotFoundException("Kit bootstrap source was not found.", ToProjectPath(KitBootstrapSourcePath));
             }
 
             string requestId = Path.GetFileNameWithoutExtension(packageFileName);
-            string safeRequestId = Regex.Replace(requestId ?? "KitDependencies", "[^A-Za-z0-9_.-]", "-");
-            requestAssetPath = KitDependencyInstallerRequestRoot + "/" + KitDependencyInstallerRequestPrefix +
-                               safeRequestId + ".json";
-            string requestDirectory = ToProjectPath(KitDependencyInstallerRequestRoot);
-            Directory.CreateDirectory(requestDirectory);
+            string safeRequestId = Regex.Replace(requestId ?? "Kit", "[^A-Za-z0-9_.-]", "-");
+            string requestAssetPath = KitBootstrapRoot + "/" + KitBootstrapRequestPrefix + safeRequestId + ".json";
+            string payloadAssetPath = KitBootstrapRoot + "/" + KitBootstrapPayloadPrefix + safeRequestId + ".unitypackage.bytes";
+            Directory.CreateDirectory(ToProjectPath(KitBootstrapRoot));
             AssetDatabase.DeleteAsset(requestAssetPath);
+            AssetDatabase.DeleteAsset(payloadAssetPath);
 
-            var request = new KitDependencyInstallRequest
+            File.Copy(payloadSourcePath, ToProjectPath(payloadAssetPath), true);
+            var request = new KitBootstrapRequest
             {
                 requestId = safeRequestId,
                 displayName = displayName,
-                dependencies = requiredUpm.Select(packageId =>
-                {
-                    if (!UpmPackageSources.TryGetValue(packageId, out string source))
-                    {
-                        throw new InvalidOperationException($"No package source is configured for {packageId}.");
-                    }
-
-                    return new KitDependencyPackageSource
-                    {
-                        packageId = packageId,
-                        source = source
-                    };
-                }).ToArray()
+                dependencies = CreatePackageDependencies(GetRequiredUpm(profiles)),
+                payloadAssetPath = payloadAssetPath,
+                expectedAssetPaths = GetPayloadVerificationPaths(payloadAssetPaths),
+                createAddressablesSettings = GetRequiredUpm(profiles)
+                    .Contains("com.unity.addressables", StringComparer.Ordinal)
             };
             File.WriteAllText(ToProjectPath(requestAssetPath), JsonUtility.ToJson(request, true), new UTF8Encoding(false));
+            AssetDatabase.ImportAsset(payloadAssetPath, ImportAssetOptions.ForceSynchronousImport);
             AssetDatabase.ImportAsset(requestAssetPath, ImportAssetOptions.ForceSynchronousImport);
 
-            return assetPaths
-                .Concat(new[] { KitDependencyInstallerSourcePath, requestAssetPath })
-                .Distinct(StringComparer.Ordinal)
-                .OrderBy(path => path, StringComparer.Ordinal)
-                .ToArray();
+            return new[] { KitBootstrapSourcePath, requestAssetPath, payloadAssetPath };
         }
 
-        private static void DeleteKitDependencyInstallRequest(string requestAssetPath)
+        private static KitBootstrapPackageDependency[] CreatePackageDependencies(IEnumerable<string> requiredUpm)
         {
-            if (string.IsNullOrWhiteSpace(requestAssetPath))
+            return requiredUpm.Select(packageId =>
+            {
+                if (!UpmPackageSources.TryGetValue(packageId, out string source))
+                {
+                    throw new InvalidOperationException($"No package source is configured for {packageId}.");
+                }
+
+                return new KitBootstrapPackageDependency
+                {
+                    packageId = packageId,
+                    source = source
+                };
+            }).ToArray();
+        }
+
+        private static string[] GetPayloadVerificationPaths(IEnumerable<string> payloadAssetPaths)
+        {
+            string[] allPaths = payloadAssetPaths.Where(path => !path.EndsWith(".meta", StringComparison.OrdinalIgnoreCase))
+                .OrderBy(path => path, StringComparer.Ordinal)
+                .ToArray();
+            string[] asmdefPaths = allPaths.Where(path => path.EndsWith(".asmdef", StringComparison.OrdinalIgnoreCase))
+                .Take(3)
+                .ToArray();
+            return asmdefPaths.Length > 0 ? asmdefPaths : allPaths.Take(1).ToArray();
+        }
+
+        private static string CreateTemporaryPayloadPath()
+        {
+            return Path.Combine(Path.GetTempPath(), "StellarFramework-Kit-" + Guid.NewGuid().ToString("N") + ".unitypackage");
+        }
+
+        private static void DeleteTemporaryPayload(string payloadPath)
+        {
+            if (!string.IsNullOrWhiteSpace(payloadPath) && File.Exists(payloadPath))
+            {
+                File.Delete(payloadPath);
+            }
+        }
+
+        private static void DeleteKitBootstrapAssets(IEnumerable<string> bootstrapAssetPaths)
+        {
+            if (bootstrapAssetPaths == null)
             {
                 return;
             }
 
-            AssetDatabase.DeleteAsset(requestAssetPath);
+            foreach (string assetPath in bootstrapAssetPaths.Where(path => path != KitBootstrapSourcePath))
+            {
+                AssetDatabase.DeleteAsset(assetPath);
+            }
         }
 
         private static string[] GetRequiredUpm(IEnumerable<DistributionProfile> profiles)
@@ -805,8 +836,8 @@ namespace StellarFramework.Editor.Modules
             AppendGuideList(builder, "本包已包含的 Kit", closure.Select(candidate => candidate.displayName).ToArray(), "无");
             string[] requiredUpm = GetRequiredUpm(closure);
             builder.AppendLine(requiredUpm.Length > 0
-                ? "导入后会自动调用 Unity Package Manager 安装下列 UPM 包。"
-                : "本包没有额外 UPM 依赖，因此不会附带依赖安装器。");
+                ? "导入 Bootstrap 后会先自动调用 Unity Package Manager 安装下列 UPM 包，再导入 Kit payload。"
+                : "本包没有额外 UPM 依赖；Bootstrap 会直接导入 Kit payload。");
             builder.AppendLine();
             AppendGuideList(builder, "自动安装的 UPM 包", requiredUpm, "无");
             AppendGuideList(builder, "不会引入的能力", profile.excludedCapabilities, "无");
@@ -835,8 +866,8 @@ namespace StellarFramework.Editor.Modules
                 .ToArray(), "无");
             string[] requiredUpm = GetRequiredUpm(closure);
             builder.AppendLine(requiredUpm.Length > 0
-                ? "导入后会自动调用 Unity Package Manager 安装下列 UPM 包。"
-                : "本包没有额外 UPM 依赖，因此不会附带依赖安装器。");
+                ? "导入 Bootstrap 后会先自动调用 Unity Package Manager 安装下列 UPM 包，再导入 Kit payload。"
+                : "本包没有额外 UPM 依赖；Bootstrap 会直接导入 Kit payload。");
             builder.AppendLine();
             AppendGuideList(builder, "自动安装的 UPM 包", requiredUpm, "无");
             File.WriteAllText(guidePath, builder.ToString(), new UTF8Encoding(false));
@@ -947,15 +978,18 @@ namespace StellarFramework.Editor.Modules
         }
 
         [Serializable]
-        private sealed class KitDependencyInstallRequest
+        private sealed class KitBootstrapRequest
         {
             public string requestId;
             public string displayName;
-            public KitDependencyPackageSource[] dependencies;
+            public KitBootstrapPackageDependency[] dependencies;
+            public string payloadAssetPath;
+            public string[] expectedAssetPaths;
+            public bool createAddressablesSettings;
         }
 
         [Serializable]
-        private sealed class KitDependencyPackageSource
+        private sealed class KitBootstrapPackageDependency
         {
             public string packageId;
             public string source;
@@ -964,7 +998,7 @@ namespace StellarFramework.Editor.Modules
         private static readonly string[] FullPayloadExcludedPrefixes =
         {
             "Assets/StellarFramework/Editor/StellarToolsHub/Modules/Packaging",
-            "Assets/StellarFramework/Editor/KitDependencyInstaller",
+            "Assets/StellarFramework/Editor/KitPackageBootstrap",
             "Assets/StellarFramework/Samples/KitSamples/Scenes",
             "Assets/StellarFramework/Samples/KitSamples/Generated",
             "Assets/StellarFramework/Samples/KitSamples/Example_ResKit/Addressables",

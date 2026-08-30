@@ -46,7 +46,7 @@ namespace StellarFramework.Tests.FrameworkValidation
                 "Assets/StellarFramework/Editor/StellarToolsHub/Modules/Packaging/StellarFrameworkPackagePublisher.cs");
 
             Assert.That(source, Does.Contain("Assets/StellarFramework/Editor/StellarToolsHub/Modules/Packaging"));
-            Assert.That(source, Does.Contain("Assets/StellarFramework/Editor/KitDependencyInstaller"));
+            Assert.That(source, Does.Contain("Assets/StellarFramework/Editor/KitPackageBootstrap"));
             Assert.That(source, Does.Contain("FullPayloadExcludedPrefixes"));
         }
 

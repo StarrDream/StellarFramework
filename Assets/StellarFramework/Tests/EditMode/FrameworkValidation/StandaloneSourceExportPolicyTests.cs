@@ -1,6 +1,10 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.IO.Compression;
+using System.Linq;
 using System.Reflection;
+using System.Text;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -337,18 +341,25 @@ namespace StellarFramework.Tests.FrameworkValidation
             string publisher = ReadAssetText(
                 "Assets/StellarFramework/Editor/StellarToolsHub/Modules/Packaging/StellarFrameworkPackagePublisher.cs");
             string installer = ReadAssetText(
-                "Assets/StellarFramework/Editor/KitDependencyInstaller/StellarFrameworkKitDependencyInstaller.cs");
+                "Assets/StellarFramework/Editor/KitPackageBootstrap/StellarFrameworkKitPackageBootstrapInstaller.cs");
             string catalog = ReadAssetText("Assets/StellarFramework/KitCatalog/KitDistributionCatalog.json");
 
-            Assert.That(publisher, Does.Contain("AddKitDependencyInstallerAssets"));
+            Assert.That(publisher, Does.Contain("CreateKitBootstrapAssets"));
+            Assert.That(publisher, Does.Contain("CreateTemporaryPayloadPath"));
+            Assert.That(publisher, Does.Contain("KitBootstrapPayloadPrefix"));
+            Assert.That(publisher, Does.Not.Contain("KitDependencyInstaller"));
             Assert.That(publisher, Does.Contain("GetRequiredUpm"));
-            Assert.That(publisher, Does.Contain("requiredUpm.Length == 0"));
             Assert.That(publisher, Does.Contain("自动调用 Unity Package Manager"));
             Assert.That(publisher, Does.Contain("UpmPackageSources"));
-            Assert.That(publisher, Does.Contain("KitDependencyInstallerRequestPrefix"));
+            Assert.That(publisher, Does.Contain("KitBootstrapRequestPrefix"));
             Assert.That(installer, Does.Contain("[InitializeOnLoad]"));
+            Assert.That(installer, Does.Contain("AssetDatabase.ImportPackage"));
+            Assert.That(installer, Does.Contain("PendingRequestSessionKey"));
+            Assert.That(installer, Does.Contain("PayloadWasImported"));
+            Assert.That(installer, Does.Contain("IsFrameworkSourceProject"));
+            Assert.That(installer, Does.Contain("TryCleanupBootstrap"));
             Assert.That(installer, Does.Contain("RequestSearchPattern"));
-            Assert.That(installer, Does.Contain("Client.Add(missingPackage.source)"));
+            Assert.That(installer, Does.Contain("Client.Add(dependency.source)"));
             Assert.That(installer, Does.Contain("PackageDependency[] dependencies"));
             Assert.That(installer, Does.Not.Contain("com.code-philosophy.hybridclr"));
             Assert.That(installer, Does.Not.Contain("com.unity.addressables"));
@@ -359,6 +370,54 @@ namespace StellarFramework.Tests.FrameworkValidation
             Assert.That(publisher, Does.Contain("com.code-philosophy.hybridclr"));
             Assert.That(publisher, Does.Contain("4feac30cb2e105992986c737f7f54992b8300e1a"));
             Assert.That(catalog, Does.Contain("\"requiredUpm\""));
+        }
+
+        [Test]
+        public void KitExportWrapsRuntimeSourcesInBootstrapPayload()
+        {
+            Type publisherType = AppDomain.CurrentDomain.GetAssemblies()
+                .Select(assembly => assembly.GetType("StellarFramework.Editor.Modules.StellarFrameworkPackagePublisher", false))
+                .FirstOrDefault(type => type != null);
+            Assert.That(publisherType, Is.Not.Null);
+
+            MethodInfo exportMethod = publisherType.GetMethod("ExportKitPackageGroupInternal",
+                BindingFlags.Static | BindingFlags.NonPublic);
+            Assert.That(exportMethod, Is.Not.Null);
+
+            const string outputFileName = "Validation-KitBootstrap-EventKit.unitypackage";
+            string outputPath = null;
+            string guidePath = null;
+            try
+            {
+                outputPath = (string)exportMethod.Invoke(null,
+                    new object[] { new[] { "eventkit" }, outputFileName });
+                guidePath = Path.Combine(Path.GetDirectoryName(outputPath) ?? string.Empty,
+                    Path.GetFileNameWithoutExtension(outputFileName) + "-Dependencies.md");
+
+                Assert.That(File.Exists(outputPath), Is.True);
+                string[] outerPackagePaths = ReadUnityPackagePaths(outputPath);
+                Assert.That(outerPackagePaths, Does.Contain(
+                    "Assets/StellarFramework/Editor/KitPackageBootstrap/StellarFrameworkKitPackageBootstrapInstaller.cs"));
+                Assert.That(outerPackagePaths, Does.Contain(
+                    "Assets/StellarFramework/Editor/KitPackageBootstrap/__StellarFramework-KitBootstrap-Validation-KitBootstrap-EventKit.json"));
+                Assert.That(outerPackagePaths, Does.Contain(
+                    "Assets/StellarFramework/Editor/KitPackageBootstrap/__StellarFramework-KitPayload-Validation-KitBootstrap-EventKit.unitypackage.bytes"));
+                Assert.That(outerPackagePaths, Does.Not.Contain(
+                    "Assets/StellarFramework/Runtime/Kits/EventKit/StellarFramework.EventKit.asmdef"));
+                Assert.That(File.ReadAllText(guidePath), Does.Contain("Bootstrap 会直接导入 Kit payload"));
+            }
+            finally
+            {
+                if (!string.IsNullOrWhiteSpace(outputPath) && File.Exists(outputPath))
+                {
+                    File.Delete(outputPath);
+                }
+
+                if (!string.IsNullOrWhiteSpace(guidePath) && File.Exists(guidePath))
+                {
+                    File.Delete(guidePath);
+                }
+            }
         }
 
         [Test]
@@ -472,6 +531,38 @@ namespace StellarFramework.Tests.FrameworkValidation
         {
             string projectRoot = Directory.GetParent(Application.dataPath)?.FullName ?? Application.dataPath;
             return File.ReadAllText(Path.Combine(projectRoot, assetPath.Replace('/', Path.DirectorySeparatorChar)));
+        }
+
+        private static string[] ReadUnityPackagePaths(string path)
+        {
+            using (FileStream input = File.OpenRead(path))
+            using (var gzip = new GZipStream(input, CompressionMode.Decompress))
+            using (var output = new MemoryStream())
+            {
+                gzip.CopyTo(output);
+                byte[] tarBytes = output.ToArray();
+                var paths = new List<string>();
+                int offset = 0;
+                while (offset + 512 <= tarBytes.Length)
+                {
+                    string entryName = Encoding.ASCII.GetString(tarBytes, offset, 100).Trim('\0');
+                    if (string.IsNullOrWhiteSpace(entryName))
+                    {
+                        break;
+                    }
+
+                    string sizeText = Encoding.ASCII.GetString(tarBytes, offset + 124, 12).Trim('\0', ' ');
+                    long size = string.IsNullOrWhiteSpace(sizeText) ? 0L : Convert.ToInt64(sizeText, 8);
+                    if (entryName.EndsWith("/pathname", StringComparison.Ordinal) && size > 0)
+                    {
+                        paths.Add(Encoding.UTF8.GetString(tarBytes, offset + 512, (int)size).Trim('\0'));
+                    }
+
+                    offset += 512 + (int)(((size + 511L) / 512L) * 512L);
+                }
+
+                return paths.ToArray();
+            }
         }
     }
 }
