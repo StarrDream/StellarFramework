@@ -9,7 +9,7 @@ namespace StellarFramework
     {
         private static readonly Action NoOp = OnNoOp;
 
-        /// <summary>执行 10 万注册、空闲更新、随机取消与批量到期基准。</summary>
+        /// <summary>执行 10 万注册、空闲更新、间隔取消与批量到期基准。</summary>
         public static TimeKitBenchmarkResult Run100k()
         {
             const int count = 100000;
@@ -47,7 +47,7 @@ namespace StellarFramework
         public long RegisterMilliseconds { get; }
         /// <summary>1000 次空闲处理耗时毫秒。</summary>
         public long IdleUpdateMilliseconds { get; }
-        /// <summary>5 万随机取消耗时毫秒。</summary>
+        /// <summary>5 万间隔取消耗时毫秒。</summary>
         public long CancelMilliseconds { get; }
         /// <summary>10 万同 Tick 回调处理耗时毫秒。</summary>
         public long DueMilliseconds { get; }
