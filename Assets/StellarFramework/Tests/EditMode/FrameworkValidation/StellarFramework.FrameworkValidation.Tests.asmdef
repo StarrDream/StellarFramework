@@ -8,6 +8,7 @@
     "StellarFramework.ResKit",
     "StellarFramework.ResKit.AssetBundle",
     "StellarFramework.SingletonKit",
+    "StellarFramework.TimeKit",
     "UniTask"
   ],
   "includePlatforms": [

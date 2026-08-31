@@ -46,6 +46,19 @@
       "excludedCapabilities": ["Addressables", "HybridCLR", "CodeHotUpdate"]
     },
     {
+      "id": "timekit",
+      "displayName": "TimeKit",
+      "kind": "kit-with-dependencies",
+      "availability": "available",
+      "output": "StellarFramework-TimeKit.unitypackage",
+      "sourcePaths": ["Assets/StellarFramework/Runtime/Kits/TimeKit"],
+      "requiredProfileIds": ["logkit"],
+      "requiredKits": ["LogKit"],
+      "requiredUpm": [],
+      "optionalCapabilities": [],
+      "excludedCapabilities": ["Addressables", "HybridCLR", "CodeHotUpdate"]
+    },
+    {
       "id": "standalone.architecture",
       "displayName": "Architecture.cs",
       "kind": "single-file",

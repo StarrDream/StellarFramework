@@ -32,6 +32,7 @@ namespace StellarFramework.Editor.Modules
             new KitAssemblyInfo("SettingsKit.UnityAdapters", "StellarFramework.SettingsKit.UnityAdapters", true),
             new KitAssemblyInfo("SettingsKit.AudioKitAdapter", "StellarFramework.SettingsKit.AudioKit", true),
             new KitAssemblyInfo("SingletonKit", "StellarFramework.SingletonKit"),
+            new KitAssemblyInfo("TimeKit", "StellarFramework.TimeKit"),
             new KitAssemblyInfo("UIKit.Core", "StellarFramework.UIKit"),
             new KitAssemblyInfo("UIKit.ResKitAdapter", "StellarFramework.UIKit.ResKit", true),
             new KitAssemblyInfo("HotUpdate.Core", "StellarFramework.HotUpdateKit", true),
