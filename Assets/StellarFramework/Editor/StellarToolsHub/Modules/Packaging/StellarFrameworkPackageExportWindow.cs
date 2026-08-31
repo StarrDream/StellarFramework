@@ -19,6 +19,7 @@ namespace StellarFramework.Editor.Modules
         private readonly HashSet<string> _selectedProfileIds = new HashSet<string>(StringComparer.Ordinal);
         private Vector2 _scrollPosition;
         private string _outputFileName = "StellarFramework-CombinedKits.unitypackage";
+        private string _search = string.Empty;
         private StellarFrameworkPackagePublisher.DistributionProfile[] _profiles = Array.Empty<StellarFrameworkPackagePublisher.DistributionProfile>();
         private int _activeTab;
 
@@ -106,27 +107,83 @@ namespace StellarFramework.Editor.Modules
                 }
             }
 
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                EditorGUILayout.LabelField("搜索", GUILayout.Width(42f));
+                _search = EditorGUILayout.TextField(_search, EditorStyles.toolbarSearchField);
+                if (GUILayout.Button("×", EditorStyles.toolbarButton, GUILayout.Width(24f)))
+                {
+                    _search = string.Empty;
+                    GUI.FocusControl(null);
+                }
+            }
+
             EditorGUILayout.Space(4f);
             _scrollPosition = EditorGUILayout.BeginScrollView(_scrollPosition);
+            StellarFrameworkPackagePublisher.DistributionProfile[] visibleProfiles = _profiles
+                .Where(MatchesSearch)
+                .ToArray();
             if (_activeTab == KitTab)
             {
-                DrawProfileSection("独立 Kit", "不会额外带入其他 StellarFramework Kit。", false);
-                DrawProfileSection("有依赖 / 适配器", "导出时会自动包含下列依赖。", true);
+                DrawKitTieredSections(visibleProfiles);
             }
             else
             {
-                DrawProfileSection("可选样例", "导出时会自动带入对应 Kit 与必要依赖。", null);
+                DrawProfileSection("可选样例", "导出时会自动带入对应 Kit 与必要依赖。", visibleProfiles);
+            }
+
+            if (visibleProfiles.Length == 0)
+            {
+                EditorGUILayout.HelpBox("没有匹配的 Kit / Profile。", MessageType.Info);
             }
 
             EditorGUILayout.EndScrollView();
             DrawExportFooter(profileLabel);
         }
 
-        private void DrawProfileSection(string title, string description, bool? hasDependencies)
+        private void DrawKitTieredSections(IEnumerable<StellarFrameworkPackagePublisher.DistributionProfile> profiles)
         {
-            StellarFrameworkPackagePublisher.DistributionProfile[] sectionProfiles = _profiles
-                .Where(profile => !hasDependencies.HasValue || HasProfileDependencies(profile) == hasDependencies.Value)
+            DrawTierSection("Foundation Kits", "稳定、低层、可复用的基础能力；不会因为分类而被自动全量安装。",
+                "foundation", profiles);
+            DrawTierSection("Extension Kits", "建立在基础能力上的高层表现、运行环境与领域能力。", "extension",
+                profiles);
+            DrawTierSection("Adapter Profiles", "可选的跨 Kit、Unity 或第三方技术栈连接层。", "adapter", profiles);
+            DrawProfileSection("基础支持与其他导出项",
+                "Runtime Core、ToolsHub 与生成支持保持独立分发，不属于 Foundation / Extension / Adapter。",
+                profiles.Where(profile => string.IsNullOrWhiteSpace(profile.tier)));
+        }
+
+        private void DrawTierSection(string title, string description, string tier,
+            IEnumerable<StellarFrameworkPackagePublisher.DistributionProfile> profiles)
+        {
+            StellarFrameworkPackagePublisher.DistributionProfile[] tierProfiles = profiles
+                .Where(profile => string.Equals(profile.tier, tier, StringComparison.Ordinal))
                 .ToArray();
+            if (tierProfiles.Length == 0)
+            {
+                return;
+            }
+
+            EditorGUILayout.LabelField(title, EditorStyles.boldLabel);
+            EditorGUILayout.LabelField(description, EditorStyles.miniLabel);
+            foreach (IGrouping<string, StellarFrameworkPackagePublisher.DistributionProfile> categoryGroup in tierProfiles
+                         .GroupBy(profile => profile.category ?? string.Empty)
+                         .OrderBy(group => GetCategoryLabel(group.Key), StringComparer.Ordinal))
+            {
+                EditorGUILayout.LabelField(GetCategoryLabel(categoryGroup.Key), EditorStyles.miniBoldLabel);
+                foreach (StellarFrameworkPackagePublisher.DistributionProfile profile in categoryGroup)
+                {
+                    DrawProfileCard(profile);
+                }
+            }
+
+            EditorGUILayout.Space(6f);
+        }
+
+        private void DrawProfileSection(string title, string description,
+            IEnumerable<StellarFrameworkPackagePublisher.DistributionProfile> profiles)
+        {
+            StellarFrameworkPackagePublisher.DistributionProfile[] sectionProfiles = profiles.ToArray();
             if (sectionProfiles.Length == 0)
             {
                 return;
@@ -197,9 +254,79 @@ namespace StellarFramework.Editor.Modules
             return profile.requiredProfileIds != null && profile.requiredProfileIds.Length > 0;
         }
 
+        private bool MatchesSearch(StellarFrameworkPackagePublisher.DistributionProfile profile)
+        {
+            if (string.IsNullOrWhiteSpace(_search))
+            {
+                return true;
+            }
+
+            return ContainsIgnoreCase(profile.displayName, _search) || ContainsIgnoreCase(profile.id, _search) ||
+                   ContainsIgnoreCase(profile.tier, _search) || ContainsIgnoreCase(profile.category, _search);
+        }
+
+        private static bool ContainsIgnoreCase(string value, string search)
+        {
+            return !string.IsNullOrWhiteSpace(value) &&
+                   value.IndexOf(search, StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
         private static string GetProfileBadge(StellarFrameworkPackagePublisher.DistributionProfile profile)
         {
-            return HasProfileDependencies(profile) ? "[ 自动带依赖 ]" : "[ 独立 ]";
+            string dependencyBadge = HasProfileDependencies(profile) ? "自动带依赖" : "独立";
+            if (string.IsNullOrWhiteSpace(profile.tier))
+            {
+                return "[ " + dependencyBadge + " ]";
+            }
+
+            return "[ " + GetTierLabel(profile.tier) + " · " + GetCategoryLabel(profile.category) + " · " +
+                   dependencyBadge + " ]";
+        }
+
+        private static string GetTierLabel(string tier)
+        {
+            switch (tier)
+            {
+                case "foundation":
+                    return "Foundation";
+                case "extension":
+                    return "Extension";
+                case "adapter":
+                    return "Adapter";
+                default:
+                    return "未分类";
+            }
+        }
+
+        private static string GetCategoryLabel(string category)
+        {
+            switch (category)
+            {
+                case "diagnostics":
+                    return "诊断";
+                case "infrastructure":
+                    return "基础设施";
+                case "flow":
+                    return "流程与状态";
+                case "data":
+                    return "数据与服务";
+                case "network":
+                    return "网络";
+                case "resource":
+                    return "资源";
+                case "simulation":
+                    return "模拟基础";
+                case "presentation":
+                    return "表现";
+                case "world":
+                    return "世界";
+                case "gameplay":
+                    return "游戏系统";
+                case "runtime-delivery":
+                    return "发布与运行环境";
+                default:
+                    return "其他";
+            }
         }
 
         private static void DrawStandalonePage()

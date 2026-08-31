@@ -363,8 +363,11 @@ namespace StellarFramework.Tests.FrameworkValidation
             Assert.That(window, Does.Contain("Framework Source/Kit Package Exporter"));
             Assert.That(window, Does.Contain("ExportKitPackageGroupInternal"));
             Assert.That(window, Does.Contain("自动合并依赖"));
-            Assert.That(window, Does.Contain("独立 Kit"));
-            Assert.That(window, Does.Contain("有依赖 / 适配器"));
+            Assert.That(window, Does.Contain("Foundation Kits"));
+            Assert.That(window, Does.Contain("Extension Kits"));
+            Assert.That(window, Does.Contain("Adapter Profiles"));
+            Assert.That(window, Does.Contain("自动带依赖"));
+            Assert.That(window, Does.Contain("独立"));
             Assert.That(window, Does.Contain("Architecture.cs"));
             Assert.That(window, Does.Contain("Extensions.cs"));
             Assert.That(window, Does.Not.Contain("StellarFrameworkTools"));

@@ -72,6 +72,8 @@ StellarFramework 以 `Architecture` 作为基础架构层，核心组织方式�
 - `Runtime Kits`：功能模块
 - `Editor Modules / Tools Hub`：编辑器工作流与辅助工具
 
+Runtime Kit 按架构职责分为 Foundation、Extension 与 Adapter Profile；这只影响依赖约束和导出器展示，不代表默认安装。详细规则见 [Kit 架构分层与依赖规则](Assets/StellarFramework/KitCatalog/KitArchitectureGuide.md)。
+
 ## 目录结构
 
 ```text
@@ -106,6 +108,7 @@ Assets
 | `LogKit` | 日志输出与诊断 |
 | `PoolKit` | 对象池 |
 | `SingletonKit` | 单例生命周期与注册 |
+| `TimeKit` | 游戏世界时间、日历换算与高性能定时调度 |
 
 ### Editor Modules
 
@@ -140,3 +143,4 @@ Assets
 - [SettingsKit 设置系统说明](Assets/StellarFramework/Runtime/Kits/SettingsKit/SettingsKit-设置系统-说明文档-Guide.md)
 - [HotUpdateKit 热更新说明](Assets/StellarFramework/Runtime/Kits/HotUpdateKit/HotUpdateKit-热更新-说明文档-Guide.md)
 - [Kit 分发矩阵与生产验收基线](Assets/StellarFramework/KitCatalog/KitExportValidationMatrix.md)
+- [Kit 架构分层与依赖规则](Assets/StellarFramework/KitCatalog/KitArchitectureGuide.md)

@@ -22,6 +22,7 @@ namespace StellarFramework.Editor.Modules
         private const string StandaloneExportRoot = "BuildArtifacts/StellarFramework/Standalone";
         private const string KitExportRoot = "BuildArtifacts/StellarFramework/Kits";
         private const string DistributionCatalogPath = "Assets/StellarFramework/KitCatalog/KitDistributionCatalog.json";
+        private const int CurrentDistributionCatalogSchemaVersion = 2;
         private const string ArchitectureStandaloneOutputFileName = "StellarArchitecture.cs";
         private const string ExtensionsStandaloneOutputFileName = "StellarExtensions.cs";
         private const string ArchitectureSourcePath = "Assets/StellarFramework/Runtime/Core/Architecture/StellarFramework.cs";
@@ -54,6 +55,17 @@ namespace StellarFramework.Editor.Modules
                     "https://github.com/focus-creative-games/hybridclr_unity.git#4feac30cb2e105992986c737f7f54992b8300e1a"
                 }
             };
+
+        private static readonly HashSet<string> ArchitectureTiers = new HashSet<string>(StringComparer.Ordinal)
+        {
+            "foundation", "extension", "adapter"
+        };
+
+        private static readonly HashSet<string> ArchitectureCategories = new HashSet<string>(StringComparer.Ordinal)
+        {
+            "diagnostics", "infrastructure", "flow", "data", "network", "resource", "simulation",
+            "presentation", "world", "gameplay", "runtime-delivery"
+        };
 
         private static readonly string[] ExtensionSourcePaths =
         {
@@ -643,7 +655,64 @@ namespace StellarFramework.Editor.Modules
                 throw new InvalidOperationException("Kit distribution catalog could not be read.");
             }
 
+            ValidateDistributionCatalog(catalog);
+
             return catalog;
+        }
+
+        private static void ValidateDistributionCatalog(DistributionCatalog catalog)
+        {
+            if (catalog.schemaVersion != CurrentDistributionCatalogSchemaVersion)
+            {
+                throw new InvalidOperationException(
+                    $"Unsupported Kit distribution catalog schema: {catalog.schemaVersion}. " +
+                    $"Expected {CurrentDistributionCatalogSchemaVersion}.");
+            }
+
+            var profilesById = new Dictionary<string, DistributionProfile>(StringComparer.Ordinal);
+            foreach (DistributionProfile profile in catalog.profiles)
+            {
+                if (profile == null || string.IsNullOrWhiteSpace(profile.id) || profilesById.ContainsKey(profile.id))
+                {
+                    throw new InvalidOperationException("Kit distribution catalog contains an invalid or duplicate profile id.");
+                }
+
+                profilesById.Add(profile.id, profile);
+
+                bool isRuntimeKit = profile.kind == "kit" || profile.kind == "kit-with-dependencies";
+                bool hasTier = !string.IsNullOrWhiteSpace(profile.tier);
+                bool hasCategory = !string.IsNullOrWhiteSpace(profile.category);
+                if (isRuntimeKit && (!hasTier || !hasCategory || !ArchitectureTiers.Contains(profile.tier) ||
+                    !ArchitectureCategories.Contains(profile.category)))
+                {
+                    throw new InvalidOperationException(
+                        $"Runtime Kit profile '{profile.id}' must declare a valid tier and category.");
+                }
+
+                if (!isRuntimeKit && (hasTier || hasCategory))
+                {
+                    throw new InvalidOperationException(
+                        $"Non-runtime Kit profile '{profile.id}' must not declare tier or category metadata.");
+                }
+            }
+
+            foreach (DistributionProfile profile in catalog.profiles.Where(profile => profile.tier == "foundation"))
+            {
+                foreach (string dependencyId in profile.requiredProfileIds ?? Array.Empty<string>())
+                {
+                    if (!profilesById.TryGetValue(dependencyId, out DistributionProfile dependency))
+                    {
+                        throw new InvalidOperationException(
+                            $"Kit distribution profile '{profile.id}' references unknown dependency '{dependencyId}'.");
+                    }
+
+                    if (dependency.tier == "extension")
+                    {
+                        throw new InvalidOperationException(
+                            $"Foundation Kit profile '{profile.id}' must not depend on Extension profile '{dependency.id}'.");
+                    }
+                }
+            }
         }
 
         internal static string[] ResolveKitProfileClosureIds(string profileId)
@@ -960,6 +1029,7 @@ namespace StellarFramework.Editor.Modules
         [Serializable]
         internal sealed class DistributionCatalog
         {
+            public int schemaVersion;
             public DistributionProfile[] profiles;
         }
 
@@ -969,6 +1039,8 @@ namespace StellarFramework.Editor.Modules
             public string id;
             public string displayName;
             public string kind;
+            public string tier;
+            public string category;
             public string availability;
             public string output;
             public string[] sourcePaths;

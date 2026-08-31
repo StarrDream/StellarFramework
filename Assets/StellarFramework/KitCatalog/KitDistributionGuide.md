@@ -5,6 +5,7 @@
 ## 导出规则
 
 - 每个可导出 Profile 都声明自己的源路径、依赖 Profile、UPM 依赖和明确排除的能力。
+- Runtime Kit Profile 额外声明 `tier` 和 `category`，用于 Foundation / Extension / Adapter 的架构约束与导出器分组；不会改变实际依赖闭包。
 - 导出时会自动计算依赖闭包；开发者只选择目标 Kit，不必手动猜测依赖顺序。
 - 每个 Kit 包均采用 Bootstrap + Payload 两段式导入：先导入无第三方依赖的安装器，再安装该包依赖闭包中缺失的 UPM 包，最后导入 Kit 源码 Payload。没有 UPM 依赖的 Kit 会直接进入 Payload 导入阶段。
 - 当依赖闭包包含 `Runtime.Core` 时，安装完成后会自动整理为 `Runtime/StellarArchitecture.cs` 和 `Runtime/StellarExtensions.cs` 两个文件。框架原始工程继续保持 `Core`、`Extensions` 的职责拆分；Kit 本身、Editor 工具、资源和 asmdef 不会被错误地合并。
@@ -36,6 +37,7 @@
 | PoolKit | PoolKit | 无 | HybridCLR、代码热更 |
 | SingletonKit | ToolsHub.Core + 单例注册表工具 | 无 | HybridCLR、代码热更 |
 | HttpKit | LogKit + HttpKit | UniTask、Newtonsoft Json | AA、HybridCLR、代码热更 |
+| TimeKit | LogKit + 世界 Tick、日历换算与高性能定时调度 | 无 | ActionKit、UniTask、AA、HybridCLR、代码热更 |
 | ActionKit | LogKit、PoolKit、ToolsHub.Core + Action 编辑器 | UniTask | AA、HybridCLR、代码热更 |
 | BindableKit | EventKit、LogKit | 无 | AA、HybridCLR、代码热更 |
 | AudioKit.Core | PoolKit、SingletonKit、ToolsHub.Core + AudioKit 专属面板 | UniTask | ResKit、AA、HybridCLR、代码热更 |
@@ -100,7 +102,7 @@
 
 原始框架工程还提供独立的 `StellarFramework/Framework Source/Kit Package Exporter` 窗口。它不属于 ToolsHub：可多选 Kit、预览并去重依赖闭包、导出为一个 `.unitypackage` 和同名依赖说明。窗口与组合导出器位于 `Modules/Packaging`，该目录已被所有消费者分发路径排除，因此业务项目不会携带它。
 
-窗口会将 Profile 分为“独立 Kit”和“有依赖 / 适配器”：前者不自动带入其他 StellarFramework Kit，后者会直接列出并自动合并依赖。Addressables、HybridCLR 与代码热更均只在明确选择相关 Adapter/Profile 后进入导出包。
+窗口会将 Runtime Kit Profile 分为 Foundation Kits、Extension Kits 与 Adapter Profiles，并按 category 继续分组；Runtime Core、ToolsHub 等基础支持项保持单独显示。每张卡仍明确显示“独立”或“自动带依赖”，依赖闭包算法不因分组发生变化。Addressables、HybridCLR 与代码热更均只在明确选择相关 Adapter/Profile 后进入导出包。
 
 新增或拆分 Kit 时，同步更新：
 
@@ -108,5 +110,6 @@
 2. Kit 专属 Tools Hub 子程序集（如有编辑器工具）；
 3. `StandaloneSourceExportPolicyTests` 的边界测试；
 4. 本文档的分发矩阵。
+5. [KitArchitectureGuide.md](KitArchitectureGuide.md) 的架构规则与分类登记。
 
-具体的导出与测试基线见 [KitExportValidationMatrix.md](KitExportValidationMatrix.md)。
+具体的导出与测试基线见 [KitExportValidationMatrix.md](KitExportValidationMatrix.md)，分层规则见 [KitArchitectureGuide.md](KitArchitectureGuide.md)。
