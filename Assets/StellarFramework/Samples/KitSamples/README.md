@@ -17,14 +17,18 @@
 - `Samples_Index.md`：先看这个，了解哪些场景可直接跑，哪些依赖 AB/AA/网络/HybridCLR
 - `ResKit_Playable.unity`：Resources、AB、AA、RawText 四条加载链路
 - `UIKit_Playable.unity`：UIRoot、Open/Push/Pop/Close、运行时快照和压力测试
+- `TimeKit_Playable.unity`：World Clock、一次性/周期 Timer、Catch-Up 与 Unity timeScale 解耦
+- `SaveKit_Playable.unity`：DTO Section、Save/Load/Delete、RestoreAfter 与 V1→V2 迁移
 - `HotUpdateKit_Playable.unity`：可选热更新门户与 HybridCLR AA 启动链路示例
 - `SettingsKit_Playable.unity`：设置定义、存储、应用策略和示例 UI
 
 ## 单个 Kit 说明
 
-`Example_*` 目录不再放独立 README，避免样例目录过碎。
+TimeKit 与 SaveKit 是需要独立操作说明的正式样例，目录下保留 README；其他样例不重复维护 README。
 
 - 总览、顺序和前置条件看 `Samples_Index.md` 与 `Scenes/README.md`
+- TimeKit 的 API 对照和验收步骤看 `Example_TimeKit/README.md`
+- SaveKit 的 DTO、迁移和导出边界看 `Example_SaveKit/README.md`
 - 单个样例的按键、操作方式和通过标准写在对应 `Example_*.cs` 文件头注释里
 - 场景内还会挂 `ExampleSceneGuide`，运行时可直接在 Game 视图看到核心提示
 

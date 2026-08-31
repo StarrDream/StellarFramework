@@ -1,0 +1,16 @@
+{
+  "name": "StellarFramework.Samples.TimeKit",
+  "rootNamespace": "",
+  "references": [
+    "StellarFramework.TimeKit"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": false,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

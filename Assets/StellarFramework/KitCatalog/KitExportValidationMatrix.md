@@ -4,7 +4,7 @@
 
 ## 当前可选目标
 
-当前目录包含 49 个分发 Profile：2 个单文件目标、2 个 Runtime 支持包、2 个 ToolsHub 包、1 个生成支持包、13 个 Foundation Kit、3 个 Extension Kit、10 个 Adapter Profile，以及 16 个可选样例包。
+当前目录包含 50 个分发 Profile：2 个单文件目标、2 个 Runtime 支持包、2 个 ToolsHub 包、1 个生成支持包、13 个 Foundation Kit、3 个 Extension Kit、10 个 Adapter Profile，以及 17 个可选样例包。
 
 Catalog schema v2 以 `tier` / `category` 描述架构职责；它不改变 `kind` 的分发语义，也不会让同层 Kit 自动安装。完整规则见 [KitArchitectureGuide.md](KitArchitectureGuide.md)。
 
@@ -27,6 +27,13 @@ Catalog schema v2 以 `tier` / `category` 描述架构职责；它不改变 `kin
 | HotUpdate.Addressables | HotUpdate.Core、ResKit.Addressables | HybridCLR |
 | HotUpdate.HybridCLR | HotUpdate.Addressables、HybridCLR 运行时与导出工具 | 无 |
 
+样例 Profile 也遵守同一依赖边界：
+
+| 目标 | 导出内容 | 依赖与排除 |
+| --- | --- | --- |
+| Sample.TimeKit | TimeKit Sample 脚本、Common 场景说明、`TimeKit_Playable.unity` | 依赖 `TimeKit`；排除 SaveKit、ResKit、Addressables、HybridCLR |
+| Sample.SaveKit | SaveKit Sample DTO/Section、Common 场景说明、`SaveKit_Playable.unity` | 依赖 `SaveKit.Core` + UniTask；排除 TimeKit、ResKit、Addressables、HybridCLR、Newtonsoft |
+
 完整 Profile、依赖闭包与 UPM 要求以 [KitDistributionCatalog.json](KitDistributionCatalog.json) 为准。
 
 样例验证规则：核心 Kit Profile 不包含 `Assets/StellarFramework/Samples`；样例则按 Kit 拆成独立 Profile 和独立 asmdef，导出时才随对应 Kit 闭包一起生成。
@@ -42,6 +49,8 @@ Catalog schema v2 以 `tier` / `category` 描述架构职责；它不改变 `kin
 - SaveKit.Core：EditMode 覆盖 Slot/Section 安全、Container、Checksum、事务、Backup、Migration、Missing/Unknown、Restore DAG、跨 DTO 类型链和未来版本提前失败；Newtonsoft Adapter 已完成 Round Trip 验证。
 - SaveKit：已完成 100000 CropSaveRecord End-to-End Save/Load 基准；ToolsHub 已验证 Raw/Hex 有界预览、Migration Type Chain 和只读 Dry Run 入口。
 - SaveKit 示例：独立 asmdef 仅依赖 SaveKit.Core 与 UniTask，不包含框架业务样例或热更插件。
+- TimeKit 示例：模板和开发场景均由 `ExamplePlayableSceneBuilder.BuildAllSamples()` 生成，场景只包含相机、方向光、样例脚本和统一说明面板。
+- SaveKit 示例：覆盖两个 Section 的 `RestoreAfter` 顺序、Save/Load/Delete、Revision/Diagnostics 和真实 V1→V2 DTO Migration；不解析私有磁盘格式。
 
 ## 后续空白工程检查
 

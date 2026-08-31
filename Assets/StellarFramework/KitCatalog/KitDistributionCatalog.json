@@ -552,12 +552,25 @@
       "excludedCapabilities": ["Addressables", "HybridCLR", "CodeHotUpdate"]
     },
     {
+      "id": "samples.timekit",
+      "displayName": "Sample.TimeKit",
+      "kind": "sample",
+      "availability": "available",
+      "output": "StellarFramework-Sample-TimeKit.unitypackage",
+      "sourcePaths": ["Assets/StellarFramework/Samples/KitSamples/Example_TimeKit", "Assets/StellarFramework/Samples/KitSamples/Common", "Assets/StellarFramework/Samples/KitSamples/Scenes/TimeKit_Playable.unity"],
+      "requiredProfileIds": ["timekit"],
+      "requiredKits": ["TimeKit"],
+      "requiredUpm": [],
+      "optionalCapabilities": [],
+      "excludedCapabilities": ["SaveKit", "Addressables", "HybridCLR", "CodeHotUpdate"]
+    },
+    {
       "id": "samples.savekit",
       "displayName": "Sample.SaveKit",
       "kind": "sample",
       "availability": "available",
       "output": "StellarFramework-Sample-SaveKit.unitypackage",
-      "sourcePaths": ["Assets/StellarFramework/Samples/KitSamples/Example_SaveKit"],
+      "sourcePaths": ["Assets/StellarFramework/Samples/KitSamples/Example_SaveKit", "Assets/StellarFramework/Samples/KitSamples/Common", "Assets/StellarFramework/Samples/KitSamples/Scenes/SaveKit_Playable.unity"],
       "requiredProfileIds": ["savekit.core"],
       "requiredKits": ["SaveKit.Core"],
       "requiredUpm": ["com.cysharp.unitask"],

@@ -348,6 +348,30 @@ namespace StellarFramework.Tests.FrameworkValidation
         }
 
         [Test]
+        public void TimeKitAndSaveKitSamplesKeepIndependentBoundaries()
+        {
+            string catalog = ReadAssetText("Assets/StellarFramework/KitCatalog/KitDistributionCatalog.json");
+            string timeKitAsmdef = ReadAssetText(
+                "Assets/StellarFramework/Samples/KitSamples/Example_TimeKit/StellarFramework.Samples.TimeKit.asmdef");
+            string saveKitAsmdef = ReadAssetText(
+                "Assets/StellarFramework/Samples/KitSamples/Example_SaveKit/StellarFramework.Samples.SaveKit.asmdef");
+
+            Assert.That(catalog, Does.Contain("\"id\": \"samples.timekit\""));
+            Assert.That(catalog, Does.Contain("Example_TimeKit"));
+            Assert.That(catalog, Does.Contain("Scenes/TimeKit_Playable.unity"));
+            Assert.That(catalog, Does.Contain("\"id\": \"samples.savekit\""));
+            Assert.That(catalog, Does.Contain("Example_SaveKit"));
+            Assert.That(catalog, Does.Contain("Scenes/SaveKit_Playable.unity"));
+            Assert.That(timeKitAsmdef, Does.Contain("StellarFramework.TimeKit"));
+            Assert.That(timeKitAsmdef, Does.Not.Contain("SaveKit"));
+            Assert.That(timeKitAsmdef, Does.Not.Contain("EventKit"));
+            Assert.That(saveKitAsmdef, Does.Contain("StellarFramework.SaveKit.Core"));
+            Assert.That(saveKitAsmdef, Does.Not.Contain("TimeKit"));
+            Assert.That(saveKitAsmdef, Does.Not.Contain("Newtonsoft"));
+            Assert.That(saveKitAsmdef, Does.Not.Contain("ToolsHub"));
+        }
+
+        [Test]
         public void SourceOnlyExporterWindowCombinesSelectedKitClosures()
         {
             string publisher = ReadAssetText(
