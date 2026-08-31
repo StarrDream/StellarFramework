@@ -8,7 +8,7 @@ using Newtonsoft.Json;
 namespace StellarFramework.SaveKitAdapters.NewtonsoftJson
 {
     /// <summary>可选 JSON Adapter。TypeNameHandling 固定关闭，外部存档不会触发动态类型实例化。</summary>
-    public sealed class NewtonsoftJsonSaveSerializer : ISaveSerializer
+    public sealed class NewtonsoftJsonSaveSerializer : ISaveSerializer, ISaveSerializerCapabilities
     {
         private readonly JsonSerializerSettings _settings;
 
@@ -24,6 +24,8 @@ namespace StellarFramework.SaveKitAdapters.NewtonsoftJson
         }
 
         public string Id => "newtonsoft-json";
+        public SaveSerializerCapabilities Capabilities =>
+            SaveSerializerCapabilities.BackgroundExecution | SaveSerializerCapabilities.ThreadSafe;
 
         public UniTask SerializeAsync(Type dataType, object value, Stream destination, CancellationToken cancellationToken)
         {

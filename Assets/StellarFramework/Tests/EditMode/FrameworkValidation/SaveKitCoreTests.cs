@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using Cysharp.Threading.Tasks;
 using NUnit.Framework;
 using StellarFramework.SaveKitAdapters.NewtonsoftJson;
 
@@ -193,6 +194,212 @@ namespace StellarFramework.Tests.FrameworkValidation
             SaveKit.Register(newer);
             SaveResult rejected = SaveKit.LoadAsync("chain").GetAwaiter().GetResult();
             Assert.That(rejected.ErrorCode, Is.EqualTo(SaveErrorCode.UnsupportedSectionVersion));
+        }
+
+        [Test]
+        public void DifferentDtoMigrationDeserializesStoredTypeBeforeMigrating()
+        {
+            var old = new PlayerSectionV1("player-dto") { Money = 12 };
+            SaveKit.Register(old);
+            Assert.That(SaveKit.SaveAsync("dto-1-2").GetAwaiter().GetResult().IsSuccess, Is.True);
+
+            SaveKit.Initialize(builder => builder.UseStorage(_storage).UseSerializer(new NewtonsoftJsonSaveSerializer())
+                .SetDefaultSerializer("newtonsoft-json"));
+            var current = new PlayerSectionV2("player-dto");
+            SaveKit.Register(current);
+            Assert.That(SaveKit.RegisterMigration(SaveSectionId.From("player-dto"), new PlayerV1ToV2()), Is.True);
+
+            SaveResult load = SaveKit.LoadAsync("dto-1-2").GetAwaiter().GetResult();
+            Assert.That(load.IsSuccess, Is.True, load.ErrorMessage);
+            Assert.That(current.Money, Is.EqualTo(12));
+            Assert.That(current.Level, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void DifferentDtoMigrationChainReachesCurrentType()
+        {
+            var old = new PlayerSectionV1("player-chain") { Money = 20 };
+            SaveKit.Register(old);
+            Assert.That(SaveKit.SaveAsync("dto-chain").GetAwaiter().GetResult().IsSuccess, Is.True);
+
+            SaveKit.Initialize(builder => builder.UseStorage(_storage).UseSerializer(new NewtonsoftJsonSaveSerializer())
+                .SetDefaultSerializer("newtonsoft-json"));
+            var current = new PlayerSectionV3("player-chain");
+            SaveKit.Register(current);
+            Assert.That(SaveKit.RegisterMigration(SaveSectionId.From("player-chain"), new PlayerV1ToV2()), Is.True);
+            Assert.That(SaveKit.RegisterMigration(SaveSectionId.From("player-chain"), new PlayerV2ToV3()), Is.True);
+
+            SaveResult load = SaveKit.LoadAsync("dto-chain").GetAwaiter().GetResult();
+            Assert.That(load.IsSuccess, Is.True, load.ErrorMessage);
+            Assert.That(current.Money, Is.EqualTo(20));
+            Assert.That(current.Level, Is.EqualTo(1));
+            Assert.That(current.Experience, Is.EqualTo(100));
+        }
+
+        [Test]
+        public void MigrationTypeChainMismatchFailsBeforeRestore()
+        {
+            var old = new PlayerSectionV1("type-chain") { Money = 5 };
+            SaveKit.Register(old);
+            Assert.That(SaveKit.SaveAsync("type-chain").GetAwaiter().GetResult().IsSuccess, Is.True);
+
+            SaveKit.Initialize(builder => builder.UseStorage(_storage).UseSerializer(new NewtonsoftJsonSaveSerializer())
+                .SetDefaultSerializer("newtonsoft-json"));
+            var current = new PlayerSectionV3("type-chain");
+            SaveKit.Register(current);
+            SaveKit.RegisterMigration(SaveSectionId.From("type-chain"), new PlayerV1ToV2());
+            SaveKit.RegisterMigration(SaveSectionId.From("type-chain"), new WrongTypeV2ToV3());
+
+            SaveResult load = SaveKit.LoadAsync("type-chain").GetAwaiter().GetResult();
+            Assert.That(load.ErrorCode, Is.EqualTo(SaveErrorCode.MigrationTypeMismatch));
+            Assert.That(current.RestoreCount, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void MigrationFinalTypeMismatchIsRejectedAtChainBuild()
+        {
+            var old = new PlayerSectionV1("final-type") { Money = 5 };
+            SaveKit.Register(old);
+            Assert.That(SaveKit.SaveAsync("final-type").GetAwaiter().GetResult().IsSuccess, Is.True);
+
+            SaveKit.Initialize(builder => builder.UseStorage(_storage).UseSerializer(new NewtonsoftJsonSaveSerializer())
+                .SetDefaultSerializer("newtonsoft-json"));
+            var current = new PlayerSectionV2("final-type");
+            SaveKit.Register(current);
+            SaveKit.RegisterMigration(SaveSectionId.From("final-type"), new PlayerV1ToWrongType());
+
+            SaveResult load = SaveKit.LoadAsync("final-type").GetAwaiter().GetResult();
+            Assert.That(load.ErrorCode, Is.EqualTo(SaveErrorCode.MigrationTypeMismatch));
+            Assert.That(current.RestoreCount, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void StoredEqualsCurrentUsesCurrentDtoType()
+        {
+            var serializer = new RecordingSerializer();
+            SaveKit.Initialize(builder => builder.UseStorage(_storage).UseSerializer(serializer).SetDefaultSerializer(serializer.Id));
+            var section = new PlayerSectionV3("same-version") { Money = 8, Level = 2, Experience = 55 };
+            SaveKit.Register(section);
+            Assert.That(SaveKit.SaveAsync("same-version").GetAwaiter().GetResult().IsSuccess, Is.True);
+
+            var loadSerializer = new RecordingSerializer();
+            SaveKit.Initialize(builder => builder.UseStorage(_storage).UseSerializer(loadSerializer).SetDefaultSerializer(loadSerializer.Id));
+            var current = new PlayerSectionV3("same-version");
+            SaveKit.Register(current);
+            SaveResult load = SaveKit.LoadAsync("same-version").GetAwaiter().GetResult();
+            Assert.That(load.IsSuccess, Is.True, load.ErrorMessage);
+            Assert.That(loadSerializer.LastDeserializeType, Is.EqualTo(typeof(PlayerDataV3)));
+            Assert.That(current.Money, Is.EqualTo(8));
+        }
+
+        [Test]
+        public void CurrentVersionMigrationChainIsEmptyAndValid()
+        {
+            SaveKit.Register(new PlayerSectionV3("current-chain"));
+
+            bool built = SaveKit.TryBuildMigrationChain(SaveSectionId.From("current-chain"), 1, 1,
+                out IReadOnlyList<ISaveMigration> chain, out string error);
+
+            Assert.That(built, Is.True, error);
+            Assert.That(chain, Is.Empty);
+        }
+
+        [Test]
+        public void StoredGreaterThanCurrentFailsBeforeDeserializeOrRestore()
+        {
+            var serializer = new RecordingSerializer();
+            SaveKit.Initialize(builder => builder.UseStorage(_storage).UseSerializer(serializer).SetDefaultSerializer(serializer.Id));
+            SaveKit.Register(new PlayerSectionV2("future-version") { Money = 4, Level = 2 });
+            Assert.That(SaveKit.SaveAsync("future-version").GetAwaiter().GetResult().IsSuccess, Is.True);
+
+            var loadSerializer = new RecordingSerializer();
+            SaveKit.Initialize(builder => builder.UseStorage(_storage).UseSerializer(loadSerializer).SetDefaultSerializer(loadSerializer.Id));
+            var current = new PlayerSectionV1("future-version");
+            SaveKit.Register(current);
+            SaveResult load = SaveKit.LoadAsync("future-version").GetAwaiter().GetResult();
+            Assert.That(load.ErrorCode, Is.EqualTo(SaveErrorCode.UnsupportedSectionVersion));
+            Assert.That(loadSerializer.LastDeserializeType, Is.Null);
+            Assert.That(current.RestoreCount, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void MissingMigrationDoesNotRestore()
+        {
+            SaveKit.Register(new PlayerSectionV1("missing-migration") { Money = 5 });
+            Assert.That(SaveKit.SaveAsync("missing-migration").GetAwaiter().GetResult().IsSuccess, Is.True);
+
+            SaveKit.Initialize(builder => builder.UseStorage(_storage).UseSerializer(new NewtonsoftJsonSaveSerializer())
+                .SetDefaultSerializer("newtonsoft-json"));
+            var current = new PlayerSectionV2("missing-migration");
+            SaveKit.Register(current);
+            SaveResult load = SaveKit.LoadAsync("missing-migration").GetAwaiter().GetResult();
+            Assert.That(load.ErrorCode, Is.EqualTo(SaveErrorCode.MigrationMissing));
+            Assert.That(current.RestoreCount, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void MigrationThrowDoesNotRestore()
+        {
+            SaveKit.Register(new PlayerSectionV1("throw-migration") { Money = 5 });
+            Assert.That(SaveKit.SaveAsync("throw-migration").GetAwaiter().GetResult().IsSuccess, Is.True);
+
+            SaveKit.Initialize(builder => builder.UseStorage(_storage).UseSerializer(new NewtonsoftJsonSaveSerializer())
+                .SetDefaultSerializer("newtonsoft-json"));
+            var current = new PlayerSectionV2("throw-migration");
+            SaveKit.Register(current);
+            SaveKit.RegisterMigration(SaveSectionId.From("throw-migration"), new ThrowingV1ToV2());
+            SaveResult load = SaveKit.LoadAsync("throw-migration").GetAwaiter().GetResult();
+            Assert.That(load.ErrorCode, Is.EqualTo(SaveErrorCode.MigrationFailed));
+            Assert.That(current.RestoreCount, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void MigrationResultValidationFailureDoesNotRestore()
+        {
+            SaveKit.Register(new PlayerSectionV1("invalid-migration") { Money = 5 });
+            Assert.That(SaveKit.SaveAsync("invalid-migration").GetAwaiter().GetResult().IsSuccess, Is.True);
+
+            SaveKit.Initialize(builder => builder.UseStorage(_storage).UseSerializer(new NewtonsoftJsonSaveSerializer())
+                .SetDefaultSerializer("newtonsoft-json"));
+            var current = new PlayerSectionV2("invalid-migration") { RejectNegative = true };
+            SaveKit.Register(current);
+            SaveKit.RegisterMigration(SaveSectionId.From("invalid-migration"), new InvalidV1ToV2());
+            SaveResult load = SaveKit.LoadAsync("invalid-migration").GetAwaiter().GetResult();
+            Assert.That(load.ErrorCode, Is.EqualTo(SaveErrorCode.ValidationFailed));
+            Assert.That(current.RestoreCount, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void MigrationDryRunPreparesWithoutRestoreOrSave()
+        {
+            SaveKit.Register(new PlayerSectionV1("dry-run") { Money = 9 });
+            Assert.That(SaveKit.SaveAsync("dry-run").GetAwaiter().GetResult().IsSuccess, Is.True);
+            byte[] before = _storage.GetBytes("dry-run", SaveStorageFileKind.Current);
+
+            SaveKit.Initialize(builder => builder.UseStorage(_storage).UseSerializer(new NewtonsoftJsonSaveSerializer())
+                .SetDefaultSerializer("newtonsoft-json"));
+            var current = new PlayerSectionV2("dry-run");
+            SaveKit.Register(current);
+            SaveKit.RegisterMigration(SaveSectionId.From("dry-run"), new PlayerV1ToV2());
+            SaveSnapshot snapshot;
+            using (Stream stream = _storage.OpenReadAsync(SaveSlotId.From("dry-run"), SaveStorageFileKind.Current, default).GetAwaiter().GetResult())
+            {
+                Assert.That(SaveContainerReader.TryRead(stream, SaveKit.Options, out snapshot, out SaveErrorCode code, out string message), Is.True, $"{code}: {message}");
+            }
+
+            SaveResult dryRun = SaveKit.RunMigrationDryRunAsync(snapshot).GetAwaiter().GetResult();
+            Assert.That(dryRun.IsSuccess, Is.True, dryRun.ErrorMessage);
+            Assert.That(current.RestoreCount, Is.EqualTo(0));
+            Assert.That(_storage.GetBytes("dry-run", SaveStorageFileKind.Current), Is.EqualTo(before));
+        }
+
+        [Test]
+        public void SerializerCapabilitiesAreExplicit()
+        {
+            Assert.That(new UnityJsonSaveSerializer().GetCapabilities(), Is.EqualTo(SaveSerializerCapabilities.None));
+            Assert.That(new RawBytesSaveSerializer().SupportsBackgroundExecution(), Is.True);
+            Assert.That(new NewtonsoftJsonSaveSerializer().SupportsBackgroundExecution(), Is.True);
+            Assert.That(new RecordingSerializer().SupportsBackgroundExecution(), Is.False);
         }
 
         [Test]
@@ -443,6 +650,172 @@ namespace StellarFramework.Tests.FrameworkValidation
             {
                 data.Value++;
                 return data;
+            }
+        }
+
+        [Serializable]
+        private sealed class PlayerDataV1
+        {
+            public int Money;
+        }
+
+        [Serializable]
+        private sealed class PlayerDataV2
+        {
+            public long Money;
+            public int Level;
+        }
+
+        [Serializable]
+        private sealed class PlayerDataV3
+        {
+            public long Money;
+            public int Level;
+            public long Experience;
+        }
+
+        [Serializable]
+        private sealed class WrongPlayerData
+        {
+            public int Value;
+        }
+
+        private sealed class PlayerSectionV1 : SaveSection<PlayerDataV1>
+        {
+            public override SaveSectionId Id { get; }
+            public int Money;
+            public int RestoreCount;
+
+            public PlayerSectionV1(string id) { Id = SaveSectionId.From(id); }
+            public override PlayerDataV1 Capture(SaveCaptureContext context) => new PlayerDataV1 { Money = Money };
+            public override void Restore(PlayerDataV1 data, SaveRestoreContext context)
+            {
+                Money = data == null ? 0 : data.Money;
+                RestoreCount++;
+            }
+        }
+
+        private sealed class PlayerSectionV2 : SaveSection<PlayerDataV2>
+        {
+            public override SaveSectionId Id { get; }
+            public override int SchemaVersion => 2;
+            public long Money;
+            public int Level;
+            public int RestoreCount;
+            public bool RejectNegative;
+
+            public PlayerSectionV2(string id) { Id = SaveSectionId.From(id); }
+            public override PlayerDataV2 Capture(SaveCaptureContext context) => new PlayerDataV2 { Money = Money, Level = Level };
+            public override SaveValidationResult Validate(PlayerDataV2 data, SaveValidationContext context)
+            {
+                return RejectNegative && data != null && data.Money < 0
+                    ? SaveValidationResult.Invalid("NegativeMoney", "Money must be non-negative")
+                    : SaveValidationResult.Valid();
+            }
+            public override void Restore(PlayerDataV2 data, SaveRestoreContext context)
+            {
+                Money = data == null ? 0 : data.Money;
+                Level = data == null ? 0 : data.Level;
+                RestoreCount++;
+            }
+        }
+
+        private sealed class PlayerSectionV3 : SaveSection<PlayerDataV3>
+        {
+            public override SaveSectionId Id { get; }
+            public override int SchemaVersion => 3;
+            public long Money;
+            public int Level;
+            public long Experience;
+            public int RestoreCount;
+
+            public PlayerSectionV3(string id) { Id = SaveSectionId.From(id); }
+            public override PlayerDataV3 Capture(SaveCaptureContext context) => new PlayerDataV3
+            {
+                Money = Money,
+                Level = Level,
+                Experience = Experience
+            };
+            public override void Restore(PlayerDataV3 data, SaveRestoreContext context)
+            {
+                Money = data == null ? 0 : data.Money;
+                Level = data == null ? 0 : data.Level;
+                Experience = data == null ? 0 : data.Experience;
+                RestoreCount++;
+            }
+        }
+
+        private sealed class PlayerV1ToV2 : SaveMigration<PlayerDataV1, PlayerDataV2>
+        {
+            public override int FromVersion => 1;
+            public override int ToVersion => 2;
+            public override PlayerDataV2 Migrate(PlayerDataV1 data, SaveMigrationContext context) => new PlayerDataV2
+            {
+                Money = data == null ? 0 : data.Money,
+                Level = 1
+            };
+        }
+
+        private sealed class PlayerV2ToV3 : SaveMigration<PlayerDataV2, PlayerDataV3>
+        {
+            public override int FromVersion => 2;
+            public override int ToVersion => 3;
+            public override PlayerDataV3 Migrate(PlayerDataV2 data, SaveMigrationContext context) => new PlayerDataV3
+            {
+                Money = data == null ? 0 : data.Money,
+                Level = data == null ? 0 : data.Level,
+                Experience = 100
+            };
+        }
+
+        private sealed class WrongTypeV2ToV3 : SaveMigration<WrongPlayerData, PlayerDataV3>
+        {
+            public override int FromVersion => 2;
+            public override int ToVersion => 3;
+            public override PlayerDataV3 Migrate(WrongPlayerData data, SaveMigrationContext context) => new PlayerDataV3();
+        }
+
+        private sealed class PlayerV1ToWrongType : SaveMigration<PlayerDataV1, WrongPlayerData>
+        {
+            public override int FromVersion => 1;
+            public override int ToVersion => 2;
+            public override WrongPlayerData Migrate(PlayerDataV1 data, SaveMigrationContext context) => new WrongPlayerData();
+        }
+
+        private sealed class ThrowingV1ToV2 : SaveMigration<PlayerDataV1, PlayerDataV2>
+        {
+            public override int FromVersion => 1;
+            public override int ToVersion => 2;
+            public override PlayerDataV2 Migrate(PlayerDataV1 data, SaveMigrationContext context)
+            {
+                throw new InvalidOperationException("migration test failure");
+            }
+        }
+
+        private sealed class InvalidV1ToV2 : SaveMigration<PlayerDataV1, PlayerDataV2>
+        {
+            public override int FromVersion => 1;
+            public override int ToVersion => 2;
+            public override PlayerDataV2 Migrate(PlayerDataV1 data, SaveMigrationContext context) => new PlayerDataV2
+            {
+                Money = -1,
+                Level = 1
+            };
+        }
+
+        private sealed class RecordingSerializer : ISaveSerializer
+        {
+            private readonly NewtonsoftJsonSaveSerializer _inner = new NewtonsoftJsonSaveSerializer();
+            public string Id => "recording-json";
+            public Type LastDeserializeType { get; private set; }
+
+            public UniTask SerializeAsync(Type dataType, object value, Stream destination, System.Threading.CancellationToken cancellationToken)
+                => _inner.SerializeAsync(dataType, value, destination, cancellationToken);
+
+            public UniTask<object> DeserializeAsync(Type dataType, Stream source, System.Threading.CancellationToken cancellationToken)
+            {
+                LastDeserializeType = dataType;
+                return _inner.DeserializeAsync(dataType, source, cancellationToken);
             }
         }
 

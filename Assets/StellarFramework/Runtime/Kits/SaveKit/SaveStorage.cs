@@ -68,12 +68,14 @@ namespace StellarFramework
                     using (var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read,
                         4096, FileOptions.SequentialScan))
                     {
-                        if (SaveContainerReader.TryRead(stream, options, out SaveSnapshot snapshot,
+                        // Slot lists are a metadata index. Do not materialize every payload
+                        // just to populate the list; Inspector/Load performs full checksums.
+                        if (SaveContainerReader.TryReadMetadata(stream, options, out SaveMetadata metadata,
                             out SaveErrorCode errorCode, out string errorMessage))
                         {
-                            info.Metadata = snapshot.Metadata;
+                            info.Metadata = metadata;
                             info.IsHealthy = true;
-                            info.HealthMessage = "Healthy";
+                            info.HealthMessage = "MetadataValid (payload checksum deferred)";
                         }
                         else
                         {
@@ -253,10 +255,10 @@ namespace StellarFramework
                 };
                 using (var stream = new MemoryStream(pair.Value, false))
                 {
-                    info.IsHealthy = SaveContainerReader.TryRead(stream, options, out SaveSnapshot snapshot,
+                    info.IsHealthy = SaveContainerReader.TryReadMetadata(stream, options, out SaveMetadata metadata,
                         out SaveErrorCode code, out string message);
-                    info.Metadata = snapshot == null ? null : snapshot.Metadata;
-                    info.HealthMessage = info.IsHealthy ? "Healthy" : $"{code}: {message}";
+                    info.Metadata = metadata;
+                    info.HealthMessage = info.IsHealthy ? "MetadataValid (payload checksum deferred)" : $"{code}: {message}";
                 }
                 result.Add(info);
             }

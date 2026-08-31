@@ -14,11 +14,34 @@ namespace StellarFramework
         UniTask<object> DeserializeAsync(Type dataType, Stream source, CancellationToken cancellationToken);
     }
 
+    /// <summary>Optional capability contract for serializers supplied by a Kit or a game.</summary>
+    public interface ISaveSerializerCapabilities
+    {
+        SaveSerializerCapabilities Capabilities { get; }
+    }
+
+    public static class SaveSerializerCapabilityExtensions
+    {
+        public static SaveSerializerCapabilities GetCapabilities(this ISaveSerializer serializer)
+        {
+            return serializer is ISaveSerializerCapabilities capable
+                ? capable.Capabilities
+                : SaveSerializerCapabilities.None;
+        }
+
+        public static bool SupportsBackgroundExecution(this ISaveSerializer serializer)
+        {
+            SaveSerializerCapabilities capabilities = serializer.GetCapabilities();
+            return (capabilities & (SaveSerializerCapabilities.BackgroundExecution | SaveSerializerCapabilities.ThreadSafe)) ==
+                (SaveSerializerCapabilities.BackgroundExecution | SaveSerializerCapabilities.ThreadSafe);
+        }
+    }
+
     /// <summary>
     /// Core 自带的轻量 Serializer。它只使用 Unity JsonUtility，不引入 Newtonsoft，适合 DTO 和小型配置。
     /// 大型模拟数据可在业务或 Adapter 中提供流式二进制 Serializer。
     /// </summary>
-    public sealed class UnityJsonSaveSerializer : ISaveSerializer
+    public sealed class UnityJsonSaveSerializer : ISaveSerializer, ISaveSerializerCapabilities
     {
         private sealed class StringBox
         {
@@ -31,6 +54,7 @@ namespace StellarFramework
         }
 
         public string Id => "unity-json";
+        public SaveSerializerCapabilities Capabilities => SaveSerializerCapabilities.None;
 
         public UniTask SerializeAsync(Type dataType, object value, Stream destination, CancellationToken cancellationToken)
         {
@@ -103,9 +127,11 @@ namespace StellarFramework
         }
     }
 
-    public sealed class RawBytesSaveSerializer : ISaveSerializer
+    public sealed class RawBytesSaveSerializer : ISaveSerializer, ISaveSerializerCapabilities
     {
         public string Id => "raw-bytes";
+        public SaveSerializerCapabilities Capabilities =>
+            SaveSerializerCapabilities.BackgroundExecution | SaveSerializerCapabilities.ThreadSafe;
 
         public UniTask SerializeAsync(Type dataType, object value, Stream destination, CancellationToken cancellationToken)
         {

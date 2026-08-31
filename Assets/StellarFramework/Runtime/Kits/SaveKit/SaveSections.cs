@@ -116,6 +116,12 @@ namespace StellarFramework
                 return false;
             }
 
+            if (section.DataType == null)
+            {
+                error = $"Section {section.Id} 必须提供 DataType。";
+                return false;
+            }
+
             if (_sections.ContainsKey(section.Id.Value))
             {
                 error = $"Section {section.Id} 已注册。";
@@ -198,15 +204,22 @@ namespace StellarFramework
 
     public interface ISaveMigration
     {
+        /// <summary>Optional self-description. The registry argument remains authoritative for compatibility.</summary>
+        SaveSectionId SectionId { get; }
         int FromVersion { get; }
         int ToVersion { get; }
+        Type FromType { get; }
+        Type ToType { get; }
         object Migrate(object data, SaveMigrationContext context);
     }
 
     public abstract class SaveMigration<TFrom, TTo> : ISaveMigration
     {
+        public virtual SaveSectionId SectionId => default(SaveSectionId);
         public abstract int FromVersion { get; }
         public abstract int ToVersion { get; }
+        public Type FromType => typeof(TFrom);
+        public Type ToType => typeof(TTo);
         public abstract TTo Migrate(TFrom data, SaveMigrationContext context);
 
         object ISaveMigration.Migrate(object data, SaveMigrationContext context)
@@ -234,6 +247,18 @@ namespace StellarFramework
                 return false;
             }
 
+            if (migration.SectionId.IsValid && migration.SectionId != sectionId)
+            {
+                error = $"Migration 声明的 Section {migration.SectionId} 与注册目标 {sectionId} 不一致。";
+                return false;
+            }
+
+            if (migration.FromType == null || migration.ToType == null)
+            {
+                error = "Migration 必须声明 FromType 和 ToType。";
+                return false;
+            }
+
             List<ISaveMigration> list;
             if (!_migrations.TryGetValue(sectionId.Value, out list))
             {
@@ -254,11 +279,27 @@ namespace StellarFramework
         public bool TryBuildChain(SaveSectionId sectionId, int fromVersion, int toVersion,
             out IReadOnlyList<ISaveMigration> chain, out string error)
         {
+            return TryBuildChain(sectionId, fromVersion, toVersion, null, out chain, out error);
+        }
+
+        public bool TryBuildChain(SaveSectionId sectionId, int fromVersion, int toVersion, Type finalType,
+            out IReadOnlyList<ISaveMigration> chain, out string error)
+        {
             chain = Array.Empty<ISaveMigration>();
             error = null;
             if (fromVersion == toVersion)
             {
+                // Equal versions require no migration. The current Section type is
+                // still useful to callers for display/validation, so accepting the
+                // optional finalType keeps the public facade and ToolsHub symmetric
+                // for both migrated and already-current snapshots.
                 return true;
+            }
+
+            if (!sectionId.IsValid || fromVersion < 1 || toVersion < fromVersion)
+            {
+                error = "Migration 版本或 Section ID 非法。";
+                return false;
             }
 
             List<ISaveMigration> list;
@@ -286,6 +327,18 @@ namespace StellarFramework
                     return false;
                 }
 
+                if (next.FromType == null || next.ToType == null)
+                {
+                    error = $"Section {sectionId} 的 Migration {next.FromVersion} -> {next.ToVersion} 缺少类型信息。";
+                    return false;
+                }
+
+                if (result.Count > 0 && result[result.Count - 1].ToType != next.FromType)
+                {
+                    error = $"Section {sectionId} 的 Migration 类型链不连续：{result[result.Count - 1].ToType.FullName} -> {next.FromType.FullName}。";
+                    return false;
+                }
+
                 result.Add(next);
                 current = next.ToVersion;
             }
@@ -293,6 +346,12 @@ namespace StellarFramework
             if (current != toVersion)
             {
                 error = $"Section {sectionId} 的 Migration 未到达目标版本 {toVersion}。";
+                return false;
+            }
+
+            if (finalType != null && result[result.Count - 1].ToType != finalType)
+            {
+                error = $"Section {sectionId} 的 Migration 最终类型 {result[result.Count - 1].ToType.FullName} 不等于当前 Section 类型 {finalType.FullName}。";
                 return false;
             }
 

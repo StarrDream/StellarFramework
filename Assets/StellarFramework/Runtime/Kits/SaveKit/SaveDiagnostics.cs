@@ -12,6 +12,10 @@ namespace StellarFramework
         public SaveOperationStatus Result { get; internal set; }
         public double CaptureDurationMs { get; internal set; }
         public double SerializeDurationMs { get; internal set; }
+        public double DeserializeDurationMs { get; internal set; }
+        public double MigrationDurationMs { get; internal set; }
+        public double RestoreDurationMs { get; internal set; }
+        public double ValidationDurationMs { get; internal set; }
         public double ChecksumDurationMs { get; internal set; }
         public double IoDurationMs { get; internal set; }
         public double CommitDurationMs { get; internal set; }
@@ -23,6 +27,7 @@ namespace StellarFramework
         public int MigrationCount { get; internal set; }
         public SaveErrorCode LastError { get; internal set; }
         public string LastErrorMessage { get; internal set; }
+        public string LastExceptionType { get; internal set; }
         private List<SaveSectionDiagnostics> _sections = new List<SaveSectionDiagnostics>();
         public IReadOnlyList<SaveSectionDiagnostics> Sections => _sections;
 
@@ -54,11 +59,19 @@ namespace StellarFramework
     public sealed class SaveSectionDiagnostics
     {
         public SaveSectionId SectionId { get; internal set; }
+        public int StoredSchemaVersion { get; internal set; }
+        public int CurrentSchemaVersion { get; internal set; }
+        public string SerializerId { get; internal set; }
+        public string StoredType { get; internal set; }
+        public string CurrentType { get; internal set; }
         public double CaptureDurationMs { get; internal set; }
         public double SerializeDurationMs { get; internal set; }
+        public double DeserializeDurationMs { get; internal set; }
+        public double MigrationDurationMs { get; internal set; }
         public long PayloadBytes { get; internal set; }
         public int MigrationSteps { get; internal set; }
         public double ValidationDurationMs { get; internal set; }
+        public double RestoreDurationMs { get; internal set; }
 
         internal SaveSectionDiagnostics Clone()
         {

@@ -23,6 +23,7 @@ namespace StellarFramework
         UnsupportedSectionVersion,
         MigrationMissing,
         MigrationFailed,
+        MigrationTypeMismatch,
         ValidationFailed,
         RestoreDependencyCycle,
         RestoreFailed,
@@ -56,6 +57,20 @@ namespace StellarFramework
         Current = 0,
         Backup,
         Temporary
+    }
+
+    /// <summary>
+    /// Declares what a serializer can safely do away from Unity's main thread.
+    /// These flags are opt-in metadata; an unknown/custom serializer is treated as
+    /// Unity-safe and remains on the calling thread.
+    /// </summary>
+    [Flags]
+    public enum SaveSerializerCapabilities
+    {
+        None = 0,
+        Streaming = 1 << 0,
+        BackgroundExecution = 1 << 1,
+        ThreadSafe = 1 << 2
     }
 
     public readonly struct SaveSlotId : IEquatable<SaveSlotId>
@@ -192,6 +207,8 @@ namespace StellarFramework
         public int MaxStringBytes { get; set; } = 4096;
         public long MaxPayloadBytes { get; set; } = 256L * 1024L * 1024L;
         public int MaxCustomMetadataCount { get; set; } = 64;
+        public int MaxPreviewBytes { get; set; } = 64 * 1024;
+        public int MaxHexPageBytes { get; set; } = 256;
         public MissingSectionPolicy MissingSectionPolicy { get; set; } = MissingSectionPolicy.Fail;
         public UnknownSectionPolicy UnknownSectionPolicy { get; set; } = UnknownSectionPolicy.Preserve;
         public bool AutoRecoverBackup { get; set; } = true;
@@ -206,6 +223,8 @@ namespace StellarFramework
                 MaxStringBytes = MaxStringBytes,
                 MaxPayloadBytes = MaxPayloadBytes,
                 MaxCustomMetadataCount = MaxCustomMetadataCount,
+                MaxPreviewBytes = MaxPreviewBytes,
+                MaxHexPageBytes = MaxHexPageBytes,
                 MissingSectionPolicy = MissingSectionPolicy,
                 UnknownSectionPolicy = UnknownSectionPolicy,
                 AutoRecoverBackup = AutoRecoverBackup,
@@ -237,6 +256,18 @@ namespace StellarFramework
             if (MaxCustomMetadataCount < 0 || MaxCustomMetadataCount > 1024)
             {
                 error = "MaxCustomMetadataCount 超出允许范围。";
+                return false;
+            }
+
+            if (MaxPreviewBytes < 1024 || MaxPreviewBytes > 4 * 1024 * 1024)
+            {
+                error = "MaxPreviewBytes 必须在 1024 到 4194304 之间。";
+                return false;
+            }
+
+            if (MaxHexPageBytes < 16 || MaxHexPageBytes > 4096)
+            {
+                error = "MaxHexPageBytes 必须在 16 到 4096 之间。";
                 return false;
             }
 

@@ -127,6 +127,11 @@ namespace StellarFramework
                         diagnostics.SectionCount++;
                         sectionCapture.Stop();
                         SaveSectionDiagnostics sectionDiagnostics = diagnostics.GetOrCreateSection(section.Id);
+                        sectionDiagnostics.StoredSchemaVersion = section.SchemaVersion;
+                        sectionDiagnostics.CurrentSchemaVersion = section.SchemaVersion;
+                        sectionDiagnostics.SerializerId = section.SerializerId;
+                        sectionDiagnostics.StoredType = section.DataType == null ? null : section.DataType.FullName;
+                        sectionDiagnostics.CurrentType = section.DataType == null ? null : section.DataType.FullName;
                         sectionDiagnostics.CaptureDurationMs = sectionCapture.Elapsed.TotalMilliseconds;
 
                         if (_options.ValidateAfterCapture)
@@ -152,7 +157,7 @@ namespace StellarFramework
                         byte[] payload;
                         using (var memory = new MemoryStream())
                         {
-                            await serializer.SerializeAsync(section.DataType, data, memory, cancellationToken);
+                            await SerializeWithCapabilitiesAsync(serializer, section.DataType, data, memory, cancellationToken);
                             payload = memory.ToArray();
                         }
                         serializeWatch.Stop();
@@ -244,10 +249,12 @@ namespace StellarFramework
             }
             catch (IOException exception)
             {
+                diagnostics.LastExceptionType = exception.GetType().FullName;
                 return Fail(slotId, SaveErrorCode.StorageError, exception.Message, diagnostics, total);
             }
             catch (Exception exception)
             {
+                diagnostics.LastExceptionType = exception.GetType().FullName;
                 return Fail(slotId, SaveErrorCode.UnknownError, exception.Message, diagnostics, total);
             }
             finally
@@ -285,116 +292,14 @@ namespace StellarFramework
                     diagnostics.BackupUsed = true;
                 }
 
-                var prepared = new Dictionary<string, object>(StringComparer.Ordinal);
-                var unknown = new List<SaveSectionEntry>();
-                foreach (SaveSectionEntry entry in snapshot.Sections)
+                PrepareSnapshotResult preparedResult = await PrepareSnapshotAsync(snapshot, slotId, cancellationToken, diagnostics);
+                if (!preparedResult.IsSuccess)
                 {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    if (!_sections.TryGet(entry.Descriptor.Id, out ISaveSection section))
-                    {
-                        if (_options.UnknownSectionPolicy == UnknownSectionPolicy.Fail)
-                        {
-                            return Fail(slotId, SaveErrorCode.SectionCorrupted, $"未知 Section {entry.Descriptor.Id}。", diagnostics, total);
-                        }
-
-                        if (_options.UnknownSectionPolicy == UnknownSectionPolicy.Preserve)
-                        {
-                            unknown.Add(entry);
-                        }
-                        continue;
-                    }
-
-                    if (!TryGetSerializer(entry.Descriptor.SerializerId, out ISaveSerializer serializer))
-                    {
-                        return Fail(slotId, SaveErrorCode.SerializerMissing, $"缺少 Serializer {entry.Descriptor.SerializerId}。", diagnostics, total);
-                    }
-
-                    object data;
-                    try
-                    {
-                        using (var payload = new MemoryStream(entry.Payload, false))
-                        {
-                            data = await serializer.DeserializeAsync(section.DataType, payload, cancellationToken);
-                        }
-                    }
-                    catch (Exception exception)
-                    {
-                        return Fail(slotId, SaveErrorCode.SectionCorrupted, $"Section {section.Id} Deserialize 失败: {exception.Message}", diagnostics, total);
-                    }
-
-                    if (entry.Descriptor.SchemaVersion > section.SchemaVersion)
-                    {
-                        return Fail(slotId, SaveErrorCode.UnsupportedSectionVersion,
-                            $"Section {section.Id} 版本 {entry.Descriptor.SchemaVersion} 高于当前版本 {section.SchemaVersion}。", diagnostics, total);
-                    }
-
-                    if (entry.Descriptor.SchemaVersion < section.SchemaVersion)
-                    {
-                        SaveSectionDiagnostics sectionDiagnostics = diagnostics.GetOrCreateSection(section.Id);
-                        if (!_migrations.TryBuildChain(section.Id, entry.Descriptor.SchemaVersion, section.SchemaVersion,
-                            out IReadOnlyList<ISaveMigration> chain, out string migrationError))
-                        {
-                            return Fail(slotId, SaveErrorCode.MigrationMissing, migrationError, diagnostics, total);
-                        }
-
-                        foreach (ISaveMigration migration in chain)
-                        {
-                            try
-                            {
-                                data = migration.Migrate(data, new SaveMigrationContext(slotId, section.Id,
-                                    migration.FromVersion, migration.ToVersion));
-                                diagnostics.MigrationCount++;
-                                sectionDiagnostics.MigrationSteps++;
-                            }
-                            catch (Exception exception)
-                            {
-                                return Fail(slotId, SaveErrorCode.MigrationFailed,
-                                    $"Section {section.Id} Migration 失败: {exception.Message}", diagnostics, total);
-                            }
-                        }
-                    }
-
-                    SaveSectionDiagnostics validationDiagnostics = diagnostics.GetOrCreateSection(section.Id);
-                    Stopwatch loadValidationWatch = Stopwatch.StartNew();
-                    SaveValidationResult validation = section.ValidateUntyped(data,
-                        new SaveValidationContext(slotId, snapshot.Metadata, _options));
-                    loadValidationWatch.Stop();
-                    validationDiagnostics.ValidationDurationMs += loadValidationWatch.Elapsed.TotalMilliseconds;
-                    if (validation == null || !validation.IsValid)
-                    {
-                        return Fail(slotId, SaveErrorCode.ValidationFailed, $"Section {section.Id} 验证失败: {validation}", diagnostics, total);
-                    }
-
-                    prepared.Add(section.Id.Value, data);
+                    return Fail(slotId, preparedResult.ErrorCode, preparedResult.ErrorMessage, diagnostics, total);
                 }
 
-                foreach (ISaveSection section in _sections.Sections)
-                {
-                    if (prepared.ContainsKey(section.Id.Value)) continue;
-                    MissingSectionPolicy policy = section.MissingPolicy;
-                    if (policy == MissingSectionPolicy.Fail)
-                    {
-                        policy = _options.MissingSectionPolicy;
-                    }
-
-                    if (policy == MissingSectionPolicy.Fail)
-                    {
-                        return Fail(slotId, SaveErrorCode.SectionMissing, $"缺少 Section {section.Id}。", diagnostics, total);
-                    }
-
-                    if (policy == MissingSectionPolicy.UseDefault)
-                    {
-                        object defaultData = section.CreateDefaultUntyped(new SaveRestoreContext(slotId, snapshot.Metadata, _options));
-                        SaveValidationResult validation = section.ValidateUntyped(defaultData,
-                            new SaveValidationContext(slotId, snapshot.Metadata, _options));
-                        if (validation == null || !validation.IsValid)
-                        {
-                            return Fail(slotId, SaveErrorCode.ValidationFailed, $"Section {section.Id} 默认数据验证失败: {validation}", diagnostics, total);
-                        }
-
-                        prepared.Add(section.Id.Value, defaultData);
-                    }
-                }
+                Dictionary<string, object> prepared = preparedResult.Prepared;
+                List<SaveSectionEntry> unknown = preparedResult.Unknown;
 
                 if (!_sections.TryGetRestoreOrder(out IReadOnlyList<ISaveSection> order, out string orderError))
                 {
@@ -411,13 +316,21 @@ namespace StellarFramework
                     foreach (ISaveSection section in order)
                     {
                         if (!prepared.TryGetValue(section.Id.Value, out object data)) continue;
+                        Stopwatch restoreWatch = Stopwatch.StartNew();
                         try
                         {
                             section.RestoreUntyped(data, restoreContext);
                         }
                         catch (Exception exception)
                         {
+                            diagnostics.LastExceptionType = exception.GetType().FullName;
                             return Fail(slotId, SaveErrorCode.RestoreFailed, $"Section {section.Id} Restore 失败: {exception.Message}", diagnostics, total);
+                        }
+                        finally
+                        {
+                            restoreWatch.Stop();
+                            diagnostics.RestoreDurationMs += restoreWatch.Elapsed.TotalMilliseconds;
+                            diagnostics.GetOrCreateSection(section.Id).RestoreDurationMs = restoreWatch.Elapsed.TotalMilliseconds;
                         }
                     }
                 }
@@ -447,16 +360,311 @@ namespace StellarFramework
             }
             catch (IOException exception)
             {
+                diagnostics.LastExceptionType = exception.GetType().FullName;
                 return Fail(slotId, SaveErrorCode.StorageError, exception.Message, diagnostics, total);
             }
             catch (Exception exception)
             {
+                diagnostics.LastExceptionType = exception.GetType().FullName;
                 return Fail(slotId, SaveErrorCode.UnknownError, exception.Message, diagnostics, total);
             }
             finally
             {
                 Exit();
             }
+        }
+
+        /// <summary>
+        /// Runs the complete read/deserialize/migrate/validate prepare pipeline without
+        /// calling Restore, writing a save, or changing the source file.
+        /// </summary>
+        public async UniTask<SaveResult> DryRunMigrationAsync(SaveSnapshot snapshot, CancellationToken cancellationToken)
+        {
+            SaveSlotId slotId = snapshot == null || snapshot.Metadata == null
+                ? default(SaveSlotId)
+                : snapshot.Metadata.SlotId;
+            var diagnostics = BeginDiagnostics("MigrationDryRun", slotId);
+            Stopwatch total = Stopwatch.StartNew();
+            if (snapshot == null || snapshot.Metadata == null || !slotId.IsValid)
+            {
+                return Fail(slotId, SaveErrorCode.InvalidManifest, "Dry Run 需要有效的 SaveSnapshot。", diagnostics, total);
+            }
+
+            if (!TryEnter()) return Fail(slotId, SaveErrorCode.Busy, "SaveKit 正在执行其他操作。", diagnostics, total);
+            try
+            {
+                PrepareSnapshotResult prepared = await PrepareSnapshotAsync(snapshot, slotId, cancellationToken, diagnostics);
+                if (!prepared.IsSuccess)
+                {
+                    return Fail(slotId, prepared.ErrorCode, prepared.ErrorMessage, diagnostics, total);
+                }
+
+                total.Stop();
+                diagnostics.Revision = snapshot.Metadata.Revision;
+                diagnostics.TotalDurationMs = total.Elapsed.TotalMilliseconds;
+                return Complete(SaveResult.Success(slotId, snapshot.Metadata.Revision, diagnostics));
+            }
+            catch (OperationCanceledException)
+            {
+                return Fail(slotId, SaveErrorCode.Cancelled, "Migration Dry Run 已取消。", diagnostics, total);
+            }
+            catch (IOException exception)
+            {
+                diagnostics.LastExceptionType = exception.GetType().FullName;
+                return Fail(slotId, SaveErrorCode.StorageError, exception.Message, diagnostics, total);
+            }
+            catch (Exception exception)
+            {
+                diagnostics.LastExceptionType = exception.GetType().FullName;
+                return Fail(slotId, SaveErrorCode.UnknownError, exception.Message, diagnostics, total);
+            }
+            finally
+            {
+                Exit();
+            }
+        }
+
+        private async UniTask<PrepareSnapshotResult> PrepareSnapshotAsync(SaveSnapshot snapshot, SaveSlotId slotId,
+            CancellationToken cancellationToken, SaveOperationDiagnostics diagnostics)
+        {
+            var prepared = new Dictionary<string, object>(StringComparer.Ordinal);
+            var unknown = new List<SaveSectionEntry>();
+            foreach (SaveSectionEntry entry in snapshot.Sections)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (!_sections.TryGet(entry.Descriptor.Id, out ISaveSection section))
+                {
+                    if (_options.UnknownSectionPolicy == UnknownSectionPolicy.Fail)
+                    {
+                        return PrepareSnapshotResult.Failure(SaveErrorCode.SectionCorrupted, $"未知 Section {entry.Descriptor.Id}。");
+                    }
+
+                    if (_options.UnknownSectionPolicy == UnknownSectionPolicy.Preserve)
+                    {
+                        unknown.Add(entry);
+                    }
+                    continue;
+                }
+
+                SaveSectionDiagnostics sectionDiagnostics = diagnostics.GetOrCreateSection(section.Id);
+                sectionDiagnostics.StoredSchemaVersion = entry.Descriptor.SchemaVersion;
+                sectionDiagnostics.CurrentSchemaVersion = section.SchemaVersion;
+                sectionDiagnostics.SerializerId = entry.Descriptor.SerializerId;
+                sectionDiagnostics.CurrentType = section.DataType == null ? null : section.DataType.FullName;
+
+                // Version must be checked before looking up a serializer or attempting
+                // deserialization. A future payload is never interpreted as a current DTO.
+                if (entry.Descriptor.SchemaVersion > section.SchemaVersion)
+                {
+                    return PrepareSnapshotResult.Failure(SaveErrorCode.UnsupportedSectionVersion,
+                        $"Section {section.Id} 版本 {entry.Descriptor.SchemaVersion} 高于当前版本 {section.SchemaVersion}。");
+                }
+
+                IReadOnlyList<ISaveMigration> chain = Array.Empty<ISaveMigration>();
+                Type deserializeType = section.DataType;
+                if (entry.Descriptor.SchemaVersion < section.SchemaVersion)
+                {
+                    if (!_migrations.TryBuildChain(section.Id, entry.Descriptor.SchemaVersion, section.SchemaVersion,
+                        section.DataType, out chain, out string migrationError))
+                    {
+                        return PrepareSnapshotResult.Failure(GetMigrationChainErrorCode(migrationError), migrationError);
+                    }
+
+                    if (chain.Count == 0 || chain[0].FromType == null)
+                    {
+                        return PrepareSnapshotResult.Failure(SaveErrorCode.MigrationTypeMismatch,
+                            $"Section {section.Id} 的 Migration 起始类型缺失。");
+                    }
+
+                    deserializeType = chain[0].FromType;
+                }
+
+                sectionDiagnostics.StoredType = deserializeType == null ? null : deserializeType.FullName;
+
+                if (!TryGetSerializer(entry.Descriptor.SerializerId, out ISaveSerializer serializer))
+                {
+                    return PrepareSnapshotResult.Failure(SaveErrorCode.SerializerMissing, $"缺少 Serializer {entry.Descriptor.SerializerId}。");
+                }
+
+                object data;
+                try
+                {
+                    Stopwatch deserializeWatch = Stopwatch.StartNew();
+                    using (var payload = new MemoryStream(entry.Payload ?? Array.Empty<byte>(), false))
+                    {
+                        data = await DeserializeWithCapabilitiesAsync(serializer, deserializeType, payload, cancellationToken);
+                    }
+                    deserializeWatch.Stop();
+                    diagnostics.DeserializeDurationMs += deserializeWatch.Elapsed.TotalMilliseconds;
+                    sectionDiagnostics.DeserializeDurationMs = deserializeWatch.Elapsed.TotalMilliseconds;
+                }
+                catch (OperationCanceledException) { throw; }
+                catch (Exception exception)
+                {
+                    diagnostics.LastExceptionType = exception.GetType().FullName;
+                    return PrepareSnapshotResult.Failure(SaveErrorCode.SectionCorrupted,
+                        $"Section {section.Id} Deserialize({deserializeType.FullName}) 失败: {exception.Message}");
+                }
+
+                Stopwatch migrationWatch = Stopwatch.StartNew();
+                foreach (ISaveMigration migration in chain)
+                {
+                    if (!IsAssignableToMigrationType(data, migration.FromType))
+                    {
+                        return PrepareSnapshotResult.Failure(SaveErrorCode.MigrationTypeMismatch,
+                            $"Section {section.Id} Migration {migration.FromVersion}->{migration.ToVersion} 需要 {migration.FromType.FullName}，实际为 {GetDataTypeName(data)}。");
+                    }
+
+                    try
+                    {
+                        data = migration.Migrate(data, new SaveMigrationContext(slotId, section.Id,
+                            migration.FromVersion, migration.ToVersion));
+                    }
+                    catch (Exception exception)
+                    {
+                        diagnostics.LastExceptionType = exception.GetType().FullName;
+                        return PrepareSnapshotResult.Failure(SaveErrorCode.MigrationFailed,
+                            $"Section {section.Id} Migration {migration.FromVersion}->{migration.ToVersion} 失败: {exception.Message}");
+                    }
+
+                    if (!IsAssignableToMigrationType(data, migration.ToType))
+                    {
+                        return PrepareSnapshotResult.Failure(SaveErrorCode.MigrationTypeMismatch,
+                            $"Section {section.Id} Migration {migration.FromVersion}->{migration.ToVersion} 返回 {GetDataTypeName(data)}，预期 {migration.ToType.FullName}。");
+                    }
+
+                    diagnostics.MigrationCount++;
+                    sectionDiagnostics.MigrationSteps++;
+                }
+                migrationWatch.Stop();
+                diagnostics.MigrationDurationMs += migrationWatch.Elapsed.TotalMilliseconds;
+                sectionDiagnostics.MigrationDurationMs = migrationWatch.Elapsed.TotalMilliseconds;
+
+                if (!IsAssignableToMigrationType(data, section.DataType))
+                {
+                    return PrepareSnapshotResult.Failure(SaveErrorCode.MigrationTypeMismatch,
+                        $"Section {section.Id} 最终数据类型 {GetDataTypeName(data)} 不等于 {section.DataType.FullName}。");
+                }
+
+                Stopwatch loadValidationWatch = Stopwatch.StartNew();
+                SaveValidationResult validation = section.ValidateUntyped(data,
+                    new SaveValidationContext(slotId, snapshot.Metadata, _options));
+                loadValidationWatch.Stop();
+                diagnostics.ValidationDurationMs += loadValidationWatch.Elapsed.TotalMilliseconds;
+                sectionDiagnostics.ValidationDurationMs += loadValidationWatch.Elapsed.TotalMilliseconds;
+                if (validation == null || !validation.IsValid)
+                {
+                    return PrepareSnapshotResult.Failure(SaveErrorCode.ValidationFailed,
+                        $"Section {section.Id} 验证失败: {validation}");
+                }
+
+                prepared.Add(section.Id.Value, data);
+            }
+
+            foreach (ISaveSection section in _sections.Sections)
+            {
+                if (prepared.ContainsKey(section.Id.Value)) continue;
+                MissingSectionPolicy policy = section.MissingPolicy;
+                if (policy == MissingSectionPolicy.Fail) policy = _options.MissingSectionPolicy;
+                if (policy == MissingSectionPolicy.Fail)
+                {
+                    return PrepareSnapshotResult.Failure(SaveErrorCode.SectionMissing, $"缺少 Section {section.Id}。");
+                }
+
+                if (policy == MissingSectionPolicy.UseDefault)
+                {
+                    object defaultData = section.CreateDefaultUntyped(new SaveRestoreContext(slotId, snapshot.Metadata, _options));
+                    if (!IsAssignableToMigrationType(defaultData, section.DataType))
+                    {
+                        return PrepareSnapshotResult.Failure(SaveErrorCode.MigrationTypeMismatch,
+                            $"Section {section.Id} 默认数据类型 {GetDataTypeName(defaultData)} 不等于 {section.DataType.FullName}。");
+                    }
+
+                    SaveValidationResult validation = section.ValidateUntyped(defaultData,
+                        new SaveValidationContext(slotId, snapshot.Metadata, _options));
+                    if (validation == null || !validation.IsValid)
+                    {
+                        return PrepareSnapshotResult.Failure(SaveErrorCode.ValidationFailed,
+                            $"Section {section.Id} 默认数据验证失败: {validation}");
+                    }
+
+                    prepared.Add(section.Id.Value, defaultData);
+                }
+            }
+
+            return PrepareSnapshotResult.Success(prepared, unknown);
+        }
+
+        private async UniTask SerializeWithCapabilitiesAsync(ISaveSerializer serializer, Type dataType, object data,
+            Stream destination, CancellationToken cancellationToken)
+        {
+            if (serializer.SupportsBackgroundExecution() && SaveSerializerExecution.CanUseThreadPool)
+            {
+                await UniTask.RunOnThreadPool(() => serializer.SerializeAsync(dataType, data, destination, cancellationToken),
+                    configureAwait: true, cancellationToken: cancellationToken);
+                return;
+            }
+
+            await serializer.SerializeAsync(dataType, data, destination, cancellationToken);
+        }
+
+        private async UniTask<object> DeserializeWithCapabilitiesAsync(ISaveSerializer serializer, Type dataType,
+            Stream source, CancellationToken cancellationToken)
+        {
+            if (serializer.SupportsBackgroundExecution() && SaveSerializerExecution.CanUseThreadPool)
+            {
+                return await UniTask.RunOnThreadPool(() => serializer.DeserializeAsync(dataType, source, cancellationToken),
+                    configureAwait: true, cancellationToken: cancellationToken);
+            }
+
+            return await serializer.DeserializeAsync(dataType, source, cancellationToken);
+        }
+
+        private static bool IsAssignableToMigrationType(object value, Type expectedType)
+        {
+            if (expectedType == null) return false;
+            if (value == null) return !expectedType.IsValueType || Nullable.GetUnderlyingType(expectedType) != null;
+            return expectedType.IsInstanceOfType(value);
+        }
+
+        private static string GetDataTypeName(object value) => value == null ? "null" : value.GetType().FullName;
+
+        private static SaveErrorCode GetMigrationChainErrorCode(string message)
+        {
+            return message != null && message.IndexOf("类型", StringComparison.Ordinal) >= 0
+                ? SaveErrorCode.MigrationTypeMismatch
+                : SaveErrorCode.MigrationMissing;
+        }
+
+        private sealed class PrepareSnapshotResult
+        {
+            public bool IsSuccess;
+            public Dictionary<string, object> Prepared;
+            public List<SaveSectionEntry> Unknown;
+            public SaveErrorCode ErrorCode;
+            public string ErrorMessage;
+
+            public static PrepareSnapshotResult Success(Dictionary<string, object> prepared, List<SaveSectionEntry> unknown)
+            {
+                return new PrepareSnapshotResult { IsSuccess = true, Prepared = prepared, Unknown = unknown };
+            }
+
+            public static PrepareSnapshotResult Failure(SaveErrorCode code, string message)
+            {
+                return new PrepareSnapshotResult { ErrorCode = code, ErrorMessage = message };
+            }
+        }
+
+        private static class SaveSerializerExecution
+        {
+#if UNITY_EDITOR || UNITY_WEBGL
+            // Unity Editor tests and tooling frequently consume UniTask synchronously
+            // (GetAwaiter().GetResult()). Keep this path deterministic and Unity-safe;
+            // Player builds use the capability-aware worker path below.
+            public const bool CanUseThreadPool = false;
+#else
+            public const bool CanUseThreadPool = true;
+#endif
         }
 
         public async UniTask<IReadOnlyList<SaveSlotInfo>> GetSlotsAsync(CancellationToken cancellationToken)
@@ -484,6 +692,7 @@ namespace StellarFramework
             }
             catch (Exception exception)
             {
+                diagnostics.LastExceptionType = exception.GetType().FullName;
                 return Fail(slotId, SaveErrorCode.StorageError, exception.Message, diagnostics, total);
             }
             finally { Exit(); }

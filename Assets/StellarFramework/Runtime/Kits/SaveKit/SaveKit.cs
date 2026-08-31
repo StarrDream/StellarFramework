@@ -125,6 +125,22 @@ namespace StellarFramework
             return _migrations.TryRegister(sectionId, migration, out string error) || LogKit.ErrorAndReturnFalse(error);
         }
 
+        /// <summary>Returns a validated version/type chain for the currently registered Section.</summary>
+        public static bool TryBuildMigrationChain(SaveSectionId sectionId, int fromVersion, int toVersion,
+            out IReadOnlyList<ISaveMigration> chain, out string error)
+        {
+            EnsureInitialized();
+            if (!_sections.TryGet(sectionId, out ISaveSection section))
+            {
+                chain = Array.Empty<ISaveMigration>();
+                error = $"Section {sectionId} 未注册。";
+                return false;
+            }
+
+            return _migrations.TryBuildChain(sectionId, fromVersion, toVersion, section.DataType,
+                out chain, out error);
+        }
+
         public static bool RegisterSerializer(ISaveSerializer serializer)
         {
             EnsureInitialized();
@@ -189,6 +205,17 @@ namespace StellarFramework
         {
             EnsureInitialized();
             return _coordinator.LastDiagnostics;
+        }
+
+        /// <summary>
+        /// Executes read/checksum/deserialize/migration/validate only. It never restores,
+        /// saves, or modifies the supplied snapshot/source file.
+        /// </summary>
+        public static UniTask<SaveResult> RunMigrationDryRunAsync(SaveSnapshot snapshot,
+            CancellationToken cancellationToken = default(CancellationToken))
+        {
+            EnsureInitialized();
+            return _coordinator.DryRunMigrationAsync(snapshot, cancellationToken);
         }
 
         internal static void EnsureInitialized()

@@ -102,6 +102,56 @@ namespace StellarFramework.Tests.FrameworkValidation
                 checksumWatch.Elapsed.TotalMilliseconds, allocatedDelta);
         }
 
+        [Test, Category("Benchmark")]
+        public void EndToEndBenchmark_100000CropRecords()
+        {
+            const int recordCount = 100000;
+            var storage = new InMemorySaveStorage();
+            var serializer = new CropBinarySerializer();
+            var section = new CropSection("crops");
+            section.Records = new CropSaveRecord[recordCount];
+            for (int i = 0; i < recordCount; i++)
+            {
+                section.Records[i] = new CropSaveRecord
+                {
+                    CropTypeId = i % 32,
+                    CellX = i % 512,
+                    CellY = i / 512,
+                    PlantTick = i * 10L,
+                    Stage = (byte)(i % 6)
+                };
+            }
+
+            long allocatedBefore = GC.GetTotalMemory(false);
+            SaveKit.Initialize(builder => builder.UseStorage(storage).UseSerializer(serializer).SetDefaultSerializer(serializer.Id));
+            SaveKit.Register(section);
+            Stopwatch saveWatch = Stopwatch.StartNew();
+            SaveResult save = SaveKit.SaveAsync("crops-e2e").GetAwaiter().GetResult();
+            saveWatch.Stop();
+            Assert.That(save.IsSuccess, Is.True, save.ErrorMessage);
+            SaveOperationDiagnostics saveDiagnostics = save.Diagnostics;
+            long fileSize = storage.GetBytes("crops-e2e", SaveStorageFileKind.Current).LongLength;
+
+            section.Records = Array.Empty<CropSaveRecord>();
+            Stopwatch loadWatch = Stopwatch.StartNew();
+            SaveResult load = SaveKit.LoadAsync("crops-e2e").GetAwaiter().GetResult();
+            loadWatch.Stop();
+            Assert.That(load.IsSuccess, Is.True, load.ErrorMessage);
+            Assert.That(section.Records.Length, Is.EqualTo(recordCount));
+            SaveOperationDiagnostics loadDiagnostics = load.Diagnostics;
+            long allocatedDelta = GC.GetTotalMemory(false) - allocatedBefore;
+
+            string benchmarkMessage = string.Format(
+                "SaveKit E2E benchmark records={0} fileBytes={1} saveTotalMs={2:F3} saveCaptureMs={3:F3} saveSerializeMs={4:F3} saveChecksumMs={5:F3} saveIoMs={6:F3} saveCommitMs={7:F3} loadWallMs={8:F3} loadDeserializeMs={9:F3} loadMigrationMs={10:F3} loadValidationMs={11:F3} loadRestoreMs={12:F3} allocationDelta={13}",
+                recordCount, fileSize, saveWatch.Elapsed.TotalMilliseconds, saveDiagnostics.CaptureDurationMs,
+                saveDiagnostics.SerializeDurationMs, saveDiagnostics.ChecksumDurationMs, saveDiagnostics.IoDurationMs,
+                saveDiagnostics.CommitDurationMs, loadWatch.Elapsed.TotalMilliseconds, loadDiagnostics.DeserializeDurationMs,
+                loadDiagnostics.MigrationDurationMs, loadDiagnostics.ValidationDurationMs, loadDiagnostics.RestoreDurationMs,
+                allocatedDelta);
+            TestContext.Progress.WriteLine(benchmarkMessage);
+            UnityEngine.Debug.Log(benchmarkMessage);
+        }
+
         private struct BenchmarkRecord
         {
             public int Id;
@@ -111,9 +161,82 @@ namespace StellarFramework.Tests.FrameworkValidation
 
         private sealed class NoOpMigration : ISaveMigration
         {
+            public SaveSectionId SectionId => default(SaveSectionId);
             public int FromVersion => 1;
             public int ToVersion => 2;
+            public Type FromType => typeof(byte[]);
+            public Type ToType => typeof(byte[]);
             public object Migrate(object data, SaveMigrationContext context) => data;
+        }
+
+        private struct CropSaveRecord
+        {
+            public int CropTypeId;
+            public int CellX;
+            public int CellY;
+            public long PlantTick;
+            public byte Stage;
+        }
+
+        private sealed class CropSection : SaveSection<CropSaveRecord[]>
+        {
+            public override SaveSectionId Id { get; }
+            public CropSaveRecord[] Records = Array.Empty<CropSaveRecord>();
+
+            public CropSection(string id) { Id = SaveSectionId.From(id); }
+            public override CropSaveRecord[] Capture(SaveCaptureContext context) => Records;
+            public override void Restore(CropSaveRecord[] data, SaveRestoreContext context) { Records = data ?? Array.Empty<CropSaveRecord>(); }
+        }
+
+        private sealed class CropBinarySerializer : ISaveSerializer, ISaveSerializerCapabilities
+        {
+            public string Id => "benchmark-crop-binary";
+            public SaveSerializerCapabilities Capabilities => SaveSerializerCapabilities.BackgroundExecution |
+                SaveSerializerCapabilities.ThreadSafe;
+
+            public UniTask SerializeAsync(Type dataType, object value, Stream destination, CancellationToken cancellationToken)
+            {
+                if (dataType != typeof(CropSaveRecord[]) || !(value is CropSaveRecord[] records))
+                    throw new InvalidDataException("CropBinarySerializer 需要 CropSaveRecord[]。");
+                using (var writer = new BinaryWriter(destination, System.Text.Encoding.UTF8, true))
+                {
+                    writer.Write(records.Length);
+                    for (int i = 0; i < records.Length; i++)
+                    {
+                        cancellationToken.ThrowIfCancellationRequested();
+                        writer.Write(records[i].CropTypeId);
+                        writer.Write(records[i].CellX);
+                        writer.Write(records[i].CellY);
+                        writer.Write(records[i].PlantTick);
+                        writer.Write(records[i].Stage);
+                    }
+                }
+                return UniTask.CompletedTask;
+            }
+
+            public UniTask<object> DeserializeAsync(Type dataType, Stream source, CancellationToken cancellationToken)
+            {
+                if (dataType != typeof(CropSaveRecord[])) throw new InvalidDataException("CropBinarySerializer 类型不匹配。");
+                using (var reader = new BinaryReader(source, System.Text.Encoding.UTF8, true))
+                {
+                    int count = reader.ReadInt32();
+                    if (count < 0 || count > 1000000) throw new InvalidDataException("Crop record count 非法。");
+                    var records = new CropSaveRecord[count];
+                    for (int i = 0; i < count; i++)
+                    {
+                        cancellationToken.ThrowIfCancellationRequested();
+                        records[i] = new CropSaveRecord
+                        {
+                            CropTypeId = reader.ReadInt32(),
+                            CellX = reader.ReadInt32(),
+                            CellY = reader.ReadInt32(),
+                            PlantTick = reader.ReadInt64(),
+                            Stage = reader.ReadByte()
+                        };
+                    }
+                    return UniTask.FromResult<object>(records);
+                }
+            }
         }
 
     }

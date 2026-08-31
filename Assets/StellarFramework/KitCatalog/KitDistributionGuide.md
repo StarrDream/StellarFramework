@@ -26,7 +26,7 @@
 | 目标包 | 自动包含 | 外部 UPM | 不带入 |
 | --- | --- | --- | --- |
 | ToolsHub.Core | 通用编辑器工具和已导入 Kit 检测 | 无 | Kit、AA、HybridCLR、代码热更 |
-| SaveKit.Tools | SaveKit 存档中心：Slots、Inspector、Migration、Profiler、Diagnostics | UniTask（随 Core） | 不增加 Newtonsoft、TimeKit、AA、HybridCLR |
+| SaveKit.Tools | SaveKit 存档中心：Slots、Inspector、Raw/Hex、Migration Type Chain、Dry Run、Profiler、Diagnostics | UniTask（随 Core） | 不增加 Newtonsoft、TimeKit、AA、HybridCLR |
 | LogKit | LogKit | 无 | AA、HybridCLR、代码热更 |
 | EventKit | ToolsHub.Core + EventKit 专属追踪工具 | 无 | HybridCLR、代码热更 |
 | ConfigKit.Core | 文本配置读取、持久化覆盖和自定义来源接口 | UniTask | Newtonsoft Json、AA、HybridCLR、代码热更 |

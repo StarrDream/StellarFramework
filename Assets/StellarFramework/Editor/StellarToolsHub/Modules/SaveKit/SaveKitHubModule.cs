@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Threading;
 using StellarFramework;
 using UnityEditor;
@@ -23,6 +24,17 @@ namespace StellarFramework.Editor.SaveKitTools
         private string _message = string.Empty;
         private SaveSnapshot _snapshot;
         private SaveSlotInfo[] _slots = Array.Empty<SaveSlotInfo>();
+        private SaveSectionEntry _previewEntry;
+        private string _previewSourcePath;
+        private bool _hexPreview;
+        private long _hexOffset;
+        private string _hexJumpOffset = "0";
+
+        private const int DefaultMaxPreviewBytes = 64 * 1024;
+        private const int DefaultHexPageBytes = 256;
+
+        private int PreviewLimit => SaveKit.Options == null ? DefaultMaxPreviewBytes : SaveKit.Options.MaxPreviewBytes;
+        private int HexPageSize => SaveKit.Options == null ? DefaultHexPageBytes : SaveKit.Options.MaxHexPageBytes;
 
         public override string Icon => "d_SaveAs";
         public override string Description => "安全查看、验证和恢复 SaveKit 存档；外部存档默认只读，不会直接修改玩家原文件。";
@@ -143,8 +155,15 @@ namespace StellarFramework.Editor.SaveKitTools
                     EditorGUILayout.LabelField("Serializer", entry.Descriptor.SerializerId);
                     EditorGUILayout.LabelField("Payload", FormatBytes(entry.Descriptor.PayloadLength));
                     EditorGUILayout.LabelField("Checksum", entry.Descriptor.Checksum.ToString("X16"));
+                    using (new GUILayout.HorizontalScope())
+                    {
+                        if (GUILayout.Button("Raw Preview", GUILayout.Width(105))) ShowRawPreview(entry);
+                        if (GUILayout.Button("Hex Preview", GUILayout.Width(105))) ShowHexPreview(entry, 0);
+                    }
                 }
             }
+
+            DrawPayloadPreview();
         }
 
         private void DrawMigration()
@@ -156,13 +175,38 @@ namespace StellarFramework.Editor.SaveKitTools
                 return;
             }
 
-            EditorGUILayout.HelpBox("此页面只展示存档版本与当前注册 Section 版本。Dry Run 不会执行 Restore；正式迁移仍由 Load Pipeline 在验证全部 Section 后执行。", MessageType.Info);
+            EditorGUILayout.HelpBox("此页面展示版本/类型链。Dry Run 只读取、校验、反序列化、迁移和验证，不执行 Restore、不写回 Save。", MessageType.Info);
+            if (GUILayout.Button("Run Migration Dry Run", GUILayout.Height(26))) RunMigrationDryRun();
             foreach (SaveSectionEntry entry in _snapshot.Sections)
             {
                 string current = "Unavailable";
-                if (SaveKit.TryGetSection(entry.Descriptor.Id, out ISaveSection section)) current = section.SchemaVersion.ToString();
-                EditorGUILayout.LabelField(entry.Descriptor.Id.Value,
-                    $"Stored {entry.Descriptor.SchemaVersion}  ->  Current {current}");
+                if (SaveKit.TryGetSection(entry.Descriptor.Id, out ISaveSection section))
+                {
+                    current = section.SchemaVersion.ToString();
+                    EditorGUILayout.LabelField(entry.Descriptor.Id.Value,
+                        $"Stored {entry.Descriptor.SchemaVersion} ({GetStoredTypeLabel(entry, section)})  ->  Current {current} ({section.DataType.FullName})");
+                    if (entry.Descriptor.SchemaVersion < section.SchemaVersion)
+                    {
+                        if (SaveKit.TryBuildMigrationChain(entry.Descriptor.Id, entry.Descriptor.SchemaVersion,
+                            section.SchemaVersion, out IReadOnlyList<ISaveMigration> chain, out string error))
+                        {
+                            foreach (ISaveMigration migration in chain)
+                            {
+                                EditorGUILayout.LabelField("  Migration",
+                                    $"{migration.FromVersion} -> {migration.ToVersion}: {migration.FromType.FullName} -> {migration.ToType.FullName}");
+                            }
+                        }
+                        else
+                        {
+                            EditorGUILayout.HelpBox($"Migration Graph Unavailable: {error}", MessageType.Warning);
+                        }
+                    }
+                }
+                else
+                {
+                    EditorGUILayout.LabelField(entry.Descriptor.Id.Value,
+                        $"Stored {entry.Descriptor.SchemaVersion} -> Current Schema: Unavailable / Migration Graph: Unavailable");
+                }
             }
         }
 
@@ -186,6 +230,19 @@ namespace StellarFramework.Editor.SaveKitTools
             EditorGUILayout.LabelField("Total", FormatMs(diagnostics.TotalDurationMs));
             EditorGUILayout.LabelField("Raw / Final", $"{FormatBytes(diagnostics.RawBytes)} / {FormatBytes(diagnostics.FinalBytes)}");
             EditorGUILayout.LabelField("Migrations", diagnostics.MigrationCount.ToString());
+            if (diagnostics.Sections.Count > 0)
+            {
+                Section("Section 详情");
+                foreach (SaveSectionDiagnostics section in diagnostics.Sections)
+                {
+                    EditorGUILayout.LabelField(section.SectionId.Value,
+                        $"Stored {section.StoredSchemaVersion} -> Current {section.CurrentSchemaVersion}");
+                    EditorGUILayout.LabelField("  Serializer / Type",
+                        $"{section.SerializerId ?? "-"} / {section.StoredType ?? "-"} -> {section.CurrentType ?? "-"}");
+                    EditorGUILayout.LabelField("  Payload / Migration",
+                        $"{FormatBytes(section.PayloadBytes)} / {section.MigrationSteps}");
+                }
+            }
         }
 
         private void DrawDiagnostics()
@@ -198,10 +255,13 @@ namespace StellarFramework.Editor.SaveKitTools
             EditorGUILayout.LabelField("Container Version", SaveKitOptions.CurrentContainerVersion.ToString());
             EditorGUILayout.LabelField("Max Section Count", options == null ? "-" : options.MaxSectionCount.ToString());
             EditorGUILayout.LabelField("Max Payload", options == null ? "-" : FormatBytes(options.MaxPayloadBytes));
+            EditorGUILayout.LabelField("Preview Limit", options == null ? "-" : FormatBytes(options.MaxPreviewBytes));
+            EditorGUILayout.LabelField("Hex Page", options == null ? "-" : options.MaxHexPageBytes + " bytes");
             SaveOperationDiagnostics diagnostics = SaveKit.GetDiagnostics();
             if (diagnostics != null && diagnostics.LastError != SaveErrorCode.None)
             {
-                EditorGUILayout.HelpBox($"Last Error: {diagnostics.LastError}\n{diagnostics.LastErrorMessage}", MessageType.Warning);
+                EditorGUILayout.HelpBox(BuildErrorDetails(diagnostics), MessageType.Warning);
+                if (GUILayout.Button("Copy Details")) EditorGUIUtility.systemCopyBuffer = BuildErrorDetails(diagnostics);
             }
         }
 
@@ -230,6 +290,7 @@ namespace StellarFramework.Editor.SaveKitTools
                     }
                     else _message = "已只读打开本地存档。";
                 }
+                _previewSourcePath = storage.GetFilePath(SaveSlotId.From(slotName), SaveStorageFileKind.Current);
                 _tab = Tab.Inspector;
             }
             catch (Exception exception) { _message = exception.Message; }
@@ -270,9 +331,147 @@ namespace StellarFramework.Editor.SaveKitTools
                     }
                     else _message = "已只读打开外部存档，原文件未修改。";
                 }
+                _previewSourcePath = _externalPath;
                 _tab = Tab.Inspector;
             }
             catch (Exception exception) { _message = exception.Message; }
+        }
+
+        private void RunMigrationDryRun()
+        {
+            try
+            {
+                SaveResult result = SaveKit.RunMigrationDryRunAsync(_snapshot).GetAwaiter().GetResult();
+                _message = result.IsSuccess
+                    ? "Migration Dry Run 通过：未执行 Restore、未写回 Save。"
+                    : BuildResultDetails(result);
+                if (result.Diagnostics != null) _tab = Tab.Diagnostics;
+            }
+            catch (Exception exception) { _message = exception.Message; }
+        }
+
+        private void ShowRawPreview(SaveSectionEntry entry)
+        {
+            _previewEntry = entry;
+            _hexPreview = false;
+            _hexOffset = 0;
+        }
+
+        private void ShowHexPreview(SaveSectionEntry entry, long offset)
+        {
+            _previewEntry = entry;
+            _hexPreview = true;
+            long length = entry == null || entry.Descriptor == null ? 0 : entry.Descriptor.PayloadLength;
+            _hexOffset = Math.Max(0L, Math.Min(offset, Math.Max(0L, length - 1L)));
+            _hexOffset = (_hexOffset / HexPageSize) * HexPageSize;
+        }
+
+        private void DrawPayloadPreview()
+        {
+            if (_previewEntry == null || _previewEntry.Descriptor == null) return;
+            Section(_hexPreview ? "Hex Preview" : "Raw Preview");
+            long fullLength = _previewEntry.Descriptor.PayloadLength;
+            if (!_hexPreview)
+            {
+                byte[] previewPayload = ReadPreviewBytes(_previewEntry, 0, PreviewLimit);
+                int textCount = previewPayload.Length;
+                string text = Encoding.UTF8.GetString(previewPayload, 0, textCount);
+                if (fullLength > textCount) text += $"\n\n[Preview truncated at {FormatBytes(PreviewLimit)} / full {FormatBytes(fullLength)}]";
+                EditorGUILayout.TextArea(text, GUILayout.MinHeight(160));
+                return;
+            }
+
+            using (new GUILayout.HorizontalScope())
+            {
+                if (GUILayout.Button("Previous", GUILayout.Width(70))) ShowHexPreview(_previewEntry, _hexOffset - HexPageSize);
+                if (GUILayout.Button("Next", GUILayout.Width(70))) ShowHexPreview(_previewEntry, _hexOffset + HexPageSize);
+                _hexJumpOffset = EditorGUILayout.TextField("Jump Offset", _hexJumpOffset);
+                if (GUILayout.Button("Jump", GUILayout.Width(50)) && long.TryParse(_hexJumpOffset, out long jump)) ShowHexPreview(_previewEntry, jump);
+            }
+
+            int hexCount = (int)Math.Min(HexPageSize, Math.Max(0L, fullLength - _hexOffset));
+            byte[] hexPayload = ReadPreviewBytes(_previewEntry, _hexOffset, hexCount);
+            StringBuilder builder = new StringBuilder(Math.Max(64, hexCount * 4));
+            for (int row = 0; row < hexCount; row += 16)
+            {
+                int rowCount = Math.Min(16, hexCount - row);
+                builder.Append((_hexOffset + row).ToString("X8")).Append("  ");
+                for (int i = 0; i < 16; i++)
+                {
+                    builder.Append(i < rowCount ? hexPayload[row + i].ToString("X2") : "  ").Append(' ');
+                }
+                builder.Append(" |");
+                for (int i = 0; i < rowCount; i++)
+                {
+                    byte value = hexPayload[row + i];
+                    builder.Append(value >= 32 && value <= 126 ? (char)value : '.');
+                }
+                builder.Append('|').AppendLine();
+            }
+            EditorGUILayout.TextArea(builder.ToString(), GUILayout.MinHeight(160));
+            EditorGUILayout.LabelField($"Offset {_hexOffset} - {_hexOffset + hexCount} / {fullLength} bytes");
+        }
+
+        private byte[] ReadPreviewBytes(SaveSectionEntry entry, long offset, int count)
+        {
+            if (count <= 0 || entry == null || entry.Descriptor == null || offset < 0 || offset >= entry.Descriptor.PayloadLength)
+                return Array.Empty<byte>();
+            int expected = (int)Math.Min((long)count, entry.Descriptor.PayloadLength - offset);
+            if (!string.IsNullOrEmpty(_previewSourcePath) && File.Exists(_previewSourcePath))
+            {
+                using (var stream = new FileStream(_previewSourcePath, FileMode.Open, FileAccess.Read, FileShare.Read,
+                    4096, FileOptions.SequentialScan))
+                {
+                    stream.Seek(entry.Descriptor.PayloadOffset + offset, SeekOrigin.Begin);
+                    byte[] buffer = new byte[expected];
+                    int read = 0;
+                    while (read < buffer.Length)
+                    {
+                        int next = stream.Read(buffer, read, buffer.Length - read);
+                        if (next <= 0) break;
+                        read += next;
+                    }
+                    if (read == buffer.Length) return buffer;
+                    Array.Resize(ref buffer, read);
+                    return buffer;
+                }
+            }
+
+            byte[] payload = entry.Payload ?? Array.Empty<byte>();
+            if (offset >= payload.LongLength) return Array.Empty<byte>();
+            int fallbackLength = Math.Min(expected, payload.Length - (int)offset);
+            var fallback = new byte[fallbackLength];
+            Buffer.BlockCopy(payload, (int)offset, fallback, 0, fallbackLength);
+            return fallback;
+        }
+
+        private static string GetStoredTypeLabel(SaveSectionEntry entry, ISaveSection section)
+        {
+            if (entry.Descriptor.SchemaVersion == section.SchemaVersion) return section.DataType.FullName;
+            return "由 Migration Chain 决定";
+        }
+
+        private static string BuildResultDetails(SaveResult result)
+        {
+            if (result == null) return "SaveKit 未返回结果。";
+            return $"ErrorCode: {result.ErrorCode}\nSlot: {result.SlotId}\nMessage: {result.ErrorMessage}";
+        }
+
+        private static string BuildErrorDetails(SaveOperationDiagnostics diagnostics)
+        {
+            var builder = new StringBuilder();
+            builder.AppendLine($"ErrorCode: {diagnostics.LastError}");
+            builder.AppendLine($"Slot: {diagnostics.SlotId}");
+            builder.AppendLine($"Message: {diagnostics.LastErrorMessage}");
+            if (!string.IsNullOrEmpty(diagnostics.LastExceptionType)) builder.AppendLine($"Exception: {diagnostics.LastExceptionType}");
+            foreach (SaveSectionDiagnostics section in diagnostics.Sections)
+            {
+                builder.AppendLine($"Section: {section.SectionId}");
+                builder.AppendLine($"StoredVersion: {section.StoredSchemaVersion}");
+                builder.AppendLine($"CurrentVersion: {section.CurrentSchemaVersion}");
+                builder.AppendLine($"SerializerId: {section.SerializerId}");
+            }
+            return builder.ToString().TrimEnd();
         }
 
         private void ImportCopy()
