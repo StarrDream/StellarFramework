@@ -10,6 +10,7 @@
         "StellarFramework.SingletonKit",
         "StellarFramework.TimeKit",
         "StellarFramework.Samples.UIKit",
+        "StellarFramework.SaveKit.Core",
         "GUID:f51ebe6a0ceec4240a699833d6309b23"
     ],
     "includePlatforms": [],

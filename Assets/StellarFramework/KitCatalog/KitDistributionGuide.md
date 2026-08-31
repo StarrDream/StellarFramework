@@ -26,6 +26,7 @@
 | 目标包 | 自动包含 | 外部 UPM | 不带入 |
 | --- | --- | --- | --- |
 | ToolsHub.Core | 通用编辑器工具和已导入 Kit 检测 | 无 | Kit、AA、HybridCLR、代码热更 |
+| SaveKit.Tools | SaveKit 存档中心：Slots、Inspector、Migration、Profiler、Diagnostics | UniTask（随 Core） | 不增加 Newtonsoft、TimeKit、AA、HybridCLR |
 | LogKit | LogKit | 无 | AA、HybridCLR、代码热更 |
 | EventKit | ToolsHub.Core + EventKit 专属追踪工具 | 无 | HybridCLR、代码热更 |
 | ConfigKit.Core | 文本配置读取、持久化覆盖和自定义来源接口 | UniTask | Newtonsoft Json、AA、HybridCLR、代码热更 |
@@ -38,6 +39,8 @@
 | SingletonKit | ToolsHub.Core + 单例注册表工具 | 无 | HybridCLR、代码热更 |
 | HttpKit | LogKit + HttpKit | UniTask、Newtonsoft Json | AA、HybridCLR、代码热更 |
 | TimeKit | LogKit + 世界 Tick、日历换算与高性能定时调度 | 无 | ActionKit、UniTask、AA、HybridCLR、代码热更 |
+| SaveKit.Core | LogKit + Section 化存档、版本迁移、事务写入、备份恢复与可扩展 Serializer / Storage | UniTask | Newtonsoft、TimeKit、Addressables、HybridCLR、代码热更 |
+| SaveKit.NewtonsoftJson | SaveKit.Core 的可选 JSON Serializer Adapter | UniTask、Newtonsoft Json | TimeKit、Addressables、HybridCLR、代码热更 |
 | ActionKit | LogKit、PoolKit、ToolsHub.Core + Action 编辑器 | UniTask | AA、HybridCLR、代码热更 |
 | BindableKit | EventKit、LogKit | 无 | AA、HybridCLR、代码热更 |
 | AudioKit.Core | PoolKit、SingletonKit、ToolsHub.Core + AudioKit 专属面板 | UniTask | ResKit、AA、HybridCLR、代码热更 |
@@ -60,6 +63,8 @@
 `SettingsKit.Core` 不依赖 AudioKit 或 LogKit；音频、图形、语言和输入均通过可选适配器或项目自定义实现接入。
 
 `ConfigKit.Core` 只交付文本读取与路径规则，可替换 `IConfigTextSource` 接入自己的资源系统；`NormalConfig`、`NetConfig` 和可视化 JSON 编辑器属于 `ConfigKit.NewtonsoftJson`。
+
+`SaveKit.Core` 只交付存档容器、Section、事务、Migration 和 Storage/Serializer 抽象；它不保存 Unity Object，不依赖 TimeKit，也不自动保存业务对象。`SaveKit.NewtonsoftJson` 仅在需要 JSON 时导入，ToolsHub 存档诊断属于独立的 `SaveKit.Tools` Profile。
 
 ## 可选样例包
 

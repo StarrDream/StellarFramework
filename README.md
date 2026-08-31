@@ -109,6 +109,7 @@ Assets
 | `PoolKit` | 对象池 |
 | `SingletonKit` | 单例生命周期与注册 |
 | `TimeKit` | 游戏世界时间、日历换算与高性能定时调度 |
+| `SaveKit` | 可靠游戏存档、Section 分区、版本迁移、事务写入、备份恢复与可扩展 Serializer / Storage |
 
 ### Editor Modules
 

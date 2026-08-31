@@ -1,0 +1,17 @@
+{
+    "name": "StellarFramework.SaveKit.Core",
+    "rootNamespace": "",
+    "references": [
+        "StellarFramework.LogKit",
+        "UniTask"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

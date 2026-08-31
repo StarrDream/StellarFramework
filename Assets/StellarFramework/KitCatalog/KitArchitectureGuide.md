@@ -38,9 +38,9 @@ Adapter Profile：可选的 Kit 间、Unity 或第三方技术栈连接层
 
 | 层级 | Kit / Profile |
 | --- | --- |
-| Foundation | LogKit、EventKit、PoolKit、SingletonKit、FSMKit、ActionKit、BindableKit、ConfigKit.Core、HttpKit、ResKit.Core、SettingsKit.Core、TimeKit |
+| Foundation | LogKit、EventKit、PoolKit、SingletonKit、FSMKit、ActionKit、BindableKit、ConfigKit.Core、HttpKit、ResKit.Core、SettingsKit.Core、TimeKit、SaveKit.Core |
 | Extension | AudioKit.Core、UIKit.Core、HotUpdate.Core |
-| Adapter | ConfigKit.NewtonsoftJson、SettingsKit.UnityAdapters、SettingsKit.AudioKitAdapter、AudioKit.ResKitAdapter、ResKit.AssetBundle、ResKit.Addressables、UIKit.ResKitAdapter、HotUpdate.AddressablesAdapter、HotUpdate.HybridCLR |
+| Adapter | ConfigKit.NewtonsoftJson、SettingsKit.UnityAdapters、SettingsKit.AudioKitAdapter、AudioKit.ResKitAdapter、ResKit.AssetBundle、ResKit.Addressables、UIKit.ResKitAdapter、HotUpdate.AddressablesAdapter、HotUpdate.HybridCLR、SaveKit.NewtonsoftJson |
 
 这只是展示和依赖约束元数据，不会让 Foundation 自动安装。选择某个 Kit 时，导出器仍只按 `requiredProfileIds` 计算实际依赖闭包。
 
@@ -78,4 +78,4 @@ TimeKit 只依赖 LogKit，不依赖 ActionKit、EventKit、PoolKit、UniTask、
 
 ## 后续新增顺序
 
-下一阶段优先验证 Foundation：SaveKit、GridKit、SpatialKit、SimulationKit、PathKit。WorldKit、PlacementKit、InventoryKit、WorldGenKit 属于后续 Extension；ProductionKit、LogisticsKit 必须在真实项目中验证领域抽象后再升格。
+下一阶段优先验证 Foundation：GridKit、SpatialKit、SimulationKit、PathKit。WorldKit、PlacementKit、InventoryKit、WorldGenKit 属于后续 Extension；ProductionKit、LogisticsKit 必须在真实项目中验证领域抽象后再升格。

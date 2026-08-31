@@ -9,6 +9,8 @@
     "StellarFramework.ResKit.AssetBundle",
     "StellarFramework.SingletonKit",
     "StellarFramework.TimeKit",
+    "StellarFramework.SaveKit.Core",
+    "StellarFramework.SaveKit.NewtonsoftJson",
     "UniTask"
   ],
   "includePlatforms": [

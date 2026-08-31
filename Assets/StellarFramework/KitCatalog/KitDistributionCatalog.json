@@ -495,6 +495,50 @@
       "excludedCapabilities": ["Addressables", "HybridCLR", "CodeHotUpdate"]
     },
     {
+      "id": "savekit.core",
+      "displayName": "SaveKit.Core",
+      "kind": "kit-with-dependencies",
+      "tier": "foundation",
+      "category": "data",
+      "availability": "available",
+      "output": "StellarFramework-SaveKit-Core.unitypackage",
+      "sourcePaths": ["Assets/StellarFramework/Runtime/Kits/SaveKit"],
+      "excludedSourcePaths": ["Assets/StellarFramework/Runtime/Kits/SaveKit/Adapters"],
+      "requiredProfileIds": ["logkit"],
+      "requiredKits": ["LogKit"],
+      "requiredUpm": ["com.cysharp.unitask"],
+      "optionalCapabilities": ["UnityJsonSerializer", "RawBytesSerializer", "FileSystemSaveStorage"],
+      "excludedCapabilities": ["NewtonsoftJson", "TimeKit", "Addressables", "HybridCLR", "CodeHotUpdate"]
+    },
+    {
+      "id": "savekit.newtonsoft-json",
+      "displayName": "SaveKit.NewtonsoftJson",
+      "kind": "kit-with-dependencies",
+      "tier": "adapter",
+      "category": "data",
+      "availability": "available",
+      "output": "StellarFramework-SaveKit-NewtonsoftJson.unitypackage",
+      "sourcePaths": ["Assets/StellarFramework/Runtime/Kits/SaveKit/Adapters/NewtonsoftJson"],
+      "requiredProfileIds": ["savekit.core"],
+      "requiredKits": ["SaveKit.Core"],
+      "requiredUpm": ["com.cysharp.unitask", "com.unity.nuget.newtonsoft-json"],
+      "optionalCapabilities": ["NewtonsoftJsonSerializer"],
+      "excludedCapabilities": ["TimeKit", "Addressables", "HybridCLR", "CodeHotUpdate"]
+    },
+    {
+      "id": "savekit.tools",
+      "displayName": "SaveKit.Tools",
+      "kind": "tooling",
+      "availability": "available",
+      "output": "StellarFramework-SaveKit-Tools.unitypackage",
+      "sourcePaths": ["Assets/StellarFramework/Editor/StellarToolsHub/Modules/SaveKit"],
+      "requiredProfileIds": ["savekit.core", "toolshub.core"],
+      "requiredKits": ["SaveKit.Core", "ToolsHub.Core"],
+      "requiredUpm": ["com.cysharp.unitask"],
+      "optionalCapabilities": ["SaveInspector", "SaveDiagnostics"],
+      "excludedCapabilities": ["NewtonsoftJson", "TimeKit", "Addressables", "HybridCLR", "CodeHotUpdate"]
+    },
+    {
       "id": "samples.actionkit",
       "displayName": "Sample.ActionKit",
       "kind": "sample",
@@ -506,6 +550,19 @@
       "requiredUpm": ["com.unity.ugui"],
       "optionalCapabilities": [],
       "excludedCapabilities": ["Addressables", "HybridCLR", "CodeHotUpdate"]
+    },
+    {
+      "id": "samples.savekit",
+      "displayName": "Sample.SaveKit",
+      "kind": "sample",
+      "availability": "available",
+      "output": "StellarFramework-Sample-SaveKit.unitypackage",
+      "sourcePaths": ["Assets/StellarFramework/Samples/KitSamples/Example_SaveKit"],
+      "requiredProfileIds": ["savekit.core"],
+      "requiredKits": ["SaveKit.Core"],
+      "requiredUpm": ["com.cysharp.unitask"],
+      "optionalCapabilities": [],
+      "excludedCapabilities": ["NewtonsoftJson", "TimeKit", "Addressables", "HybridCLR", "CodeHotUpdate"]
     },
     {
       "id": "samples.audiokit",
