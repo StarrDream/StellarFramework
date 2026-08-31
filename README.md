@@ -33,6 +33,7 @@ StellarFramework 是一个 Unity 基础开发框架，包含架构分层、UI、
 | UI | `UIKit.Core`；默认使用 Resources，不依赖 ResKit |
 | 资源加载 | `ResKit.Core`、`ResKit.AssetBundle` 或 `ResKit.Addressables` |
 | 资源与代码热更 | `HotUpdate.AddressablesAdapter`、`HotUpdate.HybridCLR` |
+| 网格基础能力 | `GridKit`，无必需 Kit 或 UPM 依赖 |
 
 ### 单包安装
 
@@ -110,6 +111,7 @@ Assets
 | `SingletonKit` | 单例生命周期与注册 |
 | `TimeKit` | 游戏世界时间、日历换算与高性能定时调度 |
 | `SaveKit` | 可靠游戏存档、Section 分区、版本迁移、事务写入、备份恢复与可扩展 Serializer / Storage |
+| `GridKit` | 负坐标网格、半开矩形、连续 DenseGrid、Footprint 变换与原子 Occupancy |
 
 ### Editor Modules
 
@@ -143,5 +145,7 @@ Assets
 - [UIKit 界面系统说明](Assets/StellarFramework/Runtime/Kits/UIKit/UIKit-界面系统-说明文档-Guide.md)
 - [SettingsKit 设置系统说明](Assets/StellarFramework/Runtime/Kits/SettingsKit/SettingsKit-设置系统-说明文档-Guide.md)
 - [HotUpdateKit 热更新说明](Assets/StellarFramework/Runtime/Kits/HotUpdateKit/HotUpdateKit-热更新-说明文档-Guide.md)
+- [GridKit 网格系统说明](Assets/StellarFramework/Runtime/Kits/GridKit/GridKit-网格系统-说明文档-Guide.md)
+- [GridKit 源码文档](Assets/StellarFramework/Runtime/Kits/GridKit/GridKit-网格系统-源码文档-Guide.md)
 - [Kit 分发矩阵与生产验收基线](Assets/StellarFramework/KitCatalog/KitExportValidationMatrix.md)
 - [Kit 架构分层与依赖规则](Assets/StellarFramework/KitCatalog/KitArchitectureGuide.md)

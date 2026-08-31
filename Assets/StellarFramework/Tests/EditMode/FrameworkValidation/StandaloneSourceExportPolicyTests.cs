@@ -372,6 +372,38 @@ namespace StellarFramework.Tests.FrameworkValidation
         }
 
         [Test]
+        public void GridKitKeepsZeroDependencyRuntimeAndSampleBoundaries()
+        {
+            string root = Path.Combine(Application.dataPath, "StellarFramework/Runtime/Kits/GridKit");
+            string asmdef = ReadAssetText(
+                "Assets/StellarFramework/Runtime/Kits/GridKit/StellarFramework.GridKit.Core.asmdef");
+            string catalog = ReadAssetText("Assets/StellarFramework/KitCatalog/KitDistributionCatalog.json");
+            string sampleAsmdef = ReadAssetText(
+                "Assets/StellarFramework/Samples/KitSamples/Example_GridKit/StellarFramework.Samples.GridKit.asmdef");
+
+            Assert.That(Directory.Exists(root), Is.True);
+            Assert.That(asmdef, Does.Contain("\"references\": []"));
+            Assert.That(asmdef, Does.Contain("\"noEngineReferences\": true"));
+            Assert.That(catalog, Does.Contain("\"id\": \"gridkit\""));
+            Assert.That(catalog, Does.Contain("StellarFramework-GridKit.unitypackage"));
+            Assert.That(catalog, Does.Contain("\"id\": \"samples.gridkit\""));
+            Assert.That(catalog, Does.Contain("Scenes/GridKit_Playable.unity"));
+            Assert.That(sampleAsmdef, Does.Contain("StellarFramework.GridKit.Core"));
+            Assert.That(sampleAsmdef, Does.Not.Contain("StellarFramework.TimeKit"));
+            Assert.That(sampleAsmdef, Does.Not.Contain("StellarFramework.ResKit"));
+
+            foreach (string sourcePath in Directory.GetFiles(root, "*.cs", SearchOption.AllDirectories))
+            {
+                string source = File.ReadAllText(sourcePath);
+                Assert.That(source, Does.Not.Contain("using UnityEngine"), sourcePath);
+                Assert.That(source, Does.Not.Contain("Addressables"), sourcePath);
+                Assert.That(source, Does.Not.Contain("HybridCLR"), sourcePath);
+                Assert.That(source, Does.Not.Contain("UniTask"), sourcePath);
+                Assert.That(source, Does.Not.Contain("Newtonsoft"), sourcePath);
+            }
+        }
+
+        [Test]
         public void SourceOnlyExporterWindowCombinesSelectedKitClosures()
         {
             string publisher = ReadAssetText(

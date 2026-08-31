@@ -2,6 +2,7 @@
   "name": "StellarFramework.FrameworkValidation.Tests",
   "rootNamespace": "StellarFramework.Tests",
   "references": [
+    "StellarFramework.GridKit.Core",
     "StellarFramework.Verification.Runtime",
     "StellarFramework.ToolsHub.Editor",
     "StellarFramework.HotUpdateKit",

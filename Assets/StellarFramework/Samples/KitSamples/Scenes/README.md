@@ -15,6 +15,7 @@
 | `SettingsKit_Playable.unity` | 默认设置页、自定义扩展页、即时应用与保存 | 可直接运行 |
 | `TimeKit_Playable.unity` | World Clock、Timer、Catch-Up、TimeKit Pause 与 Unity timeScale 对比 | 可直接运行 |
 | `SaveKit_Playable.unity` | DTO Section、异步存档、RestoreAfter、V1→V2 迁移 | 可直接运行 |
+| `GridKit_Playable.unity` | 负坐标、Row-Major DenseGrid、邻居、Footprint 与原子 Occupancy | 可直接运行 |
 | `EventKit_Playable.unity` | 枚举事件和结构体事件 | 可直接运行 |
 | `FSMKit_Playable.unity` | 轻量状态机与动画联动 | 可直接运行 |
 | `HotUpdateKit_Playable.unity` | 热更入口接线 | 场景可运行，完整热更仍需额外 DLL |
@@ -32,17 +33,18 @@
 3. `HotUpdateKit_Playable.unity`
 4. `TimeKit_Playable.unity`
 5. `SaveKit_Playable.unity`
-6. `ActionKit_Playable.unity`
-7. `BindableKit_Playable.unity`
-8. `EventKit_Playable.unity`
-9. `LogKit_Playable.unity`
-10. `SingletonKit_Playable.unity`
-11. `AudioKit_Playable.unity`
-12. `ConfigKit_Playable.unity`
-13. `SettingsKit_Playable.unity`
-14. `FSMKit_Playable.unity`
-15. `PoolKit_Playable.unity`
-16. `HttpKit_Playable.unity`
+6. `GridKit_Playable.unity`
+7. `ActionKit_Playable.unity`
+8. `BindableKit_Playable.unity`
+9. `EventKit_Playable.unity`
+10. `LogKit_Playable.unity`
+11. `SingletonKit_Playable.unity`
+12. `AudioKit_Playable.unity`
+13. `ConfigKit_Playable.unity`
+14. `SettingsKit_Playable.unity`
+15. `FSMKit_Playable.unity`
+16. `PoolKit_Playable.unity`
+17. `HttpKit_Playable.unity`
 
 ## 已补齐的公共资源
 
@@ -68,6 +70,7 @@
 - `ResKit_Playable.unity` 的 Addressables 部分依赖本地安装和构建结果；AA 模拟与构建请使用 Addressables 官方界面
 - `HotUpdateKit_Playable.unity` 只验证入口，不包含完整热更产物
 - `TimeKit_Playable.unity` 不需要 SaveKit；`SaveKit_Playable.unity` 不需要 TimeKit，两个样例可以分别导出
+- `GridKit_Playable.unity` 只依赖 GridKit.Core，不需要资源、UPM 或热更前置，可直接作为单 Kit 样例导出
 - `SaveKit_Playable.unity` 的 Legacy 按钮会生成一个真实 V1 文件，再由当前 V2 Section 和 Migration 加载
 - `FrameworkValidation` 已迁入框架外验证区，适合框架开发者做发布前回归，不再作为用户样例的一部分
 - `HttpKit_Playable.unity` 离线也能看到本地逻辑，联网时信息更完整

@@ -19,6 +19,7 @@
 - `UIKit_Playable.unity`：UIRoot、Open/Push/Pop/Close、运行时快照和压力测试
 - `TimeKit_Playable.unity`：World Clock、一次性/周期 Timer、Catch-Up 与 Unity timeScale 解耦
 - `SaveKit_Playable.unity`：DTO Section、Save/Load/Delete、RestoreAfter 与 V1→V2 迁移
+- `GridKit_Playable.unity`：负坐标、DenseGrid、邻居、Footprint 变换与原子 Occupancy
 - `HotUpdateKit_Playable.unity`：可选热更新门户与 HybridCLR AA 启动链路示例
 - `SettingsKit_Playable.unity`：设置定义、存储、应用策略和示例 UI
 
@@ -29,6 +30,7 @@ TimeKit 与 SaveKit 是需要独立操作说明的正式样例，目录下保留
 - 总览、顺序和前置条件看 `Samples_Index.md` 与 `Scenes/README.md`
 - TimeKit 的 API 对照和验收步骤看 `Example_TimeKit/README.md`
 - SaveKit 的 DTO、迁移和导出边界看 `Example_SaveKit/README.md`
+- GridKit 的负坐标、Footprint 与 Occupancy 操作看 `Example_GridKit/README.md`
 - 单个样例的按键、操作方式和通过标准写在对应 `Example_*.cs` 文件头注释里
 - 场景内还会挂 `ExampleSceneGuide`，运行时可直接在 Game 视图看到核心提示
 

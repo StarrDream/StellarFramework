@@ -67,6 +67,20 @@
       "excludedCapabilities": ["Addressables", "HybridCLR", "CodeHotUpdate"]
     },
     {
+      "id": "gridkit",
+      "displayName": "GridKit",
+      "kind": "kit",
+      "tier": "foundation",
+      "category": "world",
+      "availability": "available",
+      "output": "StellarFramework-GridKit.unitypackage",
+      "sourcePaths": ["Assets/StellarFramework/Runtime/Kits/GridKit"],
+      "requiredKits": [],
+      "requiredUpm": [],
+      "optionalCapabilities": ["DenseGrid", "GridGeometry", "GridFootprint", "GridOccupancy"],
+      "excludedCapabilities": ["Addressables", "HybridCLR", "CodeHotUpdate"]
+    },
+    {
       "id": "standalone.architecture",
       "displayName": "Architecture.cs",
       "kind": "single-file",
@@ -576,6 +590,23 @@
       "requiredUpm": ["com.cysharp.unitask"],
       "optionalCapabilities": [],
       "excludedCapabilities": ["NewtonsoftJson", "TimeKit", "Addressables", "HybridCLR", "CodeHotUpdate"]
+    },
+    {
+      "id": "samples.gridkit",
+      "displayName": "Sample.GridKit",
+      "kind": "sample",
+      "availability": "available",
+      "output": "StellarFramework-Sample-GridKit.unitypackage",
+      "sourcePaths": [
+        "Assets/StellarFramework/Samples/KitSamples/Example_GridKit",
+        "Assets/StellarFramework/Samples/KitSamples/Common",
+        "Assets/StellarFramework/Samples/KitSamples/Scenes/GridKit_Playable.unity"
+      ],
+      "requiredProfileIds": ["gridkit"],
+      "requiredKits": ["GridKit"],
+      "requiredUpm": [],
+      "optionalCapabilities": [],
+      "excludedCapabilities": ["Addressables", "HybridCLR", "CodeHotUpdate"]
     },
     {
       "id": "samples.audiokit",

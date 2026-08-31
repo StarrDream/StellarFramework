@@ -8,7 +8,7 @@
   完整架构案例，用来演示 `Architecture / Model / Service / View / UI` 的协作链路。
 - `KitSamples/`
   单个模块的最小可运行案例，用来验证接线、资源和调用方式。
-  其中 `KitSamples/Scenes/TimeKit_Playable.unity` 与 `KitSamples/Scenes/SaveKit_Playable.unity` 是不带资源/热更前置的基础闭环，可单独导出。
+  其中 `KitSamples/Scenes/GridKit_Playable.unity`、`KitSamples/Scenes/TimeKit_Playable.unity` 与 `KitSamples/Scenes/SaveKit_Playable.unity` 是不带资源/热更前置的基础闭环，可单独导出。
 
 ## 建议顺序
 
@@ -20,6 +20,7 @@
 6. `ArchitectureDemo/README.md`
 7. `ArchitectureDemo/Scene/FrameworkArchitecture_Playable.unity`
 8. 对应模块目录下的 `English-中文-Guide.md`
+9. `KitSamples/Scenes/GridKit_Playable.unity`
 
 ## 说明
 
@@ -28,5 +29,6 @@
 - `KitSamples/Editor` 里的构建器会补齐样例场景、测试配置和依赖资源。
 - `SettingsKit_Playable.unity` 已加入 `KitSamples`，可直接验证设置系统的默认页、扩展页、存储和即时应用。
 - `TimeKit_Playable.unity` 与 `SaveKit_Playable.unity` 各自只依赖对应 Kit；SaveKit 样例另外演示 DTO、RestoreAfter 与 V1→V2 迁移。
+- `GridKit_Playable.unity` 只依赖 GridKit.Core，演示负坐标、row-major DenseGrid、Footprint 变换与 Occupancy 原子冲突。
 - `FrameworkValidation` 已迁入框架外的验证区，仅供框架开发者做发布前自检与冒烟验证。
 

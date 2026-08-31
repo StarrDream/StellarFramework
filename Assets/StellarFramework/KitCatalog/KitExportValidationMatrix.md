@@ -4,7 +4,7 @@
 
 ## 当前可选目标
 
-当前目录包含 50 个分发 Profile：2 个单文件目标、2 个 Runtime 支持包、2 个 ToolsHub 包、1 个生成支持包、13 个 Foundation Kit、3 个 Extension Kit、10 个 Adapter Profile，以及 17 个可选样例包。
+当前目录包含 52 个分发 Profile：2 个单文件目标、2 个 Runtime 支持包、2 个 ToolsHub 包、1 个生成支持包、14 个 Foundation Kit、3 个 Extension Kit、10 个 Adapter Profile，以及 18 个可选样例包。
 
 Catalog schema v2 以 `tier` / `category` 描述架构职责；它不改变 `kind` 的分发语义，也不会让同层 Kit 自动安装。完整规则见 [KitArchitectureGuide.md](KitArchitectureGuide.md)。
 
@@ -23,6 +23,7 @@ Catalog schema v2 以 `tier` / `category` 描述架构职责；它不改变 `kin
 | SaveKit.Core | LogKit、存档容器、Section、事务、Migration 与 FileSystem Storage | Newtonsoft、TimeKit、Addressables、HybridCLR |
 | SaveKit.NewtonsoftJson | SaveKit.Core、Newtonsoft JSON Serializer | TimeKit、Addressables、HybridCLR |
 | SaveKit.Tools | ToolsHub 存档中心、Verify、Raw/Hex、Migration Type Chain、Dry Run | 不增加运行时领域依赖 |
+| GridKit | 负坐标几何、DenseGrid、Footprint、整数 Occupancy | Addressables、HybridCLR、所有其他 Kit 与 UPM |
 | HotUpdate.Core | ResKit.Core、HttpKit、热更策略抽象 | Addressables、HybridCLR、代码热更实现 |
 | HotUpdate.Addressables | HotUpdate.Core、ResKit.Addressables | HybridCLR |
 | HotUpdate.HybridCLR | HotUpdate.Addressables、HybridCLR 运行时与导出工具 | 无 |
@@ -33,6 +34,7 @@ Catalog schema v2 以 `tier` / `category` 描述架构职责；它不改变 `kin
 | --- | --- | --- |
 | Sample.TimeKit | TimeKit Sample 脚本、Common 场景说明、`TimeKit_Playable.unity` | 依赖 `TimeKit`；排除 SaveKit、ResKit、Addressables、HybridCLR |
 | Sample.SaveKit | SaveKit Sample DTO/Section、Common 场景说明、`SaveKit_Playable.unity` | 依赖 `SaveKit.Core` + UniTask；排除 TimeKit、ResKit、Addressables、HybridCLR、Newtonsoft |
+| Sample.GridKit | GridKit 示例脚本、Common 场景说明、`GridKit_Playable.unity` | 依赖 `GridKit`；无 UPM；排除 Addressables、HybridCLR、其他 Kit |
 
 完整 Profile、依赖闭包与 UPM 要求以 [KitDistributionCatalog.json](KitDistributionCatalog.json) 为准。
 
@@ -43,7 +45,7 @@ Catalog schema v2 以 `tier` / `category` 描述架构职责；它不改变 `kin
 - Unity 编译：无非预期 Console error。
 - 分发边界测试：覆盖单文件导出、Adapter 排除、ToolsHub 程序集识别、依赖闭包与 Catalog 架构元数据。
 - TimeKit：EditMode 与 PlayMode 测试通过；单 Kit 安装包已实际导出并检查外层 Bootstrap、内层 payload 与 LogKit 依赖闭包。
-- 完整 EditMode：208 项完成，207 通过、0 失败、1 项明确标记为 Player/IL2CPP 环境专用而跳过；HybridCLR AA 全链路用例仍需 Player/IL2CPP 环境。
+- 完整 EditMode：225 项完成，224 通过、0 失败、1 项明确标记为 Player/IL2CPP 环境专用而跳过；HybridCLR AA 全链路用例仍需 Player/IL2CPP 环境。
 - 已实际导出并核对依赖说明：AudioKit.Core / ResKitAdapter、SettingsKit.Core / UnityAdapters / AudioKitAdapter、ConfigKit.Core / NewtonsoftJson。
 - HotUpdate.HybridCLR 的完整启动路径已单独验证通过。
 - SaveKit.Core：EditMode 覆盖 Slot/Section 安全、Container、Checksum、事务、Backup、Migration、Missing/Unknown、Restore DAG、跨 DTO 类型链和未来版本提前失败；Newtonsoft Adapter 已完成 Round Trip 验证。
@@ -51,6 +53,7 @@ Catalog schema v2 以 `tier` / `category` 描述架构职责；它不改变 `kin
 - SaveKit 示例：独立 asmdef 仅依赖 SaveKit.Core 与 UniTask，不包含框架业务样例或热更插件。
 - TimeKit 示例：模板和开发场景均由 `ExamplePlayableSceneBuilder.BuildAllSamples()` 生成，场景只包含相机、方向光、样例脚本和统一说明面板。
 - SaveKit 示例：覆盖两个 Section 的 `RestoreAfter` 顺序、Save/Load/Delete、Revision/Diagnostics 和真实 V1→V2 DTO Migration；不解析私有磁盘格式。
+- GridKit：14 项 EditMode 行为测试与 1 项 1M/100k 基准通过；Core asmdef 无引用、无 UnityEngine，`GridKit_Playable` 场景验证通过且无 missing script。
 
 ## 后续空白工程检查
 

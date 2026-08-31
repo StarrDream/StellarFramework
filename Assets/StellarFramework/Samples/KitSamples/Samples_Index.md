@@ -16,6 +16,7 @@
 | 基础 Kit 学习 | `ActionKit / BindableKit / EventKit / LogKit / SingletonKit` | 无 |
 | 世界时间与 Timer | `TimeKit_Playable.unity` | 无；不依赖 SaveKit 或 Unity `Time.timeScale` |
 | 存档与迁移 | `SaveKit_Playable.unity` | 仅 SaveKit.Core + UniTask；不依赖 TimeKit/ResKit/热更 |
+| 网格与空间基础 | `GridKit_Playable.unity` | 仅 GridKit.Core；无 UPM、Addressables、HybridCLR |
 | 资源与 UI 验收 | `ResKit_Playable.unity`、`UIKit_Playable.unity` | AB/AA 按需构建 |
 | 设置系统验收 | `SettingsKit_Playable.unity` | 样例构建器生成资源 |
 | 热更链路验收 | `HotUpdateKit_Playable.unity` | 可选扩展路径；完整热更需 HybridCLR 与 AA 产物 |
@@ -26,11 +27,12 @@
 1. 打开 `StellarFramework -> Tools Hub -> Start Here -> Quick Start`
 2. 点击“构建样例”
 3. 先跑 `TimeKit_Playable.unity` 和 `SaveKit_Playable.unity`，确认两个不带资源/热更前置的基础 Kit 闭环
-4. 再跑 `UIKit_Playable.unity` 和 `ResKit_Playable.unity`，确认 UI 与资源主链路无 error
-5. 再按 `Scenes/README.md` 的顺序跑单个 Kit 场景
-6. 涉及 AB 的场景先用 ToolHub 构建 AB
-7. 涉及 AA 的场景使用 Addressables 官方 `Groups / Profiles / Build` 或 Play Mode Script
-8. 涉及 HybridCLR 的场景只做入口检查，真实 dll.bytes 走 HybridCLR 官方流程；建议在基础框架稳定后再接入
+4. 跑 `GridKit_Playable.unity`，确认负坐标、Footprint 与 Occupancy 原子性
+5. 再跑 `UIKit_Playable.unity` 和 `ResKit_Playable.unity`，确认 UI 与资源主链路无 error
+6. 再按 `Scenes/README.md` 的顺序跑单个 Kit 场景
+7. 涉及 AB 的场景先用 ToolHub 构建 AB
+8. 涉及 AA 的场景使用 Addressables 官方 `Groups / Profiles / Build` 或 Play Mode Script
+9. 涉及 HybridCLR 的场景只做入口检查，真实 dll.bytes 走 HybridCLR 官方流程；建议在基础框架稳定后再接入
 
 ## 不继续堆文档/脚本的规则
 

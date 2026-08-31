@@ -34,7 +34,7 @@ namespace StellarFramework.Editor.Modules
 
         private static readonly string[] OptionalSampleProfileIds =
         {
-            "samples.actionkit", "samples.audiokit", "samples.bindablekit", "samples.configkit",
+            "samples.actionkit", "samples.audiokit", "samples.bindablekit", "samples.configkit", "samples.gridkit",
             "samples.eventkit", "samples.fsmkit", "samples.httpkit", "samples.logkit", "samples.poolkit",
             "samples.reskit", "samples.settingskit", "samples.singletonkit", "samples.uikit",
             "samples.architecture", "samples.hotupdate.hybridclr"
@@ -134,6 +134,11 @@ namespace StellarFramework.Editor.Modules
         public static void ExportEventKitPackage()
         {
             ExportKitPackageAndReveal("eventkit");
+        }
+
+        public static void ExportGridKitPackage()
+        {
+            ExportKitPackageAndReveal("gridkit");
         }
 
         public static void ExportActionKitPackage()
@@ -256,6 +261,8 @@ namespace StellarFramework.Editor.Modules
         public static void ExportAudioKitSamplePackage() => ExportKitPackageAndReveal("samples.audiokit");
 
         public static void ExportBindableKitSamplePackage() => ExportKitPackageAndReveal("samples.bindablekit");
+
+        public static void ExportGridKitSamplePackage() => ExportKitPackageAndReveal("samples.gridkit");
 
         public static void ExportConfigKitSamplePackage() => ExportKitPackageAndReveal("samples.configkit");
 

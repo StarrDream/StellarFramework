@@ -38,7 +38,7 @@ Adapter Profile：可选的 Kit 间、Unity 或第三方技术栈连接层
 
 | 层级 | Kit / Profile |
 | --- | --- |
-| Foundation | LogKit、EventKit、PoolKit、SingletonKit、FSMKit、ActionKit、BindableKit、ConfigKit.Core、HttpKit、ResKit.Core、SettingsKit.Core、TimeKit、SaveKit.Core |
+| Foundation | LogKit、EventKit、PoolKit、SingletonKit、FSMKit、ActionKit、BindableKit、ConfigKit.Core、HttpKit、ResKit.Core、SettingsKit.Core、TimeKit、SaveKit.Core、GridKit |
 | Extension | AudioKit.Core、UIKit.Core、HotUpdate.Core |
 | Adapter | ConfigKit.NewtonsoftJson、SettingsKit.UnityAdapters、SettingsKit.AudioKitAdapter、AudioKit.ResKitAdapter、ResKit.AssetBundle、ResKit.Addressables、UIKit.ResKitAdapter、HotUpdate.AddressablesAdapter、HotUpdate.HybridCLR、SaveKit.NewtonsoftJson |
 
@@ -69,6 +69,10 @@ TimeKit 只依赖 LogKit，不依赖 ActionKit、EventKit、PoolKit、UniTask、
 
 存档保存业务数据、世界 Tick 和业务目标 Tick；读档后由业务重新注册必要的 Timer。不要序列化 TimeScheduler 的 delegate、receiver、Handle 或 Heap。
 
+## GridKit 的定位
+
+GridKit 是 `foundation / world`：负坐标整数几何、半开 Bounds、稳定坐标↔index、连续 DenseGrid、不可变 Footprint 和整数 Occupancy。它不依赖 UnityEngine 或任何其他 Kit，因此可以单独导出；寻路、Chunk、Tilemap、3D、Placement 和存档由上层或后续 Kit 负责。
+
 ## 分发原则
 
 - 所有 Kit 继续按需导出；Foundation 不等于默认全量安装。
@@ -78,4 +82,4 @@ TimeKit 只依赖 LogKit，不依赖 ActionKit、EventKit、PoolKit、UniTask、
 
 ## 后续新增顺序
 
-下一阶段优先验证 Foundation：GridKit、SpatialKit、SimulationKit、PathKit。WorldKit、PlacementKit、InventoryKit、WorldGenKit 属于后续 Extension；ProductionKit、LogisticsKit 必须在真实项目中验证领域抽象后再升格。
+下一阶段优先验证 Foundation：SpatialKit、SimulationKit、PathKit。WorldKit、PlacementKit、InventoryKit、WorldGenKit 属于后续 Extension；ProductionKit、LogisticsKit 必须在真实项目中验证领域抽象后再升格。
