@@ -12,7 +12,7 @@ NOT RUN 和 BLOCKED 不得写成 PASS；未运行的 Benchmark 不得填写推�
 
 ## 当前可选目标
 
-当前目录包含 54 个分发 Profile：2 个单文件目标、2 个 Runtime 支持包、2 个 ToolsHub 包、1 个生成支持包、15 个 Foundation Kit、3 个 Extension Kit、10 个 Adapter Profile，以及 19 个可选样例包。
+当前目录包含 56 个分发 Profile：2 个单文件目标、2 个 Runtime 支持包、2 个 ToolsHub 包、1 个生成支持包、16 个 Foundation Kit、3 个 Extension Kit、10 个 Adapter Profile，以及 20 个可选样例包。
 
 Catalog schema v2 以 `tier` / `category` 描述架构职责；它不改变 `kind` 的分发语义，也不会让同层 Kit 自动安装。完整规则见 [KitArchitectureGuide.md](KitArchitectureGuide.md)。
 
@@ -33,6 +33,7 @@ Catalog schema v2 以 `tier` / `category` 描述架构职责；它不改变 `kin
 | SaveKit.Tools | ToolsHub 存档中心、Verify、Raw/Hex、Migration Type Chain、Dry Run | 不增加运行时领域依赖 |
 | GridKit | 负坐标几何、DenseGrid、Footprint、整数 Occupancy | Addressables、HybridCLR、所有其他 Kit 与 UPM |
 | SpatialKit | 连续二维点、均匀空间哈希、Rect/Circle 查询、有限半径最近邻 | GridKit、ResKit、Addressables、HybridCLR、所有其他 Kit 与 UPM |
+| SimulationKit | SimulationId、索引最小堆、固定预算派发、Staggered 首次延迟、过期合并 | UnityEngine、TimeKit、GridKit、SpatialKit、ResKit、Addressables、HybridCLR、所有其他 Kit 与 UPM |
 | HotUpdate.Core | ResKit.Core、HttpKit、热更策略抽象 | Addressables、HybridCLR、代码热更实现 |
 | HotUpdate.Addressables | HotUpdate.Core、ResKit.Addressables | HybridCLR |
 | HotUpdate.HybridCLR | HotUpdate.Addressables、HybridCLR 运行时与导出工具 | 无 |
@@ -45,6 +46,7 @@ Catalog schema v2 以 `tier` / `category` 描述架构职责；它不改变 `kin
 | Sample.SaveKit | SaveKit Sample DTO/Section、Common 场景说明、`SaveKit_Playable.unity` | 依赖 `SaveKit.Core` + UniTask；排除 TimeKit、ResKit、Addressables、HybridCLR、Newtonsoft |
 | Sample.GridKit | GridKit 示例脚本、Common 场景说明、`GridKit_Playable.unity` | 依赖 `GridKit`；无 UPM；排除 Addressables、HybridCLR、其他 Kit |
 | Sample.SpatialKit | SpatialKit 示例脚本、Common 场景说明、`SpatialKit_Playable.unity` | 依赖 `SpatialKit`；无 UPM；排除 GridKit、ResKit、Addressables、HybridCLR |
+| Sample.SimulationKit | SimulationKit 示例脚本、Common 场景说明、`SimulationKit_Playable.unity` | 依赖 `SimulationKit`；无 UPM；手动 tick；排除 TimeKit、GridKit、ResKit、Addressables、HybridCLR |
 
 完整 Profile、依赖闭包与 UPM 要求以 [KitDistributionCatalog.json](KitDistributionCatalog.json) 为准。
 
@@ -57,7 +59,7 @@ Verification 边界：StellarFrameworkVerification 不注册为普通 Kit、Samp
 - Unity 编译：无非预期 Console error。
 - 分发边界测试：覆盖单文件导出、Adapter 排除、ToolsHub 程序集识别、依赖闭包与 Catalog 架构元数据。
 - TimeKit：EditMode 与 PlayMode 测试通过；单 Kit 安装包已实际导出并检查外层 Bootstrap、内层 payload 与 LogKit 依赖闭包。
-- 完整 EditMode：256 项完成，255 通过、0 失败、1 项明确标记为 Player/IL2CPP 环境专用而跳过；HybridCLR AA 全链路用例仍需 Player/IL2CPP 环境。
+- 完整 EditMode：279 项完成，278 通过、0 失败、1 项明确标记为 Player/IL2CPP 环境专用而跳过；HybridCLR AA 全链路用例仍需 Player/IL2CPP 环境。
 - 完整 PlayMode：11 项完成，11 通过、0 失败、0 跳过；覆盖 EventKit、BindableKit、SaveKit、TimeKit、UIKit/ResKit 的真实 Runtime 行为。
 - Package Publisher 路径边界：Base / Full payload 的框架根与 GameHotUpdate 根均使用目录边界判断；`StellarFrameworkVerification`、`StellarFrameworkBackup`、`StellarFramework2`、`GameHotUpdateBackup` 的 sibling-prefix 回归均被拒绝，实际 Full payload 导出不含 Verification 条目。
 - 已实际导出并核对依赖说明：AudioKit.Core / ResKitAdapter、SettingsKit.Core / UnityAdapters / AudioKitAdapter、ConfigKit.Core / NewtonsoftJson。
@@ -71,6 +73,11 @@ Verification 边界：StellarFrameworkVerification 不注册为普通 Kit、Samp
 - GridKit V1 RC ownership regression：write-side `allowedExistingOccupant` overload 已删除；`TryOccupy` 仅执行 Empty → Owner，`CanOccupy` Preview 永不修改，`TryRelease` 保持 Owner → Empty 原子语义。
 - SpatialKit：Core asmdef 无引用且无 UnityEngine；Behavior 13 项与 Benchmark 2 项均通过，覆盖负坐标 floor、Rect/Circle 边界和截断、Nearest tie/exclude、失败原子性与极端查询范围保护；`SpatialKit_Playable` 只挂 SpatialKit 样例脚本和公共说明面板，场景校验无 missing script。
 - SpatialKit V1 Final Hardening：Same-Bucket/Cross-Bucket 数据集已显式构造并自证；Sample Circle 改为运行时圆线，QueryMatched/Nearest 使用 SpatialKit 实际返回 ID 高亮，mutation 清理旧查询状态；Core semantic diff = NONE，Core Semantics Frozen = YES。
+- SimulationKit：Core/行为、性能、样例和导出验证在本次 RC 验收中记录；Core Semantics Frozen 保持 NO，待独立评审后再冻结。
+- SimulationKit 行为验证：17 项 Core 行为测试与 2 项架构/导出策略测试通过；覆盖 ID 合法性、重复/缺失、时间回退、首延迟、实际派发时间重排、不追赶、预算/积压、稳定排序、注销、改周期、溢出原子性和 Clear。
+- SimulationKit 性能验证（Unity 2022.3.62f3c1，Editor Test Runner）：100,000 条注册/查询/改周期/注销，Register=6.953 ms、Lookup=3.575 ms、SetInterval=15.723 ms、Unregister=11.823 ms，ManagedHeapDelta=0；100,000 条同刻到期、Budget=512，196 次 Collect、100,000 次派发、Collect=44.787 ms，ManagedHeapDelta=0；100,000 条交错周期、101 个 tick、Budget=512，2,002 次 Collect、1,001,000 次派发、Dispatch=500.199 ms，ManagedHeapDelta=0；1,000,000 条存储压力，10,000 次无到期 Collect=0.179 ms、62,500 次查询=2.246 ms、31,250 次改周期=4.211 ms、Clear=1.074 ms，ManagedHeapDelta=0。ManagedHeapDelta 只作 coarse heap trend，不是严格零分配证明。
+- SimulationKit 导出闭环：已实际生成 `StellarFramework-SimulationKit.unitypackage`、`StellarFramework-Sample-SimulationKit.unitypackage` 以及合并包 `StellarFramework-SimulationKit-With-Sample.unitypackage`。Core payload 仅包含 SimulationKit Runtime 五个 `.cs`、Core asmdef 与两份源码/说明文档；Sample payload 额外包含 Common、Example_SimulationKit 和 `SimulationKit_Playable.unity`，三份 Bootstrap manifest 均无 UPM/Kit 依赖，组合包只声明同一 payload 内的 Core 闭包。
+- SimulationKit 空白工程烟测：Core 单 Kit 包在 `C:\GitProjects\SimulationKitCleanImport-20260901-214600` 完成安装、编译与 Bootstrap 清理；Core+Sample 合并包在 `C:\GitProjects\SimulationKitSampleCleanImport-20260901-214600` 完成安装、编译与 Bootstrap 清理，未发现 CS 编译错误、异常或 Missing 脚本。
 - 最新 Benchmark 证据（Unity 2022.3.62f3c1）：GridKit 1,000,000 cells，100,000 次 CanOccupy 与 Occupy/Release，fill 0.440 ms、linear read 1.996 ms、coord↔index 21.630 ms、CanOccupy 7.830 ms、Occupy/Release 24.878 ms；SaveKit 100,000 records，file 2,100,125 bytes，save 24.880 ms、load 22.780 ms。
 - 上述 ManagedHeapDelta 来自 GC.GetTotalMemory(false)，只作为 coarse heap / GC trend，不是严格零分配证明。
 

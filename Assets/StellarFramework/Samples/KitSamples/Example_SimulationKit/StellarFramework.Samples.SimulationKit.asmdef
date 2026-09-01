@@ -1,0 +1,16 @@
+{
+    "name": "StellarFramework.Samples.SimulationKit",
+    "rootNamespace": "",
+    "references": [
+        "StellarFramework.SimulationKit.Core"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

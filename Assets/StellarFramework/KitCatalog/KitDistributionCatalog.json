@@ -95,6 +95,20 @@
       "excludedCapabilities": ["Addressables", "HybridCLR", "CodeHotUpdate"]
     },
     {
+      "id": "simulationkit",
+      "displayName": "SimulationKit",
+      "kind": "kit",
+      "tier": "foundation",
+      "category": "simulation",
+      "availability": "available",
+      "output": "StellarFramework-SimulationKit.unitypackage",
+      "sourcePaths": ["Assets/StellarFramework/Runtime/Kits/SimulationKit"],
+      "requiredKits": [],
+      "requiredUpm": [],
+      "optionalCapabilities": ["BatchSimulationScheduling", "CountBudgetDispatch", "StaggeredFirstDispatch", "OverdueCoalescing"],
+      "excludedCapabilities": ["Addressables", "HybridCLR", "CodeHotUpdate"]
+    },
+    {
       "id": "standalone.architecture",
       "displayName": "Architecture.cs",
       "kind": "single-file",
@@ -635,6 +649,23 @@
       ],
       "requiredProfileIds": ["spatialkit"],
       "requiredKits": ["SpatialKit"],
+      "requiredUpm": [],
+      "optionalCapabilities": [],
+      "excludedCapabilities": ["Addressables", "HybridCLR", "CodeHotUpdate"]
+    },
+    {
+      "id": "samples.simulationkit",
+      "displayName": "Sample.SimulationKit",
+      "kind": "sample",
+      "availability": "available",
+      "output": "StellarFramework-Sample-SimulationKit.unitypackage",
+      "sourcePaths": [
+        "Assets/StellarFramework/Samples/KitSamples/Example_SimulationKit",
+        "Assets/StellarFramework/Samples/KitSamples/Common",
+        "Assets/StellarFramework/Samples/KitSamples/Scenes/SimulationKit_Playable.unity"
+      ],
+      "requiredProfileIds": ["simulationkit"],
+      "requiredKits": ["SimulationKit"],
       "requiredUpm": [],
       "optionalCapabilities": [],
       "excludedCapabilities": ["Addressables", "HybridCLR", "CodeHotUpdate"]

@@ -38,6 +38,7 @@ StellarFramework 是一个 Unity 基础开发框架，包含架构分层、UI、
 | 资源与代码热更 | `HotUpdate.AddressablesAdapter`、`HotUpdate.HybridCLR` |
 | 网格基础能力 | `GridKit`，无必需 Kit 或 UPM 依赖 |
 | 连续二维空间索引 | `SpatialKit`，动态点索引、矩形/圆形查询和有限半径最近邻；无必需 Kit 或 UPM 依赖 |
+| 批量模拟调度 | `SimulationKit`，索引最小堆、固定预算派发、分散首次派发与过期合并；无必需 Kit 或 UPM 依赖 |
 
 ### 单包安装
 
@@ -125,6 +126,7 @@ Assets
 | `SaveKit` | 可靠游戏存档、Section 分区、版本迁移、事务写入、备份恢复与可扩展 Serializer / Storage |
 | `GridKit` | 负坐标网格、半开矩形、连续 DenseGrid、Footprint 变换与原子 Occupancy |
 | `SpatialKit` | 连续二维点、均匀空间哈希、矩形/圆形查询与最近邻 |
+| `SimulationKit` | 纯 C# 批量模拟调度、固定预算派发、分散首次派发与过期合并 |
 
 ### Editor Modules
 
@@ -162,6 +164,8 @@ Assets
 - [GridKit 源码文档](Assets/StellarFramework/Runtime/Kits/GridKit/GridKit-网格系统-源码文档-Guide.md)
 - [SpatialKit 空间索引说明](Assets/StellarFramework/Runtime/Kits/SpatialKit/SpatialKit-空间索引-说明文档-Guide.md)
 - [SpatialKit 源码文档](Assets/StellarFramework/Runtime/Kits/SpatialKit/SpatialKit-空间索引-源码文档-Guide.md)
+- [SimulationKit 批量调度说明](Assets/StellarFramework/Runtime/Kits/SimulationKit/SimulationKit-批量模拟调度-说明文档-Guide.md)
+- [SimulationKit 源码文档](Assets/StellarFramework/Runtime/Kits/SimulationKit/SimulationKit-批量模拟调度-源码文档-Guide.md)
 - [验证架构与发布验收规范](Assets/StellarFrameworkVerification/ValidationArchitecture.md)
 - [维护者验证区 README](Assets/StellarFrameworkVerification/README.md)
 - [Kit 分发矩阵与生产验收基线](Assets/StellarFramework/KitCatalog/KitExportValidationMatrix.md)

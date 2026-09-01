@@ -36,7 +36,7 @@ namespace StellarFramework.Editor.Modules
         {
             "samples.actionkit", "samples.audiokit", "samples.bindablekit", "samples.configkit", "samples.gridkit",
             "samples.eventkit", "samples.fsmkit", "samples.httpkit", "samples.logkit", "samples.poolkit",
-            "samples.reskit", "samples.settingskit", "samples.singletonkit", "samples.spatialkit", "samples.uikit",
+            "samples.reskit", "samples.settingskit", "samples.singletonkit", "samples.spatialkit", "samples.simulationkit", "samples.uikit",
             "samples.architecture", "samples.hotupdate.hybridclr"
         };
 
@@ -139,6 +139,11 @@ namespace StellarFramework.Editor.Modules
         public static void ExportGridKitPackage()
         {
             ExportKitPackageAndReveal("gridkit");
+        }
+
+        public static void ExportSimulationKitPackage()
+        {
+            ExportKitPackageAndReveal("simulationkit");
         }
 
         public static void ExportActionKitPackage()
@@ -263,6 +268,8 @@ namespace StellarFramework.Editor.Modules
         public static void ExportBindableKitSamplePackage() => ExportKitPackageAndReveal("samples.bindablekit");
 
         public static void ExportGridKitSamplePackage() => ExportKitPackageAndReveal("samples.gridkit");
+
+        public static void ExportSimulationKitSamplePackage() => ExportKitPackageAndReveal("samples.simulationkit");
 
         public static void ExportConfigKitSamplePackage() => ExportKitPackageAndReveal("samples.configkit");
 

@@ -43,6 +43,7 @@ Samples 不属于这五层 Verification 本体。Samples 只负责回答“开�
 验证规模、吞吐、结构性趋势和可重复的环境证据，不代替行为测试。当前样板：
 
 - GridKitBenchmarkTests：1M DenseGrid、坐标索引和 100k Occupancy。
+- SimulationKitBenchmarkTests：100k 注册/查询/变更、100k 同刻预算派发、1M 无到期存储压力和分散负载。
 - SaveKitBenchmarkTests：100000 条存档记录的 End-to-End Save/Load。
 
 Benchmark 必须记录规模、操作次数、耗时、环境、校验和以及可可靠取得的 GC 证据。GC.GetTotalMemory(false) 只能描述为 coarse heap / GC trend，不能宣称严格的零分配证明；不设置依赖机器速度的固定毫秒门槛。
@@ -91,10 +92,12 @@ StellarFramework
 │  │  │  ├─ Kits
 │  │  │  │  ├─ TimeKit
 │  │  │  │  ├─ SaveKit
-│  │  │  │  └─ GridKit
+│  │  │  │  ├─ GridKit
+│  │  │  │  └─ SimulationKit
 │  │  │  ├─ Performance
 │  │  │  │  ├─ SaveKit
-│  │  │  │  └─ GridKit
+│  │  │  │  ├─ GridKit
+│  │  │  │  └─ SimulationKit
 │  │  │  ├─ Policies
 │  │  │  │  ├─ Architecture
 │  │  │  │  ├─ Documentation
@@ -162,7 +165,7 @@ Fixture 为测试服务，Sample 为学习服务。当前没有新增 Fixture �
 
 ## 6. 新 Kit Validation Contract 模板
 
-每个新 Kit（从 SpatialKit 开始）在设计和验收文档中必须填写：
+每个新 Kit（从 SpatialKit、SimulationKit 开始）在设计和验收文档中必须填写：
 
 ~~~text
 Validation Contract

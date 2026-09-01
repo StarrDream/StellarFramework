@@ -38,7 +38,7 @@ Adapter Profile：可选的 Kit 间、Unity 或第三方技术栈连接层
 
 | 层级 | Kit / Profile |
 | --- | --- |
-| Foundation | LogKit、EventKit、PoolKit、SingletonKit、FSMKit、ActionKit、BindableKit、ConfigKit.Core、HttpKit、ResKit.Core、SettingsKit.Core、TimeKit、SaveKit.Core、GridKit、SpatialKit |
+| Foundation | LogKit、EventKit、PoolKit、SingletonKit、FSMKit、ActionKit、BindableKit、ConfigKit.Core、HttpKit、ResKit.Core、SettingsKit.Core、TimeKit、SaveKit.Core、GridKit、SpatialKit、SimulationKit |
 | Extension | AudioKit.Core、UIKit.Core、HotUpdate.Core |
 | Adapter | ConfigKit.NewtonsoftJson、SettingsKit.UnityAdapters、SettingsKit.AudioKitAdapter、AudioKit.ResKitAdapter、ResKit.AssetBundle、ResKit.Addressables、UIKit.ResKitAdapter、HotUpdate.AddressablesAdapter、HotUpdate.HybridCLR、SaveKit.NewtonsoftJson |
 
@@ -77,6 +77,12 @@ GridKit 是 `foundation / world`：负坐标整数几何、半开 Bounds、稳�
 
 SpatialKit 是 `foundation / world`：连续二维点的动态均匀空间哈希。它只保存外部提供的 `SpatialId`、`SpatialPoint` 和内部桶链表，提供点的插入、移除、移动、半开矩形查询、闭圆查询和有限半径最近邻。它与 GridKit 的整数格子/Occupancy 分工明确，不负责 3D、体积实体、Transform 跟踪、寻路、模拟、放置规则、对象引用或生命周期驱动，因此可以单独导出且不需要 UnityEngine、UPM、Addressables、HybridCLR 或其他 Kit。
 
+## SimulationKit 的定位
+
+SimulationKit 是 `foundation / simulation`：只管理业务提供的 `SimulationId`、正间隔、首次延迟和下一次到期 tick。`SimulationScheduler` 使用索引最小堆和 ID 索引，按 `NextDueTick` 再按 ID 稳定排序，把到期 ID 写入调用方提供的 `Span`，由预算和 `HasBacklog` 控制批量派发。
+
+SimulationKit 不依赖 UnityEngine、TimeKit、GridKit、SpatialKit、ResKit、UPM 或热更插件，不保存对象引用、不执行回调、不追赶式重复派发，也不负责线程、Jobs/Burst、存档或生命周期。业务保存自己的 ID/状态和最后模拟 tick，读档后重新注册；需要休眠时直接注销。它可以单独导出，`samples.simulationkit` 只额外带 Common、样例脚本和 Playable 场景。
+
 ## 分发原则
 
 - 所有 Kit 继续按需导出；Foundation 不等于默认全量安装。
@@ -104,4 +110,4 @@ SpatialKit V1 Core Semantics 已冻结：公开 ID、连续点、半开矩形、
 
 ## 后续新增顺序
 
-下一阶段优先验证 Foundation：SimulationKit、PathKit。WorldKit、PlacementKit、InventoryKit、WorldGenKit 属于后续 Extension；ProductionKit、LogisticsKit 必须在真实项目中验证领域抽象后再升格。
+下一阶段优先验证 Foundation：PathKit。WorldKit、PlacementKit、InventoryKit、WorldGenKit 属于后续 Extension；ProductionKit、LogisticsKit 必须在真实项目中验证领域抽象后再升格。
