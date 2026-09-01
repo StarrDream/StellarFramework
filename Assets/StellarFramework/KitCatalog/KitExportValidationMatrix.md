@@ -70,12 +70,13 @@ Verification 边界：StellarFrameworkVerification 不注册为普通 Kit、Samp
 - GridKit：17 项 EditMode 行为测试与 1 项 1M/100k 基准通过；覆盖 same-owner 重复失败、cross-owner takeover 防护、Preview self-overlap/只读/他人冲突；Core asmdef 无引用、无 UnityEngine，`GridKit_Playable` 场景验证通过且无 missing script。
 - GridKit V1 RC ownership regression：write-side `allowedExistingOccupant` overload 已删除；`TryOccupy` 仅执行 Empty → Owner，`CanOccupy` Preview 永不修改，`TryRelease` 保持 Owner → Empty 原子语义。
 - SpatialKit：Core asmdef 无引用且无 UnityEngine；Behavior 13 项与 Benchmark 2 项均通过，覆盖负坐标 floor、Rect/Circle 边界和截断、Nearest tie/exclude、失败原子性与极端查询范围保护；`SpatialKit_Playable` 只挂 SpatialKit 样例脚本和公共说明面板，场景校验无 missing script。
+- SpatialKit V1 Final Hardening：Same-Bucket/Cross-Bucket 数据集已显式构造并自证；Sample Circle 改为运行时圆线，QueryMatched/Nearest 使用 SpatialKit 实际返回 ID 高亮，mutation 清理旧查询状态；Core semantic diff = NONE，Core Semantics Frozen = YES。
 - 最新 Benchmark 证据（Unity 2022.3.62f3c1）：GridKit 1,000,000 cells，100,000 次 CanOccupy 与 Occupy/Release，fill 0.440 ms、linear read 1.996 ms、coord↔index 21.630 ms、CanOccupy 7.830 ms、Occupy/Release 24.878 ms；SaveKit 100,000 records，file 2,100,125 bytes，save 24.880 ms、load 22.780 ms。
-- 上述 allocationDelta 来自 GC.GetTotalMemory(false)，只作为 coarse heap / GC trend，不是严格零分配证明。
+- 上述 ManagedHeapDelta 来自 GC.GetTotalMemory(false)，只作为 coarse heap / GC trend，不是严格零分配证明。
 
-SpatialKit Benchmark 证据（Unity 2022.3.62f3c1，batchmode）：100,000 条动态操作 insert 11.471 ms、lookup 3.327 ms、同桶移动 5.921 ms、跨桶移动 11.166 ms、Rect 10k 33.926 ms、Circle 10k 16.681 ms、Nearest 10k 164.380 ms、Remove 5.323 ms、Clear 0.224 ms；1,000,000 条存储压力 insert 92.916 ms、抽样查找 1.941 ms、移动 3.985 ms、Clear 1.600 ms。两项 allocationDelta 均为 0（仅作 coarse heap trend）。
+SpatialKit Benchmark 证据（Unity 2022.3.62f3c1，Editor Test Runner）：100,000 条动态操作，BucketSize=8、InitialCapacity=100000；Insert=11.588 ms、Lookup=3.032 ms、SameBucketUpdate=100000（7.601 ms）、CrossBucketUpdate=100000（14.593 ms）、RectQuery=10000（3.480 ms）、CircleQuery=10000（2.595 ms）、Nearest=10000（9.605 ms）、Remove=6.614 ms、Clear=0.241 ms；SameBucketChecksum=5000050000、CrossBucketChecksum=5000050000、Checksum=7960354605800、ManagedHeapDelta=0。1,000,000 条存储压力 Insert=93.353 ms、抽样查找=1.988 ms、部分移动=3.706 ms、Clear=1.327 ms、Checksum=2896778425750、ManagedHeapDelta=28672。ManagedHeapDelta 只作 coarse heap trend，不是严格零分配证明。
 
-SpatialKit 导出闭环：已实际生成 `StellarFramework-SpatialKit.unitypackage`、`StellarFramework-Sample-SpatialKit.unitypackage` 以及合并包 `StellarFramework-SpatialKit-With-Sample.unitypackage`。Core payload 仅包含 SpatialKit Runtime；Sample payload 额外包含 Common、Example_SpatialKit 和 `SpatialKit_Playable.unity`，Bootstrap manifest 无 UPM 依赖。合并包在新建 Unity 2022.3 空白工程中导入后完成 payload 导入、脚本编译和安装器清理，未发现编译错误。
+SpatialKit 导出闭环：已实际生成 `StellarFramework-SpatialKit.unitypackage`、`StellarFramework-Sample-SpatialKit.unitypackage` 以及合并包 `StellarFramework-SpatialKit-With-Sample.unitypackage`。Core payload 仅包含 SpatialKit Runtime；Sample payload 额外包含 Common、Example_SpatialKit 和 `SpatialKit_Playable.unity`，Bootstrap manifest 无 UPM 依赖。合并包在新建 Unity 2022.3 空白工程 `C:\GitProjects\SpatialKitCleanImport-20260901-174925` 中完成 payload 导入、脚本编译和安装器清理，未发现编译错误。
 
 ## 后续空白工程检查
 

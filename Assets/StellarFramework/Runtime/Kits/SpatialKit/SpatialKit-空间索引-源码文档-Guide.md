@@ -1,6 +1,6 @@
 # SpatialKit 源码文档
 
-> 状态：SpatialKit V1 Release Candidate；Core Semantics Frozen：NO（待真实项目与导出闭环继续审查）。
+> 状态：SpatialKit V1；Core Semantics Frozen：YES（最终行为、Benchmark、Sample、导出与干净导入证据已完成）。
 
 ## 1. 目录和程序集
 
@@ -50,7 +50,7 @@ Rect 查询扫描矩形涉及的桶并调用 `SpatialRect.Contains` 做 `[Min, M
 ## 6. 验证 Contract
 
 - `SpatialKitTests` 覆盖 ID/几何构造、数学 floor、写操作原子性、Rect/Circle 边界、Span 截断和只读、Nearest tie/exclude、Clear、槽位复用以及极端查询范围保护。
-- `SpatialKitBenchmarkTests` 记录 100,000 条 Insert/Lookup/同桶移动/跨桶移动、局部 Rect/Circle/Nearest、Remove/Clear；另有 1,000,000 条存储压力、抽样查找、部分移动和 Clear。基准使用复用缓冲区和校验和，`GC.GetTotalMemory(false)` 只作为粗略堆趋势，不是严格零分配证明。
+- `SpatialKitBenchmarkTests` 记录 100,000 条 Insert/Lookup/同桶移动/跨桶移动、局部 Rect/Circle/Nearest、Remove/Clear；另有 1,000,000 条存储压力、抽样查找、部分移动和 Clear。100k 数据集把每个初始点构造在桶内安全位置，显式证明同桶更新不会跨界、跨桶更新恰好进入相邻桶，并输出操作计数与校验和。基准使用复用缓冲区和校验和，`GC.GetTotalMemory(false)` 只作为粗略堆趋势，不是严格零分配证明。
 - Core 为纯 C# 数据结构，不要求 PlayMode 或 Integration Scene；Playable Sample 只验证 Unity 场景挂载和公开操作。
 
 ## 7. 导出边界

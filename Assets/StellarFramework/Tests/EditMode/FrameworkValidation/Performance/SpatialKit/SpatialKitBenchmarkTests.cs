@@ -14,16 +14,23 @@ namespace StellarFramework.Tests.FrameworkValidation
             const int entityCount = 100000;
             const int queryIterations = 10000;
             const float bucketSize = 8f;
-            var index = new SpatialIndex2D(bucketSize, entityCount);
+            const int initialCapacity = entityCount;
+            var index = new SpatialIndex2D(bucketSize, initialCapacity);
             var positions = new SpatialPoint[entityCount];
             var queryBuffer = new SpatialId[256];
             long checksum = 0L;
+            long sameBucketChecksum = 0L;
+            long crossBucketChecksum = 0L;
+            int sameBucketUpdates = 0;
+            int crossBucketUpdates = 0;
             long allocatedBefore = GC.GetTotalMemory(false);
+
+            ValidateBenchmarkDataset(entityCount, bucketSize);
 
             Stopwatch insertWatch = Stopwatch.StartNew();
             for (int i = 0; i < entityCount; i++)
             {
-                SpatialPoint position = MakePosition(i);
+                SpatialPoint position = MakePosition(i, bucketSize);
                 positions[i] = position;
                 SpatialMutationResult result = index.TryInsert(new SpatialId(i + 1), position);
                 if (!result.Success) checksum += (int)result.Error;
@@ -43,8 +50,13 @@ namespace StellarFramework.Tests.FrameworkValidation
             for (int i = 0; i < entityCount; i++)
             {
                 SpatialPoint old = positions[i];
-                SpatialPoint next = new SpatialPoint(old.X + 0.5f, old.Y + 0.5f);
-                if (index.TryUpdatePosition(new SpatialId(i + 1), next).Success) positions[i] = next;
+                SpatialPoint next = MakeSameBucketTarget(old);
+                if (index.TryUpdatePosition(new SpatialId(i + 1), next).Success)
+                {
+                    positions[i] = next;
+                    sameBucketUpdates++;
+                    sameBucketChecksum += i + 1;
+                }
             }
             sameBucketWatch.Stop();
 
@@ -52,8 +64,13 @@ namespace StellarFramework.Tests.FrameworkValidation
             for (int i = 0; i < entityCount; i++)
             {
                 SpatialPoint old = positions[i];
-                SpatialPoint next = new SpatialPoint(old.X + bucketSize + 0.25f, old.Y);
-                if (index.TryUpdatePosition(new SpatialId(i + 1), next).Success) positions[i] = next;
+                SpatialPoint next = MakeCrossBucketTarget(old, bucketSize);
+                if (index.TryUpdatePosition(new SpatialId(i + 1), next).Success)
+                {
+                    positions[i] = next;
+                    crossBucketUpdates++;
+                    crossBucketChecksum += i + 1;
+                }
             }
             crossBucketWatch.Stop();
 
@@ -96,15 +113,22 @@ namespace StellarFramework.Tests.FrameworkValidation
             clearWatch.Stop();
             long allocatedDelta = GC.GetTotalMemory(false) - allocatedBefore;
 
+            checksum += sameBucketChecksum + crossBucketChecksum;
             string message = string.Format(
-                "SpatialKit 100k env={0} insertMs={1:F3} lookupMs={2:F3} sameBucketUpdateMs={3:F3} crossBucketUpdateMs={4:F3} rect10kMs={5:F3} circle10kMs={6:F3} nearest10kMs={7:F3} removeMs={8:F3} clearMs={9:F3} checksum={10} allocationDelta={11}",
-                Application.unityVersion, insertWatch.Elapsed.TotalMilliseconds, lookupWatch.Elapsed.TotalMilliseconds,
-                sameBucketWatch.Elapsed.TotalMilliseconds, crossBucketWatch.Elapsed.TotalMilliseconds,
-                rectWatch.Elapsed.TotalMilliseconds, circleWatch.Elapsed.TotalMilliseconds,
-                nearestWatch.Elapsed.TotalMilliseconds, removeWatch.Elapsed.TotalMilliseconds,
-                clearWatch.Elapsed.TotalMilliseconds, checksum, allocatedDelta);
+                "SpatialKit 100k env={0} EntityCount={1} BucketSize={2} InitialCapacity={3} InsertMs={4:F3} LookupMs={5:F3} SameBucketUpdate={6} SameBucketUpdateMs={7:F3} CrossBucketUpdate={8} CrossBucketUpdateMs={9:F3} RectQuery={10} RectQueryMs={11:F3} CircleQuery={12} CircleQueryMs={13:F3} Nearest={14} NearestMs={15:F3} RemoveMs={16:F3} ClearMs={17:F3} SameBucketChecksum={18} CrossBucketChecksum={19} Checksum={20} ManagedHeapDelta={21}",
+                Application.unityVersion, entityCount, bucketSize, initialCapacity,
+                insertWatch.Elapsed.TotalMilliseconds, lookupWatch.Elapsed.TotalMilliseconds,
+                sameBucketUpdates, sameBucketWatch.Elapsed.TotalMilliseconds,
+                crossBucketUpdates, crossBucketWatch.Elapsed.TotalMilliseconds,
+                queryIterations, rectWatch.Elapsed.TotalMilliseconds,
+                queryIterations, circleWatch.Elapsed.TotalMilliseconds,
+                queryIterations, nearestWatch.Elapsed.TotalMilliseconds,
+                removeWatch.Elapsed.TotalMilliseconds, clearWatch.Elapsed.TotalMilliseconds,
+                sameBucketChecksum, crossBucketChecksum, checksum, allocatedDelta);
             TestContext.Progress.WriteLine(message);
             UnityEngine.Debug.Log(message);
+            Assert.That(sameBucketUpdates, Is.EqualTo(entityCount));
+            Assert.That(crossBucketUpdates, Is.EqualTo(entityCount));
             Assert.That(index.Count, Is.EqualTo(0));
         }
 
@@ -153,7 +177,7 @@ namespace StellarFramework.Tests.FrameworkValidation
             clearWatch.Stop();
             long allocatedDelta = GC.GetTotalMemory(false) - allocatedBefore;
             string message = string.Format(
-                "SpatialKit 1M env={0} insertMs={1:F3} lookup62.5kMs={2:F3} movement31.25kMs={3:F3} clearMs={4:F3} checksum={5} allocationDelta={6}",
+                "SpatialKit 1M env={0} insertMs={1:F3} lookup62.5kMs={2:F3} movement31.25kMs={3:F3} clearMs={4:F3} checksum={5} ManagedHeapDelta={6}",
                 Application.unityVersion, insertWatch.Elapsed.TotalMilliseconds, lookupWatch.Elapsed.TotalMilliseconds,
                 movementWatch.Elapsed.TotalMilliseconds, clearWatch.Elapsed.TotalMilliseconds, checksum, allocatedDelta);
             TestContext.Progress.WriteLine(message);
@@ -161,11 +185,49 @@ namespace StellarFramework.Tests.FrameworkValidation
             Assert.That(index.Count, Is.EqualTo(0));
         }
 
-        private static SpatialPoint MakePosition(int index)
+        private static void ValidateBenchmarkDataset(int entityCount, float bucketSize)
         {
-            int x = index % 1000 - 500;
-            int y = index / 1000 - 50;
-            return new SpatialPoint(x + 0.25f, y + 0.5f);
+            for (int i = 0; i < entityCount; i++)
+            {
+                SpatialPoint initial = MakePosition(i, bucketSize);
+                SpatialPoint sameBucket = MakeSameBucketTarget(initial);
+                SpatialPoint crossBucket = MakeCrossBucketTarget(sameBucket, bucketSize);
+                int initialBucketX = DatasetBucket(initial.X, bucketSize);
+                int initialBucketY = DatasetBucket(initial.Y, bucketSize);
+                int sameBucketX = DatasetBucket(sameBucket.X, bucketSize);
+                int sameBucketY = DatasetBucket(sameBucket.Y, bucketSize);
+                int crossBucketX = DatasetBucket(crossBucket.X, bucketSize);
+                int crossBucketY = DatasetBucket(crossBucket.Y, bucketSize);
+                if (initialBucketX != sameBucketX || initialBucketY != sameBucketY ||
+                    crossBucketX != sameBucketX + 1 || crossBucketY != sameBucketY)
+                {
+                    Assert.Fail(string.Format(
+                        "Benchmark dataset crossed an unexpected bucket at index {0}: initial=({1},{2}) same=({3},{4}) cross=({5},{6})",
+                        i, initialBucketX, initialBucketY, sameBucketX, sameBucketY, crossBucketX, crossBucketY));
+                }
+            }
+        }
+
+        private static SpatialPoint MakePosition(int index, float bucketSize)
+        {
+            int bucketX = index % 1000 - 500;
+            int bucketY = index / 1000 - 50;
+            return new SpatialPoint(bucketX * bucketSize + 2f, bucketY * bucketSize + 2f);
+        }
+
+        private static SpatialPoint MakeSameBucketTarget(SpatialPoint old)
+        {
+            return new SpatialPoint(old.X + 0.5f, old.Y + 0.5f);
+        }
+
+        private static SpatialPoint MakeCrossBucketTarget(SpatialPoint old, float bucketSize)
+        {
+            return new SpatialPoint(old.X + bucketSize, old.Y);
+        }
+
+        private static int DatasetBucket(float coordinate, float bucketSize)
+        {
+            return (int)Math.Floor(coordinate / (double)bucketSize);
         }
     }
 }

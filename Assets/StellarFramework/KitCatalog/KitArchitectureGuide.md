@@ -98,6 +98,10 @@ SpatialKit 是 `foundation / world`：连续二维点的动态均匀空间哈希
 
 不要求每个 Kit 都有 1M Benchmark、PlayMode、ToolsHub 或 Integration Scene；由真实能力决定。验证层级、目录和证据状态以 [ValidationArchitecture.md](../../StellarFrameworkVerification/ValidationArchitecture.md) 为准。
 
+## SpatialKit V1 冻结状态
+
+SpatialKit V1 Core Semantics 已冻结：公开 ID、连续点、半开矩形、闭圆、有限半径最近邻、写入原子性和调用方缓冲区契约保持稳定；后续只接受不改变契约的内部优化或文档澄清。真实项目出现稳定需求后，再评估 SpatialKit.UnityAdapter（Transform/MonoBehaviour 同步）、3D/体积专用 Kit、Jobs/Burst Adapter 或过滤索引。任何候选都不能把对象引用、线程调度、业务分类或 Unity 生命周期倒灌进 Core。
+
 ## 后续新增顺序
 
 下一阶段优先验证 Foundation：SimulationKit、PathKit。WorldKit、PlacementKit、InventoryKit、WorldGenKit 属于后续 Extension；ProductionKit、LogisticsKit 必须在真实项目中验证领域抽象后再升格。

@@ -63,6 +63,8 @@ if (index.TryFindNearest(new SpatialPoint(0f, 0f), 20f, out SpatialId nearest))
 
 打开 `Assets/StellarFramework/Samples/KitSamples/Scenes/SpatialKit_Playable.unity`。面板会显示 BucketSize、Count、Selected ID/Position、查询写入/匹配数、Truncated 和最近邻 ID，可执行 Reset、Insert、Move Selected、Remove Selected、Query Rect、Query Circle、Nearest 及排除 Selected 的最近邻。
 
+样例中的圆形可视区域与 `QueryCircle` 使用同一 Center / Radius；只有欧氏距离 `<= Radius` 的点会匹配并高亮。黄色圆线外接方框的角点不会因为落在方框内而匹配。
+
 Behavior 测试位于 `Tests/EditMode/FrameworkValidation/Kits/SpatialKit/SpatialKitTests.cs`，覆盖构造、负坐标 floor、失败原子性、查询边界/截断、半径校验、最近邻 tie-break、Clear 和极端查询范围。性能趋势位于 `Tests/EditMode/FrameworkValidation/Performance/SpatialKit/SpatialKitBenchmarkTests.cs`，记录 100k 动态操作和 1M 存储压力，不设置固定毫秒门槛。
 
 ## V1 非目标与后续

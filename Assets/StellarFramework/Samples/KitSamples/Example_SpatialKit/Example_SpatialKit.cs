@@ -8,6 +8,7 @@ namespace StellarFramework.Examples
     {
         private const int PointCapacity = 72;
         private const float SampleBucketSize = 4f;
+        private const int InitialPointCount = 64;
         private readonly SpatialId[] _ids = new SpatialId[PointCapacity];
         private readonly SpatialPoint[] _positions = new SpatialPoint[PointCapacity];
         private readonly bool[] _present = new bool[PointCapacity];
@@ -46,21 +47,21 @@ namespace StellarFramework.Examples
             _hasRect = false;
             _hasCircle = false;
 
-            for (int i = 0; i < 64; i++)
+            for (int i = 0; i < InitialPointCount; i++)
             {
-                float x = (i % 12) - 6f + (i % 3) * 0.25f;
-                float y = (i / 12) - 3f + (i % 4) * 0.2f;
+                SpatialPoint position = MakeInitialPosition(i);
                 _ids[i] = new SpatialId(_nextId++);
-                _positions[i] = new SpatialPoint(x, y);
+                _positions[i] = position;
                 _present[i] = _index.TryInsert(_ids[i], _positions[i]).Success;
             }
 
-            _lastOperation = "Reset：插入 64 个连续二维点（含负坐标与小数坐标）。";
+            _lastOperation = "Reset：插入 64 个连续二维点；ID 1/2/3 位于圆边界，ID 4 位于外接方框角落。";
             _initialized = true;
         }
 
         private void InsertPoint()
         {
+            ClearLastQueryState();
             for (int i = 0; i < PointCapacity; i++)
             {
                 if (_present[i]) continue;
@@ -78,6 +79,7 @@ namespace StellarFramework.Examples
 
         private void MoveSelected()
         {
+            ClearLastQueryState();
             if (!_present[_selectedSlot])
             {
                 _lastOperation = "Move：当前没有选中的点。";
@@ -93,6 +95,7 @@ namespace StellarFramework.Examples
 
         private void RemoveSelected()
         {
+            ClearLastQueryState();
             if (!_present[_selectedSlot])
             {
                 _lastOperation = "Remove：当前没有选中的点。";
@@ -106,6 +109,7 @@ namespace StellarFramework.Examples
 
         private void QueryRect()
         {
+            ClearLastQueryState();
             _lastRect = new SpatialRect(-4f, -2f, 4f, 3f);
             _lastQuery = _index.QueryRect(_lastRect, _queryBuffer);
             _hasRect = true;
@@ -115,6 +119,7 @@ namespace StellarFramework.Examples
 
         private void QueryCircle()
         {
+            ClearLastQueryState();
             _lastCircleCenter = new SpatialPoint(0f, 0f);
             _lastCircleRadius = 5f;
             _lastQuery = _index.QueryCircle(_lastCircleCenter, _lastCircleRadius, _queryBuffer);
@@ -125,6 +130,7 @@ namespace StellarFramework.Examples
 
         private void FindNearest(bool excludeSelected)
         {
+            ClearLastQueryState();
             SpatialPoint center = new SpatialPoint(0f, 0f);
             bool found;
             if (excludeSelected && _present[_selectedSlot])
@@ -161,16 +167,16 @@ namespace StellarFramework.Examples
             GUILayout.Space(8f);
             GUILayout.Label("STATE", _sectionStyle);
             GUILayout.Label(string.Format(
-                "BucketSize: {0}\nCount: {1}\nSelected ID: {2}\nSelected Position: {3}\nLast Operation: {4}\nWrittenCount: {5}\nMatchCount: {6}\nTruncated: {7}\nNearest ID: {8}",
+                "BucketSize: {0}\nCount: {1}\nSelected ID: {2}\nSelected Position: {3}\nLast Operation: {4}\nLast Query: {5}\nWrittenCount: {6}\nMatchCount: {7}\nTruncated: {8}\nNearest ID: {9}",
                 SampleBucketSize, _index.Count, SelectedId(), SelectedPosition(), _lastOperation,
-                _lastQuery.WrittenCount, _lastQuery.MatchCount, _lastQuery.IsTruncated,
+                LastQueryName(), _lastQuery.WrittenCount, _lastQuery.MatchCount, _lastQuery.IsTruncated,
                 _lastNearest.IsValid ? _lastNearest.ToString() : "<none>"), _bodyStyle);
 
             GUILayout.Space(8f);
             GUILayout.Label("VIEW", _sectionStyle);
             Rect view = GUILayoutUtility.GetRect(380f, 380f, GUILayout.ExpandWidth(false));
             DrawView(view);
-            GUILayout.Label("浅蓝：Rect；浅黄：Circle；绿色：Selected。点位使用连续坐标。", _bodyStyle);
+            GUILayout.Label("浅蓝框：Rect；黄色圆线：Circle；黄色点：QueryMatched；绿色：Selected；青色：Nearest。高亮来自 SpatialKit 实际返回 ID。", _bodyStyle);
             GUILayout.EndArea();
         }
 
@@ -183,11 +189,10 @@ namespace StellarFramework.Examples
             {
                 if (!_present[i]) continue;
                 SpatialPoint point = _positions[i];
-                float x = view.x + (point.X - min) / (max - min) * view.width;
-                float y = view.yMax - (point.Y - min) / (max - min) * view.height;
+                Vector2 guiPoint = WorldToGui(point.X, point.Y, view, min, max);
                 Color previous = GUI.color;
-                GUI.color = i == _selectedSlot ? Color.green : Color.white;
-                GUI.Box(new Rect(x - 4f, y - 4f, 8f, 8f), GUIContent.none);
+                GUI.color = PointColor(i, _ids[i]);
+                GUI.DrawTexture(new Rect(guiPoint.x - 4f, guiPoint.y - 4f, 8f, 8f), Texture2D.whiteTexture);
                 GUI.color = previous;
             }
 
@@ -201,23 +206,132 @@ namespace StellarFramework.Examples
 
             if (_hasCircle)
             {
-                Color previous = GUI.color;
-                GUI.color = new Color(1f, 0.8f, 0.25f, 0.25f);
-                float diameter = _lastCircleRadius * 2f / (max - min) * view.width;
-                float cx = view.x + (_lastCircleCenter.X - min) / (max - min) * view.width;
-                float cy = view.yMax - (_lastCircleCenter.Y - min) / (max - min) * view.height;
-                GUI.Box(new Rect(cx - diameter * 0.5f, cy - diameter * 0.5f, diameter, diameter), GUIContent.none);
-                GUI.color = previous;
+                Vector2 center = WorldToGui(_lastCircleCenter.X, _lastCircleCenter.Y, view, min, max);
+                float radiusX = _lastCircleRadius / (max - min) * view.width;
+                float radiusY = _lastCircleRadius / (max - min) * view.height;
+                DrawGuiCircle(center, radiusX, radiusY, new Color(1f, 0.8f, 0.25f, 0.9f), 48, 2f);
             }
         }
 
         private static Rect WorldRectToGui(SpatialRect rect, Rect view, float min, float max)
         {
-            float x = view.x + (rect.MinX - min) / (max - min) * view.width;
-            float y = view.yMax - (rect.MaxExclusiveY - min) / (max - min) * view.height;
-            float width = (rect.MaxExclusiveX - rect.MinX) / (max - min) * view.width;
-            float height = (rect.MaxExclusiveY - rect.MinY) / (max - min) * view.height;
-            return new Rect(x, y, width, height);
+            Vector2 topLeft = WorldToGui(rect.MinX, rect.MaxExclusiveY, view, min, max);
+            Vector2 bottomRight = WorldToGui(rect.MaxExclusiveX, rect.MinY, view, min, max);
+            return Rect.MinMaxRect(topLeft.x, topLeft.y, bottomRight.x, bottomRight.y);
+        }
+
+        private static Vector2 WorldToGui(float x, float y, Rect view, float min, float max)
+        {
+            return new Vector2(
+                view.x + (x - min) / (max - min) * view.width,
+                view.yMax - (y - min) / (max - min) * view.height);
+        }
+
+        private static void DrawGuiCircle(Vector2 center, float radiusX, float radiusY, Color color,
+            int segmentCount, float thickness)
+        {
+            Vector2 previous = CirclePoint(center, radiusX, radiusY, 0f);
+            float fullTurn = Mathf.PI * 2f;
+            for (int i = 1; i <= segmentCount; i++)
+            {
+                Vector2 current = CirclePoint(center, radiusX, radiusY, fullTurn * i / segmentCount);
+                DrawGuiLine(previous, current, color, thickness);
+                previous = current;
+            }
+        }
+
+        private static Vector2 CirclePoint(Vector2 center, float radiusX, float radiusY, float angle)
+        {
+            return new Vector2(
+                center.x + Mathf.Cos(angle) * radiusX,
+                center.y - Mathf.Sin(angle) * radiusY);
+        }
+
+        private static void DrawGuiLine(Vector2 start, Vector2 end, Color color, float thickness)
+        {
+            Vector2 delta = end - start;
+            float length = delta.magnitude;
+            if (length <= 0f)
+            {
+                return;
+            }
+
+            Matrix4x4 previousMatrix = GUI.matrix;
+            Color previousColor = GUI.color;
+            GUI.color = color;
+            GUIUtility.RotateAroundPivot(Mathf.Atan2(delta.y, delta.x) * Mathf.Rad2Deg, start);
+            GUI.DrawTexture(new Rect(start.x, start.y - thickness * 0.5f, length, thickness), Texture2D.whiteTexture);
+            GUI.matrix = previousMatrix;
+            GUI.color = previousColor;
+        }
+
+        private Color PointColor(int slot, SpatialId id)
+        {
+            if (_lastNearest.IsValid && id == _lastNearest)
+            {
+                return Color.cyan;
+            }
+
+            if (slot == _selectedSlot)
+            {
+                return Color.green;
+            }
+
+            if (IsQueryMatched(id))
+            {
+                return Color.yellow;
+            }
+
+            return Color.white;
+        }
+
+        private bool IsQueryMatched(SpatialId id)
+        {
+            if (!_hasRect && !_hasCircle)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < _lastQuery.WrittenCount; i++)
+            {
+                if (_queryBuffer[i] == id)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private string LastQueryName()
+        {
+            if (_hasRect) return "Rect [Min,Max)";
+            if (_hasCircle) return "Circle distance <= radius";
+            return "<none>";
+        }
+
+        private void ClearLastQueryState()
+        {
+            _lastQuery = new SpatialQueryResult(0, 0);
+            _lastNearest = default(SpatialId);
+            _hasRect = false;
+            _hasCircle = false;
+        }
+
+        private static SpatialPoint MakeInitialPosition(int index)
+        {
+            switch (index)
+            {
+                case 0: return new SpatialPoint(5f, 0f);
+                case 1: return new SpatialPoint(0f, 5f);
+                case 2: return new SpatialPoint(3f, 4f);
+                case 3: return new SpatialPoint(5f, 5f);
+                default:
+                    int gridIndex = index - 4;
+                    float x = (gridIndex % 12) - 6f + (gridIndex % 3) * 0.25f;
+                    float y = (gridIndex / 12) - 3f + (gridIndex % 4) * 0.2f;
+                    return new SpatialPoint(x, y);
+            }
         }
 
         private SpatialId SelectedId() => _present[_selectedSlot] ? _ids[_selectedSlot] : default(SpatialId);
