@@ -1,4 +1,7 @@
+using System;
 using System.IO;
+using System.Linq;
+using System.Reflection;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -36,7 +39,76 @@ namespace StellarFramework.Tests.FrameworkValidation
             Assert.That(source, Does.Contain("Assets/StellarFramework/Runtime/Kits/HotUpdateKit"));
             Assert.That(source, Does.Contain("Assets/StellarFramework/Runtime/Kits/Reskit/Loaders/AddressableLoader"));
             Assert.That(source, Does.Contain("Assets/StellarFramework/Tests"));
-            Assert.That(source, Does.Contain("Assets/StellarFrameworkVerification"));
+        }
+
+        [TestCase("Assets/StellarFrameworkVerification/README.md")]
+        [TestCase("Assets/StellarFrameworkBackup/Test.cs")]
+        [TestCase("Assets/StellarFramework2/Test.cs")]
+        public void BasePackageRejectsSiblingFrameworkPrefixes(string assetPath)
+        {
+            // Regression: raw StartsWith("Assets/StellarFramework") also matches sibling roots.
+            Assert.That(InvokePublisherBool("IsIncludedInBasePackage", assetPath), Is.False);
+        }
+
+        [Test]
+        public void BasePackageAcceptsFrameworkChildPath()
+        {
+            Assert.That(
+                InvokePublisherBool(
+                    "IsIncludedInBasePackage",
+                    "Assets/StellarFramework/Runtime/Kits/GridKit/GridOccupancy.cs"),
+                Is.True);
+            Assert.That(
+                InvokePublisherBool(
+                    "IsIncludedInBasePackage",
+                    "Assets\\StellarFramework\\Runtime\\Kits\\GridKit\\GridOccupancy.cs"),
+                Is.True);
+        }
+
+        [TestCase("Assets/StellarFrameworkVerification/README.md")]
+        [TestCase("Assets/StellarFrameworkBackup/Test.cs")]
+        [TestCase("Assets/GameHotUpdateBackup/Test.cs")]
+        public void FullPayloadRejectsSiblingRootPrefixes(string assetPath)
+        {
+            // The framework and GameHotUpdate roots are directory boundaries, not text prefixes.
+            Assert.That(InvokePublisherBool("IsIncludedInFullPayload", assetPath), Is.False);
+        }
+
+        [Test]
+        public void FullPayloadAcceptsFrameworkAndGameHotUpdateChildPaths()
+        {
+            Assert.That(
+                InvokePublisherBool(
+                    "IsIncludedInFullPayload",
+                    "Assets/StellarFramework/Runtime/Kits/GridKit/GridOccupancy.cs"),
+                Is.True);
+            Assert.That(
+                InvokePublisherBool(
+                    "IsIncludedInFullPayload",
+                    "Assets/GameHotUpdate/Source/HotUpdateMain.cs"),
+                Is.True);
+        }
+
+        [Test]
+        public void BaseFrameworkAssetSelectionExcludesVerificationSibling()
+        {
+            string[] assets = InvokePublisherPaths("GetBaseFrameworkAssetPaths");
+
+            Assert.That(assets, Is.Not.Empty);
+            Assert.That(
+                assets.Any(path => IsUnderDirectory(path, "Assets/StellarFrameworkVerification")),
+                Is.False);
+        }
+
+        [Test]
+        public void FullFrameworkAssetSelectionExcludesVerificationSibling()
+        {
+            string[] assets = InvokePublisherPaths("GetFullFrameworkAssetPaths");
+
+            Assert.That(assets, Is.Not.Empty);
+            Assert.That(
+                assets.Any(path => IsUnderDirectory(path, "Assets/StellarFrameworkVerification")),
+                Is.False);
         }
 
         [Test]
@@ -200,6 +272,52 @@ namespace StellarFramework.Tests.FrameworkValidation
         {
             string projectRoot = Directory.GetParent(Application.dataPath)?.FullName ?? Application.dataPath;
             return File.ReadAllText(Path.Combine(projectRoot, assetPath.Replace('/', Path.DirectorySeparatorChar)));
+        }
+
+        private static Type GetPublisherType()
+        {
+            Type publisherType = AppDomain.CurrentDomain.GetAssemblies()
+                .Select(assembly => assembly.GetType(
+                    "StellarFramework.Editor.Modules.StellarFrameworkPackagePublisher", false))
+                .FirstOrDefault(type => type != null);
+
+            Assert.That(publisherType, Is.Not.Null);
+            return publisherType;
+        }
+
+        private static bool InvokePublisherBool(string methodName, string assetPath)
+        {
+            MethodInfo method = GetPublisherType().GetMethod(
+                methodName,
+                BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
+
+            Assert.That(method, Is.Not.Null, $"Publisher method '{methodName}' was not found.");
+            Assert.That(method.ReturnType, Is.EqualTo(typeof(bool)));
+            Assert.That(method.GetParameters().Length, Is.EqualTo(1));
+            Assert.That(method.GetParameters()[0].ParameterType, Is.EqualTo(typeof(string)));
+
+            return (bool)method.Invoke(null, new object[] { assetPath });
+        }
+
+        private static string[] InvokePublisherPaths(string methodName)
+        {
+            MethodInfo method = GetPublisherType().GetMethod(
+                methodName,
+                BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
+
+            Assert.That(method, Is.Not.Null, $"Publisher method '{methodName}' was not found.");
+            Assert.That(method.ReturnType, Is.EqualTo(typeof(string[])));
+            Assert.That(method.GetParameters().Length, Is.EqualTo(0));
+
+            return (string[])method.Invoke(null, null);
+        }
+
+        private static bool IsUnderDirectory(string assetPath, string directoryPath)
+        {
+            string normalizedAssetPath = assetPath.Replace('\\', '/');
+            string normalizedDirectoryPath = directoryPath.Replace('\\', '/').TrimEnd('/');
+            return normalizedAssetPath == normalizedDirectoryPath ||
+                   normalizedAssetPath.StartsWith(normalizedDirectoryPath + "/", StringComparison.Ordinal);
         }
     }
 }

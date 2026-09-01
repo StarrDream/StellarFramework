@@ -494,7 +494,7 @@ namespace StellarFramework.Editor.Modules
         internal static string[] GetBaseFrameworkAssetPaths()
         {
             return AssetDatabase.GetAllAssetPaths()
-                .Where(path => path.StartsWith("Assets/StellarFramework"))
+                .Where(path => IsPathInside(path, "Assets/StellarFramework"))
                 .Where(path => !AssetDatabase.IsValidFolder(path))
                 .Where(IsIncludedInBasePackage)
                 .OrderBy(path => path)
@@ -518,7 +518,7 @@ namespace StellarFramework.Editor.Modules
             }
 
             string normalized = NormalizePath(assetPath);
-            return normalized.StartsWith("Assets/StellarFramework")
+            return IsPathInside(normalized, "Assets/StellarFramework")
                    && !BasePackageExcludedPrefixes.Any(prefix => normalized.StartsWith(prefix))
                    && !BasePackageExcludedExactPaths.Contains(normalized)
                    && !GeneratedArtifactPrefixes.Any(prefix => normalized.StartsWith(prefix));
@@ -532,8 +532,8 @@ namespace StellarFramework.Editor.Modules
             }
 
             string normalized = NormalizePath(assetPath);
-            bool isFrameworkSource = normalized.StartsWith("Assets/StellarFramework")
-                                     || normalized.StartsWith("Assets/GameHotUpdate");
+            bool isFrameworkSource = IsPathInside(normalized, "Assets/StellarFramework")
+                                     || IsPathInside(normalized, "Assets/GameHotUpdate");
             if (!isFrameworkSource)
             {
                 return false;
@@ -896,6 +896,7 @@ namespace StellarFramework.Editor.Modules
 
         private static bool IsPathInside(string assetPath, string sourcePath)
         {
+            // Directory membership must respect the separator boundary; sibling roots can share a text prefix.
             string normalizedAssetPath = NormalizePath(assetPath);
             string normalizedSourcePath = NormalizePath(sourcePath).TrimEnd('/');
             return normalizedAssetPath == normalizedSourcePath || normalizedAssetPath.StartsWith(normalizedSourcePath + "/");
