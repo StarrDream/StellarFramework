@@ -72,5 +72,5 @@
 - `TimeKit_Playable.unity` 不需要 SaveKit；`SaveKit_Playable.unity` 不需要 TimeKit，两个样例可以分别导出
 - `GridKit_Playable.unity` 只依赖 GridKit.Core，不需要资源、UPM 或热更前置，可直接作为单 Kit 样例导出
 - `SaveKit_Playable.unity` 的 Legacy 按钮会生成一个真实 V1 文件，再由当前 V2 Section 和 Migration 加载
-- `FrameworkValidation` 已迁入框架外验证区，适合框架开发者做发布前回归，不再作为用户样例的一部分
+- `FrameworkValidation` 场景位于 `Assets/StellarFrameworkVerification`，只用于维护者发布前回归，不是用户样例
 - `HttpKit_Playable.unity` 离线也能看到本地逻辑，联网时信息更完整

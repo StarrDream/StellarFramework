@@ -1,6 +1,14 @@
 # Kit 导出验证矩阵
 
-本文件记录框架原始工程的导出验证基线。业务项目只需使用导出的 `.unitypackage` 与其同名依赖说明，无需导入本目录。
+本文件记录框架原始工程的导出验证基线，是 Evidence Ledger（验证结果台账）。业务项目只需使用导出的 `.unitypackage` 与其同名依赖说明，无需导入本目录。验证职责和目录分类见 [ValidationArchitecture.md](../../StellarFrameworkVerification/ValidationArchitecture.md)。
+
+状态只允许记录真实证据：
+
+~~~text
+PASS / FAIL / BLOCKED / SKIPPED / NOT RUN
+~~~
+
+NOT RUN 和 BLOCKED 不得写成 PASS；未运行的 Benchmark 不得填写推测数值；空白工程、Player、IL2CPP 或远端热更的环境阻塞要保留原因。
 
 ## 当前可选目标
 
@@ -38,6 +46,8 @@ Catalog schema v2 以 `tier` / `category` 描述架构职责；它不改变 `kin
 
 完整 Profile、依赖闭包与 UPM 要求以 [KitDistributionCatalog.json](KitDistributionCatalog.json) 为准。
 
+Verification 边界：StellarFrameworkVerification 不注册为普通 Kit、Sample 或 Adapter Profile；Full Package 和 Kit/Sample Exporter 均通过排除路径保持维护者验证资产不进入用户分发。
+
 样例验证规则：核心 Kit Profile 不包含 `Assets/StellarFramework/Samples`；样例则按 Kit 拆成独立 Profile 和独立 asmdef，导出时才随对应 Kit 闭包一起生成。
 
 ## 已执行验证
@@ -45,7 +55,8 @@ Catalog schema v2 以 `tier` / `category` 描述架构职责；它不改变 `kin
 - Unity 编译：无非预期 Console error。
 - 分发边界测试：覆盖单文件导出、Adapter 排除、ToolsHub 程序集识别、依赖闭包与 Catalog 架构元数据。
 - TimeKit：EditMode 与 PlayMode 测试通过；单 Kit 安装包已实际导出并检查外层 Bootstrap、内层 payload 与 LogKit 依赖闭包。
-- 完整 EditMode：228 项完成，227 通过、0 失败、1 项明确标记为 Player/IL2CPP 环境专用而跳过；HybridCLR AA 全链路用例仍需 Player/IL2CPP 环境。
+- 完整 EditMode：230 项完成，229 通过、0 失败、1 项明确标记为 Player/IL2CPP 环境专用而跳过；HybridCLR AA 全链路用例仍需 Player/IL2CPP 环境。
+- 完整 PlayMode：11 项完成，11 通过、0 失败、0 跳过；覆盖 EventKit、BindableKit、SaveKit、TimeKit、UIKit/ResKit 的真实 Runtime 行为。
 - 已实际导出并核对依赖说明：AudioKit.Core / ResKitAdapter、SettingsKit.Core / UnityAdapters / AudioKitAdapter、ConfigKit.Core / NewtonsoftJson。
 - HotUpdate.HybridCLR 的完整启动路径已单独验证通过。
 - SaveKit.Core：EditMode 覆盖 Slot/Section 安全、Container、Checksum、事务、Backup、Migration、Missing/Unknown、Restore DAG、跨 DTO 类型链和未来版本提前失败；Newtonsoft Adapter 已完成 Round Trip 验证。
@@ -55,6 +66,8 @@ Catalog schema v2 以 `tier` / `category` 描述架构职责；它不改变 `kin
 - SaveKit 示例：覆盖两个 Section 的 `RestoreAfter` 顺序、Save/Load/Delete、Revision/Diagnostics 和真实 V1→V2 DTO Migration；不解析私有磁盘格式。
 - GridKit：17 项 EditMode 行为测试与 1 项 1M/100k 基准通过；覆盖 same-owner 重复失败、cross-owner takeover 防护、Preview self-overlap/只读/他人冲突；Core asmdef 无引用、无 UnityEngine，`GridKit_Playable` 场景验证通过且无 missing script。
 - GridKit V1 RC ownership regression：write-side `allowedExistingOccupant` overload 已删除；`TryOccupy` 仅执行 Empty → Owner，`CanOccupy` Preview 永不修改，`TryRelease` 保持 Owner → Empty 原子语义。
+- 最新 Benchmark 证据（Unity 2022.3.62f3c1）：GridKit 1,000,000 cells，100,000 次 CanOccupy 与 Occupy/Release，fill 0.440 ms、linear read 1.996 ms、coord↔index 21.630 ms、CanOccupy 7.830 ms、Occupy/Release 24.878 ms；SaveKit 100,000 records，file 2,100,125 bytes，save 24.880 ms、load 22.780 ms。
+- 上述 allocationDelta 来自 GC.GetTotalMemory(false)，只作为 coarse heap / GC trend，不是严格零分配证明。
 
 ## 后续空白工程检查
 

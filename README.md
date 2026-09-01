@@ -6,7 +6,10 @@ StellarFramework 是一个 Unity 基础开发框架，包含架构分层、UI、
 
 本工程包含框架源码、Kit 导出器、Tools Hub、样例和验证内容。业务项目通过导出包按需接入框架能力。
 
-- `Samples`、`GameHotUpdate`、`StellarFrameworkVerification` 用于示例和框架验证。
+- `Assets/StellarFramework/Tests` 是自动化 Behavior、Performance 和 Framework Policy 验证。
+- `Assets/StellarFramework/Samples` 是面向使用者的 Kit 教学样例，不是完整业务 Demo。
+- `Assets/StellarFrameworkVerification` 是维护者专用的 Integration、Player、Release 验证区，不会分发给使用者。
+- `GameHotUpdate` 按 Runtime Delivery Example / Verification Fixture 处理，不作为普通 Sample。
 - `Kit Package Exporter` 用于导出单 Kit、组合 Kit、样例包和独立 `Architecture.cs` / `Extensions.cs`。
 - `StellarFramework.unitypackage` 用于完整框架的一键安装。
 
@@ -56,6 +59,14 @@ StellarFramework 是一个 Unity 基础开发框架，包含架构分层、UI、
 
 - [快速开始](Assets/StellarFramework/快速开始.md)
 - [ToolsHub 说明文档](Assets/StellarFramework/Editor/StellarToolsHub/StellarToolsHub-说明文档-Guide.md)
+
+## 验证与发布
+
+验证职责、目录边界、EditMode/PlayMode 选择、Samples 与 Verification 分工，以及 Local/Framework/Release Gate 见：
+
+- [验证架构与发布验收规范](Assets/StellarFrameworkVerification/ValidationArchitecture.md)
+- [维护者验证区](Assets/StellarFrameworkVerification/README.md)
+- [导出验证矩阵（Evidence Ledger）](Assets/StellarFramework/KitCatalog/KitExportValidationMatrix.md)
 
 ## 架构
 
@@ -147,5 +158,7 @@ Assets
 - [HotUpdateKit 热更新说明](Assets/StellarFramework/Runtime/Kits/HotUpdateKit/HotUpdateKit-热更新-说明文档-Guide.md)
 - [GridKit 网格系统说明](Assets/StellarFramework/Runtime/Kits/GridKit/GridKit-网格系统-说明文档-Guide.md)
 - [GridKit 源码文档](Assets/StellarFramework/Runtime/Kits/GridKit/GridKit-网格系统-源码文档-Guide.md)
+- [验证架构与发布验收规范](Assets/StellarFrameworkVerification/ValidationArchitecture.md)
+- [维护者验证区 README](Assets/StellarFrameworkVerification/README.md)
 - [Kit 分发矩阵与生产验收基线](Assets/StellarFramework/KitCatalog/KitExportValidationMatrix.md)
 - [Kit 架构分层与依赖规则](Assets/StellarFramework/KitCatalog/KitArchitectureGuide.md)

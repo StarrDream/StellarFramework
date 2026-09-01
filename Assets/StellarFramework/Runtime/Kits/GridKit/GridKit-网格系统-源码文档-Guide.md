@@ -120,7 +120,7 @@ GridFootprint + GridTransform + GridRect → GridOccupancy
 
 ## 测试与基准
 
-`Tests/EditMode/FrameworkValidation/GridKitTests.cs` 覆盖负坐标、边界溢出、FloorDiv/FloorMod、半开矩形、枚举顺序、DenseGrid Span/ref、邻居顺序、Footprint canonical/变换、Occupancy 冲突与原子失败。
+`Tests/EditMode/FrameworkValidation/Kits/GridKit/GridKitTests.cs` 覆盖负坐标、边界溢出、FloorDiv/FloorMod、半开矩形、枚举顺序、DenseGrid Span/ref、邻居顺序、Footprint canonical/变换、Occupancy 冲突与原子失败。
 
 `GridKitBenchmarkTests` 在 Unity Editor 中执行：1000×1000 DenseGrid（填充、线性 Span 读写、坐标索引读写）、1M Rect/坐标↔index 往返，以及 100k `CanOccupy`、`TryOccupy`/`TryRelease`。输出 Unity 版本、各段 elapsed milliseconds、校验和和 `GC.GetTotalMemory` 变化；没有机器相关的固定性能门槛。
 

@@ -1,52 +1,50 @@
 # PlayMode 测试
 
-`Assets/StellarFramework/Tests/PlayMode/` 存放框架运行时的 PlayMode 测试，覆盖真实运行链路（进入 Play Mode 后验证），弥补原有仅 EditMode 测试的空白。
+Assets/StellarFramework/Tests/PlayMode/ 存放必须依赖真实 Unity Runtime、生命周期、Coroutine、Scene、Resources、UIKit 或异步流程的行为测试。
+
+## 与 EditMode 的分工
+
+- EditMode：纯 C# Kit Behavior、Performance、Framework Policy，以及 Catalog、文档、打包、ToolsHub、AA/HotUpdate 的静态验证。
+- PlayMode：真实 Runtime/Lifecycle/Resource 行为。不能仅因为“更真实”把纯 Foundation 测试移到这里。
 
 ## 运行方式
 
-1. 打开 Unity **Window > General > Test Runner**
-2. 切到 **PlayMode** 标签
-3. 选择 `StellarFramework.PlayMode.Tests` 程序集 → **Run All**
+编辑器内打开 Window > General > Test Runner，选择 PlayMode，再运行 StellarFramework.PlayMode.Tests。
 
-或命令行（CI）：
-```bash
-Unity -batchmode -quit -projectPath . \
-  -runTests -testPlatform PlayMode \
-  -testResults TestResults/playmode.xml \
-  -logFile build.log
-```
+命令行：
+
+~~~text
+Unity -batchmode -quit -projectPath . -runTests -testPlatform PlayMode -testResults TestResults/playmode.xml -logFile playmode.log
+~~~
 
 ## 前置条件
 
-- 已运行过样例构建器（ToolsHub → Quick Start → 构建样例），保证：
-  - `Assets/StellarFramework/Resources/UIPanel/UIRoot.prefab`
-  - `Assets/StellarFramework/Resources/UIPanel/ExamplePanel.prefab`
-  - `Assets/StellarFramework/Samples/KitSamples/Example_ResKit/Resources/ResKitTest/TestCube_Res.prefab`
-- UIKit 测试依赖上述 Resources 资源（ResKit 默认 Resources 后端）。
+先通过 Tools Hub > Start Here > Quick Start > 构建样例，保证以下 Resources 存在：
 
-## 测试清单
+- Assets/StellarFramework/Resources/UIPanel/UIRoot.prefab
+- Assets/StellarFramework/Resources/UIPanel/ExamplePanel.prefab
+- Assets/StellarFramework/Samples/KitSamples/Example_ResKit/Resources/ResKitTest/TestCube_Res.prefab
+
+UIKit/ResKit 测试依赖这些样例资源；EventKit、BindableKit、TimeKit 的生命周期测试不依赖大型 Demo。
+
+## 当前测试清单（11 项）
 
 | 文件 | 测试 | 验证内容 |
-|---|---|---|
-| `EventKitPlayModeTests.cs` | `TokenPoolReuseDoesNotCancelNewCallback` | **use-after-free 回归**：Token 回收复用后，旧宿主销毁不得误注销新回调（修复前会静默丢失事件） |
-| | `ManualUnRegisterThenReuseIsSafe` | 手动注销 + 复用 + 销毁宿主的完整时序安全 |
-| `BindableKitPlayModeTests.cs` | `BindableProperty_Notifies_On_ValueChange` | 相同值不通知、注销后不通知 |
-| | `BindableProperty_RegisterWithInitValue_InvokesImmediately` | RegisterWithInitValue 立即回调当前值 |
-| | `BindableList_Notifies_Add_Remove` | 列表 Add/Remove 事件 |
-| | `ObserverNodePoolReuseDoesNotCancelNewCallback` | **use-after-free 回归**：Bindable 的 ObserverNode 池化复用安全 |
-| `UIKitResKitPlayModeTests.cs` | `UIKit_Init_Succeeds` | UIKit 异步初始化成功 |
-| | `UIKit_OpenClose_ExamplePanel` | 打开/关闭 ExamplePanel，关闭后 Loading=0、Active=0 |
-| | `ResKit_Loads_ResourcePrefab` | Resources 后端加载 TestCube_Res |
+| --- | --- | --- |
+| BindableKitPlayModeTests.cs | BindableProperty_Notifies_On_ValueChange | 相同值不通知、注销后不通知 |
+|  | BindableProperty_RegisterWithInitValue_InvokesImmediately | 注册立即得到当前值 |
+|  | BindableList_Notifies_Add_Remove | 列表 Add/Remove 通知 |
+|  | ObserverNodePoolReuseDoesNotCancelNewCallback | ObserverNode 池化复用不会误注销新回调 |
+| EventKitPlayModeTests.cs | TokenPoolReuseDoesNotCancelNewCallback | Token 池化复用不会误注销新回调 |
+|  | ManualUnRegisterThenReuseIsSafe | 手动注销、复用和销毁顺序安全 |
+| SaveKitPlayModeTests.cs | FileSystemStorageRoundTripAndCancellation | 真实 FileSystem Save/Load、Backup、Checksum、取消和 Delete |
+| TimeKitPlayModeTests.cs | TimeKitUsesUnscaledTimeAndExplicitPause | unscaled time、Pause/Resume 与 timeScale |
+| UIKitResKitPlayModeTests.cs | UIKit_Init_Succeeds | UIKit 异步初始化 |
+|  | UIKit_OpenClose_ExamplePanel | 面板打开/关闭后 Loading、Active 清零 |
+|  | ResKit_Loads_ResourcePrefab | Resources 后端真实加载 |
 
-共 9 个测试。
+## Fixture 与日志
 
-## 为什么需要 PlayMode 测试
+Fixture 只为测试服务；Samples 只为学习服务。测试故意触发的 Error/Warning 必须通过 LogAssert.Expect 或等价机制声明；未声明的 Console error 视为真实失败。
 
-- **use-after-free 回归**（EventKit/BindableKit）：Token/ObserverNode 池化 + 生命周期触发器绑定是极难肉眼排查的幽灵 bug，PlayMode 可真实触发 `Object.Destroy` → `OnDestroy` 时序。
-- **UIKit 运行链路**：UI 面板的打开/关闭、单例初始化只能在 Play Mode 验证。
-- **ResKit 加载**：Resources 异步加载的真实资源路径。
-
-## 与 EditMode 测试的分工
-
-- `Tests/EditMode/`：文档入口、ToolsHub 工作流、AA/HotUpdate 发布链路的静态/策略检查。
-- `Tests/PlayMode/`：运行时行为（生命周期、异步、UI）。
+PlayMode 不承担 Integration Demo、玩法内容或 Release Player 验收。多 Kit 组合和目标平台发布见 StellarFrameworkVerification。

@@ -42,7 +42,7 @@ TimeKit 与 SaveKit 是需要独立操作说明的正式样例，目录下保留
 - `Resources/UIPanel/ExamplePanel.prefab`
 - ResKit 示例资源与 AB 示例源 Prefab
 - 各 Kit 的可播放场景
-- 外置验证区会单独维护 `FrameworkValidation` 场景与发布前检查工具
+- 维护者验证区会单独维护 `FrameworkValidation` 场景与发布前检查工具；它不属于用户 Sample
 
 ## 验收建议
 

@@ -1,13 +1,13 @@
 ﻿# Samples / 样例总览
 
-`Assets/StellarFramework/Samples` 是样例入口，分为完整业务示范和单模块最小样例两部分。
+`Assets/StellarFramework/Samples` 是面向框架使用者的教学入口，包含架构教学和各 Kit 的最小样例；不承担自动化回归、Integration 或 Release 验收。
 
 ## 目录
 
 - `ArchitectureDemo/`
-  完整架构案例，用来演示 `Architecture / Model / Service / View / UI` 的协作链路。
+  架构教学案例，用来演示 `Architecture / Model / Service / View / UI` 的协作链路。
 - `KitSamples/`
-  单个模块的最小可运行案例，用来验证接线、资源和调用方式。
+  单个模块的最小可运行案例，用来学习接线、资源和调用方式。
   其中 `KitSamples/Scenes/GridKit_Playable.unity`、`KitSamples/Scenes/TimeKit_Playable.unity` 与 `KitSamples/Scenes/SaveKit_Playable.unity` 是不带资源/热更前置的基础闭环，可单独导出。
 
 ## 建议顺序
@@ -30,5 +30,7 @@
 - `SettingsKit_Playable.unity` 已加入 `KitSamples`，可直接验证设置系统的默认页、扩展页、存储和即时应用。
 - `TimeKit_Playable.unity` 与 `SaveKit_Playable.unity` 各自只依赖对应 Kit；SaveKit 样例另外演示 DTO、RestoreAfter 与 V1→V2 迁移。
 - `GridKit_Playable.unity` 只依赖 GridKit.Core，演示负坐标、row-major DenseGrid、Footprint 变换与 Occupancy 原子冲突。
-- `FrameworkValidation` 已迁入框架外的验证区，仅供框架开发者做发布前自检与冒烟验证。
+- 自动化测试位于 `Assets/StellarFramework/Tests`；框架开发者的组合、Player 和发布前冒烟位于 `Assets/StellarFrameworkVerification`，两者都不属于用户样例。
+
+验证架构与发布 Gate 见 `Assets/StellarFrameworkVerification/ValidationArchitecture.md`。
 

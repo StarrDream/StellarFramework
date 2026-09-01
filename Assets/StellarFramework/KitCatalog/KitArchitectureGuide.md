@@ -80,6 +80,20 @@ GridKit 是 `foundation / world`：负坐标整数几何、半开 Bounds、稳�
 - Exporter 的 Foundation / Extension / Adapter 分组只改善选择界面，不改变多选、搜索、依赖去重、UPM 安装或导出闭包。
 - 新 Kit 最低交付应包含 Runtime 源码、asmdef、使用/源码文档、测试、Catalog Profile、验收矩阵、README 登记和干净工程导入验证。
 
+## 新 Kit 的 Validation Contract
+
+新 Kit 必须在设计文档和验收记录中明确自己的 Validation Contract：
+
+- Behavior Tests：公开 API、边界输入、失败原子性和 Regression。
+- Performance：是否需要、目标规模、操作次数和可复现证据。
+- PlayMode：只有真实 Unity Runtime/Lifecycle/Resource 需要时才要求，并写明原因。
+- Sample：是否需要以及最小教学目标和导出边界。
+- Policy：asmdef、依赖、Catalog、Sample closure 和禁止依赖。
+- Integration：是否扩展维护者 Verification，使用 Fake-only 语义。
+- Release：export、clean import、Player、IL2CPP、Addressables、HotUpdate。
+
+不要求每个 Kit 都有 1M Benchmark、PlayMode、ToolsHub 或 Integration Scene；由真实能力决定。验证层级、目录和证据状态以 [ValidationArchitecture.md](../../StellarFrameworkVerification/ValidationArchitecture.md) 为准。
+
 ## 后续新增顺序
 
 下一阶段优先验证 Foundation：SpatialKit、SimulationKit、PathKit。WorldKit、PlacementKit、InventoryKit、WorldGenKit 属于后续 Extension；ProductionKit、LogisticsKit 必须在真实项目中验证领域抽象后再升格。

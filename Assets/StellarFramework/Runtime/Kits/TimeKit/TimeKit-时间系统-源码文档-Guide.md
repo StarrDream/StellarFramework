@@ -118,7 +118,7 @@ elapsedPeriods = (nowTick - triggerTick) / intervalTicks + 1
 
 ## 测试与修改清单
 
-`Assets/StellarFramework/Tests/EditMode/FrameworkValidation/TimeKitTests.cs` 覆盖日历往返、分数 Tick、暂停和倍率、同 Tick 顺序、失效 Handle、追赶策略、预算 backlog、回调重入与错误输入。
+`Assets/StellarFramework/Tests/EditMode/FrameworkValidation/Kits/TimeKit/TimeKitTests.cs` 覆盖日历往返、分数 Tick、暂停和倍率、同 Tick 顺序、失效 Handle、追赶策略、预算 backlog、回调重入与错误输入。
 
 `Assets/StellarFramework/Tests/PlayMode/TimeKitPlayModeTests.cs` 覆盖实际 Unity 帧驱动、`Time.timeScale = 0` 与显式暂停行为。
 
