@@ -3,6 +3,7 @@
   "rootNamespace": "StellarFramework.Tests",
   "references": [
     "StellarFramework.GridKit.Core",
+    "StellarFramework.SpatialKit.Core",
     "StellarFramework.Verification.Runtime",
     "StellarFramework.ToolsHub.Editor",
     "StellarFramework.HotUpdateKit",

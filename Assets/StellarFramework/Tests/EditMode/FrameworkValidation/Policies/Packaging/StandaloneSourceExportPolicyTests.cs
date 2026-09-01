@@ -345,6 +345,7 @@ namespace StellarFramework.Tests.FrameworkValidation
             Assert.That(publisher, Does.Contain("ExportUIKitSamplePackage"));
             Assert.That(publisher, Does.Contain("ExportAllOptionalSamplePackages"));
             Assert.That(publisher, Does.Contain("OptionalSampleProfileIds"));
+            Assert.That(publisher, Does.Contain("\"samples.spatialkit\""));
         }
 
         [Test]
@@ -400,6 +401,51 @@ namespace StellarFramework.Tests.FrameworkValidation
                 Assert.That(source, Does.Not.Contain("HybridCLR"), sourcePath);
                 Assert.That(source, Does.Not.Contain("UniTask"), sourcePath);
                 Assert.That(source, Does.Not.Contain("Newtonsoft"), sourcePath);
+            }
+        }
+
+        [Test]
+        public void SpatialKitKeepsZeroDependencyRuntimeAndSampleBoundaries()
+        {
+            string root = Path.Combine(Application.dataPath, "StellarFramework/Runtime/Kits/SpatialKit");
+            string asmdef = ReadAssetText(
+                "Assets/StellarFramework/Runtime/Kits/SpatialKit/StellarFramework.SpatialKit.Core.asmdef");
+            string catalog = ReadAssetText("Assets/StellarFramework/KitCatalog/KitDistributionCatalog.json");
+            string sampleAsmdef = ReadAssetText(
+                "Assets/StellarFramework/Samples/KitSamples/Example_SpatialKit/StellarFramework.Samples.SpatialKit.asmdef");
+            string sample = ReadAssetText(
+                "Assets/StellarFramework/Samples/KitSamples/Example_SpatialKit/Example_SpatialKit.cs");
+            string scene = ReadAssetText(
+                "Assets/StellarFramework/Samples/KitSamples/Scenes/SpatialKit_Playable.unity");
+
+            Assert.That(Directory.Exists(root), Is.True);
+            Assert.That(asmdef, Does.Contain("\"references\": []"));
+            Assert.That(asmdef, Does.Contain("\"noEngineReferences\": true"));
+            Assert.That(catalog, Does.Contain("\"id\": \"spatialkit\""));
+            Assert.That(catalog, Does.Contain("StellarFramework-SpatialKit.unitypackage"));
+            Assert.That(catalog, Does.Contain("\"id\": \"samples.spatialkit\""));
+            Assert.That(catalog, Does.Contain("Scenes/SpatialKit_Playable.unity"));
+            Assert.That(File.Exists(ToAbsoluteAssetPath("Assets/StellarFramework/Samples/KitSamples/Scenes/SpatialKit_Playable.unity")), Is.True);
+            Assert.That(sampleAsmdef, Does.Contain("StellarFramework.SpatialKit.Core"));
+            Assert.That(sampleAsmdef, Does.Not.Contain("StellarFramework.GridKit.Core"));
+            Assert.That(sampleAsmdef, Does.Not.Contain("StellarFramework.ResKit"));
+            Assert.That(sample, Does.Contain("QueryRect"));
+            Assert.That(sample, Does.Contain("QueryCircle"));
+            Assert.That(sample, Does.Contain("FindNearest"));
+            Assert.That(scene, Does.Contain("m_Name: Example_SpatialKit"));
+            Assert.That(scene, Does.Not.Contain("m_Script: {fileID: 0}"));
+
+            foreach (string sourcePath in Directory.GetFiles(root, "*.cs", SearchOption.AllDirectories))
+            {
+                string source = File.ReadAllText(sourcePath);
+                Assert.That(source, Does.Not.Contain("using UnityEngine"), sourcePath);
+                Assert.That(source, Does.Not.Contain("GridKit"), sourcePath);
+                Assert.That(source, Does.Not.Contain("Addressables"), sourcePath);
+                Assert.That(source, Does.Not.Contain("HybridCLR"), sourcePath);
+                Assert.That(source, Does.Not.Contain("UniTask"), sourcePath);
+                Assert.That(source, Does.Not.Contain("Newtonsoft"), sourcePath);
+                Assert.That(source, Does.Not.Contain("MonoBehaviour"), sourcePath);
+                Assert.That(source, Does.Not.Contain("IEnumerable"), sourcePath);
             }
         }
 
@@ -625,6 +671,12 @@ namespace StellarFramework.Tests.FrameworkValidation
         {
             string projectRoot = Directory.GetParent(Application.dataPath)?.FullName ?? Application.dataPath;
             return File.ReadAllText(Path.Combine(projectRoot, assetPath.Replace('/', Path.DirectorySeparatorChar)));
+        }
+
+        private static string ToAbsoluteAssetPath(string assetPath)
+        {
+            string projectRoot = Directory.GetParent(Application.dataPath)?.FullName ?? Application.dataPath;
+            return Path.Combine(projectRoot, assetPath.Replace('/', Path.DirectorySeparatorChar));
         }
 
         private static string[] ReadUnityPackagePaths(string path)

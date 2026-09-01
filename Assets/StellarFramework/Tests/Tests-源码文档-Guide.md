@@ -19,8 +19,10 @@ Assets/StellarFramework/Tests
 │  │  ├─ Kits/TimeKit
 │  │  ├─ Kits/SaveKit
 │  │  ├─ Kits/GridKit
+│  │  ├─ Kits/SpatialKit
 │  │  ├─ Performance/SaveKit
 │  │  ├─ Performance/GridKit
+│  │  ├─ Performance/SpatialKit
 │  │  ├─ Policies/Architecture
 │  │  ├─ Policies/Documentation
 │  │  ├─ Policies/Packaging
@@ -66,9 +68,9 @@ Assets/StellarFramework/Tests/EditMode/FrameworkValidation/StellarFramework.Fram
 
 ## Behavior Tests
 
-Behavior 测试验证公开 API、边界、失败结果、失败原子性和 Regression。纯 C# 优先 EditMode。TimeKitTests、SaveKitCoreTests、GridKitTests 的代码和 namespace 未改变，只改变了物理目录。
+Behavior 测试验证公开 API、边界、失败结果、失败原子性和 Regression。纯 C# 优先 EditMode。TimeKitTests、SaveKitCoreTests、GridKitTests、SpatialKitTests 的代码和 namespace 未改变，只改变了物理目录。
 
-重大修复必须保留回归测试，并在测试名或注释中说明曾经错误的行为。例如 GridKit 的 cross-owner takeover impossible。
+重大修复必须保留回归测试，并在测试名或注释中说明曾经错误的行为。例如 GridKit 的 cross-owner takeover impossible，以及 SpatialKit 的负坐标 floor 和查询范围保护。
 
 ## Benchmark
 

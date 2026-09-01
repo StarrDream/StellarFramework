@@ -1,0 +1,16 @@
+{
+  "name": "StellarFramework.Samples.SpatialKit",
+  "rootNamespace": "",
+  "references": [
+    "StellarFramework.SpatialKit.Core"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": false,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

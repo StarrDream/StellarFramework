@@ -81,6 +81,20 @@
       "excludedCapabilities": ["Addressables", "HybridCLR", "CodeHotUpdate"]
     },
     {
+      "id": "spatialkit",
+      "displayName": "SpatialKit",
+      "kind": "kit",
+      "tier": "foundation",
+      "category": "world",
+      "availability": "available",
+      "output": "StellarFramework-SpatialKit.unitypackage",
+      "sourcePaths": ["Assets/StellarFramework/Runtime/Kits/SpatialKit"],
+      "requiredKits": [],
+      "requiredUpm": [],
+      "optionalCapabilities": ["SpatialIndex2D", "RectQuery", "CircleQuery", "NearestQuery"],
+      "excludedCapabilities": ["Addressables", "HybridCLR", "CodeHotUpdate"]
+    },
+    {
       "id": "standalone.architecture",
       "displayName": "Architecture.cs",
       "kind": "single-file",
@@ -604,6 +618,23 @@
       ],
       "requiredProfileIds": ["gridkit"],
       "requiredKits": ["GridKit"],
+      "requiredUpm": [],
+      "optionalCapabilities": [],
+      "excludedCapabilities": ["Addressables", "HybridCLR", "CodeHotUpdate"]
+    },
+    {
+      "id": "samples.spatialkit",
+      "displayName": "Sample.SpatialKit",
+      "kind": "sample",
+      "availability": "available",
+      "output": "StellarFramework-Sample-SpatialKit.unitypackage",
+      "sourcePaths": [
+        "Assets/StellarFramework/Samples/KitSamples/Example_SpatialKit",
+        "Assets/StellarFramework/Samples/KitSamples/Common",
+        "Assets/StellarFramework/Samples/KitSamples/Scenes/SpatialKit_Playable.unity"
+      ],
+      "requiredProfileIds": ["spatialkit"],
+      "requiredKits": ["SpatialKit"],
       "requiredUpm": [],
       "optionalCapabilities": [],
       "excludedCapabilities": ["Addressables", "HybridCLR", "CodeHotUpdate"]

@@ -32,8 +32,8 @@ PlayMode 只用于真实 Unity Runtime 能力：MonoBehaviour 生命周期、Obj
 
 当前样板：
 
-- TimeKitTests、SaveKitCoreTests、GridKitTests：Kit Behavior。
-- GridKitBenchmarkTests、SaveKitBenchmarkTests：Performance。
+- TimeKitTests、SaveKitCoreTests、GridKitTests、SpatialKitTests：Kit Behavior。
+- GridKitBenchmarkTests、SaveKitBenchmarkTests、SpatialKitBenchmarkTests：Performance。
 - *PolicyTests：Framework Policy。
 - TimeKitPlayModeTests、SaveKitPlayModeTests、UIKitResKitPlayModeTests、EventKit/BindableKit PlayMode：真实 Runtime Behavior。
 

@@ -37,6 +37,7 @@ namespace StellarFramework.Tests.FrameworkValidation
 
             AssertProfile(catalog, "timekit", "foundation", "simulation");
             AssertProfile(catalog, "gridkit", "foundation", "world");
+            AssertProfile(catalog, "spatialkit", "foundation", "world");
             AssertProfile(catalog, "audiokit.core", "extension", "presentation");
             AssertProfile(catalog, "uikit.core", "extension", "presentation");
             AssertProfile(catalog, "hotupdate.hybridclr", "adapter", "runtime-delivery");
@@ -103,10 +104,13 @@ namespace StellarFramework.Tests.FrameworkValidation
             Assert.That(guide, Does.Contain("所有 Kit 继续按需导出"));
             Assert.That(guide, Does.Contain("TimeKit 是 `foundation / simulation`"));
             Assert.That(guide, Does.Contain("GridKit 是 `foundation / world`"));
+            Assert.That(guide, Does.Contain("SpatialKit 是 `foundation / world`"));
             Assert.That(matrix, Does.Contain("| TimeKit |"));
             Assert.That(matrix, Does.Contain("| GridKit |"));
+            Assert.That(matrix, Does.Contain("| SpatialKit |"));
             Assert.That(readme, Does.Contain("`TimeKit`"));
             Assert.That(readme, Does.Contain("`GridKit`"));
+            Assert.That(readme, Does.Contain("`SpatialKit`"));
             Assert.That(readme, Does.Contain("KitArchitectureGuide.md"));
         }
 

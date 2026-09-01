@@ -36,7 +36,7 @@ namespace StellarFramework.Editor.Modules
         {
             "samples.actionkit", "samples.audiokit", "samples.bindablekit", "samples.configkit", "samples.gridkit",
             "samples.eventkit", "samples.fsmkit", "samples.httpkit", "samples.logkit", "samples.poolkit",
-            "samples.reskit", "samples.settingskit", "samples.singletonkit", "samples.uikit",
+            "samples.reskit", "samples.settingskit", "samples.singletonkit", "samples.spatialkit", "samples.uikit",
             "samples.architecture", "samples.hotupdate.hybridclr"
         };
 

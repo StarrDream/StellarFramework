@@ -38,7 +38,7 @@ Adapter Profile：可选的 Kit 间、Unity 或第三方技术栈连接层
 
 | 层级 | Kit / Profile |
 | --- | --- |
-| Foundation | LogKit、EventKit、PoolKit、SingletonKit、FSMKit、ActionKit、BindableKit、ConfigKit.Core、HttpKit、ResKit.Core、SettingsKit.Core、TimeKit、SaveKit.Core、GridKit |
+| Foundation | LogKit、EventKit、PoolKit、SingletonKit、FSMKit、ActionKit、BindableKit、ConfigKit.Core、HttpKit、ResKit.Core、SettingsKit.Core、TimeKit、SaveKit.Core、GridKit、SpatialKit |
 | Extension | AudioKit.Core、UIKit.Core、HotUpdate.Core |
 | Adapter | ConfigKit.NewtonsoftJson、SettingsKit.UnityAdapters、SettingsKit.AudioKitAdapter、AudioKit.ResKitAdapter、ResKit.AssetBundle、ResKit.Addressables、UIKit.ResKitAdapter、HotUpdate.AddressablesAdapter、HotUpdate.HybridCLR、SaveKit.NewtonsoftJson |
 
@@ -73,6 +73,10 @@ TimeKit 只依赖 LogKit，不依赖 ActionKit、EventKit、PoolKit、UniTask、
 
 GridKit 是 `foundation / world`：负坐标整数几何、半开 Bounds、稳定坐标↔index、连续 DenseGrid、不可变 Footprint 和整数 Occupancy。它不依赖 UnityEngine 或任何其他 Kit，因此可以单独导出；寻路、Chunk、Tilemap、3D、Placement 和存档由上层或后续 Kit 负责。
 
+## SpatialKit 的定位
+
+SpatialKit 是 `foundation / world`：连续二维点的动态均匀空间哈希。它只保存外部提供的 `SpatialId`、`SpatialPoint` 和内部桶链表，提供点的插入、移除、移动、半开矩形查询、闭圆查询和有限半径最近邻。它与 GridKit 的整数格子/Occupancy 分工明确，不负责 3D、体积实体、Transform 跟踪、寻路、模拟、放置规则、对象引用或生命周期驱动，因此可以单独导出且不需要 UnityEngine、UPM、Addressables、HybridCLR 或其他 Kit。
+
 ## 分发原则
 
 - 所有 Kit 继续按需导出；Foundation 不等于默认全量安装。
@@ -96,4 +100,4 @@ GridKit 是 `foundation / world`：负坐标整数几何、半开 Bounds、稳�
 
 ## 后续新增顺序
 
-下一阶段优先验证 Foundation：SpatialKit、SimulationKit、PathKit。WorldKit、PlacementKit、InventoryKit、WorldGenKit 属于后续 Extension；ProductionKit、LogisticsKit 必须在真实项目中验证领域抽象后再升格。
+下一阶段优先验证 Foundation：SimulationKit、PathKit。WorldKit、PlacementKit、InventoryKit、WorldGenKit 属于后续 Extension；ProductionKit、LogisticsKit 必须在真实项目中验证领域抽象后再升格。
