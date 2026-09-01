@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using NUnit.Framework;
 
 namespace StellarFramework.Tests.FrameworkValidation
@@ -267,6 +268,7 @@ namespace StellarFramework.Tests.FrameworkValidation
             var ownerC = new GridOccupantId(30);
 
             Assert.That(occupancy.TryOccupy(ownerC, new GridCoord(2, 2), single, GridTransform.Identity).Success, Is.True);
+            GridOccupantId[] beforeFailure = occupancy.AsReadOnlySpan().ToArray();
             GridOccupancyResult failed = occupancy.TryOccupy(ownerB, new GridCoord(2, 1), multi, GridTransform.Identity);
             Assert.That(failed.Success, Is.False);
             Assert.That(failed.Error, Is.EqualTo(GridOccupancyError.Occupied));
@@ -274,12 +276,19 @@ namespace StellarFramework.Tests.FrameworkValidation
             Assert.That(failed.ExistingOccupant, Is.EqualTo(ownerC));
             Assert.That(occupancy.IsOccupied(new GridCoord(2, 1)), Is.False);
             Assert.That(occupancy.IsOccupied(new GridCoord(3, 1)), Is.False);
+            Assert.That(occupancy.AsReadOnlySpan().ToArray(), Is.EqualTo(beforeFailure));
 
             Assert.That(occupancy.TryOccupy(ownerA, new GridCoord(1, 1), multi, GridTransform.Identity).Success, Is.True);
             Assert.That(occupancy.CanOccupy(ownerA, new GridCoord(1, 1), multi, GridTransform.Identity,
                 ownerA).Success, Is.True);
             Assert.That(occupancy.TryOccupy(ownerA, new GridCoord(1, 1), multi, GridTransform.Identity).Error,
                 Is.EqualTo(GridOccupancyError.Occupied));
+            Assert.That(occupancy.TryGetOccupant(new GridCoord(1, 1), out GridOccupantId retainedA0), Is.True);
+            Assert.That(retainedA0, Is.EqualTo(ownerA));
+            Assert.That(occupancy.TryGetOccupant(new GridCoord(2, 1), out GridOccupantId retainedA1), Is.True);
+            Assert.That(retainedA1, Is.EqualTo(ownerA));
+            Assert.That(occupancy.TryGetOccupant(new GridCoord(1, 2), out GridOccupantId retainedA2), Is.True);
+            Assert.That(retainedA2, Is.EqualTo(ownerA));
             Assert.That(occupancy.TryRelease(ownerA, new GridCoord(1, 1), multi, GridTransform.Identity).Success, Is.True);
             Assert.That(occupancy.IsOccupied(new GridCoord(1, 1)), Is.False);
             Assert.That(occupancy.IsOccupied(new GridCoord(2, 1)), Is.False);
@@ -292,6 +301,67 @@ namespace StellarFramework.Tests.FrameworkValidation
 
             occupancy.Clear();
             Assert.That(occupancy.IsOccupied(new GridCoord(2, 2)), Is.False);
+        }
+
+        [Test]
+        public void TryOccupyOnlyExposesEmptyToOwnerCommit()
+        {
+            MethodInfo[] methods = typeof(GridOccupancy).GetMethods(BindingFlags.Instance | BindingFlags.Public)
+                .Where(method => method.Name == nameof(GridOccupancy.TryOccupy))
+                .ToArray();
+
+            Assert.That(methods, Has.Length.EqualTo(1));
+            Assert.That(methods[0].GetParameters(), Has.Length.EqualTo(4));
+        }
+
+        [Test]
+        public void CanOccupyAllowedExistingOccupantSupportsSelfOverlapWithoutMutation()
+        {
+            var bounds = new GridRect(new GridCoord(0, 0), new GridSize(6, 4));
+            var occupancy = new GridOccupancy(bounds);
+            var owner = new GridOccupantId(10);
+            var oldFootprint = new GridFootprint(new GridOffset(0, 0), new GridOffset(1, 0));
+            var previewFootprint = new GridFootprint(
+                new GridOffset(0, 0), new GridOffset(1, 0), new GridOffset(2, 0));
+            var anchor = new GridCoord(1, 1);
+
+            Assert.That(occupancy.CanOccupy(owner, anchor, previewFootprint, GridTransform.Identity).Success, Is.True);
+            Assert.That(occupancy.TryOccupy(owner, anchor, oldFootprint, GridTransform.Identity).Success, Is.True);
+            GridOccupantId[] beforePreview = occupancy.AsReadOnlySpan().ToArray();
+
+            GridOccupancyResult preview = occupancy.CanOccupy(
+                owner, anchor, previewFootprint, GridTransform.Identity, owner);
+
+            Assert.That(preview.Success, Is.True);
+            Assert.That(occupancy.AsReadOnlySpan().ToArray(), Is.EqualTo(beforePreview));
+            Assert.That(occupancy.TryGetOccupant(new GridCoord(3, 1), out GridOccupantId newCell), Is.True);
+            Assert.That(newCell.IsEmpty, Is.True);
+        }
+
+        [Test]
+        public void CanOccupyAllowedExistingOccupantDoesNotIgnoreOtherOwners()
+        {
+            var bounds = new GridRect(new GridCoord(0, 0), new GridSize(6, 4));
+            var occupancy = new GridOccupancy(bounds);
+            var ownerA = new GridOccupantId(10);
+            var ownerB = new GridOccupantId(20);
+            var single = new GridFootprint(new GridOffset(0, 0));
+            var candidate = new GridFootprint(
+                new GridOffset(0, 0), new GridOffset(1, 0), new GridOffset(2, 0));
+            var anchor = new GridCoord(1, 1);
+
+            Assert.That(occupancy.TryOccupy(ownerA, anchor, single, GridTransform.Identity).Success, Is.True);
+            Assert.That(occupancy.TryOccupy(ownerB, new GridCoord(2, 1), single, GridTransform.Identity).Success, Is.True);
+            GridOccupantId[] beforePreview = occupancy.AsReadOnlySpan().ToArray();
+
+            GridOccupancyResult preview = occupancy.CanOccupy(
+                ownerA, anchor, candidate, GridTransform.Identity, ownerA);
+
+            Assert.That(preview.Success, Is.False);
+            Assert.That(preview.Error, Is.EqualTo(GridOccupancyError.Occupied));
+            Assert.That(preview.ConflictCoord, Is.EqualTo(new GridCoord(2, 1)));
+            Assert.That(preview.ExistingOccupant, Is.EqualTo(ownerB));
+            Assert.That(occupancy.AsReadOnlySpan().ToArray(), Is.EqualTo(beforePreview));
         }
 
         [Test]

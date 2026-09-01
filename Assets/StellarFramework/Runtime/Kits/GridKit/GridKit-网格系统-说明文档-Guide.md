@@ -51,6 +51,25 @@ GridCoord same = cells.GetCoord(index);
 
 `TryRelease` 同样先检查所有格子都由指定 owner 持有；错 owner 或部分不匹配时不修改任何格子。容器默认非线程安全，调用方应在单线程或外部同步下使用。
 
+## Occupancy 查询、提交与所有权
+
+| API | 是否修改状态 | 是否允许忽略已有 Owner | 是否可以覆盖已有 Owner |
+| --- | ---: | ---: | ---: |
+| `CanOccupy` | 否 | 否 | 否 |
+| `CanOccupy(..., allowedExistingOccupant)` | 否 | 是，仅 Preview | 否 |
+| `TryOccupy` | 是 | 否 | 否 |
+| `TryRelease` | 是 | 不适用 | 只能释放指定 owner 自己的 Cell |
+
+`TryOccupy` 只执行 `Empty → Owner`。目标中即使已经是同一个 owner，也仍然返回 `Occupied`；它不是 Move、Replace、Transfer、Refresh 或 Idempotent Reapply。普通 mutation 不存在 `OwnerA → OwnerB`。
+
+合法状态机只有：
+
+```text
+Empty --TryOccupy(A)--> A --TryRelease(A)--> Empty
+```
+
+`CanOccupy(..., allowedExistingOccupant)` 是移动/旋转 Preview 的只读查询。例如建筑 A 原来占用 `AAA`，新形状为 `.AAA` 时，可以把 A 自己已有的 Cell 作为可用；其余新 Cell 必须为空，且调用前后 Occupancy 完全不变。遇到其他 owner 仍返回 `Occupied`。未来若需要 Relocate 或显式 Ownership Transfer，应由 PlacementKit 单独设计，本 V1 不提供。
+
 ## 样例与导出
 
 打开 `Samples/KitSamples/Scenes/GridKit_Playable.unity`，可点击负坐标网格、查看 row-major index、旋转/反射 L 形 Footprint，并观察 A/B 原子占用冲突。样例只引用 `StellarFramework.GridKit.Core`。

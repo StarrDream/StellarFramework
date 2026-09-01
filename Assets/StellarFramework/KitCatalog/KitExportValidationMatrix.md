@@ -45,7 +45,7 @@ Catalog schema v2 以 `tier` / `category` 描述架构职责；它不改变 `kin
 - Unity 编译：无非预期 Console error。
 - 分发边界测试：覆盖单文件导出、Adapter 排除、ToolsHub 程序集识别、依赖闭包与 Catalog 架构元数据。
 - TimeKit：EditMode 与 PlayMode 测试通过；单 Kit 安装包已实际导出并检查外层 Bootstrap、内层 payload 与 LogKit 依赖闭包。
-- 完整 EditMode：225 项完成，224 通过、0 失败、1 项明确标记为 Player/IL2CPP 环境专用而跳过；HybridCLR AA 全链路用例仍需 Player/IL2CPP 环境。
+- 完整 EditMode：228 项完成，227 通过、0 失败、1 项明确标记为 Player/IL2CPP 环境专用而跳过；HybridCLR AA 全链路用例仍需 Player/IL2CPP 环境。
 - 已实际导出并核对依赖说明：AudioKit.Core / ResKitAdapter、SettingsKit.Core / UnityAdapters / AudioKitAdapter、ConfigKit.Core / NewtonsoftJson。
 - HotUpdate.HybridCLR 的完整启动路径已单独验证通过。
 - SaveKit.Core：EditMode 覆盖 Slot/Section 安全、Container、Checksum、事务、Backup、Migration、Missing/Unknown、Restore DAG、跨 DTO 类型链和未来版本提前失败；Newtonsoft Adapter 已完成 Round Trip 验证。
@@ -53,7 +53,8 @@ Catalog schema v2 以 `tier` / `category` 描述架构职责；它不改变 `kin
 - SaveKit 示例：独立 asmdef 仅依赖 SaveKit.Core 与 UniTask，不包含框架业务样例或热更插件。
 - TimeKit 示例：模板和开发场景均由 `ExamplePlayableSceneBuilder.BuildAllSamples()` 生成，场景只包含相机、方向光、样例脚本和统一说明面板。
 - SaveKit 示例：覆盖两个 Section 的 `RestoreAfter` 顺序、Save/Load/Delete、Revision/Diagnostics 和真实 V1→V2 DTO Migration；不解析私有磁盘格式。
-- GridKit：14 项 EditMode 行为测试与 1 项 1M/100k 基准通过；Core asmdef 无引用、无 UnityEngine，`GridKit_Playable` 场景验证通过且无 missing script。
+- GridKit：17 项 EditMode 行为测试与 1 项 1M/100k 基准通过；覆盖 same-owner 重复失败、cross-owner takeover 防护、Preview self-overlap/只读/他人冲突；Core asmdef 无引用、无 UnityEngine，`GridKit_Playable` 场景验证通过且无 missing script。
+- GridKit V1 RC ownership regression：write-side `allowedExistingOccupant` overload 已删除；`TryOccupy` 仅执行 Empty → Owner，`CanOccupy` Preview 永不修改，`TryRelease` 保持 Owner → Empty 原子语义。
 
 ## 后续空白工程检查
 

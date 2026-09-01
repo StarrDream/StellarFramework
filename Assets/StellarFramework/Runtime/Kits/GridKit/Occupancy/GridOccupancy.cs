@@ -31,30 +31,28 @@ namespace StellarFramework
 
         public ReadOnlySpan<GridOccupantId> AsReadOnlySpan() => _cells.AsReadOnlySpan();
 
+        /// <summary>只读检查：目标必须全部为空，调用不会改变 Occupancy。</summary>
         public GridOccupancyResult CanOccupy(GridOccupantId occupant, GridCoord anchor, GridFootprint footprint,
             GridTransform transform)
         {
-            return CanOccupy(occupant, anchor, footprint, transform, GridOccupantId.None);
+            ValidateFootprint(footprint);
+            return EvaluateEmptyOnly(occupant, anchor, footprint, transform);
         }
 
+        /// <summary>只读 Preview 检查：仅允许忽略指定 self owner，调用不会改变 Occupancy。</summary>
         public GridOccupancyResult CanOccupy(GridOccupantId occupant, GridCoord anchor, GridFootprint footprint,
             GridTransform transform, GridOccupantId allowedExistingOccupant)
         {
             ValidateFootprint(footprint);
-            return Evaluate(occupant, anchor, footprint, transform, allowedExistingOccupant);
+            return EvaluateIgnoringAllowed(occupant, anchor, footprint, transform, allowedExistingOccupant);
         }
 
+        /// <summary>只执行 Empty → Owner 提交；任何已有 owner（包括自己）都会失败。</summary>
         public GridOccupancyResult TryOccupy(GridOccupantId occupant, GridCoord anchor, GridFootprint footprint,
             GridTransform transform)
         {
-            return TryOccupy(occupant, anchor, footprint, transform, GridOccupantId.None);
-        }
-
-        public GridOccupancyResult TryOccupy(GridOccupantId occupant, GridCoord anchor, GridFootprint footprint,
-            GridTransform transform, GridOccupantId allowedExistingOccupant)
-        {
             ValidateFootprint(footprint);
-            GridOccupancyResult validation = Evaluate(occupant, anchor, footprint, transform, allowedExistingOccupant);
+            GridOccupancyResult validation = EvaluateEmptyOnly(occupant, anchor, footprint, transform);
             if (!validation.Success) return validation;
 
             for (int i = 0; i < footprint.CellCount; i++)
@@ -66,6 +64,7 @@ namespace StellarFramework
             return GridOccupancyResult.Succeeded();
         }
 
+        /// <summary>只执行 Owner → Empty 提交；所有目标必须属于指定 owner。</summary>
         public GridOccupancyResult TryRelease(GridOccupantId occupant, GridCoord anchor, GridFootprint footprint,
             GridTransform transform)
         {
@@ -100,8 +99,8 @@ namespace StellarFramework
 
         public void Clear() => _cells.Clear();
 
-        private GridOccupancyResult Evaluate(GridOccupantId occupant, GridCoord anchor, GridFootprint footprint,
-            GridTransform transform, GridOccupantId allowedExistingOccupant)
+        private GridOccupancyResult EvaluateEmptyOnly(GridOccupantId occupant, GridCoord anchor,
+            GridFootprint footprint, GridTransform transform)
         {
             if (!occupant.IsValid)
             {
@@ -116,7 +115,32 @@ namespace StellarFramework
                 }
 
                 GridOccupantId existing = _cells.GetRefReadOnly(cell);
-                if (existing.IsValid && (!allowedExistingOccupant.IsValid || existing != allowedExistingOccupant))
+                if (existing.IsValid)
+                {
+                    return GridOccupancyResult.Failed(GridOccupancyError.Occupied, cell, existing);
+                }
+            }
+
+            return GridOccupancyResult.Succeeded();
+        }
+
+        private GridOccupancyResult EvaluateIgnoringAllowed(GridOccupantId occupant, GridCoord anchor,
+            GridFootprint footprint, GridTransform transform, GridOccupantId allowedExistingOccupant)
+        {
+            if (!occupant.IsValid)
+            {
+                return GridOccupancyResult.Failed(GridOccupancyError.InvalidOccupant, default(GridCoord), GridOccupantId.None);
+            }
+
+            for (int i = 0; i < footprint.CellCount; i++)
+            {
+                if (!TryGetCell(anchor, footprint.GetOffset(i), transform, out GridCoord cell))
+                {
+                    return GridOccupancyResult.Failed(GridOccupancyError.OutOfBounds, default(GridCoord), GridOccupantId.None);
+                }
+
+                GridOccupantId existing = _cells.GetRefReadOnly(cell);
+                if (existing.IsValid && existing != allowedExistingOccupant)
                 {
                     return GridOccupancyResult.Failed(GridOccupancyError.Occupied, cell, existing);
                 }

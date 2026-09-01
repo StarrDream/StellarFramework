@@ -1,5 +1,7 @@
 # GridKit 源码文档
 
+> 状态：GridKit V1 / Core Semantics Frozen
+
 ## Design Goals 与 Foundation 边界
 
 源码优先保证数学正确性、确定性、固定内存布局和小而稳定的 API。GridKit 只描述二维、正交、整数、纯逻辑网格；任何“这个格子为什么能放建筑”“Chunk 何时加载”“NPC 如何寻路”的业务语义都必须留在后续 Kit 或业务项目。
@@ -42,10 +44,64 @@ Core 源码不能出现 `using UnityEngine`、Unity 生命周期、LogKit/EventK
 
 1. 检查 owner 是否为正数；非法输入返回 `InvalidOccupant`。
 2. 按 Footprint canonical 顺序计算所有世界格；任一变换溢出或不在 Bounds 返回 `OutOfBounds`。
-3. 任一格已有不被允许的 owner 返回 `Occupied`，附 `ConflictCoord` / `ExistingOccupant`。
+3. `TryOccupy` 要求每一格都是 Empty；`CanOccupy(..., allowedExistingOccupant)` 仅在 Preview 路径允许指定的 self owner，其他已有 owner 返回 `Occupied`，并附 `ConflictCoord` / `ExistingOccupant`。
 4. 全部通过后第二遍通过 `DenseGrid.GetRef` 写入 owner。
 
 释放采用相同的两遍结构：第一遍确认所有格子存在且 owner 完全匹配，第二遍清零；不匹配返回 `NotOwned` 且不修改。算法默认非线程安全，外层若需要并发必须提供同步。
+
+## Ownership 状态机与 API 分离
+
+GridKit V1 的合法 Occupancy 状态机只有：
+
+```text
+Empty
+  │
+  │ TryOccupy(A)
+  ▼
+ A
+  │
+  │ TryRelease(A)
+  ▼
+Empty
+```
+
+`TryOccupy` 的验证路径是 Empty-only：
+
+```text
+validate occupant
+
+for each canonical target:
+    transform
+    bounds check
+    if cell != Empty:
+        return Occupied
+
+// 到这里为止没有修改
+for each canonical target:
+    cell = occupant
+
+return Success
+```
+
+普通 `TryOccupy` 不接受 `allowedExistingOccupant`，因此不会把已有 owner 当作成功，也不会覆盖任何 owner。V1 RC 已删除 write-side ignore-owner overload；`TryOccupy` 不能承担 Move、Replace、Refresh、幂等重试或 Ownership Transfer。
+
+Preview 使用单独的只读路径：
+
+```text
+for each canonical target:
+    transform
+    bounds check
+    if Empty:
+        continue
+    if Existing == allowedExisting:
+        continue
+    return Occupied
+
+return Success
+// never commit
+```
+
+因此 `CanOccupy(..., allowedExistingOccupant)` 只能忽略 Preview 请求中指定的 self owner，遇到其他 owner 仍失败，且任何结果都不改变 Occupancy。不存在普通 `OwnerA → OwnerB` mutation；未来 Relocate 或显式 Transfer 必须由 PlacementKit 另行定义。
 
 ## 公开类型关系
 
@@ -96,6 +152,7 @@ Core 不使用动态代码、反射或 UnityEditor API，`allowUnsafeCode=false`
 7. Footprint immutable、非空、无重复，变换顺序为 ReflectX → ReflectY → Rotation。
 8. Occupancy 只保存正整数 owner；TryOccupy/TryRelease 成功全写、失败零修改。
 9. Core 不拥有生命周期、全局状态、业务引用、事件或自动扩容。
+10. Ownership 只能通过显式合法 mutation 改变：TryOccupy 仅 `Empty → Owner`，TryRelease 仅 `Owner → Empty`；Preview 永不 Commit，不存在隐式 `OwnerA → OwnerB`。
 
 ## Failure Matrix
 
@@ -113,6 +170,8 @@ Core 不使用动态代码、反射或 UnityEditor API，`allowUnsafeCode=false`
 | `TryOccupy` | conflict | `Occupied` + conflict，零修改 |
 | `TryRelease` | wrong owner | `NotOwned`，零修改 |
 
+Ownership 的关键边界也固定为：`CanOccupy` 遇 Empty 返回 Success 且不修改；带 `allowedExistingOccupant=A` 时允许已有 A 但不允许 B；`TryOccupy(A)` 遇已有 A 或 B 都返回 `Occupied` 且保持原 owner；`TryRelease(A)` 只有遇到 A 才清零，遇到 B 返回 `NotOwned`。
+
 ## Test Matrix
 
 | 区域 | 覆盖 |
@@ -123,7 +182,7 @@ Core 不使用动态代码、反射或 UnityEditor API，`allowUnsafeCode=false`
 | DenseGrid | 负原点、1x1/empty、双向 Round Trip、Span/ref、Fill/Clear/Copy、越界 |
 | Neighbor | 4/8 顺序、边角过滤、Int32 极值、容量 |
 | Footprint | immutable、canonical、duplicate/empty、旋转反射、写入缓冲、溢出 |
-| Occupancy | 单/多格、冲突、越界、错误 owner、Clear、旋转反射、原子零修改 |
+| Occupancy | 单/多格、冲突、越界、错误 owner、Clear、旋转反射、原子零修改、same-owner 重复失败、cross-owner takeover 防护、Preview self-overlap/只读/他人冲突 |
 
 ## Benchmark Matrix
 
