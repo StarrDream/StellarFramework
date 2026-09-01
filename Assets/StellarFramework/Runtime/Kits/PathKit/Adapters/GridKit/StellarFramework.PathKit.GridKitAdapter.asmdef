@@ -1,0 +1,17 @@
+{
+    "name": "StellarFramework.PathKit.GridKitAdapter",
+    "rootNamespace": "",
+    "references": [
+        "StellarFramework.PathKit.Core",
+        "StellarFramework.GridKit.Core"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": true
+}

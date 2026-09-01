@@ -19,6 +19,8 @@
 | 整数网格基础 | `GridKit_Playable.unity` | 仅 GridKit.Core；无 UPM、Addressables、HybridCLR |
 | 连续空间基础 | `SpatialKit_Playable.unity` | 仅 SpatialKit.Core；无 GridKit、UPM、Addressables、HybridCLR |
 | 批量模拟调度 | `SimulationKit_Playable.unity` | 仅 SimulationKit.Core；Game Tick 与 Frame Step 分离；每个 Frame Step 只 Collect 一次；无 TimeKit、GridKit、UPM、Addressables、HybridCLR |
+| 通用路径搜索 | `PathKit_Playable.unity` | 仅 PathKit.Core；Graph-first A*/Dijkstra；无 GridKit、UPM、Addressables、HybridCLR |
+| 网格路径适配 | `PathKit_GridKitAdapter_Playable.unity` | PathKit.GridKitAdapter + GridKit；负坐标、四/八方向和转角策略；无 UPM、Addressables、HybridCLR |
 | 资源与 UI 验收 | `ResKit_Playable.unity`、`UIKit_Playable.unity` | AB/AA 按需构建 |
 | 设置系统验收 | `SettingsKit_Playable.unity` | 样例构建器生成资源 |
 | 热更链路验收 | `HotUpdateKit_Playable.unity` | 可选扩展路径；完整热更需 HybridCLR 与 AA 产物 |
@@ -32,11 +34,13 @@
 4. 跑 `GridKit_Playable.unity`，确认负坐标、Footprint 与 Occupancy 原子性
 5. 跑 `SpatialKit_Playable.unity`，确认连续负/小数坐标、Rect/Circle 查询和最近邻
 6. 跑 `SimulationKit_Playable.unity`，用 Burst 的 Frame Step 验证 Budget 跨帧分批，再用 Staggered 验证首次延迟；Manual Drain 只作为显式 Flush/Debug
-7. 再跑 `UIKit_Playable.unity` 和 `ResKit_Playable.unity`，确认 UI 与资源主链路无 error
-8. 再按 `Scenes/README.md` 的顺序跑单个 Kit 场景
-9. 涉及 AB 的场景先用 ToolHub 构建 AB
-10. 涉及 AA 的场景使用 Addressables 官方 `Groups / Profiles / Build` 或 Play Mode Script
-11. 涉及 HybridCLR 的场景只做入口检查，真实 dll.bytes 走 HybridCLR 官方流程；建议在基础框架稳定后再接入
+7. 跑 `PathKit_Playable.unity`，确认独立 Graph、A*/Dijkstra、加权边和结果输出
+8. 跑 `PathKit_GridKitAdapter_Playable.unity`，确认负坐标、四/八方向、阻挡、加权和转角策略
+9. 再跑 `UIKit_Playable.unity` 和 `ResKit_Playable.unity`，确认 UI 与资源主链路无 error
+10. 再按 `Scenes/README.md` 的顺序跑单个 Kit 场景
+11. 涉及 AB 的场景先用 ToolHub 构建 AB
+12. 涉及 AA 的场景使用 Addressables 官方 `Groups / Profiles / Build` 或 Play Mode Script
+13. 涉及 HybridCLR 的场景只做入口检查，真实 dll.bytes 走 HybridCLR 官方流程；建议在基础框架稳定后再接入
 
 ## 不继续堆文档/脚本的规则
 

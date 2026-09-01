@@ -1,0 +1,14 @@
+{
+  "name": "StellarFramework.Samples.PathKit",
+  "rootNamespace": "",
+  "references": ["StellarFramework.PathKit.Core"],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": false,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

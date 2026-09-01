@@ -17,6 +17,8 @@
 | `SaveKit_Playable.unity` | DTO Section、异步存档、RestoreAfter、V1→V2 迁移 | 可直接运行 |
 | `GridKit_Playable.unity` | 负坐标、Row-Major DenseGrid、邻居、Footprint 与原子 Occupancy | 可直接运行 |
 | `SpatialKit_Playable.unity` | 连续二维点、负坐标/小数坐标、动态移动、Rect/Circle 查询与最近邻 | 可直接运行 |
+| `PathKit_Playable.unity` | Graph-first A*/Dijkstra、加权边、NoPath 与确定性输出 | 可直接运行 |
+| `PathKit_GridKitAdapter_Playable.unity` | 负坐标网格、四/八方向、阻挡、加权、转角策略与动态 TraversalPolicy | 可直接运行 |
 | `EventKit_Playable.unity` | 枚举事件和结构体事件 | 可直接运行 |
 | `FSMKit_Playable.unity` | 轻量状态机与动画联动 | 可直接运行 |
 | `HotUpdateKit_Playable.unity` | 热更入口接线 | 场景可运行，完整热更仍需额外 DLL |
@@ -37,16 +39,18 @@
 6. `GridKit_Playable.unity`
 7. `ActionKit_Playable.unity`
 8. `SpatialKit_Playable.unity`
-9. `BindableKit_Playable.unity`
-10. `EventKit_Playable.unity`
-11. `LogKit_Playable.unity`
-12. `SingletonKit_Playable.unity`
-13. `AudioKit_Playable.unity`
-14. `ConfigKit_Playable.unity`
-15. `SettingsKit_Playable.unity`
-16. `FSMKit_Playable.unity`
-17. `PoolKit_Playable.unity`
-18. `HttpKit_Playable.unity`
+9. `PathKit_Playable.unity`
+10. `PathKit_GridKitAdapter_Playable.unity`
+11. `BindableKit_Playable.unity`
+12. `EventKit_Playable.unity`
+13. `LogKit_Playable.unity`
+14. `SingletonKit_Playable.unity`
+15. `AudioKit_Playable.unity`
+16. `ConfigKit_Playable.unity`
+17. `SettingsKit_Playable.unity`
+18. `FSMKit_Playable.unity`
+19. `PoolKit_Playable.unity`
+20. `HttpKit_Playable.unity`
 
 ## 已补齐的公共资源
 
@@ -74,6 +78,8 @@
 - `TimeKit_Playable.unity` 不需要 SaveKit；`SaveKit_Playable.unity` 不需要 TimeKit，两个样例可以分别导出
 - `GridKit_Playable.unity` 只依赖 GridKit.Core，不需要资源、UPM 或热更前置，可直接作为单 Kit 样例导出
 - `SpatialKit_Playable.unity` 只依赖 SpatialKit.Core，不需要 GridKit、ResKit、资源、UPM 或热更前置，可直接作为单 Kit 样例导出
+- `PathKit_Playable.unity` 只依赖 PathKit.Core，不需要 GridKit、ResKit、资源、UPM 或热更前置，可直接作为单 Kit 样例导出
+- `PathKit_GridKitAdapter_Playable.unity` 依赖 PathKit.GridKitAdapter 与 GridKit，适配器包会带上 PathKit Core 闭包；不需要资源、UPM 或热更前置
 - `SaveKit_Playable.unity` 的 Legacy 按钮会生成一个真实 V1 文件，再由当前 V2 Section 和 Migration 加载
 - `FrameworkValidation` 场景位于 `Assets/StellarFrameworkVerification`，只用于维护者发布前回归，不是用户样例
 - `HttpKit_Playable.unity` 离线也能看到本地逻辑，联网时信息更完整

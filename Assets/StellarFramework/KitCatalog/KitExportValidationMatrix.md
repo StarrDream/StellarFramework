@@ -12,7 +12,7 @@ NOT RUN 和 BLOCKED 不得写成 PASS；未运行的 Benchmark 不得填写推�
 
 ## 当前可选目标
 
-当前目录包含 56 个分发 Profile：2 个单文件目标、2 个 Runtime 支持包、2 个 ToolsHub 包、1 个生成支持包、16 个 Foundation Kit、3 个 Extension Kit、10 个 Adapter Profile，以及 20 个可选样例包。
+当前目录包含 60 个分发 Profile：2 个单文件目标、2 个 Runtime 支持包、2 个 ToolsHub 包、1 个生成支持包、17 个 Foundation Kit、3 个 Extension Kit、11 个 Adapter Profile，以及 22 个可选样例包。
 
 Catalog schema v2 以 `tier` / `category` 描述架构职责；它不改变 `kind` 的分发语义，也不会让同层 Kit 自动安装。完整规则见 [KitArchitectureGuide.md](KitArchitectureGuide.md)。
 
@@ -34,6 +34,8 @@ Catalog schema v2 以 `tier` / `category` 描述架构职责；它不改变 `kin
 | GridKit | 负坐标几何、DenseGrid、Footprint、整数 Occupancy | Addressables、HybridCLR、所有其他 Kit 与 UPM |
 | SpatialKit | 连续二维点、均匀空间哈希、Rect/Circle 查询、有限半径最近邻 | GridKit、ResKit、Addressables、HybridCLR、所有其他 Kit 与 UPM |
 | SimulationKit | SimulationId、索引最小堆、固定预算派发、Staggered 首次延迟、过期合并 | UnityEngine、TimeKit、GridKit、SpatialKit、ResKit、Addressables、HybridCLR、所有其他 Kit 与 UPM |
+| PathKit | Graph-first 通用 A* / Dijkstra、正 long 成本、确定性 tie-break、扩展预算、原子路径输出 | UnityEngine、GridKit、Addressables、HybridCLR、所有其他 Kit 与 UPM |
+| PathKit.GridKitAdapter | PathKit + GridKit 的 GridPathGraph、Four/Eight、TraversalPolicy、转角策略与负坐标映射 | Addressables、HybridCLR、移动/世界服务与固定 Occupancy 语义 |
 | HotUpdate.Core | ResKit.Core、HttpKit、热更策略抽象 | Addressables、HybridCLR、代码热更实现 |
 | HotUpdate.Addressables | HotUpdate.Core、ResKit.Addressables | HybridCLR |
 | HotUpdate.HybridCLR | HotUpdate.Addressables、HybridCLR 运行时与导出工具 | 无 |
@@ -47,6 +49,8 @@ Catalog schema v2 以 `tier` / `category` 描述架构职责；它不改变 `kin
 | Sample.GridKit | GridKit 示例脚本、Common 场景说明、`GridKit_Playable.unity` | 依赖 `GridKit`；无 UPM；排除 Addressables、HybridCLR、其他 Kit |
 | Sample.SpatialKit | SpatialKit 示例脚本、Common 场景说明、`SpatialKit_Playable.unity` | 依赖 `SpatialKit`；无 UPM；排除 GridKit、ResKit、Addressables、HybridCLR |
 | Sample.SimulationKit | SimulationKit 示例脚本、Common 场景说明、`SimulationKit_Playable.unity` | 依赖 `SimulationKit`；无 UPM；手动 tick；排除 TimeKit、GridKit、ResKit、Addressables、HybridCLR |
+| Sample.PathKit | 独立 Graph、A* / Dijkstra、加权边与结果面板、`PathKit_Playable.unity` | 依赖 `PathKit`；无 UPM；排除 GridKit、Addressables、HybridCLR |
+| Sample.PathKit.GridKitAdapter | 负坐标网格、TraversalPolicy、阻挡/加权/转角策略、`PathKit_GridKitAdapter_Playable.unity` | 依赖 `PathKit.GridKitAdapter`（含 PathKit + GridKit）；无 UPM；排除 Addressables、HybridCLR |
 
 完整 Profile、依赖闭包与 UPM 要求以 [KitDistributionCatalog.json](KitDistributionCatalog.json) 为准。
 
@@ -81,6 +85,11 @@ Verification 边界：StellarFrameworkVerification 不注册为普通 Kit、Samp
 - SimulationKit 空白工程烟测：Core 单 Kit 包在 `C:\GitProjects\SimulationKitCleanImport-20260901-214600` 完成安装、编译与 Bootstrap 清理；最新 Sample 单 Kit 包在 `C:\GitProjects\SimulationKitFinalSampleCleanImport-20260901-225001` 完成安装、编译与 Bootstrap 清理，未发现 CS 编译错误、异常或 Missing 脚本；合并包 payload 另已完成外层 manifest、内层路径和依赖闭包核对。
 - SimulationKit Sample 手动验收（Unity 2022.3.62f3c1）：Burst Reset → Advance +5 → Budget 4 → Frame Step 1 返回 `1,2,3,4` 且 `HasBacklog=true`；连续到 Frame Step 5 返回 `17,18,19,20` 且 `HasBacklog=false`，Game Tick 全程保持 5；Staggered 在 tick=9 以 Frame Step 与 Manual Drain 各取一批，Game Tick 未被 Frame Step 改写；Register、Unregister、SetInterval、Manual Drain 与滚动 UI 均可用，控制台无 error/warning。
 - 最新 Benchmark 证据（Unity 2022.3.62f3c1）：GridKit 1,000,000 cells，100,000 次 CanOccupy 与 Occupy/Release，fill 0.440 ms、linear read 1.996 ms、coord↔index 21.630 ms、CanOccupy 7.830 ms、Occupy/Release 24.878 ms；SaveKit 100,000 records，file 2,100,125 bytes，save 24.880 ms、load 22.780 ms。
+- PathKit V1 Release Candidate：Core 与 GridKit Adapter 的 31 项 EditMode 行为/性能/架构测试通过；覆盖 Graph-first A* / Dijkstra、确定性 tie-break、inconsistent heuristic reopen、CostOverflow、扩展上限、输出原子性、负坐标网格、四/八方向、转角策略与动态 traversal policy。Core Semantics Frozen = NO，仍需独立 review 后再冻结。
+- PathKit Benchmark（Unity 2022.3.62f3c1，Editor Test Runner）：64/256/512 方形 Graph 的 A* 与 Dijkstra 均通过，512×512 A* 0.916 ms / 1,022 expanded、Dijkstra 80.074 ms / 262,143 expanded；1,000×1,000 逻辑节点 A* 3.896 ms / 1,998 expanded；重复 1,000 次 ManagedHeapDelta=0。数值仅用于本机趋势，不构成跨平台性能承诺。
+- PathKit 导出闭环：已实际生成 `StellarFramework-PathKit.unitypackage`（16,508 bytes）、`StellarFramework-PathKit-GridKitAdapter.unitypackage`（41,737 bytes）、`StellarFramework-Sample-PathKit.unitypackage`（25,436 bytes）和 `StellarFramework-Sample-PathKit-GridKitAdapter.unitypackage`（49,491 bytes）。Core payload 仅含 PathKit Core；Adapter payload 含 PathKit + GridKit + Adapter 闭包；Sample payload 额外含 Common、对应示例和场景，均排除 Tests、Verification、Addressables、HybridCLR。
+- PathKit 空白工程烟测：Core 在 `C:\GitProjects\PathKitCleanImport-20260902-0115` 完成 Bootstrap 安装与脚本编译；Adapter 在 `C:\GitProjects\PathKitAdapterCleanImport-20260902-0115` 完成依赖闭包安装与编译；Sample Adapter 在 `C:\GitProjects\PathKitSampleCleanImport-20260902-0115` 完成安装、编译和场景导入。批处理模式仅有许可证 IPC / SkyManager 环境警告，无 CS 编译错误、异常或 Missing 脚本。
+- PathKit Sample 手动验收（Unity 2022.3.62f3c1）：Core 与 GridKit Adapter 场景均由 `ExamplePlayableSceneBuilder.BuildAllSamples()` 生成；层级均含 Main Camera、Directional Light、Sample Guide 和示例脚本；PlayMode 截图确认搜索控制、结果面板及网格可视化，停止后 Console error/warning=0。
 - 上述 ManagedHeapDelta 来自 GC.GetTotalMemory(false)，只作为 coarse heap / GC trend，不是严格零分配证明。
 
 SpatialKit Benchmark 证据（Unity 2022.3.62f3c1，Editor Test Runner）：100,000 条动态操作，BucketSize=8、InitialCapacity=100000；Insert=11.588 ms、Lookup=3.032 ms、SameBucketUpdate=100000（7.601 ms）、CrossBucketUpdate=100000（14.593 ms）、RectQuery=10000（3.480 ms）、CircleQuery=10000（2.595 ms）、Nearest=10000（9.605 ms）、Remove=6.614 ms、Clear=0.241 ms；SameBucketChecksum=5000050000、CrossBucketChecksum=5000050000、Checksum=7960354605800、ManagedHeapDelta=0。1,000,000 条存储压力 Insert=93.353 ms、抽样查找=1.988 ms、部分移动=3.706 ms、Clear=1.327 ms、Checksum=2896778425750、ManagedHeapDelta=28672。ManagedHeapDelta 只作 coarse heap trend，不是严格零分配证明。

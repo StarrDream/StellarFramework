@@ -38,7 +38,7 @@ Adapter Profile：可选的 Kit 间、Unity 或第三方技术栈连接层
 
 | 层级 | Kit / Profile |
 | --- | --- |
-| Foundation | LogKit、EventKit、PoolKit、SingletonKit、FSMKit、ActionKit、BindableKit、ConfigKit.Core、HttpKit、ResKit.Core、SettingsKit.Core、TimeKit、SaveKit.Core、GridKit、SpatialKit、SimulationKit |
+| Foundation | LogKit、EventKit、PoolKit、SingletonKit、FSMKit、ActionKit、BindableKit、ConfigKit.Core、HttpKit、ResKit.Core、SettingsKit.Core、TimeKit、SaveKit.Core、GridKit、SpatialKit、SimulationKit、PathKit |
 | Extension | AudioKit.Core、UIKit.Core、HotUpdate.Core |
 | Adapter | ConfigKit.NewtonsoftJson、SettingsKit.UnityAdapters、SettingsKit.AudioKitAdapter、AudioKit.ResKitAdapter、ResKit.AssetBundle、ResKit.Addressables、UIKit.ResKitAdapter、HotUpdate.AddressablesAdapter、HotUpdate.HybridCLR、SaveKit.NewtonsoftJson |
 
@@ -76,6 +76,12 @@ GridKit 是 `foundation / world`：负坐标整数几何、半开 Bounds、稳�
 ## SpatialKit 的定位
 
 SpatialKit 是 `foundation / world`：连续二维点的动态均匀空间哈希。它只保存外部提供的 `SpatialId`、`SpatialPoint` 和内部桶链表，提供点的插入、移除、移动、半开矩形查询、闭圆查询和有限半径最近邻。它与 GridKit 的整数格子/Occupancy 分工明确，不负责 3D、体积实体、Transform 跟踪、寻路、模拟、放置规则、对象引用或生命周期驱动，因此可以单独导出且不需要 UnityEngine、UPM、Addressables、HybridCLR 或其他 Kit。
+
+## PathKit 的定位
+
+PathKit 是 `foundation / world`：只依赖通用 Graph 的节点、outgoing neighbor、正 `long` 成本和可选 admissible heuristic，提供同步 A* 与 Dijkstra。Core 不知道 GridCoord、NPC、Transform、移动、路径缓存或世界事件，因此可以作为完全独立的纯 C# 包导出。A* 对不一致 heuristic 允许 Closed reopen，Dijkstra 永不调用 heuristic；所有成本运算都防止 long 溢出。
+
+`PathKit.GridKitAdapter` 是独立的 `adapter / world` profile，使用 `GridPathGraph` 和应用提供的 `IGridPathTraversalPolicy` 接入负坐标 GridRect、FourWay/EightWay、NoCornerCut/AllowCornerCut 与动态 walkability。适配器不把 DenseGrid 或 Occupancy 写死为唯一数据源，Core 导出不会带入该目录。
 
 ## SimulationKit 的定位
 

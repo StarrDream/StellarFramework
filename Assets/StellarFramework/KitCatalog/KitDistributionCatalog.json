@@ -109,6 +109,37 @@
       "excludedCapabilities": ["Addressables", "HybridCLR", "CodeHotUpdate"]
     },
     {
+      "id": "pathkit",
+      "displayName": "PathKit",
+      "kind": "kit",
+      "tier": "foundation",
+      "category": "world",
+      "availability": "available",
+      "output": "StellarFramework-PathKit.unitypackage",
+      "sourcePaths": ["Assets/StellarFramework/Runtime/Kits/PathKit"],
+      "excludedSourcePaths": ["Assets/StellarFramework/Runtime/Kits/PathKit/Adapters"],
+      "requiredProfileIds": [],
+      "requiredKits": [],
+      "requiredUpm": [],
+      "optionalCapabilities": ["GraphPathfinding", "AStar", "Dijkstra", "BoundedSearch"],
+      "excludedCapabilities": ["Addressables", "HybridCLR", "CodeHotUpdate"]
+    },
+    {
+      "id": "pathkit.gridkit",
+      "displayName": "PathKit.GridKitAdapter",
+      "kind": "kit-with-dependencies",
+      "tier": "adapter",
+      "category": "world",
+      "availability": "available",
+      "output": "StellarFramework-PathKit-GridKitAdapter.unitypackage",
+      "sourcePaths": ["Assets/StellarFramework/Runtime/Kits/PathKit/Adapters/GridKit"],
+      "requiredProfileIds": ["pathkit", "gridkit"],
+      "requiredKits": ["PathKit", "GridKit"],
+      "requiredUpm": [],
+      "optionalCapabilities": ["GridPathGraph", "FourWayGridPath", "EightWayGridPath", "DiagonalCornerPolicy"],
+      "excludedCapabilities": ["Addressables", "HybridCLR", "CodeHotUpdate"]
+    },
+    {
       "id": "standalone.architecture",
       "displayName": "Architecture.cs",
       "kind": "single-file",
@@ -666,6 +697,40 @@
       ],
       "requiredProfileIds": ["simulationkit"],
       "requiredKits": ["SimulationKit"],
+      "requiredUpm": [],
+      "optionalCapabilities": [],
+      "excludedCapabilities": ["Addressables", "HybridCLR", "CodeHotUpdate"]
+    },
+    {
+      "id": "samples.pathkit",
+      "displayName": "Sample.PathKit",
+      "kind": "sample",
+      "availability": "available",
+      "output": "StellarFramework-Sample-PathKit.unitypackage",
+      "sourcePaths": [
+        "Assets/StellarFramework/Samples/KitSamples/Example_PathKit",
+        "Assets/StellarFramework/Samples/KitSamples/Common",
+        "Assets/StellarFramework/Samples/KitSamples/Scenes/PathKit_Playable.unity"
+      ],
+      "requiredProfileIds": ["pathkit"],
+      "requiredKits": ["PathKit"],
+      "requiredUpm": [],
+      "optionalCapabilities": [],
+      "excludedCapabilities": ["Addressables", "HybridCLR", "CodeHotUpdate"]
+    },
+    {
+      "id": "samples.pathkit.gridkit",
+      "displayName": "Sample.PathKit.GridKitAdapter",
+      "kind": "sample",
+      "availability": "available",
+      "output": "StellarFramework-Sample-PathKit-GridKitAdapter.unitypackage",
+      "sourcePaths": [
+        "Assets/StellarFramework/Samples/KitSamples/Example_PathKit_GridKitAdapter",
+        "Assets/StellarFramework/Samples/KitSamples/Common",
+        "Assets/StellarFramework/Samples/KitSamples/Scenes/PathKit_GridKitAdapter_Playable.unity"
+      ],
+      "requiredProfileIds": ["pathkit.gridkit"],
+      "requiredKits": ["PathKit.GridKitAdapter"],
       "requiredUpm": [],
       "optionalCapabilities": [],
       "excludedCapabilities": ["Addressables", "HybridCLR", "CodeHotUpdate"]
