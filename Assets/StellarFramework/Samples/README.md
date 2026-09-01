@@ -30,7 +30,7 @@
 - `SettingsKit_Playable.unity` 已加入 `KitSamples`，可直接验证设置系统的默认页、扩展页、存储和即时应用。
 - `TimeKit_Playable.unity` 与 `SaveKit_Playable.unity` 各自只依赖对应 Kit；SaveKit 样例另外演示 DTO、RestoreAfter 与 V1→V2 迁移。
 - `GridKit_Playable.unity` 只依赖 GridKit.Core，演示负坐标、row-major DenseGrid、Footprint 变换与 Occupancy 原子冲突。
-- `SimulationKit_Playable.unity` 只依赖 SimulationKit.Core，演示 Burst/Staggered 首次派发、固定预算、过期合并和手动 tick。
+- `SimulationKit_Playable.unity` 只依赖 SimulationKit.Core，演示 Game Tick 与 Frame Step 分离、Burst/Staggered 首次派发、固定预算、过期合并和显式同 tick Drain。
 - 自动化测试位于 `Assets/StellarFramework/Tests`；框架开发者的组合、Player 和发布前冒烟位于 `Assets/StellarFrameworkVerification`，两者都不属于用户样例。
 
 验证架构与发布 Gate 见 `Assets/StellarFrameworkVerification/ValidationArchitecture.md`。

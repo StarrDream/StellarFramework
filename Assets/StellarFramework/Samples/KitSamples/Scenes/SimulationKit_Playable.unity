@@ -382,10 +382,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   title: SimulationKit / Playable Sample
-  summary: "Pure C# batch scheduling with a manually advanced tick and a bounded dispatch budget."
-  controls: "Choose Reset Burst or Reset Staggered; advance with +1, +5, or +20; choose Budget 1, 4, or 16; then Drain Current Tick."
+  summary: "Pure C# batch scheduling with separate Game Tick and one-collect-per-Frame-Step teaching."
+  controls: "Reset Burst, Advance +5, choose Budget 4, then click Frame Step (Collect once) five times; use Manual Drain only for explicit same-tick flush."
   setup: "Only StellarFramework.SimulationKit.Core is required. Addressables, HybridCLR, ResKit, TimeKit, and other UPM packages are not required."
-  expected: "Observe Current Tick, Budget, Registered Count, Last WrittenCount, HasBacklog, and the IDs returned by the latest drain."
+  expected: "Observe Game Tick staying unchanged across Frame Steps, Frame Step count, per-Collect Budget, Last WrittenCount, HasBacklog, and IDs moving across five Burst steps."
   notes: "Generated from SampleTemplates/SimulationKit_Playable.unity.txt; samples.simulationkit exports the sample, Common, and this scene."
   anchorRight: 1
   area:
@@ -417,4 +417,3 @@ SceneRoots:
   - {fileID: 355411440}
   - {fileID: 418074297}
   - {fileID: 759882712}
-

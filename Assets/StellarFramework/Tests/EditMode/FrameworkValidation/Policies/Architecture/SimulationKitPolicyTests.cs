@@ -40,6 +40,14 @@ namespace StellarFramework.Tests.FrameworkValidation
             string sampleAsmdef = Read(
                 "Assets/StellarFramework/Samples/KitSamples/Example_SimulationKit/StellarFramework.Samples.SimulationKit.asmdef");
             string sample = Read("Assets/StellarFramework/Samples/KitSamples/Example_SimulationKit/Example_SimulationKit.cs");
+            string mutationResult = Read(
+                "Assets/StellarFramework/Runtime/Kits/SimulationKit/SimulationMutationResult.cs");
+            string usageGuide = Read(
+                "Assets/StellarFramework/Runtime/Kits/SimulationKit/SimulationKit-批量模拟调度-说明文档-Guide.md");
+            string sourceGuide = Read(
+                "Assets/StellarFramework/Runtime/Kits/SimulationKit/SimulationKit-批量模拟调度-源码文档-Guide.md");
+            string benchmark = Read(
+                "Assets/StellarFramework/Tests/EditMode/FrameworkValidation/Performance/SimulationKit/SimulationKitBenchmarkTests.cs");
             string scene = Read("Assets/StellarFramework/Samples/KitSamples/Scenes/SimulationKit_Playable.unity");
             string template = Read(
                 "Assets/StellarFramework/Samples/KitSamples/Editor/SampleTemplates/KitSamples/SimulationKit_Playable.unity.txt");
@@ -55,8 +63,25 @@ namespace StellarFramework.Tests.FrameworkValidation
             Assert.That(sample, Does.Contain("Reset Staggered"));
             Assert.That(sample, Does.Contain("Budget 16"));
             Assert.That(sample, Does.Contain("DrainCurrentTick"));
+            Assert.That(sample, Does.Contain("FrameStep"));
+            Assert.That(sample, Does.Contain("Frame Step (Collect once)"));
+            Assert.That(sample, Does.Contain("Game Tick"));
+            Assert.That(sample, Does.Contain("Manual Drain (same tick)"));
+            Assert.That(sample, Does.Not.Contain("while (result.HasBacklog)"));
             Assert.That(sample, Does.Not.Contain("TimeKit"));
             Assert.That(sample, Does.Not.Contain("Addressables"));
+            Assert.That(mutationResult, Does.Contain("已注册 Entry 的业务调度状态"));
+            Assert.That(mutationResult, Does.Contain("记录已观察到的时间"));
+            Assert.That(usageGuide, Does.Contain("单次 `CollectDue()` 调用的 Count Budget"));
+            Assert.That(usageGuide, Does.Contain("Frame-Spreading"));
+            Assert.That(usageGuide, Does.Contain("Explicit Flush"));
+            Assert.That(usageGuide, Does.Contain("HasBacklog` 表示当前 `nowTick`"));
+            Assert.That(usageGuide, Does.Contain("不要在这里 while-drain"));
+            Assert.That(sourceGuide, Does.Contain("Dispatch Budget 与 Frame Budget"));
+            Assert.That(sourceGuide, Does.Contain("HasBacklog 与同 Tick 重复 Collect"));
+            Assert.That(sourceGuide, Does.Contain("根判断保持 O(1)"));
+            Assert.That(benchmark, Does.Contain("ExplicitBacklogDrainThroughput"));
+            Assert.That(benchmark, Does.Contain("explicit backlog drain throughput"));
             Assert.That(scene, Does.Contain("m_Name: Example_SimulationKit"));
             Assert.That(scene, Does.Not.Contain("m_Script: {fileID: 0}"));
             Assert.That(template, Does.Contain("m_Name: Example_SimulationKit"));

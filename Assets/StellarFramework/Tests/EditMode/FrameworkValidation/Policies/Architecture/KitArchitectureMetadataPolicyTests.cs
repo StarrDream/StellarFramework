@@ -110,6 +110,10 @@ namespace StellarFramework.Tests.FrameworkValidation
             Assert.That(matrix, Does.Contain("| TimeKit |"));
             Assert.That(matrix, Does.Contain("| GridKit |"));
             Assert.That(matrix, Does.Contain("| SpatialKit |"));
+            Assert.That(matrix, Does.Contain("SimulationKit V1 Final Hardening"));
+            Assert.That(matrix, Does.Contain("Core semantic diff = NONE"));
+            Assert.That(matrix, Does.Contain("Core Semantics Frozen = YES"));
+            Assert.That(matrix, Does.Contain("Explicit Backlog Drain Throughput"));
             Assert.That(readme, Does.Contain("`TimeKit`"));
             Assert.That(readme, Does.Contain("`GridKit`"));
             Assert.That(readme, Does.Contain("`SpatialKit`"));

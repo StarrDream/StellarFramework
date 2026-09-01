@@ -2,7 +2,11 @@ using System;
 
 namespace StellarFramework
 {
-    /// <summary>SimulationScheduler 写操作结果。失败时调度器内容保持不变。</summary>
+    /// <summary>SimulationScheduler 写操作结果。</summary>
+    /// <remarks>
+    /// 失败时，已注册 Entry 的业务调度状态（ID、Interval、NextDue 和堆内容）保持不变。
+    /// 对于带 nowTick 的调用，Scheduler 仍会按照时间单调契约记录已观察到的时间。
+    /// </remarks>
     public readonly struct SimulationMutationResult : IEquatable<SimulationMutationResult>
     {
         public bool Success { get; }

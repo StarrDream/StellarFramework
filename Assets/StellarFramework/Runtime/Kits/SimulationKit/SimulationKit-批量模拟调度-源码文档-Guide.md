@@ -25,6 +25,28 @@
 - `CollectDue`：按预算写入到期 ID；过期项最多派发一次，然后以实际 `nowTick + interval` 重排。
 - `TryGetInterval` / `TryGetNextDueTick`：字典定位，缺失返回 `false`。
 
+## Dispatch Budget 与 Frame Budget
+
+Core 只知道调用方执行了一次 `CollectDue`，不知道 Unity Frame、`Update`、`FixedUpdate` 或 PlayerLoop。因此 `destination.Length` 是**单次 `CollectDue()` 调用的 Count Budget**，不等于自动的每帧预算。若业务要求每帧最多处理 500 个对象，应在一次实时更新周期中调用一次 `CollectDue(nowTick, buffer500)`，处理至多 500 个 ID 后返回；“每帧一次”是调用方策略，不是 Core Contract。
+
+推荐的调用边界是：
+
+```text
+Unity Update / 业务实时更新周期
+        ↓ 一次
+CollectDue(buffer500)
+        ↓
+处理 WrittenCount（<= 500）
+        ↓
+返回，HasBacklog 留给下一帧
+```
+
+## HasBacklog 与同 Tick 重复 Collect
+
+`HasBacklog` 的定义是：`heapCount > 0 && heapRoot.NextDueTick <= nowTick`。它表示当前 `nowTick` 下仍有已到期但尚未被本次调用派发的 Entry，是状态信号，不是必须立刻循环到 `false` 的命令。根判断保持 O(1)，不增加 `DueCount` 或 `RemainingDueCount`，也不扫描整个堆。
+
+同一个非递减 `nowTick` 连续调用是合法的：它支持 backlog drain、测试、工具、加载阶段和显式 Flush。重复调用没有隐含的 frame spreading；如果调用方在同一个 `Update` 里 `while (HasBacklog)`，就会在当前线程立即连续消化 backlog。实时主循环应每帧只调用一次，Explicit Flush 才主动重复调用。
+
 ## CollectDue 流程
 
 1. 观察并校验时间线。
@@ -43,7 +65,7 @@
 
 `SimulationKitTests` 覆盖 ID、注册变体、预算/Span.Empty、稳定排序、实际 dispatch tick、no-catch-up、backlog、根/中间/末尾删除、索引完整性、SetInterval 上下重排、溢出原子性、时间回退、Clear 重置和同 tick 行为。
 
-`SimulationKitBenchmarkTests` 记录 100k 注册/查询/变更、100k 同刻到期预算 512、1M no-due/storage 压力和 100k staggered 负载的规模、环境、耗时、校验和与 coarse managed heap trend；不使用依赖机器速度的固定阈值。
+`SimulationKitBenchmarkTests` 记录 100k 注册/查询/变更、100k **Explicit Backlog Drain Throughput**（同刻到期、预算 512）、1M no-due/storage 压力和 100k staggered backlog drain 的规模、环境、耗时、校验和与 coarse managed heap trend。这里的 `do/while` 是主动完整清空 backlog 的吞吐基准，不是默认 realtime per-frame 用法；不使用依赖机器速度的固定阈值。
 
 ## V1 非目标与后续方向
 

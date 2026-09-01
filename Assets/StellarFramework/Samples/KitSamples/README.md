@@ -21,7 +21,7 @@
 - `SaveKit_Playable.unity`：DTO Section、Save/Load/Delete、RestoreAfter 与 V1→V2 迁移
 - `GridKit_Playable.unity`：负坐标、DenseGrid、邻居、Footprint 变换与原子 Occupancy
 - `SpatialKit_Playable.unity`：连续二维点、负坐标/小数坐标、动态移动、矩形/圆形查询与最近邻
-- `SimulationKit_Playable.unity`：手动 tick、Burst 同刻到期、Staggered 首次派发、预算分批与过期合并
+- `SimulationKit_Playable.unity`：Game Tick 与 Frame Step 分离、Burst 跨帧预算派发、Staggered 首次派发、显式同 tick Drain 与过期合并
 - `HotUpdateKit_Playable.unity`：可选热更新门户与 HybridCLR AA 启动链路示例
 - `SettingsKit_Playable.unity`：设置定义、存储、应用策略和示例 UI
 

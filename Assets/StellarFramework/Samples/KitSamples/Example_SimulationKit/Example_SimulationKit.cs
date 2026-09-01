@@ -4,7 +4,7 @@ using UnityEngine;
 namespace StellarFramework.Examples
 {
     /// <summary>
-    /// SimulationKit 最小可操作样例：手动推进 tick，观察固定预算批量派发和过期合并。
+    /// SimulationKit 最小可操作样例：分开推进 Game Tick 与 Frame Step，观察固定预算批量派发和过期合并。
     /// </summary>
     public sealed class Example_SimulationKit : MonoBehaviour
     {
@@ -15,6 +15,7 @@ namespace StellarFramework.Examples
         private readonly bool[] _registered = new bool[SlotCount];
         private readonly SimulationId[] _dispatchBuffer = new SimulationId[MaxBudget];
         private long _currentTick;
+        private int _frameIndex;
         private int _nextId;
         private int _selectedSlot;
         private int _dispatchBudget = 4;
@@ -41,6 +42,7 @@ namespace StellarFramework.Examples
             Array.Clear(_registered, 0, _registered.Length);
             Array.Clear(_ids, 0, _ids.Length);
             _currentTick = 0;
+            _frameIndex = 0;
             _nextId = 1;
             _selectedSlot = 0;
             _staggered = staggered;
@@ -64,7 +66,18 @@ namespace StellarFramework.Examples
             _lastOperation = string.Format("Advance +{0}：当前 tick={1}，尚未自动派发。", amount, _currentTick);
         }
 
+        private void FrameStep()
+        {
+            _frameIndex++;
+            CollectOneBatch("Frame Step");
+        }
+
         private void DrainCurrentTick()
+        {
+            CollectOneBatch("Manual Drain");
+        }
+
+        private void CollectOneBatch(string operation)
         {
             Array.Clear(_dispatchBuffer, 0, _dispatchBuffer.Length);
             SimulationCollectResult result = _scheduler.CollectDue(
@@ -72,8 +85,8 @@ namespace StellarFramework.Examples
             _lastWrittenCount = result.WrittenCount;
             _lastHasBacklog = result.HasBacklog;
             _lastOperation = string.Format(
-                "Drain tick={0}：写入 {1} 个 ID，HasBacklog={2}。",
-                _currentTick, result.WrittenCount, result.HasBacklog);
+                "{0}：Frame={1}，Game Tick={2}，本次只 Collect 一次，写入 {3} 个 ID，HasBacklog={4}。",
+                operation, _frameIndex, _currentTick, result.WrittenCount, result.HasBacklog);
         }
 
         private void SetBudget(int budget)
@@ -174,13 +187,19 @@ namespace StellarFramework.Examples
                 if (GUILayout.Button("Reset Staggered")) ResetData(true);
             }
 
-            GUILayout.Label("ADVANCE", _sectionStyle);
+            GUILayout.Label("REALTIME FRAME-SPREADING", _sectionStyle);
+            GUILayout.Label(
+                "Frame Step 代表一次实时更新周期：只调用一次 CollectDue，不推进 Game Tick。HasBacklog=true 时下一帧继续。",
+                _bodyStyle);
+            if (GUILayout.Button("Frame Step (Collect once)")) FrameStep();
+
+            GUILayout.Label("GAME TICK", _sectionStyle);
+            GUILayout.Label("Advance 只推进逻辑时间；Frame Step 与 Game Tick 是两个独立维度。", _bodyStyle);
             using (new GUILayout.HorizontalScope())
             {
                 if (GUILayout.Button("+1")) Advance(1);
                 if (GUILayout.Button("+5")) Advance(5);
                 if (GUILayout.Button("+20")) Advance(20);
-                if (GUILayout.Button("Drain Current Tick")) DrainCurrentTick();
             }
 
             GUILayout.Label("BUDGET", _sectionStyle);
@@ -190,6 +209,12 @@ namespace StellarFramework.Examples
                 if (GUILayout.Button("Budget 4")) SetBudget(4);
                 if (GUILayout.Button("Budget 16")) SetBudget(16);
             }
+
+            GUILayout.Label("EXPLICIT FLUSH / DEBUG", _sectionStyle);
+            GUILayout.Label(
+                "Manual Drain 在同一 Game Tick 主动再取一批；连续点击可清空 backlog，但不具备 frame spreading。",
+                _bodyStyle);
+            if (GUILayout.Button("Manual Drain (same tick)")) DrainCurrentTick();
 
             GUILayout.Label("MUTATION", _sectionStyle);
             using (new GUILayout.HorizontalScope())
@@ -224,8 +249,8 @@ namespace StellarFramework.Examples
             }
 
             return string.Format(
-                "Mode: {0}\nCurrent Tick: {1}\nBudget: {2}\nRegistered Count: {3}\nSelected ID: {4}\nSelected NextDue: {5}\nLast WrittenCount: {6}\nLast HasBacklog: {7}\nLast IDs: {8}\nLast Operation: {9}",
-                _staggered ? "Staggered" : "Burst", _currentTick, _dispatchBudget, _scheduler.Count,
+                "Mode: {0}\nGame Tick: {1}\nFrame Step: {2}\nBudget (per CollectDue call): {3}\nRegistered Count: {4}\nSelected ID: {5}\nSelected NextDue: {6}\nLast WrittenCount: {7}\nLast HasBacklog: {8}\nLast IDs: {9}\nLast Operation: {10}",
+                _staggered ? "Staggered" : "Burst", _currentTick, _frameIndex, _dispatchBudget, _scheduler.Count,
                 selected.IsValid ? selected.ToString() : "<none>", nextDue, _lastWrittenCount,
                 _lastHasBacklog, dispatched, _lastOperation);
         }

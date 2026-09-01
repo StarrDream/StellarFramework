@@ -85,7 +85,7 @@ namespace StellarFramework.Tests.FrameworkValidation
         }
 
         [Test, Category("Benchmark")]
-        public void SimulationKitBenchmark_100kSimultaneousDueBudget512()
+        public void SimulationKitBenchmark_100kExplicitBacklogDrainThroughput()
         {
             const int entityCount = 100000;
             const int budget = 512;
@@ -137,7 +137,7 @@ namespace StellarFramework.Tests.FrameworkValidation
             Assert.That(scheduler.Count, Is.EqualTo(entityCount));
 
             string message = string.Format(
-                "SimulationKit 100k simultaneous env={0} EntityCount={1} Budget={2} CollectCalls={3} Dispatch={4} CollectMs={5:F3} Checksum={6} ManagedHeapDelta={7}",
+                "SimulationKit 100k explicit backlog drain throughput env={0} EntityCount={1} Budget={2} CollectCalls={3} Dispatch={4} CollectMs={5:F3} Checksum={6} ManagedHeapDelta={7}",
                 Application.unityVersion, entityCount, budget, collectCalls, writtenTotal,
                 collectWatch.Elapsed.TotalMilliseconds, checksum, allocatedDelta);
             TestContext.Progress.WriteLine(message);
@@ -213,7 +213,7 @@ namespace StellarFramework.Tests.FrameworkValidation
         }
 
         [Test, Category("Benchmark")]
-        public void SimulationKitBenchmark_100kStaggeredWorkload()
+        public void SimulationKitBenchmark_100kStaggeredBacklogDrainThroughput()
         {
             const int entityCount = 100000;
             const int budget = 512;
@@ -265,7 +265,7 @@ namespace StellarFramework.Tests.FrameworkValidation
             Assert.That(totalDispatch, Is.GreaterThanOrEqualTo(entityCount));
             Assert.That(scheduler.Count, Is.EqualTo(entityCount));
             string message = string.Format(
-                "SimulationKit 100k staggered env={0} EntityCount={1} StepCount={2} Budget={3} CollectCalls={4} Dispatch={5} DispatchMs={6:F3} RoundDispatchChecksum={7} Checksum={8} ManagedHeapDelta={9}",
+                "SimulationKit 100k staggered backlog drain throughput env={0} EntityCount={1} StepCount={2} Budget={3} CollectCalls={4} Dispatch={5} DispatchMs={6:F3} RoundDispatchChecksum={7} Checksum={8} ManagedHeapDelta={9}",
                 Application.unityVersion, entityCount, stepCount, budget, collectCalls, totalDispatch,
                 dispatchWatch.Elapsed.TotalMilliseconds, Sum(roundDispatches), checksum, allocatedDelta);
             TestContext.Progress.WriteLine(message);
