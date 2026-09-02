@@ -257,7 +257,7 @@ MonoBehaviour:
   summary: "负坐标 GridRect、TraversalPolicy、加权地形和方向/转角策略。"
   controls: "点击网格选择 cell；设置 Start/Goal；切换 Blocked/Mud、Four/Eight、NoCornerCut/AllowCornerCut；运行 A* 或 Dijkstra。"
   setup: "需要 PathKit.GridKitAdapter 及其 PathKit/GridKit 依赖，不需要 Addressables 或 HybridCLR。"
-  expected: "观察负坐标映射、# blocked、M mud、* path，以及切换角点规则后路线和成本的变化。"
+  expected: "初始/Reset 显示 None/尚未执行搜索；运行 A* 或 Dijkstra 后观察负坐标映射、# blocked、M mud、* path，以及切换角点规则后路线和成本的变化。"
   notes: "由 SampleTemplates/PathKit_GridKitAdapter_Playable.unity.txt 生成；samples.pathkit.gridkit 导出本样例和 Common。"
   anchorRight: 1
   area:

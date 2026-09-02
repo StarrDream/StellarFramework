@@ -40,7 +40,7 @@ Adapter Profile：可选的 Kit 间、Unity 或第三方技术栈连接层
 | --- | --- |
 | Foundation | LogKit、EventKit、PoolKit、SingletonKit、FSMKit、ActionKit、BindableKit、ConfigKit.Core、HttpKit、ResKit.Core、SettingsKit.Core、TimeKit、SaveKit.Core、GridKit、SpatialKit、SimulationKit、PathKit |
 | Extension | AudioKit.Core、UIKit.Core、HotUpdate.Core |
-| Adapter | ConfigKit.NewtonsoftJson、SettingsKit.UnityAdapters、SettingsKit.AudioKitAdapter、AudioKit.ResKitAdapter、ResKit.AssetBundle、ResKit.Addressables、UIKit.ResKitAdapter、HotUpdate.AddressablesAdapter、HotUpdate.HybridCLR、SaveKit.NewtonsoftJson |
+| Adapter | ConfigKit.NewtonsoftJson、SettingsKit.UnityAdapters、SettingsKit.AudioKitAdapter、AudioKit.ResKitAdapter、ResKit.AssetBundle、ResKit.Addressables、UIKit.ResKitAdapter、HotUpdate.AddressablesAdapter、HotUpdate.HybridCLR、SaveKit.NewtonsoftJson、PathKit.GridKitAdapter |
 
 这只是展示和依赖约束元数据，不会让 Foundation 自动安装。选择某个 Kit 时，导出器仍只按 `requiredProfileIds` 计算实际依赖闭包。
 
@@ -83,6 +83,12 @@ PathKit 是 `foundation / world`：只依赖通用 Graph 的节点、outgoing ne
 
 `PathKit.GridKitAdapter` 是独立的 `adapter / world` profile，使用 `GridPathGraph` 和应用提供的 `IGridPathTraversalPolicy` 接入负坐标 GridRect、FourWay/EightWay、NoCornerCut/AllowCornerCut 与动态 walkability。适配器不把 DenseGrid 或 Occupancy 写死为唯一数据源，Core 导出不会带入该目录。
 
+PathKit V1 Core Semantics 已冻结：Graph-first Core、A*/Dijkstra、admissible heuristic、Closed Reopen、正 `long` cost、Start→Goal 输出、BufferTooSmall 零 partial write、MaxExpandedNodes、deterministic tie、`PathSearchStatus.None` 默认结果语义，以及 GridKit 通过独立 Adapter 接入。后续只接受不改变这些语义的内部优化或文档澄清。
+
+### PathKit.GridKitAdapter Profile
+
+`PathKit.GridKitAdapter` 将 GridKit 的离散正交 Grid 映射为 PathKit Graph，提供 FourWay / EightWay、Corner Policy 与基于真实 minimum traversal cost 的 admissible heuristic；不改变 `PathKit.Core` 的独立性。
+
 ## SimulationKit 的定位
 
 SimulationKit 是 `foundation / simulation`：只管理业务提供的 `SimulationId`、正间隔、首次延迟和下一次到期 tick。`SimulationScheduler` 使用索引最小堆和 ID 索引，按 `NextDueTick` 再按 ID 稳定排序，把到期 ID 写入调用方提供的 `Span`，由预算和 `HasBacklog` 控制批量派发。
@@ -116,4 +122,4 @@ SpatialKit V1 Core Semantics 已冻结：公开 ID、连续点、半开矩形、
 
 ## 后续新增顺序
 
-下一阶段优先验证 Foundation：PathKit。WorldKit、PlacementKit、InventoryKit、WorldGenKit 属于后续 Extension；ProductionKit、LogisticsKit 必须在真实项目中验证领域抽象后再升格。
+TimeKit、SaveKit、GridKit、SpatialKit、SimulationKit、PathKit 的 V1 Core Semantics 已完成冻结。下一阶段进入 `Tiny Foundation Integration`，只做小型维护者集成验证；WorldKit、PlacementKit、InventoryKit、WorldGenKit 属于后续 Extension，ProductionKit、LogisticsKit 必须在真实项目中验证领域抽象后再升格。

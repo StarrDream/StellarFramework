@@ -36,8 +36,14 @@ namespace StellarFramework.Tests.FrameworkValidation
             Assert.That(catalog, Does.Contain("samples.pathkit.gridkit"));
             Assert.That(catalog, Does.Contain("PathKit_Playable.unity"));
             Assert.That(catalog, Does.Contain("PathKit_GridKitAdapter_Playable.unity"));
-            Assert.That(Read("Assets/StellarFramework/Runtime/Kits/PathKit/PathKit-路径搜索-说明文档-Guide.md"), Does.Contain("Quick Start"));
-            Assert.That(Read("Assets/StellarFramework/Runtime/Kits/PathKit/PathKit-路径搜索-源码文档-Guide.md"), Does.Contain("Closed record"));
+            string usageGuide = Read("Assets/StellarFramework/Runtime/Kits/PathKit/PathKit-路径搜索-说明文档-Guide.md");
+            string sourceGuide = Read("Assets/StellarFramework/Runtime/Kits/PathKit/PathKit-路径搜索-源码文档-Guide.md");
+            Assert.That(usageGuide, Does.Contain("Quick Start"));
+            Assert.That(usageGuide, Does.Contain("PathSearchStatus.None"));
+            Assert.That(usageGuide, Does.Contain("FindPath 不会返回 None"));
+            Assert.That(sourceGuide, Does.Contain("Closed record"));
+            Assert.That(sourceGuide, Does.Contain("PathSearchStatus.None = 0"));
+            Assert.That(sourceGuide, Does.Contain("Core standalone Sample"));
             Assert.That(Read("Assets/StellarFramework/Runtime/Kits/PathKit/Adapters/GridKit/PathKit-GridKit适配器-Guide.md"), Does.Contain("NoCornerCut"));
             Assert.That(File.Exists(Absolute("Assets/StellarFramework/Tests/EditMode/FrameworkValidation/Performance/PathKit/PathKitBenchmarkTests.cs")), Is.True);
             Assert.That(File.Exists(Absolute("Assets/StellarFramework/Samples/KitSamples/Editor/SampleTemplates/KitSamples/PathKit_Playable.unity.txt")), Is.True);

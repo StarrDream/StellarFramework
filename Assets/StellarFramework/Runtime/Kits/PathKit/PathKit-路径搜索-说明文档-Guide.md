@@ -10,7 +10,11 @@ var request = new PathSearchRequest(start, goal, maxExpandedNodes: 4096);
 PathNodeId[] buffer = new PathNodeId[128];
 PathSearchResult result = pathfinder.FindPath(graph, request, buffer.AsSpan());
 
-if (result.Success)
+if (result.Status == PathSearchStatus.None)
+{
+    // 只表示尚未执行搜索；FindPath 不会返回 None。
+}
+else if (result.Success)
 {
     // buffer[0..result.WrittenCount] 是 Start -> Goal（包含两端）的路径。
 }
@@ -22,6 +26,16 @@ else if (result.Status == PathSearchStatus.OutputBufferTooSmall)
 
 `PathNodeId` 由业务或 Graph 分配。零表示无效，正数表示有效；负数构造会抛出异常。`PathNeighbor` 的成本是大于零的 `long`，不能用负数表达不可通行边。
 
+## Result 状态
+
+`PathSearchStatus.None` 是 enum 的零值，只表示 `default(PathSearchResult)` 或尚未执行搜索：`Success == false`，各计数和成本均为零。任何真正执行的 `FindPath` 都返回 `Success` 或明确的失败状态（`InvalidStart`、`InvalidGoal`、`StartNotFound`、`GoalNotFound`、`NoPath`、`OutputBufferTooSmall`、`ExpansionLimitReached` 或 `CostOverflow`），不会返回 `None`。
+
+```csharp
+PathSearchResult result = default;
+Debug.Assert(result.Status == PathSearchStatus.None);
+Debug.Assert(!result.Success);
+```
+
 ## Graph 契约
 
 实现 `IPathGraph` 的类型按稳定顺序返回 outgoing neighbors，因此既可以表达有向图，也可以表达无向图。一次 `FindPath` 期间 Graph 的拓扑与成本必须保持稳定；PathKit 不做快照、锁、事件监听或全局缓存。`GetNeighborCount` 不能为负，邻居节点必须存在于 Graph，成本必须为正。A* 的 `EstimateCost` 必须非负，并且为了保证最优成本必须是 admissible（不能高估剩余成本）。
@@ -31,6 +45,7 @@ else if (result.Status == PathSearchStatus.OutputBufferTooSmall)
 - A* 使用 `F = G + H`，平局依次比较 `H`、`PathNodeId.Value`。
 - Dijkstra 使用 `G`，平局比较 `PathNodeId.Value`，绝不会调用 `EstimateCost`。
 - A* 允许 admissible 但不一致的 heuristic；Closed 节点发现更小的 `G` 时会 reopen。
+- `EstimateCost` 必须满足 `H >= 0` 且不高估剩余真实成本；任意加权自定义 Graph 如果没有可证明的下界，应使用 `H = 0`。
 - 所有 `G + edge`、`G + H` 运算都检查 `long` 溢出，溢出返回 `CostOverflow`，不发生 wrap。
 
 ## Result 与边界
@@ -44,5 +59,7 @@ Pathfinder 会复用内部 workspace、record 数组、字典和二叉堆。预�
 需要网格时导入 `StellarFramework-PathKit-GridKitAdapter.unitypackage`。`GridPathGraph` 通过 `IGridPathTraversalPolicy` 读取 walkability、方向边界和成本，支持 FourWay/EightWay 与 NoCornerCut/AllowCornerCut。适配器使用 GridRect 的负坐标和 row-major 本地索引映射，`PathNodeId.Value = localIndex + 1`。占用、地形、门和动态障碍均由 policy 组合；下一次搜索会读取最新状态。
 
 Core 与适配器均为纯 C#，没有 UnityEngine、Addressables、HybridCLR 或其他 UPM 依赖。同步寻路不负责移动对象、路径缓存、跨帧续算、Jobs/Burst、NavMesh、JPS、FlowField 或保存 workspace。
+
+Core standalone Sample 的二维位置只用于绘制，不是 traversal-cost metric，因此示例 Graph 的 `EstimateCost` 固定返回 `0`，A* 安全退化为 Dijkstra。GridKit Adapter Sample 才使用基于 minimum traversal cost 的 Manhattan / Octile lower bound。
 
 详见 [源码文档](PathKit-路径搜索-源码文档-Guide.md) 与 [GridKit 适配器说明](Adapters/GridKit/PathKit-GridKit适配器-Guide.md)。

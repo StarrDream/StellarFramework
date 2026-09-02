@@ -110,13 +110,16 @@ namespace StellarFramework.Tests.FrameworkValidation
             Assert.That(guide, Does.Contain("SpatialKit 是 `foundation / world`"));
             Assert.That(guide, Does.Contain("SimulationKit 是 `foundation / simulation`"));
             Assert.That(guide, Does.Contain("PathKit 是 `foundation / world`"));
+            Assert.That(guide, Does.Contain("PathKit.GridKitAdapter Profile"));
+            Assert.That(guide, Does.Contain("PathKit V1 Core Semantics 已冻结"));
+            Assert.That(guide, Does.Contain("Tiny Foundation Integration"));
             Assert.That(matrix, Does.Contain("| TimeKit |"));
             Assert.That(matrix, Does.Contain("| GridKit |"));
             Assert.That(matrix, Does.Contain("| SpatialKit |"));
             Assert.That(matrix, Does.Contain("SimulationKit V1 Final Hardening"));
             Assert.That(matrix, Does.Contain("| PathKit |"));
-            Assert.That(matrix, Does.Contain("PathKit V1 Release Candidate"));
-            Assert.That(matrix, Does.Contain("Core semantic diff = NONE"));
+            Assert.That(matrix, Does.Contain("PathKit V1 Final Hardening"));
+            Assert.That(matrix, Does.Contain("Core semantic diff：新增 `None=0`"));
             Assert.That(matrix, Does.Contain("Core Semantics Frozen = YES"));
             Assert.That(matrix, Does.Contain("Explicit Backlog Drain Throughput"));
             Assert.That(readme, Does.Contain("`TimeKit`"));

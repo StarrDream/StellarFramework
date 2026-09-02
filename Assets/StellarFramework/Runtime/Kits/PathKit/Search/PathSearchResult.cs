@@ -15,6 +15,12 @@ namespace StellarFramework
         internal PathSearchResult(PathSearchStatus status, int writtenCount, int requiredNodeCount,
             long totalCost, int expandedNodeCount)
         {
+            if (status == PathSearchStatus.None)
+            {
+                throw new ArgumentOutOfRangeException(nameof(status), status,
+                    "An executed path search result cannot use PathSearchStatus.None.");
+            }
+
             Status = status;
             WrittenCount = writtenCount;
             RequiredNodeCount = requiredNodeCount;

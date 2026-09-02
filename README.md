@@ -39,7 +39,7 @@ StellarFramework 是一个 Unity 基础开发框架，包含架构分层、UI、
 | 网格基础能力 | `GridKit`，无必需 Kit 或 UPM 依赖 |
 | 连续二维空间索引 | `SpatialKit`，动态点索引、矩形/圆形查询和有限半径最近邻；无必需 Kit 或 UPM 依赖 |
 | 批量模拟调度 | `SimulationKit`，索引最小堆、固定预算派发、分散首次派发与过期合并；无必需 Kit 或 UPM 依赖 |
-| 通用路径搜索 | `PathKit`，Graph-first A* / Dijkstra、正 long 成本、边界预算与原子路径输出；GridKit 通过可选适配器接入 |
+| 通用路径搜索 | `PathKit`，Graph-first A* / Dijkstra、正 long 成本、边界预算与原子路径输出；V1 Core Semantics 已冻结，GridKit 通过可选适配器接入 |
 
 ### 单包安装
 
@@ -128,7 +128,7 @@ Assets
 | `GridKit` | 负坐标网格、半开矩形、连续 DenseGrid、Footprint 变换与原子 Occupancy |
 | `SpatialKit` | 连续二维点、均匀空间哈希、矩形/圆形查询与最近邻 |
 | `SimulationKit` | 纯 C# 批量模拟调度、固定预算派发、分散首次派发与过期合并 |
-| `PathKit` | Graph-first 通用最短路径、A* / Dijkstra、确定性 tie-break、成本溢出保护；GridKit 为可选适配器 |
+| `PathKit` | Graph-first 通用最短路径、A* / Dijkstra、确定性 tie-break、成本溢出保护；V1 Core Semantics 已冻结，GridKit 为可选适配器 |
 
 ### Editor Modules
 

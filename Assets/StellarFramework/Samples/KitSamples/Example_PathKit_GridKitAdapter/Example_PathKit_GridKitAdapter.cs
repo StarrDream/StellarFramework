@@ -166,7 +166,7 @@ namespace StellarFramework.Examples
             }
 
             GUILayout.Label("RESULT", _sectionStyle);
-            GUILayout.Label(_result.Status == 0
+            GUILayout.Label(_result.Status == PathSearchStatus.None
                 ? "尚未执行搜索。"
                 : string.Format("Status: {0}\nCost: {1}\nWritten / Required: {2} / {3}\nExpanded: {4}\nPath: {5}",
                     _result.Status, _result.TotalCost, _result.WrittenCount, _result.RequiredNodeCount,

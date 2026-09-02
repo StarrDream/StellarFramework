@@ -43,6 +43,60 @@ namespace StellarFramework.Tests.FrameworkValidation
         }
 
         [Test]
+        public void DefaultResult_IsNoneAndNotSuccess()
+        {
+            PathSearchResult result = default(PathSearchResult);
+
+            Assert.That((int)PathSearchStatus.None, Is.EqualTo(0));
+            Assert.That((int)PathSearchStatus.Success, Is.Not.EqualTo(0));
+            Assert.That(result.Status, Is.EqualTo(PathSearchStatus.None));
+            Assert.That(result.Success, Is.False);
+            Assert.That(result.WrittenCount, Is.EqualTo(0));
+            Assert.That(result.RequiredNodeCount, Is.EqualTo(0));
+            Assert.That(result.TotalCost, Is.EqualTo(0));
+            Assert.That(result.ExpandedNodeCount, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void FindPathNeverReturnsNoneForExecutedStatuses()
+        {
+            TestGraph successGraph = new TestGraph(2);
+            successGraph.Add(1, 2, 1);
+            AssertExecutedStatus(new DijkstraPathfinder().FindPath(successGraph,
+                new PathSearchRequest(Node(1), Node(2)), new PathNodeId[2].AsSpan()),
+                PathSearchStatus.Success);
+
+            TestGraph noPathGraph = new TestGraph(2);
+            AssertExecutedStatus(new DijkstraPathfinder().FindPath(noPathGraph,
+                new PathSearchRequest(Node(1), Node(2)), new PathNodeId[2].AsSpan()),
+                PathSearchStatus.NoPath);
+
+            AssertExecutedStatus(new DijkstraPathfinder().FindPath(successGraph,
+                new PathSearchRequest(default(PathNodeId), Node(2)), new PathNodeId[2].AsSpan()),
+                PathSearchStatus.InvalidStart);
+            AssertExecutedStatus(new DijkstraPathfinder().FindPath(successGraph,
+                new PathSearchRequest(Node(1), default(PathNodeId)), new PathNodeId[2].AsSpan()),
+                PathSearchStatus.InvalidGoal);
+            AssertExecutedStatus(new DijkstraPathfinder().FindPath(successGraph,
+                new PathSearchRequest(Node(1), Node(2)), Span<PathNodeId>.Empty),
+                PathSearchStatus.OutputBufferTooSmall);
+
+            TestGraph limitedGraph = new TestGraph(3);
+            limitedGraph.Add(1, 2, 1);
+            limitedGraph.Add(2, 3, 1);
+            AssertExecutedStatus(new DijkstraPathfinder().FindPath(limitedGraph,
+                new PathSearchRequest(Node(1), Node(3), 1), new PathNodeId[3].AsSpan()),
+                PathSearchStatus.ExpansionLimitReached);
+
+            TestGraph overflowGraph = new TestGraph(3);
+            overflowGraph.Add(1, 2, long.MaxValue - 1);
+            overflowGraph.Add(2, 3, 2);
+            AssertExecutedStatus(new DijkstraPathfinder().FindPath(overflowGraph,
+                new PathSearchRequest(Node(1), Node(3)), new PathNodeId[3].AsSpan()),
+                PathSearchStatus.CostOverflow);
+        }
+
+        [Test]
         public void AStarAndDijkstraFindTheSameWeightedDirectedShortestPath()
         {
             TestGraph graph = new TestGraph(5);
@@ -256,6 +310,12 @@ namespace StellarFramework.Tests.FrameworkValidation
         {
             Assert.That(count, Is.EqualTo(expected.Length));
             for (int i = 0; i < expected.Length; i++) Assert.That(actual[i], Is.EqualTo(Node(expected[i])));
+        }
+
+        private static void AssertExecutedStatus(PathSearchResult result, PathSearchStatus expected)
+        {
+            Assert.That(result.Status, Is.EqualTo(expected));
+            Assert.That(result.Status, Is.Not.EqualTo(PathSearchStatus.None));
         }
 
         private sealed class TestGraph : IPathGraph

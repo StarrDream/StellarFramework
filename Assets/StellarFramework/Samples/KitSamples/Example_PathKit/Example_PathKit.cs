@@ -5,7 +5,7 @@ namespace StellarFramework.Examples
 {
     /// <summary>
     /// Core-only PathKit sample. The graph is deliberately not a grid: it has weighted,
-    /// directed edges, two equal-cost alternatives and a disconnected node.
+    /// directed edges, several weighted alternatives and a disconnected node.
     /// </summary>
     public sealed class Example_PathKit : MonoBehaviour
     {
@@ -26,12 +26,13 @@ namespace StellarFramework.Examples
                     _neighbors[i] = Array.Empty<PathNeighbor>();
                 }
 
-                // Two equal-cost routes (1-2-4-8-12 and 1-3-5-9-12) make tie ordering visible.
+                // Weighted alternatives: the default 1 -> 12 optimum is 1-3-5-9-12 (cost 8).
+                // The 1-2-4-7-11-12 route costs 9, so the sample does not claim a false tie.
                 _neighbors[0] = new[] { new PathNeighbor(_nodes[1], 2), new PathNeighbor(_nodes[2], 2) };
                 _neighbors[1] = new[] { new PathNeighbor(_nodes[3], 2), new PathNeighbor(_nodes[4], 4) };
                 _neighbors[2] = new[] { new PathNeighbor(_nodes[4], 2), new PathNeighbor(_nodes[5], 5) };
                 _neighbors[3] = new[] { new PathNeighbor(_nodes[6], 2), new PathNeighbor(_nodes[7], 10) };
-                _neighbors[4] = new[] { new PathNeighbor(_nodes[8], 2), new PathNeighbor(_nodes[7], 1) };
+                _neighbors[4] = new[] { new PathNeighbor(_nodes[8], 2), new PathNeighbor(_nodes[7], 3) };
                 _neighbors[5] = new[] { new PathNeighbor(_nodes[8], 2) };
                 _neighbors[6] = new[] { new PathNeighbor(_nodes[10], 2) };
                 _neighbors[7] = new[] { new PathNeighbor(_nodes[10], 2), new PathNeighbor(_nodes[11], 2) };
@@ -66,9 +67,9 @@ namespace StellarFramework.Examples
 
             public long EstimateCost(PathNodeId from, PathNodeId goal)
             {
-                if (!ContainsNode(from) || !ContainsNode(goal)) return 0;
-                Vector3 delta = _positions[from.Value - 1] - _positions[goal.Value - 1];
-                return (long)(Mathf.Abs(delta.x) + Mathf.Abs(delta.y));
+                // Positions are drawing coordinates only. The arbitrary edge costs do not
+                // prove a geometric lower bound, so H=0 keeps A* admissible (Dijkstra mode).
+                return 0;
             }
         }
 
@@ -150,7 +151,7 @@ namespace StellarFramework.Examples
             if (GUILayout.Button(_showEdges ? "Hide Edge Overlay" : "Show Edge Overlay")) _showEdges = !_showEdges;
 
             GUILayout.Label("RESULT", _sectionStyle);
-            GUILayout.Label(_result.Status == 0
+            GUILayout.Label(_result.Status == PathSearchStatus.None
                 ? "尚未执行搜索。"
                 : string.Format("Status: {0}\nCost: {1}\nWritten / Required: {2} / {3}\nExpanded: {4}\nPath: {5}",
                     _result.Status, _result.TotalCost, _result.WrittenCount, _result.RequiredNodeCount,
@@ -160,7 +161,7 @@ namespace StellarFramework.Examples
             DrawPathNodes();
 
             GUILayout.Label("GRAPH NOTES", _sectionStyle);
-            GUILayout.Label("节点 16 是 disconnected；节点 1 到 12 有两条相同成本的候选路径。重复运行可以观察稳定的 NodeId tie-break。", _bodyStyle);
+            GUILayout.Label("节点 16 是 disconnected；默认 1 → 12 的最优路线是 1-3-5-9-12（Cost 8），1-2-4-7-11-12 是 Cost 9 的加权备选。Core 样例的绘图坐标只用于显示，A* 使用 H=0；重复运行可以观察稳定的 NodeId tie-break。", _bodyStyle);
             GUILayout.EndScrollView();
             GUILayout.EndArea();
         }

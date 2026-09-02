@@ -9,15 +9,16 @@
 1. `PathNodeId` 的零值无效，正值有效，PathKit 不分配业务 ID。
 2. `PathNeighbor.Cost` 是正 `long`；不可通行边由 Graph 省略。
 3. `IPathGraph` 暴露稳定顺序的 outgoing neighbors，支持有向图。
-4. Dijkstra 永不调用 heuristic；A* heuristic 必须非负且为 admissible 才能保证最优。
-5. A* 对更小 G 的 Closed record 执行 reopen。
-6. 堆平局为 A* 的 F/H/NodeId、Dijkstra 的 G/NodeId。
-7. 路径方向固定为 Start -> Goal，成功结果包含两端。
-8. buffer 不足不写任何 partial path；NoPath 不提供 fallback。
-9. `MaxExpandedNodes` 只统计实际枚举邻居的节点；Goal pop 不计数。
-10. 成本乘加不允许溢出 wrap，必须返回 `CostOverflow` 或由 Graph 契约错误抛出。
-11. Pathfinder 复用 workspace，不保存 Graph，不监听外部状态，不保证线程安全或可重入。
-12. Grid、移动、世界事件和存档属于适配层或业务层。
+4. `PathSearchStatus.None = 0` 只表示 default/unexecuted；`Success` 为非零，`FindPath` 永不返回 `None`。
+5. Dijkstra 永不调用 heuristic；A* heuristic 必须非负且为 admissible 才能保证最优。
+6. A* 对更小 G 的 Closed record 执行 reopen。
+7. 堆平局为 A* 的 F/H/NodeId、Dijkstra 的 G/NodeId。
+8. 路径方向固定为 Start -> Goal，成功结果包含两端。
+9. buffer 不足不写任何 partial path；NoPath 不提供 fallback。
+10. `MaxExpandedNodes` 只统计实际枚举邻居的节点；Goal pop 不计数。
+11. 成本乘加不允许溢出 wrap，必须返回 `CostOverflow` 或由 Graph 契约错误抛出。
+12. Pathfinder 复用 workspace，不保存 Graph，不监听外部状态，不保证线程安全或可重入。
+13. Grid、移动、世界事件和存档属于适配层或业务层。
 
 ## 算法与生命周期
 
@@ -39,8 +40,10 @@ FourWay heuristic 为 `(abs(dx) + abs(dy)) * MinimumOrthogonalCost`。EightWay h
 
 实现只使用普通 C# struct、interface、array、Dictionary 和二叉堆，不使用 dynamic、反射分派、运行时代码生成、Jobs 或 Burst，适合 IL2CPP/AOT。Grid 状态由 policy 在每次搜索中读取；同一次同步搜索期间调用方必须保证稳定。不要保存 workspace、open heap 或 parent 链；持久化移动状态应由业务保存当前位置、目标和 movement state，加载后重新寻路。
 
+Core standalone Sample 的节点二维坐标只用于绘制，并不参与 traversal cost；由于任意加权 Graph 无法从绘图坐标证明 lower bound，示例 `EstimateCost` 使用 `H = 0`。GridKit Adapter Sample 才展示基于真实 minimum traversal cost 的 admissible Manhattan / Octile heuristic。
+
 ## 验证与导出
 
 行为测试位于 `Tests/EditMode/FrameworkValidation/Kits/PathKit`，覆盖契约错误、溢出、reopen、buffer 原子性、负坐标、转角规则和动态 policy。性能测试使用独立 synthetic Graph，同时记录规模、算法、耗时、expanded、路径长度、成本、迭代、粗粒度堆趋势和 checksum。Catalog 的 `pathkit` profile 只导出 Core，`pathkit.gridkit` 通过依赖闭包导出 Core、GridKit 和适配器；Samples 与 Tests/Verification 不进入运行时包。
 
-第一轮实现状态为 `PathKit V1 Release Candidate`，Core Semantics 需要独立 review 后才可冻结。
+PathKit V1 Core Semantics 已冻结：`None = 0` 表示 default/unexecuted，`Success` 只表示真实成功，`FindPath` 永不返回 `None`；Graph-first、A*/Dijkstra、Closed Reopen、成本溢出保护、原子路径输出和 GridKit 独立适配器契约保持稳定。后续只接受不改变这些语义的内部优化或文档澄清。

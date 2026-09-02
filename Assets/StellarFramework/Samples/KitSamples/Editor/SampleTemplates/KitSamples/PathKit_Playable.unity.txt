@@ -259,7 +259,7 @@ MonoBehaviour:
   summary: "独立 Graph、A* / Dijkstra、加权边和确定性路径输出。"
   controls: "使用 Start/Goal +/- 选择节点；运行 A* 或 Dijkstra；切换 Edge Overlay。"
   setup: "只需要 StellarFramework.PathKit.Core，不需要 GridKit、Addressables 或 HybridCLR。"
-  expected: "看到 Status、Cost、Written/Required、Expanded 和 Start -> Goal 路径；节点 16 用于验证 NoPath。"
+  expected: "初始/Reset 显示 None/尚未执行搜索；运行 A* 与 Dijkstra 后显示 Success、Cost、Written/Required、Expanded 和 Start -> Goal 路径，默认 1 -> 12 最优 Cost 为 8；节点 16 用于验证 NoPath。Core 样例绘图坐标只用于显示，A* 使用 H=0。"
   notes: "由 SampleTemplates/PathKit_Playable.unity.txt 生成；samples.pathkit 只包含 Core 样例和 Common。"
   anchorRight: 1
   area:

@@ -36,6 +36,8 @@ var pathfinder = new AStarPathfinder(128);
 
 policy 的动态状态需要在一次同步 `FindPath` 期间保持稳定；下一次搜索会自然读取更新后的状态。旧路径不会自动失效，是否重寻由业务 Service 决定。
 
+搜索结果的 `PathSearchStatus.None` 只表示 default/unexecuted；真正调用 `FindPath` 后一定是 `Success` 或明确失败状态。Grid Sample 的 Reset 会回到 `None`，运行 A* / Dijkstra 后显示实际状态、成本、路径和 expanded 数。
+
 ## 导出与样例
 
 Core 包为 `StellarFramework-PathKit.unitypackage`，不包含 GridKit 或本适配器。需要网格时导入 `StellarFramework-PathKit-GridKitAdapter.unitypackage`，导出器会把 PathKit.Core 与 GridKit 的依赖闭包一起打入 Bootstrap。`Example_PathKit_GridKitAdapter` 展示负坐标、阻挡、加权路线、四/八方向和转角策略。
