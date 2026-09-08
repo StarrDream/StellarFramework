@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+using System;
+using System.Collections.Generic;
 using System.IO;
 using UnityEditor;
 using UnityEditor.UIElements;
@@ -47,7 +48,7 @@ namespace StellarFramework.Editor
                 }
             };
 
-            root.Add(new HelpBox("选中 Hierarchy 中的物体，点击生成按钮即可创建全包围 MeshCollider。已包含防镂空修复。", HelpBoxMessageType.Info));
+            root.Add(new HelpBox("选中 Hierarchy 中的物体，点击生成按钮即可创建全包围 MeshCollider。支持 Mesh、Skinned、Particle、Line、Trail，并跳过碰撞体不需要的法线计算。", HelpBoxMessageType.Info));
 
             _colliderNameField = new TextField("碰撞体子物体名称")
             {
@@ -162,7 +163,7 @@ namespace StellarFramework.Editor
         {
             EditorGUILayout.Space(10);
             EditorGUILayout.LabelField("Mesh 碰撞体生成工具", EditorStyles.boldLabel);
-            EditorGUILayout.HelpBox("选中 Hierarchy 中的物体，点击生成按钮即可创建全包围 MeshCollider。\n已包含防镂空修复。", MessageType.Info);
+            EditorGUILayout.HelpBox("选中 Hierarchy 中的物体，点击生成按钮即可创建全包围 MeshCollider。\n支持 Mesh、Skinned、Particle、Line、Trail，并跳过碰撞体不需要的法线计算。", MessageType.Info);
             EditorGUILayout.Space(10);
         }
 
@@ -237,22 +238,53 @@ namespace StellarFramework.Editor
 
         private void ProcessSelectedObjects()
         {
-            var selectedObjects = Selection.gameObjects;
+            List<GameObject> selectedObjects = GetIndependentSelectedObjects();
+            if (selectedObjects.Count == 0)
+            {
+                Debug.LogWarning("请先选择至少一个有效的根物体。");
+                return;
+            }
+
+            if (saveMeshAsset && !PrepareAssetSavePath())
+            {
+                return;
+            }
+
             int successCount = 0;
 
-            for (int i = 0; i < selectedObjects.Length; i++)
+            try
             {
-                var root = selectedObjects[i];
-                EditorUtility.DisplayProgressBar("正在生成碰撞体", $"正在处理: {root.name} ({i + 1}/{selectedObjects.Length})", (float)i / selectedObjects.Length);
-
-                if (CreateCombinedMeshCollider(root))
+                for (int i = 0; i < selectedObjects.Count; i++)
                 {
-                    successCount++;
+                    GameObject root = selectedObjects[i];
+                    EditorUtility.DisplayProgressBar(
+                        "正在生成碰撞体",
+                        $"正在处理: {root.name} ({i + 1}/{selectedObjects.Count})",
+                        (float)(i + 1) / selectedObjects.Count);
+
+                    try
+                    {
+                        if (CreateCombinedMeshCollider(root))
+                        {
+                            successCount++;
+                        }
+                    }
+                    catch (Exception exception)
+                    {
+                        Debug.LogError($"[{root.name}] 生成碰撞体时发生未处理异常: {exception}");
+                    }
+                }
+            }
+            finally
+            {
+                EditorUtility.ClearProgressBar();
+                if (saveMeshAsset && successCount > 0)
+                {
+                    AssetDatabase.SaveAssets();
                 }
             }
 
-            EditorUtility.ClearProgressBar();
-            Debug.Log($"<color=green>批量处理完成: 成功 {successCount} / 总计 {selectedObjects.Length}</color>");
+            Debug.Log($"<color=green>批量处理完成: 成功 {successCount} / 总计 {selectedObjects.Count}</color>");
         }
 
         private void ClearSelectedColliders()
@@ -269,151 +301,336 @@ namespace StellarFramework.Editor
 
         private bool CreateCombinedMeshCollider(GameObject root)
         {
-            // 1. 清理旧的
-            var existing = root.transform.Find(colliderName);
-            if (existing != null) Undo.DestroyObjectImmediate(existing.gameObject);
-
-            var combineInstances = new List<CombineInstance>();
-
-            // 2. 收集 Mesh (核心逻辑复用)
-            CollectMeshes(root, combineInstances);
-
-            if (combineInstances.Count == 0)
-            {
-                Debug.LogWarning($"[{root.name}] 未找到有效的 Mesh Renderer，跳过。");
-                return false;
-            }
-
-            // 3. 合并 Mesh
-            var combinedMesh = new Mesh();
-            combinedMesh.name = $"{root.name}_CombinedMesh";
-
-            // 自动判断索引格式
-            long vertexCount = 0;
-            foreach (var ci in combineInstances)
-                if (ci.mesh != null)
-                    vertexCount += ci.mesh.vertexCount;
-            combinedMesh.indexFormat = vertexCount > 65000 ? IndexFormat.UInt32 : IndexFormat.UInt16;
+            var buildContext = new CombineBuildContext();
+            Mesh combinedMesh = null;
+            bool meshSavedAsAsset = false;
 
             try
             {
-                combinedMesh.CombineMeshes(combineInstances.ToArray(), true, true);
-                combinedMesh.RecalculateBounds();
-                combinedMesh.RecalculateNormals();
+                CollectMeshes(root, buildContext);
+
+                if (buildContext.CombineInstances.Count == 0)
+                {
+                    Debug.LogWarning($"[{root.name}] 未找到有效的 Mesh Renderer，跳过。");
+                    return false;
+                }
+
+                combinedMesh = new Mesh
+                {
+                    name = $"{root.name}_CombinedMesh",
+                    indexFormat = buildContext.VertexCount > ushort.MaxValue
+                        ? IndexFormat.UInt32
+                        : IndexFormat.UInt16
+                };
+
+                // MeshCollider 只使用顶点和三角形索引。CombineMeshes 已经生成 bounds，
+                // 不再额外 RecalculateNormals，避免对大型静态网格执行一次无意义的 O(n) 计算。
+                combinedMesh.CombineMeshes(buildContext.CombineInstances.ToArray(), true, true);
+
+                // 只有在新 Mesh 合并成功后才移除旧碰撞体，失败时保留原结果。
+                Transform existing = root.transform.Find(colliderName);
+                if (existing != null)
+                {
+                    Undo.DestroyObjectImmediate(existing.gameObject);
+                }
+
+                if (saveMeshAsset)
+                {
+                    meshSavedAsAsset = SaveMeshAsset(combinedMesh);
+                }
+
+                GameObject colliderObj = new GameObject(colliderName);
+                colliderObj.transform.SetParent(root.transform);
+                colliderObj.transform.localPosition = Vector3.zero;
+                colliderObj.transform.localRotation = Quaternion.identity;
+                colliderObj.transform.localScale = Vector3.one;
+
+                MeshCollider meshCollider = colliderObj.AddComponent<MeshCollider>();
+                meshCollider.sharedMesh = combinedMesh;
+                meshCollider.convex = false;
+
+                Undo.RegisterCreatedObjectUndo(colliderObj, "Create Combined Collider");
+                return true;
             }
-            catch (System.Exception e)
+            catch (Exception exception)
             {
-                Debug.LogError($"[{root.name}] Mesh 合并失败: {e.Message}");
+                Debug.LogError($"[{root.name}] Mesh 合并失败: {exception.Message}");
+                if (combinedMesh != null && !meshSavedAsAsset)
+                {
+                    UnityEngine.Object.DestroyImmediate(combinedMesh);
+                }
+
+                return false;
+            }
+            finally
+            {
+                buildContext.Dispose();
+            }
+        }
+
+        private bool SaveMeshAsset(Mesh mesh)
+        {
+            if (!TryNormalizeAssetFolderPath(savePath, out string normalizedPath))
+            {
+                Debug.LogError($"保存路径必须位于当前工程的 Assets 目录下: {savePath}");
                 return false;
             }
 
-            // 4. 保存资产
-            if (saveMeshAsset)
+            string fileName = SanitizeFileName(mesh.name);
+            string assetPath = AssetDatabase.GenerateUniqueAssetPath($"{normalizedPath}/{fileName}.asset");
+
+            try
             {
-                SaveMeshAsset(combinedMesh);
+                AssetDatabase.CreateAsset(mesh, assetPath);
+                return true;
             }
-
-            // 5. 创建物体并挂载
-            var colliderObj = new GameObject(colliderName);
-            colliderObj.transform.SetParent(root.transform);
-            colliderObj.transform.localPosition = Vector3.zero;
-            colliderObj.transform.localRotation = Quaternion.identity;
-            colliderObj.transform.localScale = Vector3.one;
-
-            var meshCollider = colliderObj.AddComponent<MeshCollider>();
-            meshCollider.sharedMesh = combinedMesh;
-            meshCollider.convex = false;
-
-            // 注册撤销
-            Undo.RegisterCreatedObjectUndo(colliderObj, "Create Combined Collider");
-
-            return true;
-        }
-
-        private void SaveMeshAsset(Mesh mesh)
-        {
-            if (!Directory.Exists(savePath))
+            catch (Exception exception)
             {
-                Directory.CreateDirectory(savePath);
-                AssetDatabase.Refresh();
+                Debug.LogError($"无法保存合并 Mesh 资产 ({assetPath}): {exception.Message}");
+                return false;
             }
-
-            string fileName = $"{mesh.name}_{System.DateTime.Now:yyyyMMdd_HHmmss}.asset";
-            string fullPath = $"{savePath}/{fileName}";
-
-            if (!fullPath.StartsWith("Assets"))
-            {
-                Debug.LogError($"保存路径必须以 Assets 开头: {fullPath}");
-                return;
-            }
-
-            AssetDatabase.CreateAsset(mesh, fullPath);
-            // 批量处理时不要频繁 SaveAssets，可以在最后统一保存，但为了安全这里先保存
         }
 
         // ================= 收集逻辑 (复用并适配) =================
 
-        private void CollectMeshes(GameObject root, List<CombineInstance> instances)
+        private void CollectMeshes(GameObject root, CombineBuildContext buildContext)
         {
-            var matrixRoot = root.transform.worldToLocalMatrix;
+            Matrix4x4 matrixRoot = root.transform.worldToLocalMatrix;
+            Transform[] transforms = root.GetComponentsInChildren<Transform>(false);
 
-            if (includeMeshRenderer)
+            // 一次遍历层级，同时检查所有 Renderer，避免为每种 Renderer 重复扫描同一棵树。
+            foreach (Transform child in transforms)
             {
-                foreach (var renderer in root.GetComponentsInChildren<MeshRenderer>())
+                Matrix4x4 transformMatrix = matrixRoot * child.localToWorldMatrix;
+
+                if (includeMeshRenderer && child.TryGetComponent(out MeshRenderer meshRenderer))
                 {
-                    if (!renderer.enabled) continue;
-                    var filter = renderer.GetComponent<MeshFilter>();
-                    if (filter != null && filter.sharedMesh != null)
+                    if (meshRenderer.enabled && child.TryGetComponent(out MeshFilter meshFilter))
                     {
-                        AddMeshWithSubMeshes(instances, filter.sharedMesh, matrixRoot * renderer.transform.localToWorldMatrix);
+                        AddMeshWithSubMeshes(buildContext, meshFilter.sharedMesh, transformMatrix);
+                    }
+                }
+
+                if (includeSkinnedMeshRenderer && child.TryGetComponent(out SkinnedMeshRenderer skinnedRenderer))
+                {
+                    if (skinnedRenderer.enabled && skinnedRenderer.sharedMesh != null)
+                    {
+                        Mesh mesh = skinnedRenderer.sharedMesh;
+                        if (bakePoseForSkinnedMesh)
+                        {
+                            mesh = new Mesh
+                            {
+                                name = $"{skinnedRenderer.name}_BakedMesh"
+                            };
+                            buildContext.TemporaryMeshes.Add(mesh);
+                            skinnedRenderer.BakeMesh(mesh);
+                        }
+
+                        AddMeshWithSubMeshes(buildContext, mesh, transformMatrix);
+                    }
+                }
+
+                if (includeParticleSystemRenderer && child.TryGetComponent(out ParticleSystemRenderer particleRenderer))
+                {
+                    if (particleRenderer.enabled)
+                    {
+                        AddMeshWithSubMeshes(buildContext, particleRenderer.mesh, transformMatrix);
+                    }
+                }
+
+                if (includeLineRenderer && child.TryGetComponent(out LineRenderer lineRenderer))
+                {
+                    if (lineRenderer.enabled && lineRenderer.positionCount > 0)
+                    {
+                        Mesh mesh = new Mesh
+                        {
+                            name = $"{lineRenderer.name}_BakedMesh"
+                        };
+                        buildContext.TemporaryMeshes.Add(mesh);
+                        lineRenderer.BakeMesh(mesh, false);
+                        AddMeshWithSubMeshes(buildContext, mesh, transformMatrix);
+                    }
+                }
+
+                if (includeTrailRenderer && child.TryGetComponent(out TrailRenderer trailRenderer))
+                {
+                    if (trailRenderer.enabled)
+                    {
+                        Mesh mesh = new Mesh
+                        {
+                            name = $"{trailRenderer.name}_BakedMesh"
+                        };
+                        buildContext.TemporaryMeshes.Add(mesh);
+                        trailRenderer.BakeMesh(mesh, false);
+                        AddMeshWithSubMeshes(buildContext, mesh, transformMatrix);
                     }
                 }
             }
-
-            if (includeSkinnedMeshRenderer)
-            {
-                foreach (var renderer in root.GetComponentsInChildren<SkinnedMeshRenderer>())
-                {
-                    if (!renderer.enabled) continue;
-                    var mesh = new Mesh();
-                    if (bakePoseForSkinnedMesh)
-                        renderer.BakeMesh(mesh);
-                    else if (renderer.sharedMesh != null)
-                        mesh = Object.Instantiate(renderer.sharedMesh);
-
-                    if (mesh != null)
-                    {
-                        AddMeshWithSubMeshes(instances, mesh, matrixRoot * renderer.transform.localToWorldMatrix);
-                    }
-                }
-            }
-
-            if (includeParticleSystemRenderer)
-            {
-                foreach (var renderer in root.GetComponentsInChildren<ParticleSystemRenderer>())
-                {
-                    if (!renderer.enabled || renderer.mesh == null) continue;
-                    AddMeshWithSubMeshes(instances, renderer.mesh, matrixRoot * renderer.transform.localToWorldMatrix);
-                }
-            }
-
-            // Line 和 Trail 逻辑略微复杂，为保持代码简洁，此处省略具体生成逻辑，
-            // 若需要完全对齐原脚本功能，可将原脚本的 CreateMeshFromLineRenderer 等方法设为静态工具方法并在下方调用。
-            // 鉴于 Editor 工具通常用于静态物体，Line/Trail 需求较低，此处暂略。
         }
 
         /// <summary>
         ///     核心修复：遍历所有 SubMesh 以防止镂空
         /// </summary>
-        private void AddMeshWithSubMeshes(List<CombineInstance> instances, Mesh mesh, Matrix4x4 transformMatrix)
+        private static void AddMeshWithSubMeshes(CombineBuildContext buildContext, Mesh mesh, Matrix4x4 transformMatrix)
         {
+            if (mesh == null || mesh.vertexCount == 0)
+            {
+                return;
+            }
+
             for (int i = 0; i < mesh.subMeshCount; i++)
             {
-                var instance = new CombineInstance();
-                instance.mesh = mesh;
-                instance.subMeshIndex = i;
-                instance.transform = transformMatrix;
-                instances.Add(instance);
+                if (mesh.GetIndexCount(i) == 0)
+                {
+                    continue;
+                }
+
+                // CombineMeshes 会为每个 CombineInstance 追加顶点数据；多 SubMesh
+                // 需要逐项计数，确保大网格正确切换到 UInt32 索引。
+                buildContext.VertexCount += mesh.vertexCount;
+                buildContext.CombineInstances.Add(new CombineInstance
+                {
+                    mesh = mesh,
+                    subMeshIndex = i,
+                    transform = transformMatrix
+                });
+            }
+        }
+
+        private static List<GameObject> GetIndependentSelectedObjects()
+        {
+            GameObject[] selected = Selection.gameObjects;
+            var selectedTransforms = new HashSet<Transform>();
+            for (int i = 0; i < selected.Length; i++)
+            {
+                selectedTransforms.Add(selected[i].transform);
+            }
+
+            var result = new List<GameObject>(selected.Length);
+            for (int i = 0; i < selected.Length; i++)
+            {
+                Transform parent = selected[i].transform.parent;
+                bool parentSelected = false;
+                while (parent != null)
+                {
+                    if (selectedTransforms.Contains(parent))
+                    {
+                        parentSelected = true;
+                        break;
+                    }
+
+                    parent = parent.parent;
+                }
+
+                if (!parentSelected)
+                {
+                    result.Add(selected[i]);
+                }
+            }
+
+            return result;
+        }
+
+        private bool PrepareAssetSavePath()
+        {
+            if (!TryNormalizeAssetFolderPath(savePath, out string normalizedPath))
+            {
+                Debug.LogError($"保存路径必须位于当前工程的 Assets 目录下: {savePath}");
+                return false;
+            }
+
+            savePath = normalizedPath;
+            if (AssetDatabase.IsValidFolder(normalizedPath))
+            {
+                return true;
+            }
+
+            string[] parts = normalizedPath.Split('/');
+            string currentFolder = parts[0];
+            for (int i = 1; i < parts.Length; i++)
+            {
+                string nextFolder = $"{currentFolder}/{parts[i]}";
+                if (!AssetDatabase.IsValidFolder(nextFolder) &&
+                    string.IsNullOrEmpty(AssetDatabase.CreateFolder(currentFolder, parts[i])))
+                {
+                    Debug.LogError($"无法创建 Mesh 保存目录: {nextFolder}");
+                    return false;
+                }
+
+                currentFolder = nextFolder;
+            }
+
+            return AssetDatabase.IsValidFolder(normalizedPath);
+        }
+
+        private static bool TryNormalizeAssetFolderPath(string path, out string normalizedPath)
+        {
+            normalizedPath = null;
+            string candidate = path?.Trim().Replace('\\', '/').TrimEnd('/');
+            if (string.IsNullOrEmpty(candidate) ||
+                (!candidate.Equals("Assets", StringComparison.OrdinalIgnoreCase) &&
+                 !candidate.StartsWith("Assets/", StringComparison.OrdinalIgnoreCase)))
+            {
+                return false;
+            }
+
+            string projectRoot = Directory.GetParent(Application.dataPath)?.FullName;
+            if (string.IsNullOrEmpty(projectRoot))
+            {
+                return false;
+            }
+
+            string candidateFullPath = Path.GetFullPath(Path.Combine(
+                projectRoot,
+                candidate.Replace('/', Path.DirectorySeparatorChar)));
+            string assetsFullPath = Path.GetFullPath(Application.dataPath);
+            string assetsPrefix = assetsFullPath.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+            if (!candidateFullPath.Equals(assetsFullPath, StringComparison.OrdinalIgnoreCase) &&
+                !candidateFullPath.StartsWith(assetsPrefix, StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            normalizedPath = candidate;
+            return true;
+        }
+
+        private static string SanitizeFileName(string fileName)
+        {
+            char[] chars = (string.IsNullOrEmpty(fileName) ? "CombinedMesh" : fileName).ToCharArray();
+            char[] invalidChars = Path.GetInvalidFileNameChars();
+            for (int i = 0; i < chars.Length; i++)
+            {
+                for (int j = 0; j < invalidChars.Length; j++)
+                {
+                    if (chars[i] == invalidChars[j])
+                    {
+                        chars[i] = '_';
+                        break;
+                    }
+                }
+            }
+
+            return new string(chars);
+        }
+
+        private sealed class CombineBuildContext
+        {
+            internal readonly List<CombineInstance> CombineInstances = new List<CombineInstance>(64);
+            internal readonly List<Mesh> TemporaryMeshes = new List<Mesh>(8);
+            internal long VertexCount;
+
+            internal void Dispose()
+            {
+                for (int i = 0; i < TemporaryMeshes.Count; i++)
+                {
+                    if (TemporaryMeshes[i] != null)
+                    {
+                        UnityEngine.Object.DestroyImmediate(TemporaryMeshes[i]);
+                    }
+                }
+
+                TemporaryMeshes.Clear();
             }
         }
 
