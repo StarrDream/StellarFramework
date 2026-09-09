@@ -45,6 +45,9 @@
 | BindableKit | EventKit、LogKit | 无 | AA、HybridCLR、代码热更 |
 | AudioKit.Core | PoolKit、SingletonKit、ToolsHub.Core + AudioKit 专属面板 | UniTask | ResKit、AA、HybridCLR、代码热更 |
 | AudioKit.ResKitAdapter | AudioKit.Core + ResKit.Core + ResKit 音频加载器 | UniTask | Addressables、HybridCLR、代码热更 |
+| FlowKit.Core | Graph/Compiler/immutable Plan、Runner、Timer、Signal、State、Blackboard、Polling、Operation 与 Parallel/Race/Join | 无 | UnityEngine、UniTask、Addressables、HybridCLR、UI、资源和业务对象 |
+| FlowKit.UnityIntegration | FlowHost、稳定 FlowBinding、JSON Graph 入口 | 无 | UniTask、Addressables、HybridCLR、ResKit、ToolsHub |
+| FlowKit.Tools | FlowKit Graph Validator 与独立窗口 | 无 | 仅框架开发工程；不进入 Runtime 包 |
 
 ## 资源与 UI 组合
 
@@ -79,6 +82,7 @@
 | SettingsKit | SettingsKit.UnityAdapters + SettingsKit.AudioKitAdapter + Resources 音频样例资源 | ResKit、AA、HybridCLR、代码热更 |
 | UIKit | UIKit.Core + Resources UIRoot/面板预制体 | ResKit、AA、HybridCLR、代码热更 |
 | Architecture | ActionKit + BindableKit + UIKit.Core 的完整架构演示 | ResKit、AA、HybridCLR、代码热更 |
+| FlowKit | FlowKit.UnityIntegration + FlowKit.Core 的 JSON Graph/Delay/Complete 场景 | UniTask、Addressables、HybridCLR、代码热更 |
 | HotUpdate.HybridCLR | HotUpdate.HybridCLR 的完整可运行示例 | 无；仅在明确选择时才带入 AA 与 HybridCLR |
 
 样例运行时代码按目录各自拥有独立 asmdef；不再存在一个引用全部 Kit 的样例运行时程序集。原始框架工程保留的“构建全部样例”编辑器只用于维护和生成场景，不会随单 Kit 或单样例包导出。

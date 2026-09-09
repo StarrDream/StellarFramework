@@ -38,9 +38,9 @@ Adapter Profile：可选的 Kit 间、Unity 或第三方技术栈连接层
 
 | 层级 | Kit / Profile |
 | --- | --- |
-| Foundation | LogKit、EventKit、PoolKit、SingletonKit、FSMKit、ActionKit、BindableKit、ConfigKit.Core、HttpKit、ResKit.Core、SettingsKit.Core、TimeKit、SaveKit.Core、GridKit、SpatialKit、SimulationKit、PathKit |
+| Foundation | LogKit、EventKit、PoolKit、SingletonKit、FSMKit、ActionKit、BindableKit、ConfigKit.Core、HttpKit、ResKit.Core、SettingsKit.Core、TimeKit、SaveKit.Core、GridKit、SpatialKit、SimulationKit、PathKit、FlowKit.Core |
 | Extension | AudioKit.Core、UIKit.Core、HotUpdate.Core |
-| Adapter | ConfigKit.NewtonsoftJson、SettingsKit.UnityAdapters、SettingsKit.AudioKitAdapter、AudioKit.ResKitAdapter、ResKit.AssetBundle、ResKit.Addressables、UIKit.ResKitAdapter、HotUpdate.AddressablesAdapter、HotUpdate.HybridCLR、SaveKit.NewtonsoftJson、PathKit.GridKitAdapter |
+| Adapter | ConfigKit.NewtonsoftJson、SettingsKit.UnityAdapters、SettingsKit.AudioKitAdapter、AudioKit.ResKitAdapter、ResKit.AssetBundle、ResKit.Addressables、UIKit.ResKitAdapter、HotUpdate.AddressablesAdapter、HotUpdate.HybridCLR、SaveKit.NewtonsoftJson、PathKit.GridKitAdapter、FlowKit.UnityIntegration |
 
 这只是展示和依赖约束元数据，不会让 Foundation 自动安装。选择某个 Kit 时，导出器仍只按 `requiredProfileIds` 计算实际依赖闭包。
 
@@ -89,6 +89,12 @@ PathKit V1 Core Semantics 已冻结：Graph-first Core、A*/Dijkstra、admissibl
 
 `PathKit.GridKitAdapter` 将 GridKit 的离散正交 Grid 映射为 PathKit Graph，提供 FourWay / EightWay、Corner Policy 与基于真实 minimum traversal cost 的 admissible heuristic；不改变 `PathKit.Core` 的独立性。
 
+## FlowKit 的定位
+
+FlowKit.Core 是 `foundation / flow`：Graph JSON 经显式迁移、验证和编译后形成不可变 FlowPlan，由预算化 Runner、Timer、Signal、State、Blackboard、Operation 和执行组调度。Core 不引用 Unity、UniTask、Addressables、HybridCLR、UI、资源或业务领域对象，因此可以单独导出。
+
+`FlowKit.UnityIntegration` 是 `adapter / flow`，只提供 FlowHost、稳定 Binding 和 JSON 文本入口。ToolsHub Graph Validator 与独立窗口属于 tooling profile，不进入 Runtime 导出包。Parallel/Race/Join、条件 AST、PlanHash 快照和 Operation/Capability 边界均通过显式 API 接入，不使用运行时反射或全图扫描。
+
 ## SimulationKit 的定位
 
 SimulationKit 是 `foundation / simulation`：只管理业务提供的 `SimulationId`、正间隔、首次延迟和下一次到期 tick。`SimulationScheduler` 使用索引最小堆和 ID 索引，按 `NextDueTick` 再按 ID 稳定排序，把到期 ID 写入调用方提供的 `Span`，由预算和 `HasBacklog` 控制批量派发。
@@ -122,4 +128,4 @@ SpatialKit V1 Core Semantics 已冻结：公开 ID、连续点、半开矩形、
 
 ## 后续新增顺序
 
-TimeKit、SaveKit、GridKit、SpatialKit、SimulationKit、PathKit 的 V1 Core Semantics 已完成冻结。下一阶段进入 `Tiny Foundation Integration`，只做小型维护者集成验证；WorldKit、PlacementKit、InventoryKit、WorldGenKit 属于后续 Extension，ProductionKit、LogisticsKit 必须在真实项目中验证领域抽象后再升格。
+TimeKit、SaveKit、GridKit、SpatialKit、SimulationKit、PathKit、FlowKit 的 V1 Core Semantics 已完成冻结。下一阶段进入 `Tiny Foundation Integration`，只做小型维护者集成验证；WorldKit、PlacementKit、InventoryKit、WorldGenKit 属于后续 Extension，ProductionKit、LogisticsKit 必须在真实项目中验证领域抽象后再升格。

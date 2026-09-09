@@ -1,0 +1,23 @@
+{
+  "FlowId": "sample.flowkit.delay",
+  "SchemaVersion": 1,
+  "EntryNodeId": "entry",
+  "Nodes": [
+    { "Id": "entry", "TypeId": "flow.entry", "DefinitionVersion": 1 },
+    {
+      "Id": "delay",
+      "TypeId": "flow.delay",
+      "DefinitionVersion": 1,
+      "Parameters": {
+        "Entries": [
+          { "Key": "seconds", "Value": { "Kind": 6, "DoubleValue": 0.25 } }
+        ]
+      }
+    },
+    { "Id": "complete", "TypeId": "flow.complete", "DefinitionVersion": 1 }
+  ],
+  "Edges": [
+    { "FromNodeId": "entry", "FromPortId": "next", "ToNodeId": "delay", "ToPortId": "in" },
+    { "FromNodeId": "delay", "FromPortId": "completed", "ToNodeId": "complete", "ToPortId": "in" }
+  ]
+}

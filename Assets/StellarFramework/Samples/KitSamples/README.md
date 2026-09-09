@@ -24,6 +24,7 @@
 - `SimulationKit_Playable.unity`：Game Tick 与 Frame Step 分离、Burst 跨帧预算派发、Staggered 首次派发、显式同 tick Drain 与过期合并
 - `PathKit_Playable.unity`：独立 Graph、加权有向边、A* / Dijkstra、确定性 tie-break 与原子路径输出
 - `PathKit_GridKitAdapter_Playable.unity`：负坐标 GridRect、TraversalPolicy、Four/Eight、转角规则、阻挡与加权路线
+- `FlowKit_Playable.unity`：JSON Graph 编译、Delay 调度与 Complete 生命周期
 - `HotUpdateKit_Playable.unity`：可选热更新门户与 HybridCLR AA 启动链路示例
 - `SettingsKit_Playable.unity`：设置定义、存储、应用策略和示例 UI
 
@@ -39,6 +40,7 @@ TimeKit 与 SaveKit 是需要独立操作说明的正式样例，目录下保留
 - SimulationKit 的批量预算、首次延迟和派发边界看 `Example_SimulationKit/README.md`
 - PathKit Core 的 Graph、A* / Dijkstra、成本与 buffer 契约看 `Example_PathKit/README.md`
 - PathKit GridKit 适配器的映射、policy、转角和动态状态看 `Example_PathKit_GridKitAdapter/README.md`
+- FlowKit 的 Graph JSON、节点 TypeId、Registry 与导出边界看 `Example_FlowKit/README.md`
 - 单个样例的按键、操作方式和通过标准写在对应 `Example_*.cs` 文件头注释里
 - 场景内还会挂 `ExampleSceneGuide`，运行时可直接在 Game 视图看到核心提示
 

@@ -40,6 +40,7 @@ StellarFramework 是一个 Unity 基础开发框架，包含架构分层、UI、
 | 连续二维空间索引 | `SpatialKit`，动态点索引、矩形/圆形查询和有限半径最近邻；无必需 Kit 或 UPM 依赖 |
 | 批量模拟调度 | `SimulationKit`，索引最小堆、固定预算派发、分散首次派发与过期合并；无必需 Kit 或 UPM 依赖 |
 | 通用路径搜索 | `PathKit`，Graph-first A* / Dijkstra、正 long 成本、边界预算与原子路径输出；V1 Core Semantics 已冻结，GridKit 通过可选适配器接入 |
+| 声明式工作流 | `FlowKit.Core` 纯 C# 工作流运行时；`FlowKit.UnityIntegration` 提供可选 Unity Host/Binding，不依赖 UniTask、Addressables 或 HybridCLR |
 
 ### 单包安装
 
@@ -129,6 +130,7 @@ Assets
 | `SpatialKit` | 连续二维点、均匀空间哈希、矩形/圆形查询与最近邻 |
 | `SimulationKit` | 纯 C# 批量模拟调度、固定预算派发、分散首次派发与过期合并 |
 | `PathKit` | Graph-first 通用最短路径、A* / Dijkstra、确定性 tie-break、成本溢出保护；V1 Core Semantics 已冻结，GridKit 为可选适配器 |
+| `FlowKit` | Graph JSON → Migration/Validation → immutable Plan → Scheduler/Runner；Signal、State、Blackboard、Timer、Operation、Parallel/Race/Join 与快照 |
 
 ### Editor Modules
 
@@ -145,6 +147,7 @@ Assets
 | `ResKit` | 资源构建与资源审计 |
 | `SettingsKit` | 设置中心工具 |
 | `UIKit` | UI 绑定生成与 UIKit 工具 |
+| `FlowKit` | Graph Validator 与独立 FlowKit Graph 窗口（仅框架开发工程） |
 
 ### Samples
 
@@ -170,6 +173,8 @@ Assets
 - [SimulationKit 源码文档](Assets/StellarFramework/Runtime/Kits/SimulationKit/SimulationKit-批量模拟调度-源码文档-Guide.md)
 - [PathKit 路径搜索说明](Assets/StellarFramework/Runtime/Kits/PathKit/PathKit-路径搜索-说明文档-Guide.md)
 - [PathKit 源码文档](Assets/StellarFramework/Runtime/Kits/PathKit/PathKit-路径搜索-源码文档-Guide.md)
+- [FlowKit 工作流系统说明](Assets/StellarFramework/Runtime/Kits/FlowKit/FlowKit-工作流系统-说明文档-Guide.md)
+- [FlowKit 源码文档](Assets/StellarFramework/Runtime/Kits/FlowKit/FlowKit-工作流系统-源码文档-Guide.md)
 - [PathKit.GridKit 适配器说明](Assets/StellarFramework/Runtime/Kits/PathKit/Adapters/GridKit/PathKit-GridKit适配器-Guide.md)
 - [验证架构与发布验收规范](Assets/StellarFrameworkVerification/ValidationArchitecture.md)
 - [维护者验证区 README](Assets/StellarFrameworkVerification/README.md)

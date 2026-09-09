@@ -323,6 +323,54 @@
       "excludedCapabilities": ["ResKit", "Addressables", "HybridCLR", "CodeHotUpdate"]
     },
     {
+      "id": "flowkit.core",
+      "displayName": "FlowKit.Core",
+      "kind": "kit",
+      "tier": "foundation",
+      "category": "flow",
+      "availability": "available",
+      "output": "StellarFramework-FlowKit-Core.unitypackage",
+      "sourcePaths": [
+        "Assets/StellarFramework/Runtime/Kits/FlowKit/Core",
+        "Assets/StellarFramework/Runtime/Kits/FlowKit/FlowKit-工作流系统-说明文档-Guide.md",
+        "Assets/StellarFramework/Runtime/Kits/FlowKit/FlowKit-工作流系统-源码文档-Guide.md"
+      ],
+      "requiredKits": [],
+      "requiredUpm": [],
+      "optionalCapabilities": ["TypedWorkflowRuntime", "SignalRouting", "DeterministicScheduler", "PollingScheduler", "OperationAdapters"],
+      "excludedCapabilities": ["Addressables", "HybridCLR", "CodeHotUpdate"]
+    },
+    {
+      "id": "flowkit.unity",
+      "displayName": "FlowKit.UnityIntegration",
+      "kind": "kit-with-dependencies",
+      "tier": "adapter",
+      "category": "flow",
+      "availability": "available",
+      "output": "StellarFramework-FlowKit-UnityIntegration.unitypackage",
+      "sourcePaths": ["Assets/StellarFramework/Runtime/Kits/FlowKit/UnityIntegration"],
+      "requiredProfileIds": ["flowkit.core"],
+      "requiredKits": ["FlowKit.Core"],
+      "requiredUpm": [],
+      "optionalCapabilities": ["UnityFlowHost", "JsonGraphImport", "SceneBinding"],
+      "excludedCapabilities": ["Addressables", "HybridCLR", "CodeHotUpdate"]
+    },
+    {
+      "id": "flowkit.tools",
+      "displayName": "FlowKit.Tools",
+      "kind": "tooling",
+      "availability": "available",
+      "output": "StellarFramework-FlowKit-Tools.unitypackage",
+      "sourcePaths": [
+        "Assets/StellarFramework/Editor/StellarToolsHub/Modules/FlowKit"
+      ],
+      "requiredProfileIds": ["flowkit.core", "flowkit.unity", "toolshub.core"],
+      "requiredKits": ["FlowKit.Core", "FlowKit.UnityIntegration", "ToolsHub.Core"],
+      "requiredUpm": [],
+      "optionalCapabilities": ["GraphValidator", "FlowKitEditorWindow"],
+      "excludedCapabilities": ["Addressables", "HybridCLR", "CodeHotUpdate"]
+    },
+    {
       "id": "fsmkit",
       "displayName": "FSMKit",
       "kind": "kit",
@@ -610,6 +658,19 @@
       "requiredUpm": ["com.cysharp.unitask"],
       "optionalCapabilities": ["SaveInspector", "RawPreview", "HexPreview", "MigrationDryRun", "SaveDiagnostics"],
       "excludedCapabilities": ["NewtonsoftJson", "TimeKit", "Addressables", "HybridCLR", "CodeHotUpdate"]
+    },
+    {
+      "id": "samples.flowkit",
+      "displayName": "Sample.FlowKit",
+      "kind": "sample",
+      "availability": "available",
+      "output": "StellarFramework-Sample-FlowKit.unitypackage",
+      "sourcePaths": ["Assets/StellarFramework/Samples/KitSamples/Example_FlowKit", "Assets/StellarFramework/Samples/KitSamples/Scenes/FlowKit_Playable.unity"],
+      "requiredProfileIds": ["flowkit.unity"],
+      "requiredKits": ["FlowKit.UnityIntegration"],
+      "requiredUpm": [],
+      "optionalCapabilities": [],
+      "excludedCapabilities": ["Addressables", "HybridCLR", "CodeHotUpdate"]
     },
     {
       "id": "samples.actionkit",

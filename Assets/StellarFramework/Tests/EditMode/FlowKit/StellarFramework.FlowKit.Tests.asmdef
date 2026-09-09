@@ -1,0 +1,21 @@
+{
+  "name": "StellarFramework.FlowKit.Tests",
+  "rootNamespace": "StellarFramework.FlowKit.Tests",
+  "references": [
+    "StellarFramework.FlowKit.Core"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": false,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false,
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ]
+}

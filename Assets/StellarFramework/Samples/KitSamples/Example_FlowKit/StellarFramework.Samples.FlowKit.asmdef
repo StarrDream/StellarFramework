@@ -1,0 +1,17 @@
+{
+  "name": "StellarFramework.Samples.FlowKit",
+  "rootNamespace": "StellarFramework.Samples.FlowKit",
+  "references": [
+    "StellarFramework.FlowKit.Core",
+    "StellarFramework.FlowKit.Unity"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": false,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

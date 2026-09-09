@@ -38,7 +38,7 @@ namespace StellarFramework.Editor.Modules
             "samples.eventkit", "samples.fsmkit", "samples.httpkit", "samples.logkit", "samples.poolkit",
             "samples.reskit", "samples.settingskit", "samples.singletonkit", "samples.spatialkit", "samples.simulationkit",
             "samples.pathkit", "samples.pathkit.gridkit", "samples.uikit",
-            "samples.architecture", "samples.hotupdate.hybridclr"
+            "samples.architecture", "samples.flowkit", "samples.hotupdate.hybridclr"
         };
 
         private static readonly IReadOnlyDictionary<string, string> UpmPackageSources =
@@ -155,6 +155,21 @@ namespace StellarFramework.Editor.Modules
         public static void ExportPathKitGridKitAdapterPackage()
         {
             ExportKitPackageAndReveal("pathkit.gridkit");
+        }
+
+        public static void ExportFlowKitCorePackage()
+        {
+            ExportKitPackageAndReveal("flowkit.core");
+        }
+
+        public static void ExportFlowKitUnityIntegrationPackage()
+        {
+            ExportKitPackageAndReveal("flowkit.unity");
+        }
+
+        public static void ExportFlowKitToolsPackage()
+        {
+            ExportKitPackageAndReveal("flowkit.tools");
         }
 
         public static void ExportActionKitPackage()
@@ -307,6 +322,8 @@ namespace StellarFramework.Editor.Modules
         public static void ExportUIKitSamplePackage() => ExportKitPackageAndReveal("samples.uikit");
 
         public static void ExportArchitectureSamplePackage() => ExportKitPackageAndReveal("samples.architecture");
+
+        public static void ExportFlowKitSamplePackage() => ExportKitPackageAndReveal("samples.flowkit");
 
         public static void ExportHotUpdateHybridClrSamplePackage() => ExportKitPackageAndReveal("samples.hotupdate.hybridclr");
 

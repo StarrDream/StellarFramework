@@ -12,7 +12,7 @@ NOT RUN 和 BLOCKED 不得写成 PASS；未运行的 Benchmark 不得填写推�
 
 ## 当前可选目标
 
-当前目录包含 60 个分发 Profile：2 个单文件目标、2 个 Runtime 支持包、2 个 ToolsHub 包、1 个生成支持包、17 个 Foundation Kit、3 个 Extension Kit、11 个 Adapter Profile，以及 22 个可选样例包。
+当前目录包含 64 个分发 Profile：2 个单文件目标、2 个 Runtime 支持包、3 个 tooling 包、1 个生成支持包、18 个 Foundation Kit、3 个 Extension Kit、12 个 Adapter Profile，以及 23 个可选样例包。
 
 Catalog schema v2 以 `tier` / `category` 描述架构职责；它不改变 `kind` 的分发语义，也不会让同层 Kit 自动安装。完整规则见 [KitArchitectureGuide.md](KitArchitectureGuide.md)。
 
@@ -36,6 +36,9 @@ Catalog schema v2 以 `tier` / `category` 描述架构职责；它不改变 `kin
 | SimulationKit | SimulationId、索引最小堆、固定预算派发、Staggered 首次延迟、过期合并 | UnityEngine、TimeKit、GridKit、SpatialKit、ResKit、Addressables、HybridCLR、所有其他 Kit 与 UPM |
 | PathKit | Graph-first 通用 A* / Dijkstra、正 long 成本、确定性 tie-break、扩展预算、原子路径输出 | UnityEngine、GridKit、Addressables、HybridCLR、所有其他 Kit 与 UPM |
 | PathKit.GridKitAdapter | PathKit + GridKit 的 GridPathGraph、Four/Eight、TraversalPolicy、转角策略与负坐标映射 | Addressables、HybridCLR、移动/世界服务与固定 Occupancy 语义 |
+| FlowKit.Core | 纯 C# Graph/Compiler/Plan、Runner、Timer、Signal、State、Blackboard、Polling、Operation、Parallel/Race/Join 与 Snapshot | UnityEngine、UniTask、Addressables、HybridCLR、UI、资源和业务对象 |
+| FlowKit.UnityIntegration | FlowHost、稳定 FlowBinding、JSON Graph 入口 | UniTask、Addressables、HybridCLR、ResKit、ToolsHub |
+| FlowKit.Tools | FlowKit Graph Validator 与独立 FlowKit 窗口 | 仅在框架开发工程使用；不进入 Runtime 包 |
 | HotUpdate.Core | ResKit.Core、HttpKit、热更策略抽象 | Addressables、HybridCLR、代码热更实现 |
 | HotUpdate.Addressables | HotUpdate.Core、ResKit.Addressables | HybridCLR |
 | HotUpdate.HybridCLR | HotUpdate.Addressables、HybridCLR 运行时与导出工具 | 无 |
@@ -51,6 +54,7 @@ Catalog schema v2 以 `tier` / `category` 描述架构职责；它不改变 `kin
 | Sample.SimulationKit | SimulationKit 示例脚本、Common 场景说明、`SimulationKit_Playable.unity` | 依赖 `SimulationKit`；无 UPM；手动 tick；排除 TimeKit、GridKit、ResKit、Addressables、HybridCLR |
 | Sample.PathKit | 独立 Graph、A* / Dijkstra、加权边与结果面板、`PathKit_Playable.unity` | 依赖 `PathKit`；无 UPM；排除 GridKit、Addressables、HybridCLR |
 | Sample.PathKit.GridKitAdapter | 负坐标网格、TraversalPolicy、阻挡/加权/转角策略、`PathKit_GridKitAdapter_Playable.unity` | 依赖 `PathKit.GridKitAdapter`（含 PathKit + GridKit）；无 UPM；排除 Addressables、HybridCLR |
+| Sample.FlowKit | `FlowKitSample`、JSON Graph、`FlowKit_Playable.unity` | 依赖 `FlowKit.UnityIntegration`（含 FlowKit.Core）；无 UPM；排除 Addressables、HybridCLR |
 
 完整 Profile、依赖闭包与 UPM 要求以 [KitDistributionCatalog.json](KitDistributionCatalog.json) 为准。
 
@@ -68,6 +72,7 @@ Verification 边界：StellarFrameworkVerification 不注册为普通 Kit、Samp
 - Package Publisher 路径边界：Base / Full payload 的框架根与 GameHotUpdate 根均使用目录边界判断；`StellarFrameworkVerification`、`StellarFrameworkBackup`、`StellarFramework2`、`GameHotUpdateBackup` 的 sibling-prefix 回归均被拒绝，实际 Full payload 导出不含 Verification 条目。
 - 已实际导出并核对依赖说明：AudioKit.Core / ResKitAdapter、SettingsKit.Core / UnityAdapters / AudioKitAdapter、ConfigKit.Core / NewtonsoftJson。
 - HotUpdate.HybridCLR 的完整启动路径已单独验证通过。
+- FlowKit 本轮静态与编辑器验证：Unity `2022.3.62f3c1` 全量脚本编译完成，Console error/warning=0；`FlowKit_Playable.unity` 场景校验 `missingScripts=0`、`brokenPrefabs=0`。FlowKit EditMode 测试已写入但本轮未启动 Test Runner；V1 Snapshot 仅覆盖 quiescent 终态与 Persistent Blackboard/State，不提供中途 continuation 恢复。空白工程导入、Player/IL2CPP 和真实外部 Operation 仍标记为 NOT RUN，需在发布前按当前目标平台执行。
 - SaveKit.Core：EditMode 覆盖 Slot/Section 安全、Container、Checksum、事务、Backup、Migration、Missing/Unknown、Restore DAG、跨 DTO 类型链和未来版本提前失败；Newtonsoft Adapter 已完成 Round Trip 验证。
 - SaveKit：已完成 100000 CropSaveRecord End-to-End Save/Load 基准；ToolsHub 已验证 Raw/Hex 有界预览、Migration Type Chain 和只读 Dry Run 入口。
 - SaveKit 示例：独立 asmdef 仅依赖 SaveKit.Core 与 UniTask，不包含框架业务样例或热更插件。
