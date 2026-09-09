@@ -1,61 +1,63 @@
-using System;
+using System.IO;
 using UnityEditor;
 using UnityEngine;
-using StellarFramework.FlowKit;
-using StellarFramework.FlowKit.Unity;
+using UnityEngine.UIElements;
 
 namespace StellarFramework.Editor.Modules.FlowKit
 {
-    /// <summary>独立的 Graph 检查窗口，随框架开发工程提供；不会进入 Runtime 导出包。</summary>
     public sealed class FlowGraphWindow : EditorWindow
     {
-        private TextAsset _graph;
-        private FlowCompileResult _result;
-        private Vector2 _scroll;
+        private FlowKitEditorWorkspace _workspace;
 
-        [MenuItem("StellarFramework/FlowKit/Graph Validator")]
-        public static void ShowWindow() => GetWindow<FlowGraphWindow>("FlowKit Graph");
-
-        private void OnGUI()
+        [MenuItem("StellarFramework/FlowKit/Open Flow Editor")]
+        public static void ShowWindow()
         {
-            EditorGUILayout.Space(8f);
-            EditorGUILayout.LabelField("FlowKit Graph Validator", EditorStyles.boldLabel);
-            EditorGUILayout.HelpBox("只检查文本 Graph，不修改源文件。编译结果是不可变 FlowPlan。", MessageType.Info);
-            _graph = (TextAsset)EditorGUILayout.ObjectField("Graph JSON", _graph, typeof(TextAsset), false);
-            if (GUILayout.Button("Validate", GUILayout.Height(28f))) Validate();
-            if (_result == null) return;
-
-            MessageType type = _result.Succeeded ? MessageType.Info : MessageType.Error;
-            EditorGUILayout.HelpBox(_result.Succeeded
-                ? $"Valid · Nodes: {_result.Plan.NodeCount} · PlanHash: 0x{_result.Plan.PlanHash:X16}"
-                : "Invalid · 不允许启动。", type);
-            _scroll = EditorGUILayout.BeginScrollView(_scroll);
-            for (int i = 0; i < _result.Issues.Count; i++)
-            {
-                FlowValidationIssue issue = _result.Issues[i];
-                EditorGUILayout.LabelField(issue.ToString(), issue.IsError ? EditorStyles.boldLabel : EditorStyles.label);
-            }
-            EditorGUILayout.EndScrollView();
+            FlowGraphWindow window = GetWindow<FlowGraphWindow>();
+            window.titleContent = new UnityEngine.GUIContent("FlowKit");
+            window.minSize = new UnityEngine.Vector2(900f, 560f);
+            window.Show();
         }
 
-        private void Validate()
+        [MenuItem("StellarFramework/FlowKit/示例/消防演练流程（4人）", priority = 100)]
+        public static void OpenFireDrillSample()
         {
-            _result = null;
-            if (_graph == null)
+            ShowWindow();
+            FlowGraphWindow window = GetWindow<FlowGraphWindow>();
+            if (window._workspace == null) window.Build();
+            string projectRoot = Path.GetDirectoryName(Application.dataPath) ?? string.Empty;
+            string path = Path.Combine(projectRoot,
+                "Assets/StellarFramework/Samples/KitSamples/Example_FlowKit/FireDrillWorkflow4P.flow.json");
+            window._workspace.OpenPath(path, false);
+            EditorApplication.delayCall += () =>
             {
-                ShowNotification(new GUIContent("请选择 Flow JSON。"));
-                return;
-            }
+                if (window != null && window._workspace != null) window._workspace.FrameAll();
+            };
+        }
 
-            try
-            {
-                FlowGraphData data = FlowGraphJson.FromTextAsset(_graph);
-                _result = FlowCompiler.Compile(data, FlowBuiltInNodes.CreateRegistry());
-            }
-            catch (Exception exception)
-            {
-                ShowNotification(new GUIContent(exception.Message));
-            }
+        private void OnEnable()
+        {
+            Build();
+        }
+
+        private void CreateGUI()
+        {
+            Build();
+        }
+
+        private void Build()
+        {
+            rootVisualElement.Clear();
+            _workspace?.Dispose();
+            _workspace = new FlowKitEditorWorkspace();
+            VisualElement root = _workspace.Root;
+            root.style.flexGrow = 1f;
+            rootVisualElement.Add(root);
+        }
+
+        private void OnDisable()
+        {
+            _workspace?.Dispose();
+            _workspace = null;
         }
     }
 }

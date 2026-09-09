@@ -1,0 +1,365 @@
+{
+  "FlowId": "sample.flowkit.school_training",
+  "SchemaVersion": 1,
+  "EntryNodeId": "entry",
+  "Metadata": {
+    "DisplayName": "学校与雨林训练流程",
+    "Description": "FlowKit 流程编排示例：外部系统负责玩法，FlowKit 负责阶段、等待、竞速与推进。"
+  },
+  "Nodes": [
+    {
+      "Id": "entry",
+      "TypeId": "flow.entry",
+      "DefinitionVersion": 1
+    },
+    {
+      "Id": "intro",
+      "TypeId": "flow.operation",
+      "DefinitionVersion": 1,
+      "Parameters": {
+        "Entries": [
+          {
+            "Key": "operation",
+            "Value": {
+              "Kind": 7,
+              "StringValue": "media.play_intro"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "Id": "school",
+      "TypeId": "flow.operation",
+      "DefinitionVersion": 1,
+      "Parameters": {
+        "Entries": [
+          {
+            "Key": "operation",
+            "Value": {
+              "Kind": 7,
+              "StringValue": "scene.load"
+            }
+          },
+          {
+            "Key": "scene",
+            "Value": {
+              "Kind": 7,
+              "StringValue": "school"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "Id": "showIntro",
+      "TypeId": "flow.operation",
+      "DefinitionVersion": 1,
+      "Parameters": {
+        "Entries": [
+          {
+            "Key": "operation",
+            "Value": {
+              "Kind": 7,
+              "StringValue": "ui.show_intro"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "Id": "race",
+      "TypeId": "flow.race",
+      "DefinitionVersion": 1
+    },
+    {
+      "Id": "waitExecute",
+      "TypeId": "flow.wait.signal",
+      "DefinitionVersion": 1,
+      "Parameters": {
+        "Entries": [
+          {
+            "Key": "signal",
+            "Value": {
+              "Kind": 7,
+              "StringValue": "ui.execute"
+            }
+          },
+          {
+            "Key": "scope",
+            "Value": {
+              "Kind": 7,
+              "StringValue": "Host"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "Id": "executeTimeout",
+      "TypeId": "flow.delay",
+      "DefinitionVersion": 1,
+      "Parameters": {
+        "Entries": [
+          {
+            "Key": "seconds",
+            "Value": {
+              "Kind": 6,
+              "DoubleValue": 10.0
+            }
+          }
+        ]
+      }
+    },
+    {
+      "Id": "executeJoin",
+      "TypeId": "flow.join",
+      "DefinitionVersion": 1
+    },
+    {
+      "Id": "guide",
+      "TypeId": "flow.operation",
+      "DefinitionVersion": 1,
+      "Parameters": {
+        "Entries": [
+          {
+            "Key": "operation",
+            "Value": {
+              "Kind": 7,
+              "StringValue": "guide.show"
+            }
+          },
+          {
+            "Key": "binding",
+            "Value": {
+              "Kind": 13,
+              "BindingReferenceValue": {
+                "Id": "AssemblyPoint"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "Id": "waitAssembly",
+      "TypeId": "flow.wait.state",
+      "DefinitionVersion": 1,
+      "Parameters": {
+        "Entries": [
+          {
+            "Key": "state",
+            "Value": {
+              "Kind": 7,
+              "StringValue": "assembly.completed"
+            }
+          },
+          {
+            "Key": "expected",
+            "Value": {
+              "Kind": 2,
+              "BoolValue": true
+            }
+          }
+        ]
+      }
+    },
+    {
+      "Id": "forest",
+      "TypeId": "flow.operation",
+      "DefinitionVersion": 1,
+      "Parameters": {
+        "Entries": [
+          {
+            "Key": "operation",
+            "Value": {
+              "Kind": 7,
+              "StringValue": "scene.load"
+            }
+          },
+          {
+            "Key": "scene",
+            "Value": {
+              "Kind": 7,
+              "StringValue": "forest"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "Id": "patrol",
+      "TypeId": "flow.operation",
+      "DefinitionVersion": 1,
+      "Parameters": {
+        "Entries": [
+          {
+            "Key": "operation",
+            "Value": {
+              "Kind": 7,
+              "StringValue": "patrol.start"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "Id": "waitPatrol",
+      "TypeId": "flow.wait.state",
+      "DefinitionVersion": 1,
+      "Parameters": {
+        "Entries": [
+          {
+            "Key": "state",
+            "Value": {
+              "Kind": 7,
+              "StringValue": "patrol.completed"
+            }
+          },
+          {
+            "Key": "expected",
+            "Value": {
+              "Kind": 2,
+              "BoolValue": true
+            }
+          }
+        ]
+      }
+    },
+    {
+      "Id": "summary",
+      "TypeId": "flow.operation",
+      "DefinitionVersion": 1,
+      "Parameters": {
+        "Entries": [
+          {
+            "Key": "operation",
+            "Value": {
+              "Kind": 7,
+              "StringValue": "ui.show_summary"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "Id": "finishDelay",
+      "TypeId": "flow.delay",
+      "DefinitionVersion": 1,
+      "Parameters": {
+        "Entries": [
+          {
+            "Key": "seconds",
+            "Value": {
+              "Kind": 6,
+              "DoubleValue": 10.0
+            }
+          }
+        ]
+      }
+    },
+    {
+      "Id": "complete",
+      "TypeId": "flow.complete",
+      "DefinitionVersion": 1
+    }
+  ],
+  "Edges": [
+    {
+      "FromNodeId": "entry",
+      "FromPortId": "next",
+      "ToNodeId": "intro",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "intro",
+      "FromPortId": "succeeded",
+      "ToNodeId": "school",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "school",
+      "FromPortId": "succeeded",
+      "ToNodeId": "showIntro",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "showIntro",
+      "FromPortId": "succeeded",
+      "ToNodeId": "race",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "race",
+      "FromPortId": "branch",
+      "ToNodeId": "waitExecute",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "race",
+      "FromPortId": "branch",
+      "ToNodeId": "executeTimeout",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "waitExecute",
+      "FromPortId": "received",
+      "ToNodeId": "executeJoin",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "executeTimeout",
+      "FromPortId": "completed",
+      "ToNodeId": "executeJoin",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "executeJoin",
+      "FromPortId": "joined",
+      "ToNodeId": "guide",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "guide",
+      "FromPortId": "succeeded",
+      "ToNodeId": "waitAssembly",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "waitAssembly",
+      "FromPortId": "changed",
+      "ToNodeId": "forest",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "forest",
+      "FromPortId": "succeeded",
+      "ToNodeId": "patrol",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "patrol",
+      "FromPortId": "succeeded",
+      "ToNodeId": "waitPatrol",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "waitPatrol",
+      "FromPortId": "changed",
+      "ToNodeId": "summary",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "summary",
+      "FromPortId": "succeeded",
+      "ToNodeId": "finishDelay",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "finishDelay",
+      "FromPortId": "completed",
+      "ToNodeId": "complete",
+      "ToPortId": "in"
+    }
+  ]
+}

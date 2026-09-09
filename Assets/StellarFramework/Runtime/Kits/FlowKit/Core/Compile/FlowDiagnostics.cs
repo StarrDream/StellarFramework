@@ -23,6 +23,7 @@ namespace StellarFramework.FlowKit
         DuplicatePropertyKey,
         MissingRequiredProperty,
         InvalidPropertyType,
+        InvalidCondition,
         InvalidEdgeNode,
         UnknownPort,
         InvalidPortDirection,
@@ -37,7 +38,8 @@ namespace StellarFramework.FlowKit
         InvalidResultMapping,
         PotentialInfiniteRetry,
         ReplaySensitiveRetry,
-        CheckpointHasTransientDependency
+        CheckpointHasTransientDependency,
+        UnroutedRecommendedOutput
     }
 
     public sealed class FlowValidationIssue
@@ -91,7 +93,8 @@ namespace StellarFramework.FlowKit
         SnapshotNotQuiescent,
         PlanHashMismatch,
         CleanupFailed,
-        InvalidBinding
+        InvalidBinding,
+        BusinessFailure
     }
 
     /// <summary>运行时错误必须携带定位信息，不能把异常伪装成成功。</summary>

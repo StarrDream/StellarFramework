@@ -132,8 +132,10 @@ GameObject:
   m_Component:
   - component: {fileID: 1159999664}
   - component: {fileID: 1159999663}
+  - component: {fileID: 1159999665}
+  - component: {fileID: 1159999666}
   m_Layer: 0
-  m_Name: FlowKit Sample
+  m_Name: FlowKit Fire Drill Sample
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -148,10 +150,50 @@ MonoBehaviour:
   m_GameObject: {fileID: 1159999662}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 41006bbb7f8578a48b13398bfa8c1e1a, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  graphJson: {fileID: 4900000, guid: 0323b392c15b7024999943e743ec21af, type: 3}
+  m_Script: {fileID: 11500000, guid: e4300bcc35ac9164584791ae84d56c71, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  defaultGraph: {fileID: 4900000, guid: 7115c08741d8f63408d1ade834af9985, type: 3}
+  autoStartDefaultGraph: 0
+  useUnscaledTime: 1
+  enableRuntimeTrace: 1
+  traceCapacity: 512
+  configurators:
+  - {fileID: 1159999666}
+  maxActivationsPerTick: 1024
+  maxTotalActivationsPerRun: 100000
+  maxCompletionsPerTick: 1024
+  maxTimerCallbacksPerTick: 1024
+  maxSignalNotificationsPerTick: 1024
+  maxPollingCallbacksPerTick: 1024
+--- !u!114 &1159999665
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1159999662}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 11fe9b7d89639bc4ea62c85679431f79, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  host: {fileID: 1159999663}
+  graphJson: {fileID: 4900000, guid: 7115c08741d8f63408d1ade834af9985, type: 3}
+  autoStart: 1
+--- !u!114 &1159999666
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1159999662}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8e165ecfccc32a74bb464a62dbea67d6, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  gameplay: {fileID: 1159999665}
 --- !u!4 &1159999664
 Transform:
   m_ObjectHideFlags: 0

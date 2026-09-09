@@ -14,21 +14,27 @@ namespace StellarFramework.FlowKit
             var registry = new FlowNodeRegistry();
             Register(registry, "flow.entry", "Entry", new[] { Out("next") }, null, FlowNodeExecutionMode.Immediate, new EntryHandler(), effectSemantics: FlowEffectSemantics.Pure);
             Register(registry, "flow.pass", "Pass", new[] { In("in"), Out("next") }, null, FlowNodeExecutionMode.Immediate, new PassHandler(), effectSemantics: FlowEffectSemantics.Pure);
-            Register(registry, "flow.complete", "Complete Flow", new[] { In("in"), Out("completed") }, null, FlowNodeExecutionMode.Immediate, new CompleteHandler(), effectSemantics: FlowEffectSemantics.Pure, completesFlow: true);
-            Register(registry, "flow.branch.bool", "Branch (Bool)", new[] { In("in"), Out("true"), Out("false") }, new[]
+            Register(registry, "flow.complete", "Complete Flow", new[] { In("in"), Out("completed", FlowPortSemantic.Success) }, null, FlowNodeExecutionMode.Immediate, new CompleteHandler(), effectSemantics: FlowEffectSemantics.Pure, completesFlow: true);
+            Register(registry, "flow.fail", "Fail Flow", new[] { In("in") }, new[]
+            {
+                Prop("message", FlowValueKind.String, false)
+            }, FlowNodeExecutionMode.Immediate, new FailFlowHandler(), effectSemantics: FlowEffectSemantics.Pure);
+            Register(registry, "flow.branch.bool", "Branch (Bool)", new[] { In("in"), Out("true", FlowPortSemantic.ConditionTrue), Out("false", FlowPortSemantic.ConditionFalse) }, new[]
             {
                 Prop("value", FlowValueKind.Bool, false),
                 Prop("blackboardKey", FlowValueKind.String, false)
             }, FlowNodeExecutionMode.Immediate, new BranchHandler(), effectSemantics: FlowEffectSemantics.Pure);
+            Register(registry, "flow.branch.condition", "Branch (Condition)", new[] { In("in"), Out("true", FlowPortSemantic.ConditionTrue), Out("false", FlowPortSemantic.ConditionFalse) }, null,
+                FlowNodeExecutionMode.Immediate, new ConditionBranchHandler(), effectSemantics: FlowEffectSemantics.Pure, requiresCondition: true);
             Register(registry, "flow.delay", "Delay", new[] { In("in"), Out("completed") }, new[]
             {
                 Prop("seconds", FlowValueKind.Double, true),
-                Prop("timeDomain", FlowValueKind.String, false)
+                Prop("timeDomain", FlowValueKind.String, false, "Scaled", "Unscaled", "FlowTime")
             }, FlowNodeExecutionMode.Completion, new DelayHandler());
             Register(registry, "flow.wait.signal", "Wait Signal", new[] { In("in"), Out("received") }, new[]
             {
                 Prop("signal", FlowValueKind.String, true),
-                Prop("scope", FlowValueKind.String, false),
+                Prop("scope", FlowValueKind.String, false, "RunLocal", "Host"),
                 Prop("sourceKey", FlowValueKind.String, false)
             }, FlowNodeExecutionMode.Completion, new WaitSignalHandler());
             Register(registry, "flow.wait.state", "Wait State", new[] { In("in"), Out("changed") }, new[]
@@ -36,12 +42,13 @@ namespace StellarFramework.FlowKit
                 Prop("state", FlowValueKind.String, true),
                 Prop("sourceKey", FlowValueKind.String, false),
                 Prop("expected", FlowValueKind.Any, false),
-                Prop("waitMode", FlowValueKind.String, false)
+                Prop("waitMode", FlowValueKind.String, false, "CurrentOrFuture", "FutureChange", "FutureMatch")
             }, FlowNodeExecutionMode.Completion, new WaitStateHandler());
             Register(registry, "flow.stable.for", "Stable For", new[] { In("in"), Out("stable") }, new[]
             {
                 Prop("state", FlowValueKind.String, true),
                 Prop("seconds", FlowValueKind.Double, true),
+                Prop("timeDomain", FlowValueKind.String, false, "Scaled", "Unscaled", "FlowTime"),
                 Prop("sourceKey", FlowValueKind.String, false),
                 Prop("expected", FlowValueKind.Any, false)
             }, FlowNodeExecutionMode.Completion, new StableForHandler());
@@ -54,23 +61,29 @@ namespace StellarFramework.FlowKit
             {
                 Prop("key", FlowValueKind.String, true),
                 Prop("value", FlowValueKind.Any, true),
-                Prop("persistence", FlowValueKind.String, false)
+                Prop("persistence", FlowValueKind.String, false, "Transient", "Persistent", "Reconstructable")
             }, FlowNodeExecutionMode.Immediate, new SetBlackboardHandler(), effectSemantics: FlowEffectSemantics.Idempotent);
             Register(registry, "flow.increment.blackboard", "Increment Blackboard", new[] { In("in"), Out("next") }, new[]
             {
                 Prop("key", FlowValueKind.String, true),
-                Prop("amount", FlowValueKind.Double, false)
+                Prop("amount", FlowValueKind.Any, false)
             }, FlowNodeExecutionMode.Immediate, new IncrementBlackboardHandler());
             Register(registry, "flow.emit.signal", "Emit Signal", new[] { In("in"), Out("next") }, new[]
             {
                 Prop("signal", FlowValueKind.String, true),
-                Prop("scope", FlowValueKind.String, false),
+                Prop("scope", FlowValueKind.String, false, "RunLocal", "Host"),
                 Prop("payload", FlowValueKind.Any, false)
             }, FlowNodeExecutionMode.Immediate, new EmitSignalHandler());
-            Register(registry, "flow.operation", "Operation", new[] { In("in"), Out("succeeded"), Out("failed") }, new[]
+            Register(registry, "flow.operation", "Operation", new[]
+            {
+                In("in"),
+                Out("succeeded", FlowPortSemantic.Success),
+                Out("failed", FlowPortSemantic.Failure, true),
+                Out("cancelled", FlowPortSemantic.Cancelled, true)
+            }, new[]
             {
                 Prop("operation", FlowValueKind.String, true)
-            }, FlowNodeExecutionMode.Operation, new OperationHandler());
+            }, FlowNodeExecutionMode.Operation, new OperationHandler(), allowAdditionalProperties: true);
             Register(registry, ParallelTypeId, "Parallel", new[] { In("in"), Out("branch") }, null, FlowNodeExecutionMode.Immediate, new ForkHandler());
             Register(registry, RaceTypeId, "Race", new[] { In("in"), Out("branch") }, null, FlowNodeExecutionMode.Immediate, new ForkHandler());
             Register(registry, JoinTypeId, "Join", new[] { In("in"), Out("joined") }, null, FlowNodeExecutionMode.Completion, new JoinHandler());
@@ -86,7 +99,9 @@ namespace StellarFramework.FlowKit
             FlowNodeExecutionMode mode,
             IFlowNodeHandler handler,
             FlowEffectSemantics effectSemantics = FlowEffectSemantics.None,
-            bool completesFlow = false)
+            bool completesFlow = false,
+            bool allowAdditionalProperties = false,
+            bool requiresCondition = false)
         {
             registry.Register(new FlowNodeDescriptor(
                 typeId,
@@ -97,13 +112,16 @@ namespace StellarFramework.FlowKit
                 ports,
                 properties,
                 effectSemantics: effectSemantics,
-                completesFlow: completesFlow), handler);
+                completesFlow: completesFlow,
+                allowAdditionalProperties: allowAdditionalProperties,
+                requiresCondition: requiresCondition), handler);
         }
 
         private static FlowPortDescriptor In(string id) => new FlowPortDescriptor(id, id, FlowPortDirection.Input);
-        private static FlowPortDescriptor Out(string id) => new FlowPortDescriptor(id, id, FlowPortDirection.Output);
-        private static FlowPropertyDescriptor Prop(string key, FlowValueKind kind, bool required) =>
-            new FlowPropertyDescriptor(key, key, kind, required);
+        private static FlowPortDescriptor Out(string id, FlowPortSemantic semantic = FlowPortSemantic.Normal, bool recommendedRoute = false) =>
+            new FlowPortDescriptor(id, id, FlowPortDirection.Output, semantic, recommendedRoute);
+        private static FlowPropertyDescriptor Prop(string key, FlowValueKind kind, bool required, params string[] allowedStringValues) =>
+            new FlowPropertyDescriptor(key, key, kind, required, allowedStringValues);
 
         private sealed class EntryHandler : IFlowNodeHandler
         {
@@ -120,6 +138,18 @@ namespace StellarFramework.FlowKit
         private sealed class CompleteHandler : IFlowNodeHandler
         {
             public void Start(in FlowNodeExecutionContext context, in FlowCompiledNode node, FlowNodeHandle handle) => handle.TryComplete("completed", context.InputPayload);
+            public void Cancel(in FlowNodeExecutionContext context, in FlowCompiledNode node) { }
+        }
+
+        private sealed class FailFlowHandler : IFlowNodeHandler
+        {
+            public void Start(in FlowNodeExecutionContext context, in FlowCompiledNode node, FlowNodeHandle handle)
+            {
+                string message = TryGetString(node, "message", out string configured)
+                    ? configured
+                    : "Flow entered an explicit failure terminal.";
+                context.Fail(handle, FlowRuntimeErrorCode.BusinessFailure, message);
+            }
             public void Cancel(in FlowNodeExecutionContext context, in FlowCompiledNode node) { }
         }
 
@@ -152,6 +182,29 @@ namespace StellarFramework.FlowKit
                 handle.TryComplete(value ? "true" : "false");
             }
 
+            public void Cancel(in FlowNodeExecutionContext context, in FlowCompiledNode node) { }
+        }
+
+        private sealed class ConditionBranchHandler : IFlowNodeHandler
+        {
+            public void Start(in FlowNodeExecutionContext context, in FlowCompiledNode node, FlowNodeHandle handle)
+            {
+                if (node.Condition == null)
+                {
+                    context.Fail(handle, FlowRuntimeErrorCode.InvalidProperty, "Condition branch has no compiled condition.");
+                    return;
+                }
+                try
+                {
+                    bool result = FlowConditionEvaluator.Evaluate(node.Condition, context.Blackboard, context.States);
+                    handle.TryComplete(result ? "true" : "false", context.InputPayload);
+                }
+                catch (Exception exception)
+                {
+                    context.Fail(handle, FlowRuntimeErrorCode.InvalidProperty,
+                        "Condition evaluation failed: " + exception.Message, exception);
+                }
+            }
             public void Cancel(in FlowNodeExecutionContext context, in FlowCompiledNode node) { }
         }
 
@@ -270,7 +323,7 @@ namespace StellarFramework.FlowKit
                 string sourceKey = TryGetString(node, "sourceKey", out string source) ? source : null;
                 bool hasExpected = node.Parameters.TryGet("expected", out FlowValue expected);
                 FlowTimerScheduler timers = context.Timers;
-                FlowTimeDomain domain = FlowTimeDomain.Scaled;
+                FlowTimeDomain domain = ParseTimeDomain(node);
                 FlowRunContext run = context.Run;
                 var currentCancellation = new ReplaceableTimerCancellation(timers);
                 handle.Track(currentCancellation);
@@ -318,25 +371,82 @@ namespace StellarFramework.FlowKit
         {
             public void Start(in FlowNodeExecutionContext context, in FlowCompiledNode node, FlowNodeHandle handle)
             {
-                if (!TryGetString(node, "key", out string key) || !context.Blackboard.TryGet(key, out FlowValue current) ||
-                    !current.TryGetNumber(out double currentNumber))
+                if (!TryGetString(node, "key", out string key) || !context.Blackboard.TryGetEntry(key, out FlowBlackboardEntry entry))
                 {
                     context.Fail(handle, FlowRuntimeErrorCode.MissingProperty, "IncrementBlackboard.key 必须指向现有数值。");
                     return;
                 }
 
-                double amount = 1d;
-                if (node.Parameters.TryGet("amount", out FlowValue amountValue) && !amountValue.TryGetNumber(out amount))
+                FlowValue amount = node.Parameters.TryGet("amount", out FlowValue configuredAmount)
+                    ? configuredAmount
+                    : FlowValue.FromInt(1);
+                if (!amount.TryGetNumber(out double numericAmount))
                 {
                     context.Fail(handle, FlowRuntimeErrorCode.InvalidProperty, "IncrementBlackboard.amount 必须是数字。");
                     return;
                 }
 
-                double result = currentNumber + amount;
-                FlowValue output = current.Kind == FlowValueKind.Int ? FlowValue.FromInt((int)result) :
-                    current.Kind == FlowValueKind.Long ? FlowValue.FromLong((long)result) : FlowValue.FromDouble(result);
-                context.Blackboard.Set(key, output);
+                FlowValue output;
+                try
+                {
+                    switch (entry.Value.Kind)
+                    {
+                        case FlowValueKind.Int:
+                            if (!TryGetIntegralDelta(amount, out long intDelta)) throw new InvalidOperationException("Int 增量必须是整数。");
+                            long intResult = checked((long)entry.Value.IntValue + intDelta);
+                            if (intResult < int.MinValue || intResult > int.MaxValue) throw new OverflowException();
+                            output = FlowValue.FromInt((int)intResult);
+                            break;
+                        case FlowValueKind.Long:
+                            if (!TryGetIntegralDelta(amount, out long longDelta)) throw new InvalidOperationException("Long 增量必须是整数。");
+                            output = FlowValue.FromLong(checked(entry.Value.LongValue + longDelta));
+                            break;
+                        case FlowValueKind.Float:
+                            double floatResult = entry.Value.FloatValue + numericAmount;
+                            if (double.IsNaN(floatResult) || double.IsInfinity(floatResult) ||
+                                floatResult < -float.MaxValue || floatResult > float.MaxValue) throw new OverflowException();
+                            output = FlowValue.FromFloat((float)floatResult);
+                            break;
+                        case FlowValueKind.Double:
+                            double doubleResult = entry.Value.DoubleValue + numericAmount;
+                            if (double.IsNaN(doubleResult) || double.IsInfinity(doubleResult)) throw new OverflowException();
+                            output = FlowValue.FromDouble(doubleResult);
+                            break;
+                        default:
+                            context.Fail(handle, FlowRuntimeErrorCode.InvalidProperty, "IncrementBlackboard.key 必须指向现有数值。");
+                            return;
+                    }
+                }
+                catch (Exception exception) when (exception is OverflowException || exception is InvalidOperationException)
+                {
+                    context.Fail(handle, FlowRuntimeErrorCode.InvalidProperty, $"IncrementBlackboard 数值无效: {exception.Message}");
+                    return;
+                }
+
+                context.Blackboard.Set(key, output, entry.Persistence);
                 handle.TryComplete("next", output);
+            }
+
+            private static bool TryGetIntegralDelta(FlowValue value, out long result)
+            {
+                switch (value.Kind)
+                {
+                    case FlowValueKind.Int: result = value.IntValue; return true;
+                    case FlowValueKind.Long: result = value.LongValue; return true;
+                    case FlowValueKind.Float:
+                    case FlowValueKind.Double:
+                        if (!value.TryGetNumber(out double number) || double.IsNaN(number) || double.IsInfinity(number) ||
+                            number < long.MinValue || number > long.MaxValue || Math.Truncate(number) != number)
+                        {
+                            result = 0;
+                            return false;
+                        }
+                        result = (long)number;
+                        return true;
+                    default:
+                        result = 0;
+                        return false;
+                }
             }
 
             public void Cancel(in FlowNodeExecutionContext context, in FlowCompiledNode node) { }
@@ -386,15 +496,17 @@ namespace StellarFramework.FlowKit
                         context.Identity.Lineage,
                         "operation"),
                     new FlowOwnerToken(context.Identity));
+                var request = new FlowOperationRequest(operation, context.InputPayload, node.Parameters);
                 if (!context.Operations.Start(
                     operation,
                     in operationContext,
+                    in request,
                     result =>
                     {
                         if (result.Status == FlowOperationStatus.Succeeded)
                             handle.TryComplete("succeeded", result.Payload);
                         else if (result.Status == FlowOperationStatus.Cancelled)
-                            handle.TryFail(new FlowStructuredError(FlowRuntimeErrorCode.OperationFailed, "Operation 被取消。", handle.NodeId, handle.Identity.FrameId, handle.ExecutionId));
+                            handle.TryComplete("cancelled", FlowValue.FromString(result.Error));
                         else
                             handle.TryComplete("failed", FlowValue.FromString(result.Error));
                     },

@@ -42,3 +42,13 @@ ToolsHub 模块和 `FlowGraphWindow` 仅在框架开发工程编译，验证 JSO
 5. 为错误参数、取消、stale 回调、重复完成、宿主线程回调约束和无输出终止补充测试。
 
 节点若要成为终点，Descriptor 必须显式设置 `CompletesFlow`；普通节点的完成回调必须连到已声明的输出端口，否则 Runner 会以 `UnroutedCompletion` 失败。
+
+
+## v1 Editor / Authoring / Failure Contract
+
+- `FlowHostBuilder` + `IFlowHostConfigurator`：Unity Host 的显式、确定性扩展入口；业务 Operation Adapter 在 Host 初始化前注册。
+- `FlowAuthoringCatalog`：可选的稳定 Operation/Signal/State/Blackboard/Binding ID 作者目录，只服务 Editor Authoring，不替代 Runtime 注册。
+- `flow.branch.condition` 使用可序列化 Condition AST；`FlowGraphJson` 通过显式 DTO 保存递归条件和所有可 Author 的 `FlowValueKind`。
+- `flow.operation` 明确区分 `succeeded / failed / cancelled`；Compiler 会对建议处理但未连接的失败端口给 Warning。
+- `flow.fail` 是业务失败终点，Run 进入 `Failed / BusinessFailure`；框架配置/运行时错误仍使用结构化 Runtime Error，不与业务失败混淆。
+- `.flow.json` 是 Runtime Source of Truth，`.flow.editor.json` 只保存位置/布局等编辑器元数据。

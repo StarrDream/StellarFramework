@@ -25,8 +25,7 @@ namespace StellarFramework.FlowKit
             int activeOperations,
             int stateCount,
             int activeBindings)
-        {
-            ActiveRuns = activeRuns;
+        {            ActiveRuns = activeRuns;
             PendingActivations = pendingActivations;
             PendingCompletions = pendingCompletions;
             PendingSignals = pendingSignals;
@@ -36,6 +35,29 @@ namespace StellarFramework.FlowKit
             ActiveOperations = activeOperations;
             StateCount = stateCount;
             ActiveBindings = activeBindings;
+        }
+    }
+
+    /// <summary>单个活动节点执行的只读诊断快照；仅用于调试器，不参与流程语义。</summary>
+    public readonly struct FlowExecutionDiagnostics
+    {
+        public FlowRunId RunId { get; }
+        public FlowExecutionId ExecutionId { get; }
+        public string NodeId { get; }
+        public FlowFrameId FrameId { get; }
+        public FlowTokenLineage Lineage { get; }
+
+        public FlowExecutionDiagnostics(
+            FlowRunId runId,
+            FlowExecutionId executionId,
+            string nodeId,
+            FlowFrameId frameId,
+            FlowTokenLineage lineage)
+        {            RunId = runId;
+            ExecutionId = executionId;
+            NodeId = nodeId ?? string.Empty;
+            FrameId = frameId;
+            Lineage = lineage;
         }
     }
 }

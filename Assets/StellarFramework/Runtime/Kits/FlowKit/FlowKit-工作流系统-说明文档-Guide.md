@@ -36,7 +36,7 @@ Unity 场景中可挂载 `FlowHost`，由 Host 在 `Update` 中推进三个时�
 - 迁移器必须显式注册版本链，不会自动升级到“最新版本”。
 - Immediate 节点之间的循环会被拒绝；循环流程应插入 Delay、WaitSignal、WaitState 或 Operation 等完成边界。
 
-内置 TypeId：`flow.entry`、`flow.pass`、`flow.complete`、`flow.branch.bool`、`flow.delay`、`flow.wait.signal`、`flow.wait.state`、`flow.stable.for`、`flow.wait.blackboard`、`flow.set.blackboard`、`flow.increment.blackboard`、`flow.emit.signal`、`flow.operation`、`flow.parallel`、`flow.race`、`flow.join`。
+内置 TypeId：`flow.entry`、`flow.pass`、`flow.complete`、`flow.fail`、`flow.branch.bool`、`flow.branch.condition`、`flow.delay`、`flow.wait.signal`、`flow.wait.state`、`flow.stable.for`、`flow.wait.blackboard`、`flow.set.blackboard`、`flow.increment.blackboard`、`flow.emit.signal`、`flow.operation`、`flow.parallel`、`flow.race`、`flow.join`。
 
 ## 外部适配器
 
@@ -49,3 +49,10 @@ Signal 是排队的一次性广播，不回放历史事件；`RunLocal` Signal �
 ## 生产注意事项
 
 宿主应为激活、完成、Timer、Signal 和 Polling 设置合理预算，并为单个 Run 设置 `MaxTotalActivationsPerRun`，防止穿过 Completion 边界的逻辑循环无界运行；同时监控 `FlowTraceRingBuffer`。快照只在无活动执行和无待处理队列时捕获，恢复时必须校验 FlowId、PlanHash 和 PlanVersion；V1 快照只保存流程身份、终态、Persistent Blackboard 和 Persistent State，不包含计时器、订阅、Operation 或中途继续执行所需的 continuation，因此不能把它当作任意运行点的存档。跨 PlanHash 恢复必须显式注册 `FlowSnapshotMigrationPipeline`。业务保存系统（例如 SaveKit）负责外部世界数据，FlowKit 只保存自身运行态。
+
+
+## 推荐业务集成模式
+
+FlowKit 与 Gameplay 采用双向但分责明确的通信：`Operation` 从 FlowKit 下发命令，`Signal / State / OperationResult` 从外部系统回报事实。推荐业务模板为 `Operation.Start -> Wait Signal/State -> Condition/Failure/Timeout -> Next Operation.Start`。`flow.fail` 用于显式业务失败终止；`flow.operation` 的 `failed/cancelled` 端口应按业务需要接入失败处理。
+
+Unity 项目推荐通过 `IFlowHostConfigurator + FlowHostBuilder` 在 Host 初始化前显式注册 Operation、Capability、节点与资源适配器；Runtime 不做程序集扫描。完整双向案例见 `Samples/KitSamples/Example_FlowKit/FireDrillWorkflow4P-Guide.md`。

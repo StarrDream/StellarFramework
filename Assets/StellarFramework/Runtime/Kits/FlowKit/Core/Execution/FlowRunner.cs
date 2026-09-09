@@ -92,6 +92,8 @@ namespace StellarFramework.FlowKit
         public FlowTimeSnapshot Time => Services.Time;
 
         public bool TryGetBinding(FlowBindingHandle handle, out object value) => Bindings.TryResolve(handle, out value);
+        public bool TryGetBinding(FlowBindingReference reference, out object value) => Bindings.TryResolve(reference, out value);
+        public bool TryGetBinding(FlowBindingId id, out object value) => Bindings.TryResolve(id, out value);
 
         internal void RegisterJoin(FlowNodeHandle handle) => _owner.RegisterJoin(handle);
     }
@@ -231,12 +233,22 @@ namespace StellarFramework.FlowKit
                 throw new AggregateException("一个或多个节点资源清理失败。", exceptions);
         }
 
-        internal void Close()
+        internal void BeginClose()
         {
             if (_closed) return;
             _closed = true;
             _cancellation.Cancel();
+        }
+
+        internal void DisposeCancellation()
+        {
             _cancellation.Dispose();
+        }
+
+        internal void Close()
+        {
+            BeginClose();
+            DisposeCancellation();
         }
     }
 
@@ -342,7 +354,26 @@ namespace StellarFramework.FlowKit
         public int PendingActivationCount => _activations.Count;
         public int PendingCompletionCount => _completions.Count;
         public int TotalActivationCount => _totalActivations;
+        public int ExecutionGroupCount => _groups.Count;
         public bool BudgetLimitedLastTick { get; private set; }
+
+        public int CopyActiveExecutionDiagnostics(List<FlowExecutionDiagnostics> destination)
+        {
+            if (destination == null) throw new ArgumentNullException(nameof(destination));
+            int before = destination.Count;
+            foreach (KeyValuePair<long, FlowNodeHandle> pair in _active)
+            {
+                FlowNodeHandle handle = pair.Value;
+                FlowExecutionIdentity identity = handle.Identity;
+                destination.Add(new FlowExecutionDiagnostics(
+                    RunId,
+                    handle.ExecutionId,
+                    handle.NodeId,
+                    identity.FrameId,
+                    identity.Lineage));
+            }
+            return destination.Count - before;
+        }
         public bool IsTerminal => Status == FlowRunStatus.Completed || Status == FlowRunStatus.Failed ||
             Status == FlowRunStatus.Cancelled || Status == FlowRunStatus.Rejected;
 
@@ -411,6 +442,7 @@ namespace StellarFramework.FlowKit
                 processed++;
             }
 
+            CleanupClosedGroups();
             return processed;
         }
 
@@ -459,13 +491,14 @@ namespace StellarFramework.FlowKit
             _activations.Clear();
             _completions.Clear();
             _pendingCompletions.Clear();
+            _groups.Clear();
             if (cleanupError != null) LastError = cleanupError;
             Trace(FlowTraceEventKind.RunCancelled, default(FlowExecutionIdentity), string.Empty, null);
         }
 
         private void ProcessActivation(Activation activation)
         {
-            if (activation.Lineage.ForkInstanceId != 0 && IsGroupClosed(activation.Lineage.ForkInstanceId)) return;
+            if (IsLineageClosed(activation.Lineage)) return;
             if (activation.NodeIndex < 0 || activation.NodeIndex >= Plan.NodeCount)
             {
                 FailRun(new FlowStructuredError(FlowRuntimeErrorCode.HandlerFailure, "激活引用了无效节点索引。"));
@@ -536,8 +569,9 @@ namespace StellarFramework.FlowKit
 
             Trace(FlowTraceEventKind.NodeCompleted, handle.Identity, handle.NodeId,
                 string.IsNullOrEmpty(completion.Reason) ? completion.OutputPort : completion.Reason);
+            FlowTokenLineage outputLineage = handle.Identity.Lineage;
             if (string.Equals(node.TypeId.Value, FlowBuiltInNodes.JoinTypeId, StringComparison.Ordinal) &&
-                !ClaimJoinOutput(handle.Identity.Lineage.ForkInstanceId))
+                !ClaimJoinOutput(handle.Identity.Lineage.ForkInstanceId, handle.Identity.Lineage, out outputLineage))
             {
                 return;
             }
@@ -566,18 +600,19 @@ namespace StellarFramework.FlowKit
             IReadOnlyList<FlowOutputRoute> routes = node.GetOutputRoutes(completion.OutputPort);
             bool isParallel = string.Equals(node.TypeId.Value, FlowBuiltInNodes.ParallelTypeId, StringComparison.Ordinal) ||
                 string.Equals(node.TypeId.Value, FlowBuiltInNodes.RaceTypeId, StringComparison.Ordinal);
-            long forkId = isParallel && routes.Count > 0 ? ++_nextFork : handle.Identity.Lineage.ForkInstanceId;
+            long forkId = isParallel && routes.Count > 0 ? ++_nextFork : outputLineage.ForkInstanceId;
             FlowJoinPolicy joinPolicy = string.Equals(node.TypeId.Value, FlowBuiltInNodes.RaceTypeId, StringComparison.Ordinal)
                 ? FlowJoinPolicy.Any
                 : FlowJoinPolicy.All;
             if (isParallel && routes.Count > 0)
-                _groups[forkId] = new FlowExecutionGroup(forkId, routes.Count, joinPolicy);
+                _groups[forkId] = new FlowExecutionGroup(
+                    forkId, routes.Count, joinPolicy, parentLineage: outputLineage);
 
             for (int i = 0; i < routes.Count; i++)
             {
                 FlowTokenLineage lineage = isParallel
                     ? new FlowTokenLineage(RunId, forkId, i, 0)
-                    : handle.Identity.Lineage;
+                    : outputLineage;
                 _activations.Enqueue(new Activation(routes[i].NodeIndex, routes[i].InputPort, completion.Payload, lineage));
             }
 
@@ -606,6 +641,7 @@ namespace StellarFramework.FlowKit
             _activations.Clear();
             _completions.Clear();
             _pendingCompletions.Clear();
+            _groups.Clear();
             FlowStructuredError cleanupError = null;
             for (int i = 0; i < active.Count; i++)
             {
@@ -646,7 +682,10 @@ namespace StellarFramework.FlowKit
 
             if (!group.TryRegisterBranch(handle.Identity.Lineage.BranchId))
             {
-                handle.TryComplete("joined");
+                // The same branch may legitimately fan out and reach the same Join
+                // more than once. Duplicate arrivals must wait for the group just
+                // like the first token; they must never release an All/NOfM Join.
+                group.AddWaiter(handle);
                 return;
             }
 
@@ -659,16 +698,88 @@ namespace StellarFramework.FlowKit
             }
         }
 
-        private bool ClaimJoinOutput(long forkId)
+        private bool ClaimJoinOutput(
+            long forkId,
+            FlowTokenLineage fallbackLineage,
+            out FlowTokenLineage outputLineage)
         {
+            outputLineage = fallbackLineage;
             if (forkId == 0 || !_groups.TryGetValue(forkId, out FlowExecutionGroup group)) return true;
             if (group.JoinOutputClaimed) return false;
             group.JoinOutputClaimed = true;
             group.ClearWaiters();
+            outputLineage = group.ParentLineage;
             return true;
         }
 
-        private bool IsGroupClosed(long forkId) => _groups.TryGetValue(forkId, out FlowExecutionGroup group) && group.IsClosed;
+        private bool IsLineageClosed(FlowTokenLineage lineage)
+        {
+            long forkId = lineage.ForkInstanceId;
+            while (forkId != 0)
+            {
+                if (!_groups.TryGetValue(forkId, out FlowExecutionGroup group)) return false;
+                if (group.IsClosed) return true;
+                forkId = group.ParentLineage.ForkInstanceId;
+            }
+
+            return false;
+        }
+
+        private bool IsForkDescendantOrSelf(long forkId, long ancestorForkId)
+        {
+            while (forkId != 0)
+            {
+                if (forkId == ancestorForkId) return true;
+                if (!_groups.TryGetValue(forkId, out FlowExecutionGroup group)) return false;
+                forkId = group.ParentLineage.ForkInstanceId;
+            }
+
+            return false;
+        }
+
+        private void CleanupClosedGroups()
+        {
+            if (_groups.Count == 0) return;
+            bool removed;
+            do
+            {
+                removed = false;
+                var candidates = new List<long>();
+                foreach (KeyValuePair<long, FlowExecutionGroup> pair in _groups)
+                {
+                    FlowExecutionGroup group = pair.Value;
+                    if (!group.IsClosed || !group.JoinOutputClaimed) continue;
+                    if (!IsGroupReferenced(pair.Key)) candidates.Add(pair.Key);
+                }
+
+                for (int i = 0; i < candidates.Count; i++)
+                {
+                    removed |= _groups.Remove(candidates[i]);
+                }
+            }
+            while (removed);
+        }
+
+        private bool IsGroupReferenced(long forkId)
+        {
+            foreach (KeyValuePair<long, FlowNodeHandle> pair in _active)
+            {
+                if (IsForkDescendantOrSelf(pair.Value.Identity.Lineage.ForkInstanceId, forkId)) return true;
+            }
+
+            foreach (Activation activation in _activations)
+            {
+                if (IsForkDescendantOrSelf(activation.Lineage.ForkInstanceId, forkId)) return true;
+            }
+
+            foreach (KeyValuePair<long, FlowExecutionGroup> pair in _groups)
+            {
+                if (pair.Key == forkId) continue;
+                if (IsForkDescendantOrSelf(pair.Key, forkId)) return true;
+            }
+
+            return false;
+        }
 
         internal bool CancelExecution(FlowNodeHandle handle)
         {
@@ -703,7 +814,7 @@ namespace StellarFramework.FlowKit
             var cancel = new List<FlowNodeHandle>();
             foreach (KeyValuePair<long, FlowNodeHandle> pair in _active)
             {
-                if (pair.Value.Identity.Lineage.ForkInstanceId != forkId) continue;
+                if (!IsForkDescendantOrSelf(pair.Value.Identity.Lineage.ForkInstanceId, forkId)) continue;
                 bool isWaiter = false;
                 if (_groups.TryGetValue(forkId, out FlowExecutionGroup group))
                 {
@@ -744,6 +855,7 @@ namespace StellarFramework.FlowKit
             _activations.Clear();
             _completions.Clear();
             _pendingCompletions.Clear();
+            _groups.Clear();
             if (LastError == null) LastError = cleanupError;
             Trace(FlowTraceEventKind.RunFailed, default(FlowExecutionIdentity), string.Empty,
                 LastError == null ? null : LastError.Message);
@@ -752,7 +864,7 @@ namespace StellarFramework.FlowKit
         private FlowStructuredError CancelHandle(FlowNodeHandle handle)
         {
             _pendingCompletions.Remove(handle.ExecutionId.Value);
-            handle.Close();
+            handle.BeginClose();
             FlowCompiledNode node = Plan.GetNode(handle.NodeIndex);
             var context = new FlowNodeExecutionContext(Context, handle.Identity, cancellation: handle.Cancellation);
             List<Exception> cleanupExceptions = null;
@@ -775,6 +887,8 @@ namespace StellarFramework.FlowKit
                     if (cleanupExceptions == null) cleanupExceptions = new List<Exception>();
                     cleanupExceptions.Add(exception);
                 }
+
+                handle.DisposeCancellation();
             }
 
             if (cleanupExceptions == null) return null;
@@ -826,6 +940,11 @@ namespace StellarFramework.FlowKit
 
         public FlowRuntimeServices Services => _services;
         public int ActiveRunCount => _runs.Count;
+        public FlowRun GetActiveRun(int index)
+        {
+            if (index < 0 || index >= _runs.Count) throw new ArgumentOutOfRangeException(nameof(index));
+            return _runs[index];
+        }
 
         public FlowRuntimeDiagnostics CaptureDiagnostics()
         {

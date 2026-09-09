@@ -82,6 +82,7 @@ namespace StellarFramework.FlowKit
         public FlowNodeTypeId TypeId { get; }
         public int DefinitionVersion { get; }
         public FlowPropertyBagSnapshot Parameters { get; }
+        public FlowCompiledCondition Condition { get; }
         public FlowNodeDescriptor Descriptor { get; }
         public IFlowNodeHandler Handler { get; }
 
@@ -91,6 +92,7 @@ namespace StellarFramework.FlowKit
             FlowNodeTypeId typeId,
             int definitionVersion,
             FlowPropertyBagSnapshot parameters,
+            FlowCompiledCondition condition,
             FlowNodeDescriptor descriptor,
             IFlowNodeHandler handler,
             Dictionary<string, FlowOutputRoute[]> outputRoutes)
@@ -100,6 +102,7 @@ namespace StellarFramework.FlowKit
             TypeId = typeId;
             DefinitionVersion = definitionVersion;
             Parameters = parameters;
+            Condition = condition;
             Descriptor = descriptor;
             Handler = handler;
             _outputTargets = new Dictionary<string, IReadOnlyList<int>>(StringComparer.Ordinal);
@@ -395,6 +398,22 @@ namespace StellarFramework.FlowKit
                     if (descriptor.RequiredCapabilities[c].IsValid) requiredCapabilities.Add(descriptor.RequiredCapabilities[c]);
                 }
 
+                FlowCompiledCondition compiledCondition = null;
+                if (descriptor.RequiresCondition && node.Condition == null)
+                {
+                    issues.Add(new FlowValidationIssue(FlowValidationSeverity.Error,
+                        FlowValidationErrorCode.InvalidCondition, "Node requires a condition AST.", node.Id));
+                }
+                else if (node.Condition != null)
+                {
+                    try { compiledCondition = FlowCompiledCondition.Compile(node.Condition); }
+                    catch (Exception exception)
+                    {
+                        issues.Add(new FlowValidationIssue(FlowValidationSeverity.Error,
+                            FlowValidationErrorCode.InvalidCondition, exception.Message, node.Id));
+                    }
+                }
+
                 int index = compiledNodes.Count;
                 nodeIndices.Add(node.Id, index);
                 compiledNodes.Add(new FlowCompiledNode(
@@ -403,6 +422,7 @@ namespace StellarFramework.FlowKit
                     typeId,
                     node.DefinitionVersion,
                     parameters.CreateSnapshot(),
+                    compiledCondition,
                     descriptor,
                     handler,
                     new Dictionary<string, FlowOutputRoute[]>(StringComparer.Ordinal)));
@@ -475,6 +495,22 @@ namespace StellarFramework.FlowKit
 
             for (int i = 0; i < compiledNodes.Count; i++)
             {
+                FlowCompiledNode node = compiledNodes[i];
+                for (int p = 0; p < node.Descriptor.Ports.Count; p++)
+                {
+                    FlowPortDescriptor port = node.Descriptor.Ports[p];
+                    if (port.Direction != FlowPortDirection.Output || !port.RecommendedRoute) continue;
+                    if (routeLists[i].TryGetValue(port.Id, out List<FlowOutputRoute> recommended) && recommended.Count > 0) continue;
+                    issues.Add(new FlowValidationIssue(
+                        FlowValidationSeverity.Warning,
+                        FlowValidationErrorCode.UnroutedRecommendedOutput,
+                        $"建议显式处理输出端口: {port.Id}",
+                        node.NodeId));
+                }
+            }
+
+            for (int i = 0; i < compiledNodes.Count; i++)
+            {
                 Dictionary<string, FlowOutputRoute[]> routes = new Dictionary<string, FlowOutputRoute[]>(StringComparer.Ordinal);
                 foreach (KeyValuePair<string, List<FlowOutputRoute>> route in routeLists[i])
                 {
@@ -493,6 +529,7 @@ namespace StellarFramework.FlowKit
                     current.TypeId,
                     current.DefinitionVersion,
                     current.Parameters,
+                    current.Condition,
                     current.Descriptor,
                     current.Handler,
                     routes);
@@ -552,6 +589,30 @@ namespace StellarFramework.FlowKit
                         FlowValidationErrorCode.InvalidPropertyType,
                         $"参数 {property.Key} 类型为 {value.Kind}，需要 {property.ValueKind}。", node.Id));
                 }
+                else if (value.Kind == FlowValueKind.String && property.AllowedStringValues.Count > 0)
+                {
+                    bool allowed = false;
+                    for (int a = 0; a < property.AllowedStringValues.Count; a++)
+                    {
+                        if (string.Equals(value.StringValue, property.AllowedStringValues[a], StringComparison.Ordinal))
+                        {
+                            allowed = true;
+                            break;
+                        }
+                    }
+                    if (!allowed)
+                    {
+                        issues.Add(new FlowValidationIssue(FlowValidationSeverity.Error,
+                            FlowValidationErrorCode.InvalidPropertyType,
+                            $"参数 {property.Key} 包含未声明值: {value.StringValue}", node.Id));
+                    }
+                }
+                else if (value.Kind == FlowValueKind.BindingReference && !value.BindingReferenceValue.IsValid)
+                {
+                    issues.Add(new FlowValidationIssue(FlowValidationSeverity.Error,
+                        FlowValidationErrorCode.MissingBinding,
+                        $"BindingReference property is empty: {property.Key}", node.Id));
+                }
                 else if (value.Kind == FlowValueKind.Asset && !value.AssetValue.IsValid)
                 {
                     issues.Add(new FlowValidationIssue(FlowValidationSeverity.Error,
@@ -567,6 +628,11 @@ namespace StellarFramework.FlowKit
             }
 
             if (parameters.Entries == null)
+            {
+                return;
+            }
+
+            if (descriptor.AllowAdditionalProperties)
             {
                 return;
             }
@@ -605,6 +671,7 @@ namespace StellarFramework.FlowKit
                     hash.Add(entries[p].Value.Kind);
                     hash.Add(GetStableValueText(entries[p].Value));
                 }
+                AddConditionHash(ref hash, node.Condition);
             }
 
             if (edges != null)
@@ -624,6 +691,21 @@ namespace StellarFramework.FlowKit
             }
 
             return hash.Value;
+        }
+
+        private static void AddConditionHash(ref Fnv64 hash, FlowCondition condition)
+        {
+            if (condition == null) { hash.Add("condition:null"); return; }
+            hash.Add((int)condition.Kind);
+            hash.Add(condition.Key);
+            hash.Add((int)condition.Operator);
+            hash.Add(condition.Constant.Kind);
+            hash.Add(GetStableValueText(condition.Constant));
+            AddConditionHash(ref hash, condition.Left);
+            AddConditionHash(ref hash, condition.Right);
+            int count = condition.Children == null ? 0 : condition.Children.Count;
+            hash.Add(count);
+            for (int i = 0; i < count; i++) AddConditionHash(ref hash, condition.Children[i]);
         }
 
         private static string GetStableValueText(FlowValue value)
@@ -652,6 +734,8 @@ namespace StellarFramework.FlowKit
                 case FlowValueKind.Binding:
                     return value.BindingValue.Slot.ToString(System.Globalization.CultureInfo.InvariantCulture) + ":" +
                         value.BindingValue.Generation.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                case FlowValueKind.BindingReference:
+                    return value.BindingReferenceValue.Id ?? string.Empty;
                 case FlowValueKind.Asset:
                     return value.AssetValue.Id ?? string.Empty;
                 case FlowValueKind.Enum:

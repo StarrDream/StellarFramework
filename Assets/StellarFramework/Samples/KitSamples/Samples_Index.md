@@ -20,7 +20,7 @@
 | 连续空间基础 | `SpatialKit_Playable.unity` | 仅 SpatialKit.Core；无 GridKit、UPM、Addressables、HybridCLR |
 | 批量模拟调度 | `SimulationKit_Playable.unity` | 仅 SimulationKit.Core；Game Tick 与 Frame Step 分离；每个 Frame Step 只 Collect 一次；无 TimeKit、GridKit、UPM、Addressables、HybridCLR |
 | 通用路径搜索 | `PathKit_Playable.unity` | 仅 PathKit.Core；Graph-first A*/Dijkstra；无 GridKit、UPM、Addressables、HybridCLR |
-| 声明式工作流 | `FlowKit_Playable.unity` | FlowKit.Core + UnityIntegration；JSON Graph、Delay、显式 Plan 编译；无 UniTask、Addressables、HybridCLR |
+| 声明式工作流 | `FlowKit_Playable.unity` | FlowKit.Core + UnityIntegration；消防演练双向通信、并行/汇合、失败/取消/超时；无 UniTask、Addressables、HybridCLR |
 | 网格路径适配 | `PathKit_GridKitAdapter_Playable.unity` | PathKit.GridKitAdapter + GridKit；负坐标、四/八方向和转角策略；无 UPM、Addressables、HybridCLR |
 | 资源与 UI 验收 | `ResKit_Playable.unity`、`UIKit_Playable.unity` | AB/AA 按需构建 |
 | 设置系统验收 | `SettingsKit_Playable.unity` | 样例构建器生成资源 |
@@ -37,7 +37,7 @@
 6. 跑 `SimulationKit_Playable.unity`，用 Burst 的 Frame Step 验证 Budget 跨帧分批，再用 Staggered 验证首次延迟；Manual Drain 只作为显式 Flush/Debug
 7. 跑 `PathKit_Playable.unity`，确认独立 Graph、A*/Dijkstra、加权边和结果输出
 8. 跑 `PathKit_GridKitAdapter_Playable.unity`，确认负坐标、四/八方向、阻挡、加权和转角策略
-9. 跑 `FlowKit_Playable.unity`，确认 JSON Graph 编译、Delay 调度和 Complete 生命周期
+9. 跑 `FlowKit_Playable.unity`，确认 Operation 下发、Signal/State 回报、四人并行汇合、失败分支、超时和 Complete/Fail 生命周期
 10. 再跑 `UIKit_Playable.unity` 和 `ResKit_Playable.unity`，确认 UI 与资源主链路无 error
 11. 再按 `Scenes/README.md` 的顺序跑单个 Kit 场景
 12. 涉及 AB 的场景先用 ToolHub 构建 AB

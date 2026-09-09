@@ -76,6 +76,26 @@ namespace StellarFramework.FlowKit
     }
 
     /// <summary>资源引用的稳定 ID，具体加载方式由 AssetResolver 决定。</summary>
+    /// <summary>Stable graph-authored binding reference. Never stores a runtime slot/generation.</summary>
+    [Serializable]
+    public struct FlowBindingReference : IEquatable<FlowBindingReference>
+    {
+        public string Id;
+
+        public FlowBindingReference(string id)
+        {
+            Id = id ?? string.Empty;
+        }
+
+        public bool IsValid => !string.IsNullOrEmpty(Id);
+        public FlowBindingId ToBindingId() => new FlowBindingId(Id);
+        public bool Equals(FlowBindingReference other) => string.Equals(Id, other.Id, StringComparison.Ordinal);
+        public override bool Equals(object obj) => obj is FlowBindingReference other && Equals(other);
+        public override int GetHashCode() => StringComparer.Ordinal.GetHashCode(Id ?? string.Empty);
+        public override string ToString() => Id ?? string.Empty;
+        public static implicit operator FlowBindingReference(string value) => new FlowBindingReference(value);
+    }
+
     public readonly struct FlowAssetId : IEquatable<FlowAssetId>
     {
         public string Value { get; }
@@ -254,7 +274,8 @@ namespace StellarFramework.FlowKit
         Vector3,
         Binding,
         Asset,
-        Enum
+        Enum,
+        BindingReference
     }
 
     public struct FlowVector2 : IEquatable<FlowVector2>
@@ -306,6 +327,7 @@ namespace StellarFramework.FlowKit
         public FlowVector2 Vector2Value;
         public FlowVector3 Vector3Value;
         public FlowBindingHandle BindingValue;
+        public FlowBindingReference BindingReferenceValue;
         public FlowAssetReference AssetValue;
         public FlowEnumReference EnumValue;
 
@@ -319,9 +341,23 @@ namespace StellarFramework.FlowKit
         public static FlowValue FromVector2(FlowVector2 value) => new FlowValue { Kind = FlowValueKind.Vector2, Vector2Value = value };
         public static FlowValue FromVector3(FlowVector3 value) => new FlowValue { Kind = FlowValueKind.Vector3, Vector3Value = value };
         public static FlowValue FromBinding(FlowBindingHandle value) => new FlowValue { Kind = FlowValueKind.Binding, BindingValue = value };
+        public static FlowValue FromBindingReference(FlowBindingReference value) => new FlowValue { Kind = FlowValueKind.BindingReference, BindingReferenceValue = value };
+        public static FlowValue FromBindingReference(string value) => new FlowValue { Kind = FlowValueKind.BindingReference, BindingReferenceValue = new FlowBindingReference(value) };
         public static FlowValue FromAsset(FlowAssetId value) => new FlowValue { Kind = FlowValueKind.Asset, AssetValue = new FlowAssetReference(value.Value) };
         public static FlowValue FromAsset(string value) => new FlowValue { Kind = FlowValueKind.Asset, AssetValue = new FlowAssetReference(value) };
         public static FlowValue FromEnum(string value) => new FlowValue { Kind = FlowValueKind.Enum, EnumValue = new FlowEnumReference(value) };
+
+        public bool TryGetBindingReference(out FlowBindingId value)
+        {
+            if (Kind == FlowValueKind.BindingReference && BindingReferenceValue.IsValid)
+            {
+                value = BindingReferenceValue.ToBindingId();
+                return true;
+            }
+
+            value = new FlowBindingId(string.Empty);
+            return false;
+        }
 
         public bool TryGetAsset(out FlowAssetId value)
         {
@@ -399,6 +435,8 @@ namespace StellarFramework.FlowKit
                     return Vector3Value.Equals(other.Vector3Value);
                 case FlowValueKind.Binding:
                     return BindingValue.Equals(other.BindingValue);
+                case FlowValueKind.BindingReference:
+                    return BindingReferenceValue.Equals(other.BindingReferenceValue);
                 case FlowValueKind.Asset:
                     return AssetValue.Equals(other.AssetValue);
                 case FlowValueKind.Enum:
@@ -426,6 +464,7 @@ namespace StellarFramework.FlowKit
                     case FlowValueKind.Vector2: hash = hash * 397 ^ Vector2Value.GetHashCode(); break;
                     case FlowValueKind.Vector3: hash = hash * 397 ^ Vector3Value.GetHashCode(); break;
                     case FlowValueKind.Binding: hash = hash * 397 ^ BindingValue.GetHashCode(); break;
+                    case FlowValueKind.BindingReference: hash = hash * 397 ^ BindingReferenceValue.GetHashCode(); break;
                     case FlowValueKind.Asset: hash = hash * 397 ^ AssetValue.GetHashCode(); break;
                     case FlowValueKind.Enum: hash = hash * 397 ^ EnumValue.GetHashCode(); break;
                 }
@@ -447,6 +486,7 @@ namespace StellarFramework.FlowKit
                 case FlowValueKind.Vector2: return $"({Vector2Value.X}, {Vector2Value.Y})";
                 case FlowValueKind.Vector3: return $"({Vector3Value.X}, {Vector3Value.Y}, {Vector3Value.Z})";
                 case FlowValueKind.Binding: return BindingValue.ToString();
+                case FlowValueKind.BindingReference: return BindingReferenceValue.ToString();
                 case FlowValueKind.Asset: return AssetValue.ToString();
                 case FlowValueKind.Enum: return EnumValue.ToString();
                 default: return string.Empty;

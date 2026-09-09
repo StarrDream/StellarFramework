@@ -29,6 +29,7 @@ namespace StellarFramework.FlowKit
         public string TypeId;
         public int DefinitionVersion = 1;
         public FlowPropertyBag Parameters = new FlowPropertyBag();
+        public FlowCondition Condition;
         public FlowNodeOptions Options = new FlowNodeOptions();
     }
 
@@ -198,14 +199,28 @@ namespace StellarFramework.FlowKit
         Operation
     }
 
+    public enum FlowPortSemantic
+    {
+        Normal,
+        Success,
+        Failure,
+        Cancelled,
+        ConditionTrue,
+        ConditionFalse,
+        Timeout
+    }
+
     [Serializable]
     public sealed class FlowPortDescriptor
     {
         public string Id { get; }
         public string DisplayName { get; }
         public FlowPortDirection Direction { get; }
+        public FlowPortSemantic Semantic { get; }
+        public bool RecommendedRoute { get; }
 
-        public FlowPortDescriptor(string id, string displayName, FlowPortDirection direction)
+        public FlowPortDescriptor(string id, string displayName, FlowPortDirection direction,
+            FlowPortSemantic semantic = FlowPortSemantic.Normal, bool recommendedRoute = false)
         {
             if (string.IsNullOrEmpty(id))
             {
@@ -215,18 +230,29 @@ namespace StellarFramework.FlowKit
             Id = id;
             DisplayName = string.IsNullOrEmpty(displayName) ? id : displayName;
             Direction = direction;
+            Semantic = semantic;
+            RecommendedRoute = recommendedRoute;
         }
     }
 
     [Serializable]
     public sealed class FlowPropertyDescriptor
     {
+        private readonly string[] _allowedStringValues;
+        private readonly IReadOnlyList<string> _allowedStringValuesView;
+
         public string Key { get; }
         public string DisplayName { get; }
         public FlowValueKind ValueKind { get; }
         public bool Required { get; }
+        public IReadOnlyList<string> AllowedStringValues => _allowedStringValuesView;
 
-        public FlowPropertyDescriptor(string key, string displayName, FlowValueKind valueKind, bool required)
+        public FlowPropertyDescriptor(
+            string key,
+            string displayName,
+            FlowValueKind valueKind,
+            bool required,
+            string[] allowedStringValues = null)
         {
             if (string.IsNullOrEmpty(key))
             {
@@ -237,6 +263,13 @@ namespace StellarFramework.FlowKit
             DisplayName = string.IsNullOrEmpty(displayName) ? key : displayName;
             ValueKind = valueKind;
             Required = required;
+            _allowedStringValues = allowedStringValues == null ? Array.Empty<string>() : (string[])allowedStringValues.Clone();
+            for (int i = 0; i < _allowedStringValues.Length; i++)
+            {
+                if (string.IsNullOrEmpty(_allowedStringValues[i]))
+                    throw new ArgumentException("Allowed string values cannot contain empty entries.", nameof(allowedStringValues));
+            }
+            _allowedStringValuesView = Array.AsReadOnly(_allowedStringValues);
         }
     }
 
@@ -257,6 +290,8 @@ namespace StellarFramework.FlowKit
         public FlowNodeExecutionMode ExecutionMode { get; }
         public FlowEffectSemantics EffectSemantics { get; }
         public bool CompletesFlow { get; }
+        public bool AllowAdditionalProperties { get; }
+        public bool RequiresCondition { get; }
         public IReadOnlyList<FlowPortDescriptor> Ports => _portsView;
         public IReadOnlyList<FlowPropertyDescriptor> Properties => _propertiesView;
         public IReadOnlyList<FlowCapabilityId> RequiredCapabilities => _requiredCapabilitiesView;
@@ -271,7 +306,9 @@ namespace StellarFramework.FlowKit
             FlowPropertyDescriptor[] properties = null,
             FlowCapabilityId[] requiredCapabilities = null,
             FlowEffectSemantics effectSemantics = FlowEffectSemantics.None,
-            bool completesFlow = false)
+            bool completesFlow = false,
+            bool allowAdditionalProperties = false,
+            bool requiresCondition = false)
         {
             if (!typeId.IsValid)
             {
@@ -290,6 +327,8 @@ namespace StellarFramework.FlowKit
             ExecutionMode = executionMode;
             EffectSemantics = effectSemantics;
             CompletesFlow = completesFlow;
+            AllowAdditionalProperties = allowAdditionalProperties;
+            RequiresCondition = requiresCondition;
             _ports = ports == null ? Array.Empty<FlowPortDescriptor>() : (FlowPortDescriptor[])ports.Clone();
             _properties = properties == null ? Array.Empty<FlowPropertyDescriptor>() : (FlowPropertyDescriptor[])properties.Clone();
             _requiredCapabilities = requiredCapabilities == null ? Array.Empty<FlowCapabilityId>() : (FlowCapabilityId[])requiredCapabilities.Clone();

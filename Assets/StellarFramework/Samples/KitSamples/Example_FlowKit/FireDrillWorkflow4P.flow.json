@@ -1,0 +1,1052 @@
+{
+  "FlowId": "sample.flowkit.fire_drill_4p",
+  "SchemaVersion": 1,
+  "EntryNodeId": "开始",
+  "Metadata": {
+    "DisplayName": "消防演练流程",
+    "Description": "4 人协同消防演练示例：包含成功、失败、取消、超时分支。FlowKit 只负责编排；具体消防玩法由外部系统执行。"
+  },
+  "Nodes": [
+    {
+      "Id": "1号·开始指挥",
+      "TypeId": "flow.operation",
+      "DefinitionVersion": 1,
+      "Parameters": {
+        "Entries": [
+          {
+            "Key": "operation",
+            "Value": {
+              "Kind": 7,
+              "StringValue": "fire_drill.commander.start"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "Id": "1号·指挥员提示",
+      "TypeId": "flow.operation",
+      "DefinitionVersion": 1,
+      "Parameters": {
+        "Entries": [
+          {
+            "Key": "operation",
+            "Value": {
+              "Kind": 7,
+              "StringValue": "fire_drill.player1.commander.show"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "Id": "1号·指挥失败处理",
+      "TypeId": "flow.operation",
+      "DefinitionVersion": 1,
+      "Parameters": {
+        "Entries": [
+          {
+            "Key": "operation",
+            "Value": {
+              "Kind": 7,
+              "StringValue": "fire_drill.commander.failure"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "Id": "1号·确认上报",
+      "TypeId": "flow.wait.state",
+      "DefinitionVersion": 1,
+      "Parameters": {
+        "Entries": [
+          {
+            "Key": "state",
+            "Value": {
+              "Kind": 7,
+              "StringValue": "fire_drill.commander.reported"
+            }
+          },
+          {
+            "Key": "expected",
+            "Value": {
+              "Kind": 2,
+              "BoolValue": true
+            }
+          }
+        ]
+      }
+    },
+    {
+      "Id": "1号·等待就绪",
+      "TypeId": "flow.wait.signal",
+      "DefinitionVersion": 1,
+      "Parameters": {
+        "Entries": [
+          {
+            "Key": "signal",
+            "Value": {
+              "Kind": 7,
+              "StringValue": "fire_drill.player1.ready"
+            }
+          },
+          {
+            "Key": "scope",
+            "Value": {
+              "Kind": 7,
+              "StringValue": "Host"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "Id": "2号·完成灭火A",
+      "TypeId": "flow.wait.state",
+      "DefinitionVersion": 1,
+      "Parameters": {
+        "Entries": [
+          {
+            "Key": "state",
+            "Value": {
+              "Kind": 7,
+              "StringValue": "fire_drill.extinguisher_a.completed"
+            }
+          },
+          {
+            "Key": "expected",
+            "Value": {
+              "Kind": 2,
+              "BoolValue": true
+            }
+          }
+        ]
+      }
+    },
+    {
+      "Id": "2号·开始灭火A",
+      "TypeId": "flow.operation",
+      "DefinitionVersion": 1,
+      "Parameters": {
+        "Entries": [
+          {
+            "Key": "operation",
+            "Value": {
+              "Kind": 7,
+              "StringValue": "fire_drill.extinguisher_a.start"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "Id": "2号·灭火A失败处理",
+      "TypeId": "flow.operation",
+      "DefinitionVersion": 1,
+      "Parameters": {
+        "Entries": [
+          {
+            "Key": "operation",
+            "Value": {
+              "Kind": 7,
+              "StringValue": "fire_drill.extinguisher_a.failure"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "Id": "2号·灭火员A提示",
+      "TypeId": "flow.operation",
+      "DefinitionVersion": 1,
+      "Parameters": {
+        "Entries": [
+          {
+            "Key": "operation",
+            "Value": {
+              "Kind": 7,
+              "StringValue": "fire_drill.player2.extinguisher_a.show"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "Id": "2号·等待就绪",
+      "TypeId": "flow.wait.signal",
+      "DefinitionVersion": 1,
+      "Parameters": {
+        "Entries": [
+          {
+            "Key": "signal",
+            "Value": {
+              "Kind": 7,
+              "StringValue": "fire_drill.player2.ready"
+            }
+          },
+          {
+            "Key": "scope",
+            "Value": {
+              "Kind": 7,
+              "StringValue": "Host"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "Id": "3号·完成灭火B",
+      "TypeId": "flow.wait.state",
+      "DefinitionVersion": 1,
+      "Parameters": {
+        "Entries": [
+          {
+            "Key": "state",
+            "Value": {
+              "Kind": 7,
+              "StringValue": "fire_drill.extinguisher_b.completed"
+            }
+          },
+          {
+            "Key": "expected",
+            "Value": {
+              "Kind": 2,
+              "BoolValue": true
+            }
+          }
+        ]
+      }
+    },
+    {
+      "Id": "3号·开始灭火B",
+      "TypeId": "flow.operation",
+      "DefinitionVersion": 1,
+      "Parameters": {
+        "Entries": [
+          {
+            "Key": "operation",
+            "Value": {
+              "Kind": 7,
+              "StringValue": "fire_drill.extinguisher_b.start"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "Id": "3号·灭火B失败处理",
+      "TypeId": "flow.operation",
+      "DefinitionVersion": 1,
+      "Parameters": {
+        "Entries": [
+          {
+            "Key": "operation",
+            "Value": {
+              "Kind": 7,
+              "StringValue": "fire_drill.extinguisher_b.failure"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "Id": "3号·灭火员B提示",
+      "TypeId": "flow.operation",
+      "DefinitionVersion": 1,
+      "Parameters": {
+        "Entries": [
+          {
+            "Key": "operation",
+            "Value": {
+              "Kind": 7,
+              "StringValue": "fire_drill.player3.extinguisher_b.show"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "Id": "3号·等待就绪",
+      "TypeId": "flow.wait.signal",
+      "DefinitionVersion": 1,
+      "Parameters": {
+        "Entries": [
+          {
+            "Key": "signal",
+            "Value": {
+              "Kind": 7,
+              "StringValue": "fire_drill.player3.ready"
+            }
+          },
+          {
+            "Key": "scope",
+            "Value": {
+              "Kind": 7,
+              "StringValue": "Host"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "Id": "4号·完成疏散",
+      "TypeId": "flow.wait.state",
+      "DefinitionVersion": 1,
+      "Parameters": {
+        "Entries": [
+          {
+            "Key": "state",
+            "Value": {
+              "Kind": 7,
+              "StringValue": "fire_drill.evacuation.completed"
+            }
+          },
+          {
+            "Key": "expected",
+            "Value": {
+              "Kind": 2,
+              "BoolValue": true
+            }
+          }
+        ]
+      }
+    },
+    {
+      "Id": "4号·开始疏散",
+      "TypeId": "flow.operation",
+      "DefinitionVersion": 1,
+      "Parameters": {
+        "Entries": [
+          {
+            "Key": "operation",
+            "Value": {
+              "Kind": 7,
+              "StringValue": "fire_drill.evacuator.start"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "Id": "4号·疏散员提示",
+      "TypeId": "flow.operation",
+      "DefinitionVersion": 1,
+      "Parameters": {
+        "Entries": [
+          {
+            "Key": "operation",
+            "Value": {
+              "Kind": 7,
+              "StringValue": "fire_drill.player4.evacuator.show"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "Id": "4号·疏散失败处理",
+      "TypeId": "flow.operation",
+      "DefinitionVersion": 1,
+      "Parameters": {
+        "Entries": [
+          {
+            "Key": "operation",
+            "Value": {
+              "Kind": 7,
+              "StringValue": "fire_drill.evacuator.failure"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "Id": "4号·等待就绪",
+      "TypeId": "flow.wait.signal",
+      "DefinitionVersion": 1,
+      "Parameters": {
+        "Entries": [
+          {
+            "Key": "signal",
+            "Value": {
+              "Kind": 7,
+              "StringValue": "fire_drill.player4.ready"
+            }
+          },
+          {
+            "Key": "scope",
+            "Value": {
+              "Kind": 7,
+              "StringValue": "Host"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "Id": "任务竞速汇合",
+      "TypeId": "flow.join",
+      "DefinitionVersion": 1
+    },
+    {
+      "Id": "任务超时180秒",
+      "TypeId": "flow.delay",
+      "DefinitionVersion": 1,
+      "Parameters": {
+        "Entries": [
+          {
+            "Key": "seconds",
+            "Value": {
+              "Kind": 6,
+              "DoubleValue": 180.0
+            }
+          }
+        ]
+      }
+    },
+    {
+      "Id": "任务超时失败",
+      "TypeId": "flow.fail",
+      "DefinitionVersion": 1,
+      "Parameters": {
+        "Entries": [
+          {
+            "Key": "message",
+            "Value": {
+              "Kind": 7,
+              "StringValue": "四人协同任务超过 180 秒，消防演练判定失败。"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "Id": "任务阶段竞速",
+      "TypeId": "flow.race",
+      "DefinitionVersion": 1
+    },
+    {
+      "Id": "分配四人角色",
+      "TypeId": "flow.operation",
+      "DefinitionVersion": 1,
+      "Parameters": {
+        "Entries": [
+          {
+            "Key": "operation",
+            "Value": {
+              "Kind": 7,
+              "StringValue": "fire_drill.roles.assign"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "Id": "启动消防警报",
+      "TypeId": "flow.operation",
+      "DefinitionVersion": 1,
+      "Parameters": {
+        "Entries": [
+          {
+            "Key": "operation",
+            "Value": {
+              "Kind": 7,
+              "StringValue": "fire_drill.alarm.start"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "Id": "四人任务并行",
+      "TypeId": "flow.parallel",
+      "DefinitionVersion": 1
+    },
+    {
+      "Id": "四人任务汇合",
+      "TypeId": "flow.join",
+      "DefinitionVersion": 1
+    },
+    {
+      "Id": "四人准备并行",
+      "TypeId": "flow.parallel",
+      "DefinitionVersion": 1
+    },
+    {
+      "Id": "四人就绪汇合",
+      "TypeId": "flow.join",
+      "DefinitionVersion": 1
+    },
+    {
+      "Id": "安全复核",
+      "TypeId": "flow.operation",
+      "DefinitionVersion": 1,
+      "Parameters": {
+        "Entries": [
+          {
+            "Key": "operation",
+            "Value": {
+              "Kind": 7,
+              "StringValue": "fire_drill.safety.check"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "Id": "开始",
+      "TypeId": "flow.entry",
+      "DefinitionVersion": 1
+    },
+    {
+      "Id": "总结停留5秒",
+      "TypeId": "flow.delay",
+      "DefinitionVersion": 1,
+      "Parameters": {
+        "Entries": [
+          {
+            "Key": "seconds",
+            "Value": {
+              "Kind": 6,
+              "DoubleValue": 5.0
+            }
+          }
+        ]
+      }
+    },
+    {
+      "Id": "演练失败",
+      "TypeId": "flow.fail",
+      "DefinitionVersion": 1,
+      "Parameters": {
+        "Entries": [
+          {
+            "Key": "message",
+            "Value": {
+              "Kind": 7,
+              "StringValue": "关键步骤失败或被取消，消防演练终止。"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "Id": "演练完成",
+      "TypeId": "flow.complete",
+      "DefinitionVersion": 1
+    },
+    {
+      "Id": "演练总结",
+      "TypeId": "flow.operation",
+      "DefinitionVersion": 1,
+      "Parameters": {
+        "Entries": [
+          {
+            "Key": "operation",
+            "Value": {
+              "Kind": 7,
+              "StringValue": "fire_drill.summary.show"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "Id": "演练说明",
+      "TypeId": "flow.operation",
+      "DefinitionVersion": 1,
+      "Parameters": {
+        "Entries": [
+          {
+            "Key": "operation",
+            "Value": {
+              "Kind": 7,
+              "StringValue": "fire_drill.briefing.show"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "Id": "等待安全通过",
+      "TypeId": "flow.wait.state",
+      "DefinitionVersion": 1,
+      "Parameters": {
+        "Entries": [
+          {
+            "Key": "state",
+            "Value": {
+              "Kind": 7,
+              "StringValue": "fire_drill.safety.passed"
+            }
+          },
+          {
+            "Key": "expected",
+            "Value": {
+              "Kind": 2,
+              "BoolValue": true
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "Edges": [
+    {
+      "FromNodeId": "1号·开始指挥",
+      "FromPortId": "cancelled",
+      "ToNodeId": "1号·指挥失败处理",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "1号·开始指挥",
+      "FromPortId": "failed",
+      "ToNodeId": "1号·指挥失败处理",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "1号·开始指挥",
+      "FromPortId": "succeeded",
+      "ToNodeId": "1号·确认上报",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "1号·指挥员提示",
+      "FromPortId": "cancelled",
+      "ToNodeId": "演练失败",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "1号·指挥员提示",
+      "FromPortId": "failed",
+      "ToNodeId": "演练失败",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "1号·指挥员提示",
+      "FromPortId": "succeeded",
+      "ToNodeId": "1号·等待就绪",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "1号·指挥失败处理",
+      "FromPortId": "cancelled",
+      "ToNodeId": "演练失败",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "1号·指挥失败处理",
+      "FromPortId": "failed",
+      "ToNodeId": "演练失败",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "1号·指挥失败处理",
+      "FromPortId": "succeeded",
+      "ToNodeId": "演练失败",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "1号·确认上报",
+      "FromPortId": "changed",
+      "ToNodeId": "四人任务汇合",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "1号·等待就绪",
+      "FromPortId": "received",
+      "ToNodeId": "四人就绪汇合",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "2号·完成灭火A",
+      "FromPortId": "changed",
+      "ToNodeId": "四人任务汇合",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "2号·开始灭火A",
+      "FromPortId": "cancelled",
+      "ToNodeId": "2号·灭火A失败处理",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "2号·开始灭火A",
+      "FromPortId": "failed",
+      "ToNodeId": "2号·灭火A失败处理",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "2号·开始灭火A",
+      "FromPortId": "succeeded",
+      "ToNodeId": "2号·完成灭火A",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "2号·灭火A失败处理",
+      "FromPortId": "cancelled",
+      "ToNodeId": "演练失败",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "2号·灭火A失败处理",
+      "FromPortId": "failed",
+      "ToNodeId": "演练失败",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "2号·灭火A失败处理",
+      "FromPortId": "succeeded",
+      "ToNodeId": "演练失败",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "2号·灭火员A提示",
+      "FromPortId": "cancelled",
+      "ToNodeId": "演练失败",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "2号·灭火员A提示",
+      "FromPortId": "failed",
+      "ToNodeId": "演练失败",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "2号·灭火员A提示",
+      "FromPortId": "succeeded",
+      "ToNodeId": "2号·等待就绪",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "2号·等待就绪",
+      "FromPortId": "received",
+      "ToNodeId": "四人就绪汇合",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "3号·完成灭火B",
+      "FromPortId": "changed",
+      "ToNodeId": "四人任务汇合",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "3号·开始灭火B",
+      "FromPortId": "cancelled",
+      "ToNodeId": "3号·灭火B失败处理",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "3号·开始灭火B",
+      "FromPortId": "failed",
+      "ToNodeId": "3号·灭火B失败处理",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "3号·开始灭火B",
+      "FromPortId": "succeeded",
+      "ToNodeId": "3号·完成灭火B",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "3号·灭火B失败处理",
+      "FromPortId": "cancelled",
+      "ToNodeId": "演练失败",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "3号·灭火B失败处理",
+      "FromPortId": "failed",
+      "ToNodeId": "演练失败",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "3号·灭火B失败处理",
+      "FromPortId": "succeeded",
+      "ToNodeId": "演练失败",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "3号·灭火员B提示",
+      "FromPortId": "cancelled",
+      "ToNodeId": "演练失败",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "3号·灭火员B提示",
+      "FromPortId": "failed",
+      "ToNodeId": "演练失败",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "3号·灭火员B提示",
+      "FromPortId": "succeeded",
+      "ToNodeId": "3号·等待就绪",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "3号·等待就绪",
+      "FromPortId": "received",
+      "ToNodeId": "四人就绪汇合",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "4号·完成疏散",
+      "FromPortId": "changed",
+      "ToNodeId": "四人任务汇合",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "4号·开始疏散",
+      "FromPortId": "cancelled",
+      "ToNodeId": "4号·疏散失败处理",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "4号·开始疏散",
+      "FromPortId": "failed",
+      "ToNodeId": "4号·疏散失败处理",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "4号·开始疏散",
+      "FromPortId": "succeeded",
+      "ToNodeId": "4号·完成疏散",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "4号·疏散员提示",
+      "FromPortId": "cancelled",
+      "ToNodeId": "演练失败",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "4号·疏散员提示",
+      "FromPortId": "failed",
+      "ToNodeId": "演练失败",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "4号·疏散员提示",
+      "FromPortId": "succeeded",
+      "ToNodeId": "4号·等待就绪",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "4号·疏散失败处理",
+      "FromPortId": "cancelled",
+      "ToNodeId": "演练失败",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "4号·疏散失败处理",
+      "FromPortId": "failed",
+      "ToNodeId": "演练失败",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "4号·疏散失败处理",
+      "FromPortId": "succeeded",
+      "ToNodeId": "演练失败",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "4号·等待就绪",
+      "FromPortId": "received",
+      "ToNodeId": "四人就绪汇合",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "任务竞速汇合",
+      "FromPortId": "joined",
+      "ToNodeId": "安全复核",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "任务超时180秒",
+      "FromPortId": "completed",
+      "ToNodeId": "任务超时失败",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "任务阶段竞速",
+      "FromPortId": "branch",
+      "ToNodeId": "任务超时180秒",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "任务阶段竞速",
+      "FromPortId": "branch",
+      "ToNodeId": "四人任务并行",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "分配四人角色",
+      "FromPortId": "cancelled",
+      "ToNodeId": "演练失败",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "分配四人角色",
+      "FromPortId": "failed",
+      "ToNodeId": "演练失败",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "分配四人角色",
+      "FromPortId": "succeeded",
+      "ToNodeId": "四人准备并行",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "启动消防警报",
+      "FromPortId": "cancelled",
+      "ToNodeId": "演练失败",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "启动消防警报",
+      "FromPortId": "failed",
+      "ToNodeId": "演练失败",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "启动消防警报",
+      "FromPortId": "succeeded",
+      "ToNodeId": "任务阶段竞速",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "四人任务并行",
+      "FromPortId": "branch",
+      "ToNodeId": "1号·开始指挥",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "四人任务并行",
+      "FromPortId": "branch",
+      "ToNodeId": "2号·开始灭火A",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "四人任务并行",
+      "FromPortId": "branch",
+      "ToNodeId": "3号·开始灭火B",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "四人任务并行",
+      "FromPortId": "branch",
+      "ToNodeId": "4号·开始疏散",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "四人任务汇合",
+      "FromPortId": "joined",
+      "ToNodeId": "任务竞速汇合",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "四人准备并行",
+      "FromPortId": "branch",
+      "ToNodeId": "1号·指挥员提示",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "四人准备并行",
+      "FromPortId": "branch",
+      "ToNodeId": "2号·灭火员A提示",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "四人准备并行",
+      "FromPortId": "branch",
+      "ToNodeId": "3号·灭火员B提示",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "四人准备并行",
+      "FromPortId": "branch",
+      "ToNodeId": "4号·疏散员提示",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "四人就绪汇合",
+      "FromPortId": "joined",
+      "ToNodeId": "启动消防警报",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "安全复核",
+      "FromPortId": "cancelled",
+      "ToNodeId": "演练失败",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "安全复核",
+      "FromPortId": "failed",
+      "ToNodeId": "演练失败",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "安全复核",
+      "FromPortId": "succeeded",
+      "ToNodeId": "等待安全通过",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "开始",
+      "FromPortId": "next",
+      "ToNodeId": "演练说明",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "总结停留5秒",
+      "FromPortId": "completed",
+      "ToNodeId": "演练完成",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "演练总结",
+      "FromPortId": "cancelled",
+      "ToNodeId": "演练失败",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "演练总结",
+      "FromPortId": "failed",
+      "ToNodeId": "演练失败",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "演练总结",
+      "FromPortId": "succeeded",
+      "ToNodeId": "总结停留5秒",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "演练说明",
+      "FromPortId": "cancelled",
+      "ToNodeId": "演练失败",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "演练说明",
+      "FromPortId": "failed",
+      "ToNodeId": "演练失败",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "演练说明",
+      "FromPortId": "succeeded",
+      "ToNodeId": "分配四人角色",
+      "ToPortId": "in"
+    },
+    {
+      "FromNodeId": "等待安全通过",
+      "FromPortId": "changed",
+      "ToNodeId": "演练总结",
+      "ToPortId": "in"
+    }
+  ]
+}

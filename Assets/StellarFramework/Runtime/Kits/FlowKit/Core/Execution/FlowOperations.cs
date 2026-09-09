@@ -56,6 +56,28 @@ namespace StellarFramework.FlowKit
             new FlowOperationResult(FlowOperationStatus.Cancelled, FlowValue.None, error);
     }
 
+    /// <summary>Compiled operation-node input delivered to an external adapter.</summary>
+    public readonly struct FlowOperationRequest
+    {
+        public string OperationId { get; }
+        public FlowValue InputPayload { get; }
+        public FlowPropertyBagSnapshot Arguments { get; }
+
+        public FlowOperationRequest(
+            string operationId,
+            FlowValue inputPayload,
+            FlowPropertyBagSnapshot arguments)
+        {
+            if (string.IsNullOrEmpty(operationId))
+                throw new ArgumentException("OperationId cannot be empty.", nameof(operationId));
+            OperationId = operationId;
+            InputPayload = inputPayload;
+            Arguments = arguments ?? throw new ArgumentNullException(nameof(arguments));
+        }
+
+        public bool TryGetArgument(string key, out FlowValue value) => Arguments.TryGet(key, out value);
+    }
+
     public readonly struct FlowOperationContext
     {
         public FlowRunId RunId { get; }
@@ -109,7 +131,11 @@ namespace StellarFramework.FlowKit
     /// </summary>
     public interface IFlowOperationAdapter
     {
-        void Start(in FlowOperationContext context, FlowOperationHandle handle, Action<FlowOperationResult> complete);
+        void Start(
+            in FlowOperationContext context,
+            in FlowOperationRequest request,
+            FlowOperationHandle handle,
+            Action<FlowOperationResult> complete);
         void Cancel(in FlowOperationContext context, FlowOperationHandle handle);
     }
 
@@ -148,6 +174,7 @@ namespace StellarFramework.FlowKit
         public bool Start(
             string operationId,
             in FlowOperationContext context,
+            in FlowOperationRequest request,
             Action<FlowOperationResult> complete,
             out FlowOperationHandle handle)
         {
@@ -173,7 +200,7 @@ namespace StellarFramework.FlowKit
             try
             {
                 FlowOperationHandle registeredHandle = handle;
-                adapter.Start(context, registeredHandle, result => Complete(registeredHandle, result));
+                adapter.Start(context, request, registeredHandle, result => Complete(registeredHandle, result));
             }
             catch (Exception exception)
             {
@@ -303,15 +330,54 @@ namespace StellarFramework.FlowKit
 
         public bool Unbind(FlowBindingId id)
         {
-            if (!_slots.TryGetValue(id, out int slot)) return false;
-            Entry entry = _entries[slot];
-            if (!entry.Active) return false;
+            return TryGetHandle(id, out FlowBindingHandle handle) && Unbind(handle);
+        }
+
+        public bool Unbind(FlowBindingHandle handle)
+        {
+            if (!handle.IsValid || handle.Slot < 0 || handle.Slot >= _entries.Count) return false;
+            Entry entry = _entries[handle.Slot];
+            if (!entry.Active || entry.Generation != handle.Generation) return false;
             entry.Active = false;
             entry.Value = null;
-            _slots.Remove(id);
-            _freeSlots.Push(slot);
+            _slots.Remove(entry.Id);
+            _freeSlots.Push(handle.Slot);
             Count--;
             return true;
+        }
+
+        public bool TryGetHandle(FlowBindingId id, out FlowBindingHandle handle)
+        {
+            if (id.IsValid && _slots.TryGetValue(id, out int slot))
+            {
+                Entry entry = _entries[slot];
+                if (entry.Active)
+                {
+                    handle = new FlowBindingHandle(slot, entry.Generation);
+                    return true;
+                }
+            }
+
+            handle = default(FlowBindingHandle);
+            return false;
+        }
+
+        public bool TryResolve(FlowBindingId id, out object value)
+        {
+            if (TryGetHandle(id, out FlowBindingHandle handle))
+            {
+                return TryResolve(handle, out value);
+            }
+
+            value = null;
+            return false;
+        }
+
+        public bool TryResolve(FlowBindingReference reference, out object value)
+        {
+            if (reference.IsValid) return TryResolve(reference.ToBindingId(), out value);
+            value = null;
+            return false;
         }
 
         public bool TryResolve(FlowBindingHandle handle, out object value)

@@ -1,0 +1,19 @@
+{
+  "name": "StellarFramework.ToolsHub.FlowKit.Editor.Tests",
+  "rootNamespace": "StellarFramework.Editor.Modules.FlowKit.Tests",
+  "references": [
+    "StellarFramework.ToolsHub.FlowKit.Editor",
+    "StellarFramework.FlowKit.Core",
+    "StellarFramework.FlowKit.Unity"
+  ],
+  "includePlatforms": ["Editor"],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": false,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false,
+  "optionalUnityReferences": ["TestAssemblies"]
+}
