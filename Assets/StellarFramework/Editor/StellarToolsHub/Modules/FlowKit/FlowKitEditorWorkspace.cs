@@ -907,6 +907,17 @@ namespace StellarFramework.Editor.Modules.FlowKit
             }
 
             EditorGUILayout.LabelField("节点 · " + FlowKitEditorLocalization.NodeName(descriptor), EditorStyles.boldLabel);
+
+            EditorGUI.BeginChangeCheck();
+            string nodeDisplayName = EditorGUILayout.TextField("节点名称", _document.GetNodeDisplayName(node.Id));
+            if (EditorGUI.EndChangeCheck())
+                Mutate("修改节点名称", () => _document.SetNodeDisplayName(node.Id, nodeDisplayName));
+
+            EditorGUI.BeginChangeCheck();
+            EditorGUILayout.LabelField("节点说明");
+            string nodeDescription = EditorGUILayout.TextArea(_document.GetNodeDescription(node.Id), GUILayout.MinHeight(42f));
+            if (EditorGUI.EndChangeCheck())
+                Mutate("修改节点说明", () => _document.SetNodeDescription(node.Id, nodeDescription));
             using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
             {
                 EditorGUILayout.LabelField("分类", FlowKitEditorLocalization.Category(descriptor));
@@ -1450,6 +1461,7 @@ namespace StellarFramework.Editor.Modules.FlowKit
             mutation();
             SyncUndoState();
             UpdateHeader();
+            _canvas.RefreshNodePresentation(_document, _selectedNodeId);
             _inspector.MarkDirtyRepaint();
             ScheduleValidation();
         }

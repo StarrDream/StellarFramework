@@ -26,6 +26,38 @@ namespace StellarFramework.Editor.Modules.FlowKit.Tests
         }
 
         [Test]
+        public void NodeAuthoringMetadataChangesOnlyEditorMetadata()
+        {
+            FlowGraphDocument document = FlowGraphDocument.CreateNew(FlowBuiltInNodes.CreateRegistry());
+            string nodeId = document.Graph.EntryNodeId;
+            string runtimeBefore = document.SerializeGraph();
+            string editorBefore = document.SerializeMetadata();
+
+            document.SetNodeDisplayName(nodeId, "播放开场情景视频");
+            document.SetNodeDescription(nodeId, "开场阶段的业务说明");
+
+            Assert.That(document.SerializeGraph(), Is.EqualTo(runtimeBefore));
+            Assert.That(document.SerializeMetadata(), Is.Not.EqualTo(editorBefore));
+            Assert.That(document.GetNodeDisplayName(nodeId), Is.EqualTo("播放开场情景视频"));
+            Assert.That(document.GetNodeDescription(nodeId), Is.EqualTo("开场阶段的业务说明"));
+        }
+
+[Test]
+        public void LegacyEditorMetadataWithoutNodeNamesLoadsWithEmptyAuthoringFields()
+        {
+            FlowGraphDocument document = FlowGraphDocument.CreateNew(FlowBuiltInNodes.CreateRegistry());
+            string nodeId = document.Graph.EntryNodeId;
+            string legacyMetadata = "{\"Version\":1,\"Nodes\":[{\"NodeId\":\"" + nodeId + "\",\"X\":80.0,\"Y\":120.0,\"Collapsed\":false}]}";
+
+            document.RestoreSnapshots(document.SerializeGraph(), legacyMetadata);
+
+            Assert.That(document.GetNodeDisplayName(nodeId), Is.Empty);
+            Assert.That(document.GetNodeDescription(nodeId), Is.Empty);
+            Assert.That(document.SerializeMetadata(), Does.Contain("\"Version\": 2"));
+        }
+
+
+        [Test]
         public void ClipboardPreservesConditionAndGeneratesNewNodeId()
         {
             try
@@ -36,6 +68,8 @@ namespace StellarFramework.Editor.Modules.FlowKit.Tests
                     FlowCondition.BlackboardValue("score"),
                     FlowComparisonOperator.GreaterOrEqual,
                     new FlowCondition { Kind = FlowConditionKind.Constant, Constant = FlowValue.FromInt(80) }));
+                document.SetNodeDisplayName(branch.Id, "检查训练得分");
+                document.SetNodeDescription(branch.Id, "复制后应保留的节点说明");
 
                 string payload = document.CreateClipboard(new List<string> { branch.Id });
                 List<string> pasted = document.PasteClipboard(payload, new Vector2(40f, 40f));
@@ -45,6 +79,8 @@ namespace StellarFramework.Editor.Modules.FlowKit.Tests
                 Assert.That(clone.Condition, Is.Not.Null, "Pasted condition was lost.");
                 Assert.That(clone.Condition.Left, Is.Not.Null, "Pasted condition Left operand was lost.");
                 Assert.That(clone.Condition.Left.Key, Is.EqualTo("score"));
+                Assert.That(document.GetNodeDisplayName(clone.Id), Is.EqualTo("检查训练得分"));
+                Assert.That(document.GetNodeDescription(clone.Id), Is.EqualTo("复制后应保留的节点说明"));
             }
             catch (System.Exception exception)
             {

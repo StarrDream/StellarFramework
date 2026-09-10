@@ -12,7 +12,7 @@ namespace StellarFramework.Editor.Modules.FlowKit
     [Serializable]
     internal sealed class FlowEditorMetadataData
     {
-        public int Version = 1;
+        public int Version = 2;
         public List<FlowEditorNodeMetadata> Nodes = new List<FlowEditorNodeMetadata>();
     }
 
@@ -23,6 +23,8 @@ namespace StellarFramework.Editor.Modules.FlowKit
         public float X;
         public float Y;
         public bool Collapsed;
+        public string DisplayName;
+        public string Description;
     }
 
     [Serializable]
@@ -217,6 +219,31 @@ namespace StellarFramework.Editor.Modules.FlowKit
             }
             return new Vector2(metadata.X, metadata.Y);
         }
+
+        public string GetNodeDisplayName(string nodeId) =>
+            GetOrCreateMetadata(nodeId).DisplayName ?? string.Empty;
+
+        public string GetNodeDescription(string nodeId) =>
+            GetOrCreateMetadata(nodeId).Description ?? string.Empty;
+
+        public void SetNodeDisplayName(string nodeId, string displayName)
+        {
+            FlowEditorNodeMetadata metadata = GetOrCreateMetadata(nodeId);
+            string value = displayName ?? string.Empty;
+            if (string.Equals(metadata.DisplayName ?? string.Empty, value, StringComparison.Ordinal)) return;
+            metadata.DisplayName = value;
+            MarkDirty();
+        }
+
+        public void SetNodeDescription(string nodeId, string description)
+        {
+            FlowEditorNodeMetadata metadata = GetOrCreateMetadata(nodeId);
+            string value = description ?? string.Empty;
+            if (string.Equals(metadata.Description ?? string.Empty, value, StringComparison.Ordinal)) return;
+            metadata.Description = value;
+            MarkDirty();
+        }
+
         public FlowNodeData FindNode(string nodeId)
         {
             int index = FindNodeIndex(nodeId);
@@ -283,7 +310,8 @@ namespace StellarFramework.Editor.Modules.FlowKit
                 FlowEditorNodeMetadata metadata = GetOrCreateMetadata(node.Id);
                 data.Positions.Add(new FlowEditorNodeMetadata
                 {
-                    NodeId = node.Id, X = metadata.X, Y = metadata.Y, Collapsed = metadata.Collapsed
+                    NodeId = node.Id, X = metadata.X, Y = metadata.Y, Collapsed = metadata.Collapsed,
+                    DisplayName = metadata.DisplayName, Description = metadata.Description
                 });
             }
             for (int i = 0; i < Graph.Edges.Count; i++)
@@ -308,14 +336,14 @@ namespace StellarFramework.Editor.Modules.FlowKit
                 return pasted;
 
             FlowGraphData sourceGraph = FlowGraphJson.FromJson(data.RuntimeGraphJson);
-            var positions = new Dictionary<string, Vector2>(StringComparer.Ordinal);
+            var metadataByNode = new Dictionary<string, FlowEditorNodeMetadata>(StringComparer.Ordinal);
             if (data.Positions != null)
             {
                 for (int i = 0; i < data.Positions.Count; i++)
                 {
-                    FlowEditorNodeMetadata position = data.Positions[i];
-                    if (position != null && !string.IsNullOrEmpty(position.NodeId))
-                        positions[position.NodeId] = new Vector2(position.X, position.Y);
+                    FlowEditorNodeMetadata metadata = data.Positions[i];
+                    if (metadata != null && !string.IsNullOrEmpty(metadata.NodeId))
+                        metadataByNode[metadata.NodeId] = metadata;
                 }
             }
 
@@ -324,12 +352,20 @@ namespace StellarFramework.Editor.Modules.FlowKit
             {
                 FlowNodeData source = sourceGraph.Nodes[i];
                 if (source == null || string.IsNullOrEmpty(source.Id)) continue;
-                Vector2 position = positions.TryGetValue(source.Id, out Vector2 saved) ? saved + offset : offset;
+                FlowEditorNodeMetadata sourceMetadata = metadataByNode.TryGetValue(source.Id, out FlowEditorNodeMetadata saved) ? saved : null;
+                Vector2 position = sourceMetadata != null ? new Vector2(sourceMetadata.X, sourceMetadata.Y) + offset : offset;
                 FlowNodeData clone = AddNode(source.TypeId, position);
                 clone.DefinitionVersion = source.DefinitionVersion;
                 clone.Parameters = ClonePropertyBag(source.Parameters);
                 clone.Condition = CloneCondition(source.Condition);
                 clone.Options = CloneOptions(source.Options);
+                if (sourceMetadata != null)
+                {
+                    FlowEditorNodeMetadata cloneMetadata = GetOrCreateMetadata(clone.Id);
+                    cloneMetadata.Collapsed = sourceMetadata.Collapsed;
+                    cloneMetadata.DisplayName = sourceMetadata.DisplayName;
+                    cloneMetadata.Description = sourceMetadata.Description;
+                }
                 remap[source.Id] = clone.Id;
                 pasted.Add(clone.Id);
             }
@@ -451,6 +487,7 @@ namespace StellarFramework.Editor.Modules.FlowKit
         private void EnsureMetadata()
         {
             if (Metadata == null) Metadata = new FlowEditorMetadataData();
+            if (Metadata.Version < 2) Metadata.Version = 2;
             if (Metadata.Nodes == null) Metadata.Nodes = new List<FlowEditorNodeMetadata>();
             if (Graph?.Nodes == null) return;
             for (int i = 0; i < Graph.Nodes.Count; i++)
