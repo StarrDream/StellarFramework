@@ -296,6 +296,9 @@ namespace StellarFramework.Editor.Modules.FlowKit
             OpenPath(Path.GetFullPath(Path.Combine(ProjectRoot, assetPath)));
         }
 
+        private const string FireDrillSampleAssetPath =
+            "Assets/StellarFramework/Samples/KitSamples/Example_FlowKit/FireDrillWorkflow4P.flow.json";
+
         private static string ProjectRoot => Path.GetDirectoryName(Application.dataPath) ?? string.Empty;
 
         private void BuildLayout()
@@ -326,6 +329,9 @@ namespace StellarFramework.Editor.Modules.FlowKit
             toolbar.Add(CreateButton("粘贴", PasteSystemClipboard));
             toolbar.Add(CreateButton("副本", DuplicateSelection));
             toolbar.Add(CreateButton("校验", Validate, true));
+            toolbar.Add(CreateButton("项目校验", ValidateProject));
+            if (HasFireDrillSample())
+                toolbar.Add(CreateButton("消防样例", OpenFireDrillSample));
             toolbar.Add(CreateButton("定位全部", () => _canvas.FrameAll()));
             _fileLabel.style.marginLeft = 10f;
             _fileLabel.style.flexGrow = 1f;
@@ -772,6 +778,39 @@ namespace StellarFramework.Editor.Modules.FlowKit
             _lastResult = FlowCompiler.Compile(_document.Graph, _registry);
             RebuildValidation();
             UpdateHeader();
+        }
+
+        private void ValidateProject()
+        {
+            FlowBuildValidationResult result = FlowKitBuildValidator.ValidateProject();
+            if (result.Succeeded)
+            {
+                ShowNotification($"项目校验通过：{result.GraphCount} 个 Flow。");
+                Debug.Log($"FlowKit 项目校验通过：{result.GraphCount} 个流程。");
+                return;
+            }
+
+            ShowNotification($"项目校验失败：{result.Errors.Count} 个错误，请查看 Console。");
+            Debug.LogError(result.CreateSummary());
+        }
+
+        private static bool HasFireDrillSample()
+        {
+            return AssetDatabase.LoadAssetAtPath<TextAsset>(FireDrillSampleAssetPath) != null;
+        }
+
+        private void OpenFireDrillSample()
+        {
+            TextAsset sample = AssetDatabase.LoadAssetAtPath<TextAsset>(FireDrillSampleAssetPath);
+            if (sample == null)
+            {
+                ShowNotification("当前项目未导入 FlowKit 消防样例包。");
+                return;
+            }
+
+            string absolutePath = Path.GetFullPath(Path.Combine(ProjectRoot, FireDrillSampleAssetPath));
+            OpenPath(absolutePath, true);
+            EditorApplication.delayCall += () => _canvas?.FrameAll();
         }
 
         private void RebuildValidation()

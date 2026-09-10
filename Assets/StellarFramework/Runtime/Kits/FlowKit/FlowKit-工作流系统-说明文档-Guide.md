@@ -6,7 +6,7 @@ FlowKit 是本地单进程的声明式工作流运行时。Graph 以 JSON 保存
 
 - `flowkit.core`：纯 C# Core，不引用 Unity，不需要 UniTask、Addressables 或 HybridCLR。
 - `flowkit.unity`：`FlowHost`、`FlowBinding` 和 JSON 入口，依赖 `flowkit.core`，只引用 UnityEngine。
-- `flowkit.tools`：框架开发工程中的 Graph Validator 和独立 FlowKit 窗口，依赖 ToolsHub；业务项目不需要导入。
+- `flowkit.tools`：FlowKit 的 Editor 工具层，依赖 ToolsHub；可视化编辑器、项目校验和运行时诊断统一位于 `StellarFramework -> Tools Hub -> 框架核心 -> FlowKit 流程编辑器`。它是开发期可选工具，不进入玩家 Runtime，也不提供独立 FlowKit 顶层菜单。
 
 导出目录以 `Assets/StellarFramework/KitCatalog/KitDistributionCatalog.json` 为准。热更新是可选投递方式，不是 FlowKit 的运行时前置条件。
 

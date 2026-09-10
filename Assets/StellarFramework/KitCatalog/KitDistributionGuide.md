@@ -47,7 +47,7 @@
 | AudioKit.ResKitAdapter | AudioKit.Core + ResKit.Core + ResKit 音频加载器 | UniTask | Addressables、HybridCLR、代码热更 |
 | FlowKit.Core | Graph/Compiler/immutable Plan、Runner、Timer、Signal、State、Blackboard、Polling、Operation 与 Parallel/Race/Join | 无 | UnityEngine、UniTask、Addressables、HybridCLR、UI、资源和业务对象 |
 | FlowKit.UnityIntegration | FlowHost、稳定 FlowBinding、JSON Graph 入口 | 无 | UniTask、Addressables、HybridCLR、ResKit、ToolsHub |
-| FlowKit.Tools | FlowKit Graph Validator 与独立窗口 | 无 | 仅框架开发工程；不进入 Runtime 包 |
+| FlowKit.ToolsHub | ToolsHub.Core + FlowKit 可视化编辑、项目校验、运行时诊断 | 无 | Editor-only；不进入玩家 Runtime，不提供独立 FlowKit 顶层菜单 |
 
 ## 资源与 UI 组合
 

@@ -38,7 +38,7 @@ Catalog schema v2 以 `tier` / `category` 描述架构职责；它不改变 `kin
 | PathKit.GridKitAdapter | PathKit + GridKit 的 GridPathGraph、Four/Eight、TraversalPolicy、转角策略与负坐标映射 | Addressables、HybridCLR、移动/世界服务与固定 Occupancy 语义 |
 | FlowKit.Core | 纯 C# Graph/Compiler/Plan、Runner、Timer、Signal、State、Blackboard、Polling、Operation、Parallel/Race/Join 与 Snapshot | UnityEngine、UniTask、Addressables、HybridCLR、UI、资源和业务对象 |
 | FlowKit.UnityIntegration | FlowHost、稳定 FlowBinding、JSON Graph 入口 | UniTask、Addressables、HybridCLR、ResKit、ToolsHub |
-| FlowKit.Tools | FlowKit Graph Validator 与独立 FlowKit 窗口 | 仅在框架开发工程使用；不进入 Runtime 包 |
+| FlowKit.ToolsHub | ToolsHub 内嵌 FlowKit 编辑器、Graph Validator、运行时诊断 | Editor-only；不进入玩家 Runtime；无独立 FlowKit 顶层菜单 |
 | HotUpdate.Core | ResKit.Core、HttpKit、热更策略抽象 | Addressables、HybridCLR、代码热更实现 |
 | HotUpdate.Addressables | HotUpdate.Core、ResKit.Addressables | HybridCLR |
 | HotUpdate.HybridCLR | HotUpdate.Addressables、HybridCLR 运行时与导出工具 | 无 |

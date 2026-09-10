@@ -93,7 +93,7 @@ PathKit V1 Core Semantics 已冻结：Graph-first Core、A*/Dijkstra、admissibl
 
 FlowKit.Core 是 `foundation / flow`：Graph JSON 经显式迁移、验证和编译后形成不可变 FlowPlan，由预算化 Runner、Timer、Signal、State、Blackboard、Operation 和执行组调度。Core 不引用 Unity、UniTask、Addressables、HybridCLR、UI、资源或业务领域对象，因此可以单独导出。
 
-`FlowKit.UnityIntegration` 是 `adapter / flow`，只提供 FlowHost、稳定 Binding 和 JSON 文本入口。ToolsHub Graph Validator 与独立窗口属于 tooling profile，不进入 Runtime 导出包。Parallel/Race/Join、条件 AST、PlanHash 快照和 Operation/Capability 边界均通过显式 API 接入，不使用运行时反射或全图扫描。
+`FlowKit.UnityIntegration` 是 `adapter / flow`，只提供 FlowHost、稳定 Binding 和 JSON 文本入口。FlowKit 的可视化编辑、项目校验和运行时诊断统一收容在 ToolsHub 的 FlowKit 模块中，属于独立 tooling profile，不进入玩家 Runtime。Parallel/Race/Join、条件 AST、PlanHash 快照和 Operation/Capability 边界均通过显式 API 接入，不使用运行时反射或全图扫描。
 
 ## SimulationKit 的定位
 

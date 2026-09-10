@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using UnityEditor;
 using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
 using UnityEngine;
@@ -21,15 +20,6 @@ namespace StellarFramework.Editor.Modules.FlowKit
                 throw new BuildFailedException(result.CreateSummary());
         }
 
-        [MenuItem("StellarFramework/FlowKit/校验项目全部流程", priority = 30)]
-        private static void ValidateFromMenu()
-        {
-            FlowBuildValidationResult result = ValidateProject();
-            if (result.Succeeded)
-                Debug.Log($"FlowKit 项目校验通过：{result.GraphCount} 个流程。");
-            else
-                Debug.LogError(result.CreateSummary());
-        }
         internal static FlowBuildValidationResult ValidateProject()
         {
             FlowNodeRegistry registry = FlowKitEditorRegistry.Create(out IReadOnlyList<string> registryIssues);

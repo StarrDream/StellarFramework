@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 using UnityEditor;
 using NUnit.Framework;
 using UnityEngine;
@@ -71,6 +72,41 @@ namespace StellarFramework.Editor.Modules.FlowKit.Tests
             FlowNodeRegistry registry = FlowKitEditorRegistry.Create(out IReadOnlyList<string> issues);
             Assert.That(issues, Is.Empty);
             Assert.That(registry.TryGetDescriptor(new FlowNodeTypeId("flow.branch.condition"), out _), Is.True);
+        }
+
+        [Test]
+        public void FlowKitEditorIsExposedThroughToolsHubWithoutStandaloneMenu()
+        {
+            bool hasToolsHubRegistration = false;
+            IList<CustomAttributeData> typeAttributes = typeof(FlowKitHubModule).GetCustomAttributesData();
+            for (int i = 0; i < typeAttributes.Count; i++)
+            {
+                CustomAttributeData attribute = typeAttributes[i];
+                if (!string.Equals(attribute.AttributeType.FullName,
+                        "StellarFramework.Editor.StellarToolAttribute", StringComparison.Ordinal)) continue;
+                hasToolsHubRegistration = attribute.ConstructorArguments.Count > 0 &&
+                    string.Equals(attribute.ConstructorArguments[0].Value as string,
+                        "FlowKit 流程编辑器", StringComparison.Ordinal);
+                break;
+            }
+            Assert.That(hasToolsHubRegistration, Is.True, "FlowKit must register as a ToolsHub module.");
+
+            Type[] types = typeof(FlowKitHubModule).Assembly.GetTypes();
+            for (int i = 0; i < types.Length; i++)
+            {
+                MethodInfo[] methods = types[i].GetMethods(
+                    BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
+                for (int j = 0; j < methods.Length; j++)
+                {
+                    object[] attributes = methods[j].GetCustomAttributes(typeof(MenuItem), false);
+                    for (int k = 0; k < attributes.Length; k++)
+                    {
+                        var menuItem = (MenuItem)attributes[k];
+                        Assert.That(menuItem.menuItem, Does.Not.StartWith("StellarFramework/FlowKit/"),
+                            $"FlowKit must be hosted inside ToolsHub, but standalone menu remains on {types[i].FullName}.{methods[j].Name}.");
+                    }
+                }
+            }
         }
 
         [Test]

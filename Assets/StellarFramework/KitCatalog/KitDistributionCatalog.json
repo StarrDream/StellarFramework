@@ -357,7 +357,7 @@
     },
     {
       "id": "flowkit.tools",
-      "displayName": "FlowKit.Tools",
+      "displayName": "FlowKit.ToolsHub",
       "kind": "tooling",
       "availability": "available",
       "output": "StellarFramework-FlowKit-Tools.unitypackage",
@@ -367,7 +367,7 @@
       "requiredProfileIds": ["flowkit.core", "flowkit.unity", "toolshub.core"],
       "requiredKits": ["FlowKit.Core", "FlowKit.UnityIntegration", "ToolsHub.Core"],
       "requiredUpm": [],
-      "optionalCapabilities": ["GraphValidator", "FlowKitEditorWindow"],
+      "optionalCapabilities": ["GraphValidator", "ToolsHubEmbeddedFlowEditor"],
       "excludedCapabilities": ["Addressables", "HybridCLR", "CodeHotUpdate"]
     },
     {
