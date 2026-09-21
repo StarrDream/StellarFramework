@@ -2,7 +2,7 @@
     "version": 1,
     "buildTarget": "StandaloneWindows64",
     "hotUpdateAssemblyKey": "Assets/GameHotUpdate/Code/HotUpdate.dll.bytes",
-    "hotUpdateAssemblySha256": "e3d707b53fecb9a748d3fd837635c2c2e13a9ac126c517dd2a1fb5be89457544",
+    "hotUpdateAssemblySha256": "170f24354ad67cc09b86ce4cc6ddd2fc0feed250195b7362954c1d63370d3fd0",
     "hotUpdateEntryClass": "HotUpdate.HotUpdateMain",
     "hotUpdateEntryMethod": "Main",
     "aotMetadataKeys": [

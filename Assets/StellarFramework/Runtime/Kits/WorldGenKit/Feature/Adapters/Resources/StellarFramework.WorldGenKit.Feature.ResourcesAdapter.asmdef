@@ -1,0 +1,17 @@
+{
+    "name": "StellarFramework.WorldGenKit.Feature.ResourcesAdapter",
+    "rootNamespace": "StellarFramework.WorldGenKit.Feature.ResourcesAdapter",
+    "references": [
+        "StellarFramework.WorldGenKit.Feature",
+        "StellarFramework.WorldGenKit.Resources"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": true
+}

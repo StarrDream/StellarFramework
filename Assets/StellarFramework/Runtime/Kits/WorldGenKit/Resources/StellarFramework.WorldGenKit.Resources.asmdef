@@ -1,0 +1,16 @@
+{
+    "name": "StellarFramework.WorldGenKit.Resources",
+    "rootNamespace": "StellarFramework.WorldGenKit.Resources",
+    "references": [
+        "StellarFramework.WorldGenKit.Core"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": true
+}

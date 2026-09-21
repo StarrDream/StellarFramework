@@ -5,6 +5,13 @@ using UnityEngine;
 
 namespace StellarFramework.Event
 {
+    /// <summary>
+    /// 以 enum 值作为 Key 的全局事件总线。
+    /// </summary>
+    /// <remarks>
+    /// 同一个 enum key 在生命周期内只能使用一种委托签名；例如某个 key 一旦注册为 Action&lt;int&gt;，
+    /// 后续注册和广播必须保持相同参数签名。注册和广播均为同步调用，不做线程同步。
+    /// </remarks>
     public static class GlobalEnumEvent
     {
         #region Internal Types
@@ -361,21 +368,25 @@ namespace StellarFramework.Event
             return AllocateToken(key, callback);
         }
 
+        /// <summary>注册无参数枚举事件。</summary>
         public static IUnRegister Register<T>(T key, Action callback) where T : Enum
         {
             return OnRegister(key, callback);
         }
 
+        /// <summary>注册单参数枚举事件。</summary>
         public static IUnRegister Register<T, T1>(T key, Action<T1> callback) where T : Enum
         {
             return OnRegister(key, callback);
         }
 
+        /// <summary>注册双参数枚举事件。</summary>
         public static IUnRegister Register<T, T1, T2>(T key, Action<T1, T2> callback) where T : Enum
         {
             return OnRegister(key, callback);
         }
 
+        /// <summary>注册三参数枚举事件。</summary>
         public static IUnRegister Register<T, T1, T2, T3>(T key, Action<T1, T2, T3> callback) where T : Enum
         {
             return OnRegister(key, callback);
@@ -404,21 +415,25 @@ namespace StellarFramework.Event
             RemoveFromEventTable(key, callback);
         }
 
+        /// <summary>精确注销无参数回调。</summary>
         public static void UnRegister<T>(T key, Action callback) where T : Enum
         {
             OnUnRegister(key, callback);
         }
 
+        /// <summary>精确注销单参数回调。</summary>
         public static void UnRegister<T, T1>(T key, Action<T1> callback) where T : Enum
         {
             OnUnRegister(key, callback);
         }
 
+        /// <summary>精确注销双参数回调。</summary>
         public static void UnRegister<T, T1, T2>(T key, Action<T1, T2> callback) where T : Enum
         {
             OnUnRegister(key, callback);
         }
 
+        /// <summary>精确注销三参数回调。</summary>
         public static void UnRegister<T, T1, T2, T3>(T key, Action<T1, T2, T3> callback) where T : Enum
         {
             OnUnRegister(key, callback);
@@ -428,6 +443,7 @@ namespace StellarFramework.Event
 
         #region Public API: Broadcast
 
+        /// <summary>同步广播无参数事件。</summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void Broadcast<T>(T key) where T : Enum
         {
@@ -439,6 +455,7 @@ namespace StellarFramework.Event
             action.Invoke();
         }
 
+        /// <summary>同步广播单参数事件。</summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void Broadcast<T, T1>(T key, T1 v1) where T : Enum
         {
@@ -450,6 +467,7 @@ namespace StellarFramework.Event
             action.Invoke(v1);
         }
 
+        /// <summary>同步广播双参数事件。</summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void Broadcast<T, T1, T2>(T key, T1 v1, T2 v2) where T : Enum
         {
@@ -461,6 +479,7 @@ namespace StellarFramework.Event
             action.Invoke(v1, v2);
         }
 
+        /// <summary>同步广播三参数事件。</summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void Broadcast<T, T1, T2, T3>(T key, T1 v1, T2 v2, T3 v3) where T : Enum
         {
@@ -474,6 +493,10 @@ namespace StellarFramework.Event
 
         #endregion
 
+        /// <summary>
+        /// 清空指定枚举类型下的全部事件、签名信息和内部 Token 缓存。
+        /// 仅适合测试或框架整体重置，不应作为普通业务注销方式。
+        /// </summary>
         public static void ClearAll<T>() where T : Enum
         {
             // 清理池中 Token 的生命周期绑定引用，防止 Token 池持有已销毁 Trigger 的残留引用。

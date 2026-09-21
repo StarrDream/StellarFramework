@@ -1,0 +1,17 @@
+{
+    "name": "StellarFramework.WorldGenKit.Authoring",
+    "rootNamespace": "StellarFramework.WorldGenKit.Authoring",
+    "references": [
+        "StellarFramework.WorldGenKit.Core",
+        "StellarFramework.WorldGenKit.Builtins"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": true
+}

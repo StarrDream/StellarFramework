@@ -1,40 +1,66 @@
-﻿# Samples / 样例总览
+# Samples / Demo 总览
 
-`Assets/StellarFramework/Samples` 是面向框架使用者的教学入口，包含架构教学和各 Kit 的最小样例；不承担自动化回归、Integration 或 Release 验收。
+## 中文
 
-## 目录
+`Assets/StellarFramework/Samples` 只保留一个面向使用者的入门 Demo：`ArchitectureDemo`。
 
-- `ArchitectureDemo/`
-  架构教学案例，用来演示 `Architecture / Model / Service / View / UI` 的协作链路。
-- `KitSamples/`
-  单个模块的最小可运行案例，用来学习接线、资源和调用方式。
-  其中 `KitSamples/Scenes/GridKit_Playable.unity`、`KitSamples/Scenes/TimeKit_Playable.unity`、`KitSamples/Scenes/SaveKit_Playable.unity`、`KitSamples/Scenes/SimulationKit_Playable.unity`、`KitSamples/Scenes/PathKit_Playable.unity` 与 `KitSamples/Scenes/FlowKit_Playable.unity` 是不带资源/热更前置的基础闭环，可单独导出；GridKit 适配器样例随适配器包导出。
+StellarFramework 不再为每个 Kit 维护独立 Sample 场景。这样可以避免大量重复场景、Builder、测试资源与分发 Profile 带来的维护成本，也避免 Sample 与正式文档长期漂移。
 
-## 建议顺序
+### 唯一入口
 
-1. `../快速开始.md`
-2. `KitSamples/Scenes/UIKit_Playable.unity`
-3. `KitSamples/Scenes/ResKit_Playable.unity`
-4. `KitSamples/README.md`
-5. `KitSamples/Scenes/README.md`
-6. `ArchitectureDemo/README.md`
-7. `ArchitectureDemo/Scene/FrameworkArchitecture_Playable.unity`
-8. 对应模块目录下的 `English-中文-Guide.md`
-9. `KitSamples/Scenes/GridKit_Playable.unity`
-10. `KitSamples/Scenes/FlowKit_Playable.unity`
+打开：
 
-## 说明
+`Assets/StellarFramework/Samples/ArchitectureDemo/Scene/FrameworkArchitecture_Playable.unity`
 
-- `KitSamples` 适合按模块查 API、看资源组织方式和验证最小闭环。
-- `ArchitectureDemo` 适合在基础样例跑通后，再理解 `Architecture / Model / Service / View / UI` 的协作链路。
-- `KitSamples/Editor` 里的构建器会补齐样例场景、测试配置和依赖资源。
-- `SettingsKit_Playable.unity` 已加入 `KitSamples`，可直接验证设置系统的默认页、扩展页、存储和即时应用。
-- `TimeKit_Playable.unity` 与 `SaveKit_Playable.unity` 各自只依赖对应 Kit；SaveKit 样例另外演示 DTO、RestoreAfter 与 V1→V2 迁移。
-- `GridKit_Playable.unity` 只依赖 GridKit.Core，演示负坐标、row-major DenseGrid、Footprint 变换与 Occupancy 原子冲突。
-- `SimulationKit_Playable.unity` 只依赖 SimulationKit.Core，演示 Game Tick 与 Frame Step 分离、Burst/Staggered 首次派发、固定预算、过期合并和显式同 tick Drain。
-- `PathKit_Playable.unity` 只依赖 PathKit.Core，演示 Graph-first A*/Dijkstra、加权边、NoPath 与确定性输出；`PathKit_GridKitAdapter_Playable.unity` 通过独立适配器接入 GridKit。
-- `FlowKit_Playable.unity` 只依赖 FlowKit.Core + UnityIntegration，演示 JSON Graph 编译、Delay 调度和 Complete 生命周期。
-- 自动化测试位于 `Assets/StellarFramework/Tests`；框架开发者的组合、Player 和发布前冒烟位于 `Assets/StellarFrameworkVerification`，两者都不属于用户样例。
+它用于建立框架整体认知，展示：
 
-验证架构与发布 Gate 见 `Assets/StellarFrameworkVerification/ValidationArchitecture.md`。
+- Architecture / Model / Service / View 分层
+- BindableKit 状态绑定
+- ActionKit 命令调用
+- UIKit 面板入口
+- LocalizationKit 中英文切换
+- LogKit 基础日志
 
+这个 Demo 不追求覆盖全部 Kit，也不承担发布验收。
+
+### 其他 Kit 怎么学
+
+所有 Kit 的正式使用说明、依赖边界、最小代码片段、源码说明和排错统一维护在：
+
+`Assets/StellarFramework/FrameworkDoc`
+
+不要通过新增 Sample 场景补文档。只有当一个跨 Kit 行为无法用文档、自动测试或维护者验证表达时，才重新评估是否需要新的 Demo。
+
+### 验证边界
+
+- 自动化测试：`Assets/StellarFramework/Tests`
+- 维护者发布验证：`Assets/StellarFrameworkVerification`
+- 用户入门 Demo：`Assets/StellarFramework/Samples/ArchitectureDemo`
+
+三者职责分离。
+
+## English
+
+`Assets/StellarFramework/Samples` now contains exactly one user-facing onboarding demo: `ArchitectureDemo`.
+
+StellarFramework no longer maintains one runnable Sample scene per Kit. This avoids duplicate scenes, builders, fixture assets, distribution profiles, and documentation drift.
+
+### Single entry point
+
+Open:
+
+`Assets/StellarFramework/Samples/ArchitectureDemo/Scene/FrameworkArchitecture_Playable.unity`
+
+It demonstrates the collaboration between Architecture/MSV, BindableKit, ActionKit, UIKit, LocalizationKit, and LogKit. It is intentionally small and does not attempt to cover every Kit.
+
+### Learning other Kits
+
+The authoritative usage guides, dependency boundaries, minimal code snippets, source guides, and troubleshooting notes live under:
+
+`Assets/StellarFramework/FrameworkDoc`
+
+### Validation boundary
+
+- Automated regression tests: `Assets/StellarFramework/Tests`
+- Maintainer release verification: `Assets/StellarFrameworkVerification`
+- User onboarding demo: `Assets/StellarFramework/Samples/ArchitectureDemo`

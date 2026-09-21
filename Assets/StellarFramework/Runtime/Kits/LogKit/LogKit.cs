@@ -4,6 +4,14 @@ using Debug = UnityEngine.Debug;
 
 namespace StellarFramework
 {
+    /// <summary>
+    /// 框架统一日志门面。
+    /// 默认输出到 Unity Console，也可通过 <see cref="SetLogger"/> 接入项目自己的日志系统。
+    /// </summary>
+    /// <remarks>
+    /// 普通 Log/Warning 受 ENABLE_LOG 条件编译控制；LogError 不依赖 ENABLE_LOG，
+    /// 以便 Release 中仍可保留关键错误路径。是否真正输出错误由 <see cref="LogErrorEnabled"/> 控制。
+    /// </remarks>
     public static class LogKit
     {
         private static ILogger _logger = new UnityLogger();
@@ -22,7 +30,7 @@ namespace StellarFramework
         }
 
         /// <summary>
-        /// 注入自定义日志处理器
+        /// 注入自定义日志处理器。传入 null 时保持当前 Logger 不变。
         /// </summary>
         public static void SetLogger(ILogger logger)
         {
@@ -34,12 +42,18 @@ namespace StellarFramework
             _logger = logger;
         }
 
+        /// <summary>
+        /// 输出普通日志。未定义 ENABLE_LOG 时该调用会被编译器移除。
+        /// </summary>
         [Conditional("ENABLE_LOG")]
         public static void Log(object msg)
         {
             _logger.Log(msg?.ToString());
         }
 
+        /// <summary>
+        /// 输出带调用对象类型前缀的普通日志。
+        /// </summary>
         [Conditional("ENABLE_LOG")]
         public static void Log(object script, object msg)
         {
@@ -52,12 +66,18 @@ namespace StellarFramework
             _logger.Log($"[{script.GetType().Name}] {msg}");
         }
 
+        /// <summary>
+        /// 输出警告日志。未定义 ENABLE_LOG 时该调用会被编译器移除。
+        /// </summary>
         [Conditional("ENABLE_LOG")]
         public static void LogWarning(object msg)
         {
             _logger.LogWarning(msg?.ToString());
         }
 
+        /// <summary>
+        /// 输出带调用对象类型前缀的警告日志。
+        /// </summary>
         [Conditional("ENABLE_LOG")]
         public static void LogWarning(object script, object msg)
         {
@@ -71,9 +91,12 @@ namespace StellarFramework
         }
 
         /// <summary>
-        /// 错误日志输出
-        /// 规范：调用此方法后，业务线必须紧跟 return 阻断逻辑，防止脏数据扩散。
+        /// 输出错误日志。
         /// </summary>
+        /// <remarks>
+        /// 本方法只负责记录，不会自动抛异常或中断流程。
+        /// 若错误意味着当前操作不可继续，调用方仍应显式 return/throw。
+        /// </remarks>
         public static void LogError(object msg)
         {
             if (!_logErrorEnabled)
@@ -84,6 +107,9 @@ namespace StellarFramework
             _logger.LogError(msg?.ToString());
         }
 
+        /// <summary>
+        /// 输出带调用对象类型前缀的错误日志。
+        /// </summary>
         public static void LogError(object script, object msg)
         {
             if (!_logErrorEnabled)
@@ -100,6 +126,9 @@ namespace StellarFramework
             _logger.LogError($"[{script.GetType().Name}] {msg}");
         }
 
+        /// <summary>
+        /// 记录异常及其堆栈。
+        /// </summary>
         public static void LogException(Exception e)
         {
             _logger.LogException(e);
@@ -126,6 +155,10 @@ namespace StellarFramework
 #endif
         }
 
+        /// <summary>
+        /// 断言对象不为 null。
+        /// 仅 Editor / Development Build 生效，Release 中该调用会被条件编译移除。
+        /// </summary>
         [Conditional("UNITY_EDITOR"), Conditional("DEVELOPMENT_BUILD")]
         public static void AssertNotNull(object obj, string errorMsg)
         {
@@ -137,7 +170,8 @@ namespace StellarFramework
         #region 轻量辅助工具
 
         /// <summary>
-        /// 我提供一个显式返回 bool 的校验辅助，避免业务误把 Assert 当成真正阻断。
+        /// 执行运行时校验并返回结果。
+        /// 失败时始终记录 LogError；开发构建额外触发 Assert。
         /// </summary>
         public static bool AssertAndLog(bool condition, string errorMsg)
         {
@@ -154,7 +188,7 @@ namespace StellarFramework
         }
 
         /// <summary>
-        /// 我提供统一的错误后 false 返回助手，减少重复样板代码。
+        /// 记录错误并返回 false，用于简化 Try/Validate 风格的错误分支。
         /// </summary>
         public static bool ErrorAndReturnFalse(string errorMsg)
         {

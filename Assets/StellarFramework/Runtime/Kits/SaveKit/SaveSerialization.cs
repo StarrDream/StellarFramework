@@ -69,9 +69,9 @@ namespace StellarFramework
             {
                 json = JsonUtility.ToJson(new StringBox { Value = (string)value });
             }
-            else if (dataType.IsPrimitive || dataType.IsEnum || dataType == typeof(decimal))
+            else if (IsBoxedScalar(dataType))
             {
-                json = JsonUtility.ToJson(CreateValueBox(dataType, value));
+                json = SerializeScalar(dataType, value);
             }
             else
             {
@@ -101,29 +101,81 @@ namespace StellarFramework
                     return UniTask.FromResult<object>(box == null ? null : box.Value);
                 }
 
-                if (dataType.IsPrimitive || dataType.IsEnum || dataType == typeof(decimal))
+                if (IsBoxedScalar(dataType))
                 {
-                    object box = CreateValueBox(dataType, null);
-                    Type boxType = box.GetType();
-                    object parsed = JsonUtility.FromJson(json, boxType);
-                    return UniTask.FromResult(GetValueField(parsed, boxType));
+                    return UniTask.FromResult(DeserializeScalar(dataType, json));
                 }
 
                 return UniTask.FromResult(JsonUtility.FromJson(json, dataType));
             }
         }
 
-        private static object CreateValueBox(Type dataType, object value)
+        private static bool IsBoxedScalar(Type dataType)
         {
-            Type boxType = typeof(ValueBox<>).MakeGenericType(dataType);
-            object box = Activator.CreateInstance(boxType);
-            boxType.GetField("Value").SetValue(box, value);
-            return box;
+            return dataType.IsPrimitive || dataType.IsEnum || dataType == typeof(decimal);
         }
 
-        private static object GetValueField(object box, Type boxType)
+        private static string SerializeScalar(Type dataType, object value)
         {
-            return box == null ? null : boxType.GetField("Value").GetValue(box);
+            if (dataType == typeof(bool)) return JsonUtility.ToJson(new ValueBox<bool> { Value = value != null && (bool)value });
+            if (dataType == typeof(byte)) return JsonUtility.ToJson(new ValueBox<byte> { Value = value == null ? default : (byte)value });
+            if (dataType == typeof(sbyte)) return JsonUtility.ToJson(new ValueBox<sbyte> { Value = value == null ? default : (sbyte)value });
+            if (dataType == typeof(short)) return JsonUtility.ToJson(new ValueBox<short> { Value = value == null ? default : (short)value });
+            if (dataType == typeof(ushort)) return JsonUtility.ToJson(new ValueBox<ushort> { Value = value == null ? default : (ushort)value });
+            if (dataType == typeof(int)) return JsonUtility.ToJson(new ValueBox<int> { Value = value == null ? default : (int)value });
+            if (dataType == typeof(uint)) return JsonUtility.ToJson(new ValueBox<uint> { Value = value == null ? default : (uint)value });
+            if (dataType == typeof(long)) return JsonUtility.ToJson(new ValueBox<long> { Value = value == null ? default : (long)value });
+            if (dataType == typeof(ulong)) return JsonUtility.ToJson(new ValueBox<ulong> { Value = value == null ? default : (ulong)value });
+            if (dataType == typeof(float)) return JsonUtility.ToJson(new ValueBox<float> { Value = value == null ? default : (float)value });
+            if (dataType == typeof(double)) return JsonUtility.ToJson(new ValueBox<double> { Value = value == null ? default : (double)value });
+            if (dataType == typeof(char)) return JsonUtility.ToJson(new ValueBox<char> { Value = value == null ? default : (char)value });
+            if (dataType == typeof(decimal)) return JsonUtility.ToJson(new ValueBox<decimal> { Value = value == null ? default : (decimal)value });
+            if (dataType.IsEnum)
+            {
+                Type underlyingType = Enum.GetUnderlyingType(dataType);
+                object underlyingValue = value == null ? GetEnumUnderlyingDefault(underlyingType) : Convert.ChangeType(value, underlyingType);
+                return SerializeScalar(underlyingType, underlyingValue);
+            }
+
+            throw new NotSupportedException($"UnityJsonSaveSerializer 不支持标量类型: {dataType.FullName}");
+        }
+
+        private static object DeserializeScalar(Type dataType, string json)
+        {
+            if (dataType == typeof(bool)) return JsonUtility.FromJson<ValueBox<bool>>(json)?.Value ?? default(bool);
+            if (dataType == typeof(byte)) return JsonUtility.FromJson<ValueBox<byte>>(json)?.Value ?? default(byte);
+            if (dataType == typeof(sbyte)) return JsonUtility.FromJson<ValueBox<sbyte>>(json)?.Value ?? default(sbyte);
+            if (dataType == typeof(short)) return JsonUtility.FromJson<ValueBox<short>>(json)?.Value ?? default(short);
+            if (dataType == typeof(ushort)) return JsonUtility.FromJson<ValueBox<ushort>>(json)?.Value ?? default(ushort);
+            if (dataType == typeof(int)) return JsonUtility.FromJson<ValueBox<int>>(json)?.Value ?? default(int);
+            if (dataType == typeof(uint)) return JsonUtility.FromJson<ValueBox<uint>>(json)?.Value ?? default(uint);
+            if (dataType == typeof(long)) return JsonUtility.FromJson<ValueBox<long>>(json)?.Value ?? default(long);
+            if (dataType == typeof(ulong)) return JsonUtility.FromJson<ValueBox<ulong>>(json)?.Value ?? default(ulong);
+            if (dataType == typeof(float)) return JsonUtility.FromJson<ValueBox<float>>(json)?.Value ?? default(float);
+            if (dataType == typeof(double)) return JsonUtility.FromJson<ValueBox<double>>(json)?.Value ?? default(double);
+            if (dataType == typeof(char)) return JsonUtility.FromJson<ValueBox<char>>(json)?.Value ?? default(char);
+            if (dataType == typeof(decimal)) return JsonUtility.FromJson<ValueBox<decimal>>(json)?.Value ?? default(decimal);
+            if (dataType.IsEnum)
+            {
+                Type underlyingType = Enum.GetUnderlyingType(dataType);
+                object underlyingValue = DeserializeScalar(underlyingType, json);
+                return Enum.ToObject(dataType, underlyingValue);
+            }
+
+            throw new NotSupportedException($"UnityJsonSaveSerializer 不支持标量类型: {dataType.FullName}");
+        }
+
+        private static object GetEnumUnderlyingDefault(Type dataType)
+        {
+            if (dataType == typeof(byte)) return default(byte);
+            if (dataType == typeof(sbyte)) return default(sbyte);
+            if (dataType == typeof(short)) return default(short);
+            if (dataType == typeof(ushort)) return default(ushort);
+            if (dataType == typeof(int)) return default(int);
+            if (dataType == typeof(uint)) return default(uint);
+            if (dataType == typeof(long)) return default(long);
+            if (dataType == typeof(ulong)) return default(ulong);
+            throw new NotSupportedException($"枚举底层类型不受支持: {dataType.FullName}");
         }
     }
 

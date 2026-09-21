@@ -36,7 +36,7 @@ namespace StellarFramework.Tests.FrameworkValidation
             string source = ReadAssetText(
                 "Assets/StellarFramework/Editor/StellarToolsHub/Modules/Packaging/StellarFrameworkPackagePublisher.cs");
 
-            Assert.That(source, Does.Contain("Assets/StellarFramework/Runtime/Kits/HotUpdateKit"));
+            Assert.That(source, Does.Contain("Assets/StellarFramework/Runtime/Kits/HybridCLRKit"));
             Assert.That(source, Does.Contain("Assets/StellarFramework/Runtime/Kits/Reskit/Loaders/AddressableLoader"));
             Assert.That(source, Does.Contain("Assets/StellarFramework/Tests"));
         }
@@ -123,31 +123,25 @@ namespace StellarFramework.Tests.FrameworkValidation
         }
 
         [Test]
-        public void PackagePublisherExcludesGeneratedSamplesFromPayloads()
+        public void PackagePublisherExcludesRepositoryDemoFromPayloads()
         {
             string source = ReadAssetText(
                 "Assets/StellarFramework/Editor/StellarToolsHub/Modules/Packaging/StellarFrameworkPackagePublisher.cs");
 
-            Assert.That(source, Does.Contain("Assets/StellarFramework/Samples/KitSamples/Scenes"));
-            Assert.That(source, Does.Contain("Assets/StellarFramework/Samples/KitSamples/Generated"));
-            Assert.That(source, Does.Contain("Assets/StellarFramework/Samples/KitSamples/Example_ResKit/Addressables"));
-            Assert.That(source, Does.Contain("Assets/StellarFramework/Samples/KitSamples/Example_ResKit/Art"));
-            Assert.That(source, Does.Contain("Assets/StellarFramework/Samples/KitSamples/Example_ResKit/Resources"));
-            Assert.That(source, Does.Contain("Assets/StellarFramework/Samples/ArchitectureDemo/Scene"));
-            Assert.That(source, Does.Contain("Assets/StellarFramework/Samples/ArchitectureDemo/Resources"));
+            Assert.That(source, Does.Contain("Assets/StellarFramework/Samples"));
+            Assert.That(source, Does.Not.Contain("Samples/KitSamples"));
             Assert.That(source, Does.Contain("Assets/StellarFramework/Resources/UIPanel/UIRoot.prefab"));
             Assert.That(source, Does.Contain("Assets/StellarFramework/Resources/UIPanel/ExamplePanel.prefab"));
             Assert.That(source, Does.Contain("Assets/StellarFramework/Resources/Audio"));
         }
 
         [Test]
-        public void PackagePublisherExcludesGeneratedSampleScenesFromBasePayload()
+        public void PackagePublisherExcludesRepositoryDemoFromBasePayload()
         {
             string source = ReadAssetText(
                 "Assets/StellarFramework/Editor/StellarToolsHub/Modules/Packaging/StellarFrameworkPackagePublisher.cs");
 
-            Assert.That(source, Does.Contain("Assets/StellarFramework/Samples/KitSamples/Scenes"));
-            Assert.That(source, Does.Contain("Assets/StellarFramework/Samples/ArchitectureDemo/Scene"));
+            Assert.That(source, Does.Contain("Assets/StellarFramework/Samples"));
         }
 
         [Test]
@@ -252,7 +246,7 @@ namespace StellarFramework.Tests.FrameworkValidation
             Assert.That(readme, Does.Contain("Unity 2022.3 LTS"));
             Assert.That(readme, Does.Contain("Unity 6000.x"));
             Assert.That(readme, Does.Contain("Built-in、URP、HDRP"));
-            Assert.That(readme, Does.Contain("构建样例"));
+            Assert.That(readme, Does.Contain("FrameworkDoc"));
         }
 
         [Test]
@@ -265,7 +259,8 @@ namespace StellarFramework.Tests.FrameworkValidation
             Assert.That(source, Does.Contain("Unity 6000.x"));
             Assert.That(source, Does.Contain("Built-in、URP 或 HDRP"));
             Assert.That(source, Does.Contain("RenderPipelineCompatibility"));
-            Assert.That(source, Does.Contain("SampleTemplates"));
+            Assert.That(source, Does.Contain("FrameworkDoc"));
+            Assert.That(source, Does.Contain("分发包不携带 Sample 产品线"));
         }
 
         private static string ReadAssetText(string assetPath)

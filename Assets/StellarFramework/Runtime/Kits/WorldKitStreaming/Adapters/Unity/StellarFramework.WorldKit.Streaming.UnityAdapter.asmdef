@@ -1,0 +1,17 @@
+{
+    "name": "StellarFramework.WorldKit.Streaming.UnityAdapter",
+    "rootNamespace": "StellarFramework.WorldKit.Streaming.UnityAdapter",
+    "references": [
+        "StellarFramework.WorldKit.Core",
+        "StellarFramework.WorldKit.Streaming"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

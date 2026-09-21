@@ -5,13 +5,43 @@ using UnityEngine;
 
 namespace StellarFramework.Bindable
 {
+    /// <summary>
+    /// 只读可绑定值契约。
+    /// 调用方可以读取当前值并订阅变化，但不能通过该接口修改状态。
+    /// </summary>
+    /// <typeparam name="T">被观察值的类型。</typeparam>
     public interface IReadOnlyBindableProperty<T>
     {
+        /// <summary>
+        /// 当前值。
+        /// </summary>
         T Value { get; }
+
+        /// <summary>
+        /// 订阅后续值变化。注册时不会立即调用回调。
+        /// </summary>
+        /// <param name="onValueChanged">值变化时执行的回调。</param>
+        /// <returns>注销句柄，可继续绑定 Unity 生命周期。</returns>
         IUnRegister Register(Action<T> onValueChanged);
+
+        /// <summary>
+        /// 订阅值变化，并在注册成功后立即以当前值调用一次回调。
+        /// </summary>
+        /// <param name="onValueChanged">接收当前值和后续变化的回调。</param>
+        /// <returns>注销句柄。</returns>
         IUnRegister RegisterWithInitValue(Action<T> onValueChanged);
     }
 
+    /// <summary>
+    /// 轻量可观察值。
+    /// 设置为与当前值不同的新值时同步通知订阅者；相同值默认不通知。
+    /// </summary>
+    /// <remarks>
+    /// 通知是同步、单线程语义。为避免重入导致状态顺序不可预测，
+    /// 回调中再次触发本属性通知会被拒绝并记录错误。
+    /// 订阅节点会池化复用，通知过程不创建临时订阅列表。
+    /// </remarks>
+    /// <typeparam name="T">值类型。</typeparam>
     [Serializable]
     public class BindableProperty<T> : IReadOnlyBindableProperty<T>
     {
@@ -22,11 +52,19 @@ namespace StellarFramework.Bindable
         private int _iteratingCount;
         private bool _isNotifying;
 
+        /// <summary>
+        /// 创建可绑定值。
+        /// </summary>
+        /// <param name="initValue">初始值。</param>
         public BindableProperty(T initValue = default)
         {
             _value = initValue;
         }
 
+        /// <summary>
+        /// 获取或设置当前值。
+        /// 新旧值按 <see cref="EqualityComparer{T}.Default"/> 相等时不会发送通知。
+        /// </summary>
         public T Value
         {
             get => _value;
@@ -42,17 +80,30 @@ namespace StellarFramework.Bindable
             }
         }
 
+        /// <summary>
+        /// 修改当前值但不通知订阅者。
+        /// 适合反序列化、批量初始化等由调用方明确控制刷新时机的场景。
+        /// </summary>
+        /// <param name="value">新值。</param>
         public void SetValueWithoutNotify(T value)
         {
             _value = value;
         }
 
+        /// <summary>
+        /// 修改当前值并强制通知，即使新旧值相等。
+        /// </summary>
+        /// <param name="value">新值。</param>
         public void SetValueForceNotify(T value)
         {
             _value = value;
             Notify();
         }
 
+        /// <summary>
+        /// 使用当前值主动通知所有订阅者，不修改值本身。
+        /// </summary>
+        /// <remarks>正在通知时禁止递归调用。</remarks>
         public void Notify()
         {
             if (_isNotifying)
@@ -90,6 +141,11 @@ namespace StellarFramework.Bindable
             }
         }
 
+        /// <summary>
+        /// 订阅后续值变化。
+        /// </summary>
+        /// <param name="onValueChanged">值变化回调。</param>
+        /// <returns>可手动注销或绑定 Unity 生命周期的句柄。</returns>
         public IUnRegister Register(Action<T> onValueChanged)
         {
             if (onValueChanged == null)
@@ -101,6 +157,12 @@ namespace StellarFramework.Bindable
             return AddNode(onValueChanged);
         }
 
+        /// <summary>
+        /// 订阅值变化并立即收到一次当前值。
+        /// 注册动作先完成，再执行首次回调，因此首次回调中主动注销是安全的。
+        /// </summary>
+        /// <param name="onValueChanged">值变化回调。</param>
+        /// <returns>注销句柄。</returns>
         public IUnRegister RegisterWithInitValue(Action<T> onValueChanged)
         {
             if (onValueChanged == null)
@@ -117,6 +179,10 @@ namespace StellarFramework.Bindable
             return unregister;
         }
 
+        /// <summary>
+        /// 注销当前属性上的全部订阅者。
+        /// 若正在通知，则先标记删除，等本轮遍历完成后统一回收。
+        /// </summary>
         public void UnRegisterAll()
         {
             if (_iteratingCount > 0)
@@ -342,11 +408,17 @@ namespace StellarFramework.Bindable
             }
         }
 
+        /// <summary>
+        /// 将 BindableProperty 隐式转换为其当前值。
+        /// </summary>
         public static implicit operator T(BindableProperty<T> p)
         {
             return p.Value;
         }
 
+        /// <summary>
+        /// 返回当前值的字符串表示；当前值为 null 时返回 null。
+        /// </summary>
         public override string ToString()
         {
             return _value?.ToString();

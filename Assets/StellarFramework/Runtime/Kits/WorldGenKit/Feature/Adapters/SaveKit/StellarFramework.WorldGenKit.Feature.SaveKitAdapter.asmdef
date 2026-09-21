@@ -1,0 +1,17 @@
+{
+    "name": "StellarFramework.WorldGenKit.Feature.SaveKitAdapter",
+    "rootNamespace": "StellarFramework.WorldGenKit.Feature.SaveKitAdapter",
+    "references": [
+        "StellarFramework.WorldGenKit.Feature.WorldKitAdapter",
+        "StellarFramework.SaveKit.Core"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": true
+}

@@ -3,6 +3,9 @@ using System.Collections.Generic;
 
 namespace StellarFramework.Settings
 {
+    /// <summary>
+    /// 设置值的标准数据类型。
+    /// </summary>
     public enum SettingValueKind
     {
         Bool,
@@ -12,11 +15,18 @@ namespace StellarFramework.Settings
         Choice
     }
 
+    /// <summary>
+    /// 设置页元数据。
+    /// </summary>
     public sealed class SettingsPageDefinition
     {
+        /// <summary>稳定页 ID，用于注册和查询。</summary>
         public string Id { get; }
+        /// <summary>面向用户的页名称。</summary>
         public string DisplayName { get; }
+        /// <summary>可选说明。</summary>
         public string Description { get; }
+        /// <summary>页排序权重；越小越靠前。</summary>
         public int Order { get; }
 
         public SettingsPageDefinition(string id, string displayName, string description, int order = 0)
@@ -28,6 +38,10 @@ namespace StellarFramework.Settings
         }
     }
 
+    /// <summary>
+    /// Choice 类型设置的一项可选值。
+    /// Value 是持久化稳定值，Label 是 UI 展示文本。
+    /// </summary>
     public sealed class SettingChoiceOption
     {
         public string Value { get; }
@@ -42,12 +56,23 @@ namespace StellarFramework.Settings
         }
     }
 
+    /// <summary>
+    /// 把 SettingsKit 中的值应用到真实运行时系统的策略接口。
+    /// </summary>
+    /// <remarks>
+    /// Core 只管理设置状态，不直接依赖 AudioKit、Localization、Input 或具体图形实现；
+    /// 这些副作用通过 ApplyStrategy / Adapter 注入。
+    /// </remarks>
     public interface ISettingApplyStrategy
     {
         string StrategyName { get; }
         bool TryApply(SettingDefinition definition, object value, out string error);
     }
 
+    /// <summary>
+    /// 不产生运行时副作用的 Apply 策略。
+    /// 适合纯偏好数据或由业务层自行读取的设置。
+    /// </summary>
     public sealed class NoopSettingApplyStrategy : ISettingApplyStrategy
     {
         public static readonly NoopSettingApplyStrategy Instance = new NoopSettingApplyStrategy();
@@ -61,6 +86,10 @@ namespace StellarFramework.Settings
         }
     }
 
+    /// <summary>
+    /// 用委托快速适配外部系统的 Apply 策略。
+    /// 委托返回 null/empty 表示成功，非空字符串表示错误。
+    /// </summary>
     public sealed class DelegateSettingApplyStrategy : ISettingApplyStrategy
     {
         private readonly Func<SettingDefinition, object, string> _applyFunc;
@@ -80,6 +109,10 @@ namespace StellarFramework.Settings
         }
     }
 
+    /// <summary>
+    /// SettingsKit 的持久化抽象。
+    /// Storage 只处理字符串读写，类型转换由 SettingDefinition 负责。
+    /// </summary>
     public interface ISettingsStorage
     {
         bool TryLoad(string key, out string rawValue);
@@ -88,12 +121,18 @@ namespace StellarFramework.Settings
         void Flush();
     }
 
+    /// <summary>
+    /// 设置页/设置项注册来源。
+    /// </summary>
     public interface ISettingsPageProvider
     {
         string ProviderName { get; }
         void Register(SettingsRegistry registry);
     }
 
+    /// <summary>
+    /// SettingsKit 与音频实现之间的最小适配接口。
+    /// </summary>
     public interface IAudioSettingsAdapter
     {
         float MusicVolume { get; set; }
@@ -102,6 +141,9 @@ namespace StellarFramework.Settings
         bool SoundOn { get; set; }
     }
 
+    /// <summary>
+    /// SettingsKit 与 Unity/项目图形设置之间的适配接口。
+    /// </summary>
     public interface IGraphicsSettingsAdapter
     {
         IReadOnlyList<SettingChoiceOption> GetResolutionOptions();
@@ -123,6 +165,9 @@ namespace StellarFramework.Settings
         bool ApplyTargetFrameRate(string value, out string error);
     }
 
+    /// <summary>
+    /// SettingsKit 与本地化系统之间的语言设置适配接口。
+    /// </summary>
     public interface ILanguageSettingsAdapter
     {
         IReadOnlyList<SettingChoiceOption> GetLanguageOptions();
@@ -130,6 +175,9 @@ namespace StellarFramework.Settings
         bool ApplyLanguage(string value, out string error);
     }
 
+    /// <summary>
+    /// 一项输入绑定设置的定义。
+    /// </summary>
     public sealed class InputBindingSettingSpec
     {
         public string Key { get; }
@@ -151,6 +199,9 @@ namespace StellarFramework.Settings
         }
     }
 
+    /// <summary>
+    /// SettingsKit 与具体输入系统之间的适配接口。
+    /// </summary>
     public interface IInputBindingAdapter
     {
         IReadOnlyList<InputBindingSettingSpec> GetBindingSpecs();

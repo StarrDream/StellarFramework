@@ -9,6 +9,8 @@ namespace StellarFramework
     /// <remarks>
     /// 调度器只管理 ID、间隔和下一次到期 tick。它不拥有业务对象，也不执行回调。
     /// 同一个实例上的时间必须单调不减；不同实例可以使用不同时间线。
+    /// 到期项按 NextDueTick、再按 SimulationId 数值稳定排序；CollectDue 只写调用方 Span，
+    /// 不创建业务回调队列。该类型不做线程同步，同一实例应由单一调度线程/主线程驱动。
     /// </remarks>
     public sealed class SimulationScheduler
     {
@@ -32,6 +34,8 @@ namespace StellarFramework
         private long _lastObservedTick;
         private bool _hasObservedTick;
 
+        /// <summary>创建调度器并可选预分配 Heap/索引容量。</summary>
+        /// <param name="initialCapacity">预计注册项数量；0 表示按需增长。</param>
         public SimulationScheduler(int initialCapacity = 0)
         {
             if (initialCapacity < 0)
@@ -47,8 +51,10 @@ namespace StellarFramework
         /// <summary>当前注册项数量。</summary>
         public int Count => _heapCount;
 
+        /// <summary>判断一个有效 ID 当前是否已注册。</summary>
         public bool Contains(SimulationId id) => id.IsValid && _indices.ContainsKey(id);
 
+        /// <summary>读取已注册项的固定调度间隔（tick）。</summary>
         public bool TryGetInterval(SimulationId id, out long intervalTicks)
         {
             if (id.IsValid && _indices.TryGetValue(id, out int index))
@@ -61,6 +67,7 @@ namespace StellarFramework
             return false;
         }
 
+        /// <summary>读取已注册项下一次到期的绝对 tick。</summary>
         public bool TryGetNextDueTick(SimulationId id, out long nextDueTick)
         {
             if (id.IsValid && _indices.TryGetValue(id, out int index))
@@ -73,17 +80,22 @@ namespace StellarFramework
             return false;
         }
 
+        /// <summary>注册一个按 intervalTicks 首次到期并持续重复的模拟 ID。</summary>
+        /// <remarks>失败时不会产生部分注册。nowTick 也会推进本实例的单调时间线。</remarks>
         public SimulationMutationResult TryRegister(SimulationId id, long nowTick, long intervalTicks)
         {
             return TryRegisterInternal(id, nowTick, intervalTicks, intervalTicks, false);
         }
 
+        /// <summary>注册一个具有独立首次延迟、之后按固定 intervalTicks 重复的模拟 ID。</summary>
+        /// <remarks>firstDelayTicks 可以为 0，表示本次时间点已经到期；负数非法。</remarks>
         public SimulationMutationResult TryRegister(SimulationId id, long nowTick, long intervalTicks,
             long firstDelayTicks)
         {
             return TryRegisterInternal(id, nowTick, intervalTicks, firstDelayTicks, true);
         }
 
+        /// <summary>注销一个模拟 ID；不存在时返回 NotFound。</summary>
         public SimulationMutationResult TryUnregister(SimulationId id)
         {
             if (!id.IsValid)
@@ -116,6 +128,10 @@ namespace StellarFramework
             return SimulationMutationResult.Succeeded();
         }
 
+        /// <summary>
+        /// 修改已注册项的重复间隔，并将下一次到期时间重置为 nowTick + newIntervalTicks。
+        /// </summary>
+        /// <remarks>这不是“保留原相位”的调整；调用者需要明确接受重新计时语义。</remarks>
         public SimulationMutationResult TrySetInterval(SimulationId id, long nowTick, long newIntervalTicks)
         {
             ObserveTick(nowTick);

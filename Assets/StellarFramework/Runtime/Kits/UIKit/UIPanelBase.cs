@@ -3,13 +3,26 @@ using UnityEngine;
 
 namespace StellarFramework.UI
 {
+    /// <summary>
+    /// UIKit 面板数据基类。
+    /// 需要向 Panel 传参时定义强类型子类，而不是使用 Dictionary/object 弱类型传递。
+    /// </summary>
     public abstract class UIPanelDataBase
     {
     }
 
+    /// <summary>
+    /// UIKit 面板基类。
+    /// 提供层级、Canvas 角色、缓存/销毁策略和标准生命周期回调。
+    /// </summary>
+    /// <remarks>
+    /// OnInit 只在面板实例首次创建时调用；OnOpen 可在缓存面板每次重新打开时重复调用。
+    /// destroyOnClose=false 时 Close 只隐藏并保留实例；true 时 Close 后实例会被销毁并从缓存移除。
+    /// </remarks>
     [RequireComponent(typeof(CanvasGroup))]
     public abstract class UIPanelBase : MonoBehaviour
     {
+        /// <summary>Panel 在对应 Canvas 下的渲染/逻辑层级。</summary>
         public enum PanelLayer
         {
             Bottom = 0,
@@ -19,6 +32,10 @@ namespace StellarFramework.UI
             System = 4
         }
 
+        /// <summary>
+        /// Panel 使用的 Canvas 角色。
+        /// Dynamic 适合常规可切换页面，Static 适合常驻 HUD 等内容。
+        /// </summary>
         public enum PanelCanvasRole
         {
             Dynamic = 0,
@@ -42,13 +59,22 @@ namespace StellarFramework.UI
         private RectTransform _rectTransform;
         private GameObject _rootObj;
 
+        /// <summary>配置的面板层级。</summary>
         public PanelLayer Layer => layer;
+        /// <summary>配置的 Canvas 角色。</summary>
         public PanelCanvasRole CanvasRole => canvasRole;
+        /// <summary>关闭时是否销毁实例而不是缓存隐藏。</summary>
         public bool DestroyOnClose => destroyOnClose;
+        /// <summary>是否作为全屏栈面板处理。</summary>
         public bool IsFullScreen => isFullScreen;
 
+        /// <summary>
+        /// 任意 Panel 执行 OnClose 时触发的全局通知。
+        /// 适合场景级导航器更新入口状态，不建议承载具体业务逻辑。
+        /// </summary>
         public static event Action<UIPanelBase> OnPanelClosedGlobal;
 
+        /// <summary>当前 Panel 的 CanvasGroup，首次访问时缓存组件引用。</summary>
         public CanvasGroup CanvasGroup
         {
             get
@@ -62,6 +88,7 @@ namespace StellarFramework.UI
             }
         }
 
+        /// <summary>当前 Panel 的 RectTransform，首次访问时缓存组件引用。</summary>
         public RectTransform RectTransform
         {
             get
@@ -75,6 +102,10 @@ namespace StellarFramework.UI
             }
         }
 
+        /// <summary>
+        /// Panel 主内容根节点。
+        /// 优先使用 Inspector 绑定；未绑定时查找名为 "root" 的直接子节点。
+        /// </summary>
         public GameObject Root
         {
             get
@@ -104,27 +135,35 @@ namespace StellarFramework.UI
             }
         }
 
+        /// <summary>面板实例首次创建完成后的初始化回调。</summary>
         public virtual void OnInit()
         {
         }
 
+        /// <summary>每次打开面板时调用。</summary>
         public virtual void OnOpen(UIPanelDataBase data)
         {
         }
 
+        /// <summary>对已打开/缓存面板应用新数据时调用。</summary>
         public virtual void OnRefresh(UIPanelDataBase data)
         {
         }
 
+        /// <summary>
+        /// 面板关闭时调用。重写时若需要保留全局关闭通知，应调用 base.OnClose()。
+        /// </summary>
         public virtual void OnClose()
         {
             OnPanelClosedGlobal?.Invoke(this);
         }
 
+        /// <summary>被更高层全屏面板压入栈上方时调用。</summary>
         public virtual void OnPause()
         {
         }
 
+        /// <summary>重新成为栈顶活动面板时调用。</summary>
         public virtual void OnResume()
         {
         }

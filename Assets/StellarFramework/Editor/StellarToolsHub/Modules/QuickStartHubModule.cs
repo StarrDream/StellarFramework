@@ -3,7 +3,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -12,7 +11,6 @@ namespace StellarFramework.Editor.Modules
 {
     public enum QuickStartActionKind
     {
-        BuildSamples,
         OpenScene,
         OpenDoc,
         ValidateEnvironment
@@ -31,18 +29,17 @@ namespace StellarFramework.Editor.Modules
 
     public static class FrameworkQuickStartCatalog
     {
-        public const string UIKitScenePath =
-            "Assets/StellarFramework/Samples/KitSamples/Scenes/UIKit_Playable.unity";
+        public const string ArchitectureDemoScenePath =
+            "Assets/StellarFramework/Samples/ArchitectureDemo/Scene/FrameworkArchitecture_Playable.unity";
 
-        public const string ResKitScenePath =
-            "Assets/StellarFramework/Samples/KitSamples/Scenes/ResKit_Playable.unity";
-
-        public const string QuickStartDocPath = "Assets/StellarFramework/快速开始.md";
-        public const string SamplesIndexDocPath = "Assets/StellarFramework/Samples/KitSamples/Samples_Index.md";
-        public const string UIKitGuidePath = "Assets/StellarFramework/Runtime/Kits/UIKit/UIKit-界面系统-Guide.md";
-        public const string ResKitGuidePath = "Assets/StellarFramework/Runtime/Kits/Reskit/ResKit-统一资源-Guide.md";
-        public const string HotUpdateGuidePath =
-            "Assets/StellarFramework/Runtime/Kits/HotUpdateKit/HybridCLR-热更新-Guide.md";
+        public const string QuickStartDocPath = "Assets/StellarFramework/FrameworkDoc/00-Overview/快速开始.md";
+        public const string FrameworkDocIndexPath = "Assets/StellarFramework/FrameworkDoc/README.md";
+        public const string UIKitGuidePath =
+            "Assets/StellarFramework/FrameworkDoc/02-Kits/UIKit/UIKit-界面系统-说明文档-Guide.md";
+        public const string ResKitGuidePath =
+            "Assets/StellarFramework/FrameworkDoc/02-Kits/Reskit/ResKit-统一资源-说明文档-Guide.md";
+        public const string HybridCLRGuidePath =
+            "Assets/StellarFramework/FrameworkDoc/02-Kits/HybridCLRKit/HybridCLRKit-代码热更新-说明文档-Guide.md";
 
         public static IReadOnlyList<QuickStartEntry> BuildDefaultEntries()
         {
@@ -50,43 +47,35 @@ namespace StellarFramework.Editor.Modules
             {
                 new QuickStartEntry
                 {
-                    Title = "1. 构建样例",
-                    Description = "生成 KitSamples 场景、UIRoot、示例资源和验证入口。",
-                    ActionKind = QuickStartActionKind.BuildSamples,
+                    Title = "1. 打开 ArchitectureDemo",
+                    Description = "运行唯一入门 Demo，观察 MSV、BindableKit、ActionKit、UIKit、LocalizationKit 与 LogKit 如何协作。",
+                    ActionKind = QuickStartActionKind.OpenScene,
+                    TargetPath = ArchitectureDemoScenePath,
                     Group = "30 分钟上手",
                     Order = 0
                 },
                 new QuickStartEntry
                 {
-                    Title = "2. 打开 UIKit_Playable",
-                    Description = "学习唯一 UI 门户：OpenAsync / PushAsync / Pop / Close / ClearStack。",
-                    ActionKind = QuickStartActionKind.OpenScene,
-                    TargetPath = UIKitScenePath,
+                    Title = "2. 阅读快速开始",
+                    Description = "按业务需求选择 Kit，并通过 Guide 中的最小代码片段接入。",
+                    ActionKind = QuickStartActionKind.OpenDoc,
+                    TargetPath = QuickStartDocPath,
                     Group = "30 分钟上手",
                     Order = 1
                 },
                 new QuickStartEntry
                 {
-                    Title = "3. 打开 ResKit_Playable",
-                    Description = "学习统一资源门户，以及 Resources / AA / AB 的适用边界。",
-                    ActionKind = QuickStartActionKind.OpenScene,
-                    TargetPath = ResKitScenePath,
+                    Title = "3. 打开 FrameworkDoc",
+                    Description = "查看完整 Kit / Adapter / ToolsHub 文档索引；各 Kit 不再维护独立 Sample 场景。",
+                    ActionKind = QuickStartActionKind.OpenDoc,
+                    TargetPath = FrameworkDocIndexPath,
                     Group = "30 分钟上手",
                     Order = 2
                 },
                 new QuickStartEntry
                 {
-                    Title = "4. 阅读快速开始",
-                    Description = "按推荐顺序继续查文档和可运行样例，不需要先接触框架开发者的验证工具。",
-                    ActionKind = QuickStartActionKind.OpenDoc,
-                    TargetPath = QuickStartDocPath,
-                    Group = "30 分钟上手",
-                    Order = 3
-                },
-                new QuickStartEntry
-                {
                     Title = "环境检查",
-                    Description = "检查样例资源、AB 产物，以及可选 Addressables / HybridCLR 扩展是否就绪。",
+                    Description = "检查基础运行资源、AB 产物，以及可选 Addressables / HybridCLR 扩展是否就绪。",
                     ActionKind = QuickStartActionKind.ValidateEnvironment,
                     Group = "常用入口",
                     Order = 10
@@ -102,21 +91,12 @@ namespace StellarFramework.Editor.Modules
                 },
                 new QuickStartEntry
                 {
-                    Title = "样例索引",
-                    Description = "查看所有 Playable 场景、前置条件与验收顺序。",
-                    ActionKind = QuickStartActionKind.OpenDoc,
-                    TargetPath = SamplesIndexDocPath,
-                    Group = "常用入口",
-                    Order = 12
-                },
-                new QuickStartEntry
-                {
                     Title = "UIKit Guide",
                     Description = "唯一 UI 门户、堆栈能力、自动绑定与排错。",
                     ActionKind = QuickStartActionKind.OpenDoc,
                     TargetPath = UIKitGuidePath,
                     Group = "常用入口",
-                    Order = 13
+                    Order = 12
                 },
                 new QuickStartEntry
                 {
@@ -125,16 +105,16 @@ namespace StellarFramework.Editor.Modules
                     ActionKind = QuickStartActionKind.OpenDoc,
                     TargetPath = ResKitGuidePath,
                     Group = "常用入口",
-                    Order = 14
+                    Order = 13
                 },
                 new QuickStartEntry
                 {
-                    Title = "HotUpdateKit Guide",
-                    Description = "可选热更扩展：资源热更门户、代码热更门户与 HybridCLR 接线。",
+                    Title = "HybridCLRKit Guide",
+                    Description = "可选代码热更扩展：通过 ResKit 读取 Manifest、DLL 与 AOT metadata，再进入 HybridCLR 热更程序集。",
                     ActionKind = QuickStartActionKind.OpenDoc,
-                    TargetPath = HotUpdateGuidePath,
+                    TargetPath = HybridCLRGuidePath,
                     Group = "常用入口",
-                    Order = 15
+                    Order = 14
                 }
             };
         }
@@ -156,13 +136,10 @@ namespace StellarFramework.Editor.Modules
         private readonly List<QuickStartEntry> _entries = new List<QuickStartEntry>();
         private readonly List<EnvironmentCheckResult> _checks = new List<EnvironmentCheckResult>();
         private bool _showWelcomePortal = true;
-        private bool _sampleBuildQueued;
-        private bool _sampleBuildRunning;
-        private EditorApplication.CallbackFunction _pendingSampleBuildAction;
         private EditorApplication.CallbackFunction _pendingEnvironmentRefreshAction;
 
         public override string Icon => "d_UnityEditor.ConsoleWindow";
-        public override string Description => "新人第一入口：构建样例、打开主链路场景、查看推荐路线并检查环境。";
+        public override string Description => "新人第一入口：运行唯一入门 Demo、阅读完整文档并检查开发环境。";
 
         public override void OnEnable()
         {
@@ -174,12 +151,6 @@ namespace StellarFramework.Editor.Modules
 
         public override void OnDisable()
         {
-            if (_pendingSampleBuildAction != null)
-            {
-                EditorApplication.delayCall -= _pendingSampleBuildAction;
-                _pendingSampleBuildAction = null;
-            }
-
             if (_pendingEnvironmentRefreshAction != null)
             {
                 EditorApplication.delayCall -= _pendingEnvironmentRefreshAction;
@@ -207,24 +178,17 @@ namespace StellarFramework.Editor.Modules
             }
 
             Section("30 分钟上手");
-            if (_sampleBuildQueued || _sampleBuildRunning)
-            {
-                EditorGUILayout.HelpBox(
-                    _sampleBuildRunning
-                        ? "样例构建正在执行，请等待当前任务完成。"
-                        : "样例构建已加入队列，稍后会在编辑器空闲时执行。",
-                    MessageType.Info);
-            }
             DrawGroupedEntries("30 分钟上手");
 
             Section("官方推荐路线");
             EditorGUILayout.HelpBox(
                 "本地轻量资源：Resources\n" +
-                "生产资源热更：Addressables\n" +
+                "本地/普通资源后端：Addressables\n" +
+                "生产内容热更：YooAsset\n" +
                 "显式包资源 / 既有打包管线：AssetBundle\n" +
                 "第三方资源系统：Custom Loader\n" +
                 "UI 唯一入口：UIKit\n" +
-                "代码热更：HotUpdateKit + HybridCLR startup-only（可选扩展）",
+                "代码热更：HybridCLRKit（startup-only，可选扩展）",
                 MessageType.Info);
 
             Section("环境检查");
@@ -259,7 +223,7 @@ namespace StellarFramework.Editor.Modules
                     GUILayout.Label(WelcomeTitle, titleStyle);
                     GUILayout.Space(10f);
                     GUILayout.Label(
-                        "这里是 StellarFramework 的统一上手门户。先用 30 分钟跑通样例、资源主链路和推荐文档，再决定是否继续进入热更新、资源发布和框架开发者工具。",
+                        "这里是 StellarFramework 的统一上手门户。先运行唯一 ArchitectureDemo 理解框架协作方式，再按 Kit Guide 接入真实项目；不需要维护或生成一组独立 Sample 场景。",
                         bodyStyle);
                     GUILayout.Space(18f);
 
@@ -277,7 +241,7 @@ namespace StellarFramework.Editor.Modules
 
                     GUILayout.Space(12f);
                     EditorGUILayout.HelpBox(
-                        "建议顺序：构建样例 -> 打开 UIKit_Playable -> 打开 ResKit_Playable -> 阅读快速开始与样例索引。",
+                        "建议顺序：打开 ArchitectureDemo -> 阅读快速开始 -> 按需查看 Kit / Adapter Guide。",
                         MessageType.Info);
                     GUILayout.Space(8f);
                 }
@@ -298,34 +262,15 @@ namespace StellarFramework.Editor.Modules
                     GUILayout.Label(entry.Description, EditorStyles.wordWrappedMiniLabel);
                     GUILayout.Space(4f);
 
-                    bool sampleSceneMissing = entry.ActionKind == QuickStartActionKind.OpenScene &&
-                                              !File.Exists(ToAbsoluteProjectPath(entry.TargetPath));
-                    bool disableAction = entry.ActionKind == QuickStartActionKind.BuildSamples &&
-                                         (_sampleBuildQueued || _sampleBuildRunning);
-                    using (new EditorGUI.DisabledScope(disableAction))
+                    bool targetMissing = (entry.ActionKind == QuickStartActionKind.OpenScene ||
+                                          entry.ActionKind == QuickStartActionKind.OpenDoc) &&
+                                         !File.Exists(ToAbsoluteProjectPath(entry.TargetPath));
+                    using (new EditorGUI.DisabledScope(targetMissing))
                     {
-                        string actionLabel;
-                        if (sampleSceneMissing)
-                        {
-                            actionLabel = "先构建样例";
-                        }
-                        else if (disableAction)
-                        {
-                            actionLabel = _sampleBuildRunning ? "构建中..." : "已排队";
-                        }
-                        else
-                        {
-                            actionLabel = GetActionLabel(entry.ActionKind);
-                        }
+                        string actionLabel = targetMissing ? "入口缺失" : GetActionLabel(entry.ActionKind);
 
                         if (PrimaryButton(actionLabel, GUILayout.Height(28)))
                         {
-                            if (sampleSceneMissing)
-                            {
-                                QueueSampleBuild();
-                                continue;
-                            }
-
                             ExecuteEntry(entry);
                         }
                     }
@@ -360,10 +305,6 @@ namespace StellarFramework.Editor.Modules
         {
             switch (entry.ActionKind)
             {
-                case QuickStartActionKind.BuildSamples:
-                    QueueSampleBuild();
-                    return;
-
                 case QuickStartActionKind.OpenScene:
                     if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
                     {
@@ -397,49 +338,6 @@ namespace StellarFramework.Editor.Modules
             }
         }
 
-        private void QueueSampleBuild()
-        {
-            if (_sampleBuildQueued || _sampleBuildRunning)
-            {
-                return;
-            }
-
-            _sampleBuildQueued = true;
-            _pendingSampleBuildAction = () =>
-            {
-                EditorApplication.delayCall -= _pendingSampleBuildAction;
-                _pendingSampleBuildAction = null;
-                _sampleBuildQueued = false;
-                RunSampleBuild();
-            };
-
-            EditorApplication.delayCall += _pendingSampleBuildAction;
-            Window.ShowNotification(new GUIContent("样例构建已排队"));
-            Window.Repaint();
-        }
-
-        private void RunSampleBuild()
-        {
-            _sampleBuildRunning = true;
-            try
-            {
-                if (!TryInvokeSampleSceneBuilder(out string error))
-                {
-                    Debug.LogError(error);
-                    Window.ShowNotification(new GUIContent("样例构建器不可用"));
-                    return;
-                }
-
-                QueueEnvironmentCheckRefresh();
-                Window.ShowNotification(new GUIContent("全部样例构建完成"));
-            }
-            finally
-            {
-                _sampleBuildRunning = false;
-                Window.Repaint();
-            }
-        }
-
         private void QueueEnvironmentCheckRefresh()
         {
             if (_pendingEnvironmentRefreshAction != null)
@@ -464,10 +362,10 @@ namespace StellarFramework.Editor.Modules
 
             AddPathCheck("UIRoot.prefab 已存在",
                 "Assets/StellarFramework/Resources/UIPanel/UIRoot.prefab",
-                "UIKit 默认入口依赖这个 UIRoot。可通过样例构建器或 UIKit 工具重新生成。");
-            AddPathCheck("ExamplePanel.prefab 已存在",
-                "Assets/StellarFramework/Resources/UIPanel/ExamplePanel.prefab",
-                "UIKit_Playable 与自动绑定示例都会用到这个 Panel。");
+                "UIKit 默认入口依赖这个 UIRoot。");
+            AddPathCheck("ArchitectureDemo 已存在",
+                FrameworkQuickStartCatalog.ArchitectureDemoScenePath,
+                "仓库唯一入门 Demo，用于观察基础 Kit 的组合方式。");
 
             string resKitSettingsAssetPath = FindResourcesAssetPath("ResKitRuntimeSettings");
             bool hasRuntimeSettingsAsset = !string.IsNullOrEmpty(resKitSettingsAssetPath);
@@ -487,8 +385,8 @@ namespace StellarFramework.Editor.Modules
                 Name = "HotUpdateSettings 可读取",
                 Passed = true,
                 Details = hasHotUpdateSettingsAsset
-                    ? $"已找到 {hotUpdateSettingsAssetPath}，可驱动热更 Manifest、SHA 与 AOT metadata 默认配置。"
-                    : "当前未找到 HotUpdateSettings 资产。安装器或 AA 初始化器会自动补齐；不影响基础 ResKit / UIKit 上手。"
+                    ? $"已找到 {hotUpdateSettingsAssetPath}，用于指定 HybridCLR 的 ResKit 后端、Manifest key 与导出入口配置。"
+                    : "当前未找到 HotUpdateSettings 资产。仅影响 HybridCLRKit；不影响基础 ResKit / UIKit 上手。"
             });
 
             bool addressablesAvailable = Type.GetType("UnityEngine.AddressableAssets.Addressables, Unity.Addressables") != null;
@@ -497,7 +395,7 @@ namespace StellarFramework.Editor.Modules
                 Name = "Addressables 包状态",
                 Passed = addressablesAvailable,
                 Details = addressablesAvailable
-                    ? "已检测到 Unity.Addressables。AA 的模拟、Build 与 Content Update 请使用官方 Groups / Profiles / Build。"
+                    ? "已检测到 Unity.Addressables。StellarFramework 只把 AA 作为 ResKit Load/Release 后端与本地构建入口。"
                     : "未检测到 Unity.Addressables。AA 相关入口会返回不可用提示。"
             });
 
@@ -517,8 +415,8 @@ namespace StellarFramework.Editor.Modules
                 Name = "HybridCLR 开关状态",
                 Passed = true,
                 Details = hybridClrEnabled
-                    ? "HYBRIDCLR_ENABLE 已开启。HotUpdateKit 可进入启动期代码热更链路。"
-                    : "HYBRIDCLR_ENABLE 未开启。HotUpdateKit 仍可编译运行，但代码热更入口会返回明确不可用提示。"
+                    ? "HYBRIDCLR_ENABLE 已开启。HybridCLRKit 可进入启动期代码热更链路。"
+                    : "HYBRIDCLR_ENABLE 未开启。HybridCLRKit 仍可编译，但运行代码热更会返回明确不可用结果。"
             });
         }
 
@@ -531,7 +429,7 @@ namespace StellarFramework.Editor.Modules
                 Passed = exists,
                 Details = exists
                     ? $"{assetPath}\n{details}"
-                    : $"{assetPath}\n缺失时请先运行 Quick Start 的“构建样例”或对应工具补齐。"
+                    : $"{assetPath}\n该入口缺失，请检查工程完整性或重新导入对应框架资产。"
             });
         }
 
@@ -539,8 +437,6 @@ namespace StellarFramework.Editor.Modules
         {
             switch (actionKind)
             {
-                case QuickStartActionKind.BuildSamples:
-                    return "立即构建";
                 case QuickStartActionKind.OpenScene:
                     return "打开场景";
                 case QuickStartActionKind.OpenDoc:
@@ -632,29 +528,6 @@ namespace StellarFramework.Editor.Modules
             return string.Empty;
         }
 
-        private static bool TryInvokeSampleSceneBuilder(out string error)
-        {
-            error = null;
-
-            Assembly sampleAssembly = AppDomain.CurrentDomain.GetAssemblies()
-                .FirstOrDefault(assembly => assembly.GetName().Name == "StellarFramework.Samples.Editor");
-            if (sampleAssembly == null)
-            {
-                error = "[QuickStart] 找不到程序集 StellarFramework.Samples.Editor。";
-                return false;
-            }
-
-            Type builderType = sampleAssembly.GetType("StellarFramework.Editor.ExamplePlayableSceneBuilder");
-            MethodInfo buildMethod = builderType?.GetMethod("BuildPlayableScenes", BindingFlags.Public | BindingFlags.Static);
-            if (buildMethod == null)
-            {
-                error = "[QuickStart] 找不到 ExamplePlayableSceneBuilder.BuildPlayableScenes()。";
-                return false;
-            }
-
-            buildMethod.Invoke(null, null);
-            return true;
-        }
     }
 }
 #endif

@@ -126,7 +126,7 @@ namespace StellarFramework.Res
 
             if (_loadingRecord.TryGetValue(path, out UniTaskCompletionSource<ResData> loadingTask))
             {
-                ResData pendingData = await loadingTask.Task;
+                ResData pendingData = await loadingTask.Task.AttachExternalCancellation(cancellationToken);
                 return pendingData?.Asset as T;
             }
 
@@ -183,7 +183,11 @@ namespace StellarFramework.Res
             }
             finally
             {
-                _loadingRecord.Remove(path);
+                if (_loadingRecord.TryGetValue(path, out UniTaskCompletionSource<ResData> currentSource) &&
+                    ReferenceEquals(currentSource, loadingSource))
+                {
+                    _loadingRecord.Remove(path);
+                }
             }
         }
 

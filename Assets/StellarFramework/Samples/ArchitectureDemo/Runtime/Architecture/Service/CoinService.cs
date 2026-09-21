@@ -8,23 +8,38 @@ namespace StellarFramework.Demo
     /// </summary>
     public class CoinService : AbstractService
     {
+        public const int MineReward = 10;
+        public const int RoundTarget = 30;
+
         /// <summary>
-        /// 执行增加金币的业务逻辑
+        /// 推进一次当前轮次。
+        /// 未达到目标时执行一次挖矿；达到目标后再次调用则完成本轮并开始下一轮。
         /// </summary>
-        public void AddCoin(int amount)
+        public void AdvanceCycle()
         {
-            // 规范：前置拦截非法参数，拒绝 Try-Catch 掩盖错误
-            if (amount <= 0)
+            CoinModel model = GetModel<CoinModel>();
+            if (model == null)
             {
-                LogKit.LogError($"[CoinService] 添加金币失败: 传入的数量必须大于0，当前传入值: {amount}");
+                LogKit.LogError("[CoinService] 推进失败: CoinModel 未注册。");
                 return;
             }
 
-            // 获取数据模型并修改，底层会自动触发 BindableProperty 的通知分发
-            var model = GetModel<CoinModel>();
-            model.CoinCount.Value += amount;
+            if (model.CoinCount.Value >= RoundTarget)
+            {
+                int completedRound = model.RoundNumber.Value;
+                model.CoinCount.Value = 0;
+                model.RoundNumber.Value = completedRound + 1;
 
-            LogKit.Log($"[CoinService] 成功添加金币: {amount}，当前总数: {model.CoinCount.Value}");
+                LogKit.Log(
+                    $"[CoinService] 第 {completedRound} 轮完成，开始第 {model.RoundNumber.Value} 轮。");
+                return;
+            }
+
+            int nextCoin = model.CoinCount.Value + MineReward;
+            model.CoinCount.Value = nextCoin > RoundTarget ? RoundTarget : nextCoin;
+
+            LogKit.Log(
+                $"[CoinService] 第 {model.RoundNumber.Value} 轮挖矿 +{MineReward}，进度 {model.CoinCount.Value}/{RoundTarget}。");
         }
     }
 }

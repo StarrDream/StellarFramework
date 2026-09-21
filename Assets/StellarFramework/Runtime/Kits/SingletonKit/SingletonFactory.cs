@@ -7,9 +7,9 @@ using LogKit = StellarFramework.SingletonKitDiagnostics;
 namespace StellarFramework
 {
     /// <summary>
-    /// 单例工厂
-    /// 我统一负责单例实例注册、生命周期判定与自动创建。
-    /// 这里是运行时核心主链路，因此我禁止运行时反射读取 Attribute，也禁止反射式实例化纯 C# 单例。
+    /// 单例运行时工厂。
+    /// 统一负责实例注册、生命周期判定和 Global 单例创建。
+    /// 运行时不反射读取 SingletonAttribute，也不通过反射实例化纯 C# 单例。
     /// </summary>
     public static class SingletonFactory
     {
@@ -46,7 +46,8 @@ namespace StellarFramework
         private static bool IsMainThread => Thread.CurrentThread.ManagedThreadId == _mainThreadId;
 
         /// <summary>
-        /// 注册静态元数据
+        /// 注册生成期产生的静态单例元数据。
+        /// 通常由 SingletonGenerator 生成的注册代码调用，业务代码一般不需要直接调用。
         /// </summary>
         public static void RegisterMetadata(Type type, SingletonMetadata metadata)
         {
@@ -65,14 +66,18 @@ namespace StellarFramework
             MetadataCache[type] = metadata;
         }
 
+        /// <summary>
+        /// 清空当前元数据注册表。
+        /// 主要用于 SubsystemRegistration、测试或重新生成注册表后的重置流程。
+        /// </summary>
         public static void ClearMetadata()
         {
             MetadataCache.Clear();
         }
 
         /// <summary>
-        /// 注册纯 C# 单例创建器
-        /// 我要求生成代码或静态代码在启动阶段显式注入，禁止运行时反射实例化。
+        /// 注册纯 C# 单例的静态创建器。
+        /// 创建器应由生成代码或明确的 Composition Root 注入，避免运行时反射实例化。
         /// </summary>
         public static void RegisterPureSingletonCreator(Type type, Func<ISingleton> creator)
         {
@@ -91,15 +96,21 @@ namespace StellarFramework
             PureSingletonCreators[type] = creator;
         }
 
+        /// <summary>
+        /// 清空已注册的纯 C# 单例创建器。
+        /// </summary>
         public static void ClearPureSingletonCreators()
         {
             PureSingletonCreators.Clear();
         }
 
         /// <summary>
-        /// 获取单例实例
-        /// 我强制要求 Unity 相关单例只能在主线程访问，防止异步线程误触 Unity API。
+        /// 获取 T 的已注册实例；Global 模式不存在时按元数据创建，Scene 模式不存在时直接报错。
         /// </summary>
+        /// <remarks>
+        /// 所有访问都要求主线程，以避免 Global MonoBehaviour 单例创建过程误触 Unity API。
+        /// Scene 单例不会执行 FindObjectOfType 兜底，必须由场景对象显式注册。
+        /// </remarks>
         public static T GetSingleton<T>() where T : class, ISingleton
         {
             if (_isQuitting)
@@ -165,7 +176,8 @@ namespace StellarFramework
         }
 
         /// <summary>
-        /// 注册单例实例
+        /// 注册已经存在的单例实例。
+        /// 重复 MonoBehaviour 单例会保留旧实例并销毁新对象；纯 C# 重复注册会记录错误。
         /// </summary>
         public static void Register(Type type, ISingleton instance)
         {
@@ -226,7 +238,7 @@ namespace StellarFramework
         }
 
         /// <summary>
-        /// 反注册单例实例
+        /// 仅当当前注册实例与传入 instance 为同一对象时解除注册。
         /// </summary>
         public static void Unregister(Type type, ISingleton instance)
         {
@@ -249,6 +261,10 @@ namespace StellarFramework
             }
         }
 
+        /// <summary>
+        /// 清空全部运行时单例状态。
+        /// 主要用于框架重置和测试，不等价于逐个执行业务 Dispose。
+        /// </summary>
         public static void ClearAll()
         {
             lock (Locker)
@@ -257,6 +273,10 @@ namespace StellarFramework
             }
         }
 
+        /// <summary>
+        /// 只查询当前是否已有 T 的有效注册实例，不触发自动创建。
+        /// </summary>
+        /// <returns>存在有效实例时返回 true。</returns>
         public static bool TryGetRegisteredSingleton<T>(out T instance) where T : class, ISingleton
         {
             instance = null;

@@ -5,23 +5,36 @@ using UnityEngine;
 namespace StellarFramework.UI
 {
     /// <summary>
-    /// UI 加载策略接口
-    /// 我只定义 UIKit 真正关心的加载能力，不让 UIKit 知道底层到底使用 Resources、AB、AA 还是业务自定义加载器
+    /// UIKit 资源加载策略。
+    /// UIKit 只依赖该抽象，不关心底层使用 Resources、ResKit、Addressables、YooAsset 或项目自定义方案。
     /// </summary>
     public interface IUILoadStrategy
     {
+        /// <summary>当前策略是否支持同步加载。</summary>
         bool SupportSyncLoad { get; }
 
+        /// <summary>同步加载 UIRoot prefab。</summary>
         GameObject LoadUIRoot();
+        /// <summary>异步加载 UIRoot prefab。</summary>
         UniTask<GameObject> LoadUIRootAsync(CancellationToken cancellationToken = default);
 
+        /// <summary>同步加载指定 Panel prefab。</summary>
         GameObject LoadPanelPrefab(string panelName);
+        /// <summary>异步加载指定 Panel prefab。</summary>
         UniTask<GameObject> LoadPanelPrefabAsync(string panelName, CancellationToken cancellationToken = default);
 
+        /// <summary>
+        /// 释放某个 Panel prefab 对应的加载侧引用/句柄。
+        /// UIKit 在 destroyOnClose 面板销毁时调用。
+        /// </summary>
         void UnloadPanelPrefab(string panelName);
+        /// <summary>释放该加载策略持有的全部资源句柄和缓存。</summary>
         void ReleaseAll();
     }
 
+    /// <summary>
+    /// UIKit 加载与路径设置。
+    /// </summary>
     [CreateAssetMenu(fileName = "UIKitSettings", menuName = "StellarFramework/UIKit Settings")]
     public sealed class UIKitSettings : ScriptableObject
     {
@@ -47,6 +60,9 @@ namespace StellarFramework.UI
         public string UIRootPath => uiRootPath;
         public string PanelPathFormat => panelPathFormat;
 
+        /// <summary>
+        /// 从 Resources 加载设置；不存在时创建只存在于内存中的默认实例。
+        /// </summary>
         public static UIKitSettings LoadOrCreateDefault(string resourcesPath = DefaultResourcesPath)
         {
             UIKitSettings settings = null;
@@ -65,6 +81,9 @@ namespace StellarFramework.UI
             return settings;
         }
 
+        /// <summary>
+        /// 根据 Panel 名称套用 PanelPathFormat，生成加载路径。
+        /// </summary>
         public string BuildPanelPath(string panelName)
         {
             string format = string.IsNullOrWhiteSpace(panelPathFormat) ? "UIPanel/{0}" : panelPathFormat.Trim();

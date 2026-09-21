@@ -3,9 +3,18 @@ using StellarFramework.Pool;
 
 namespace StellarFramework.Pool
 {
+    /// <summary>
+    /// 零配置的强类型静态对象池入口。
+    /// 每个闭合泛型类型 T 拥有独立池；若 T 实现 <see cref="IPoolable"/>，
+    /// 取出和回收时会分别调用 OnAllocated / OnRecycled。
+    /// </summary>
+    /// <remarks>
+    /// 适合纯 C# 对象。它不负责 GameObject Instantiate/Destroy、线程同步或跨类型回收。
+    /// 为避免父类型与真实类型进入不同池，回收必须显式使用对象的真实泛型类型。
+    /// </remarks>
     public static class PoolKit
     {
-        #region 核心优化：静态泛型池
+        #region 静态泛型池
 
         private static class StaticPool<T> where T : new()
         {
@@ -32,13 +41,20 @@ namespace StellarFramework.Pool
 
         #endregion
 
-        #region 公开 API
-
+        /// <summary>
+        /// 从 T 对应的静态池取出实例；池为空时通过 new T() 创建。
+        /// </summary>
+        /// <typeparam name="T">具有无参构造函数的对象类型。</typeparam>
         public static T Allocate<T>() where T : new()
         {
             return StaticPool<T>.Pool.Allocate();
         }
 
+        /// <summary>
+        /// 将对象归还其真实类型对应的静态池。
+        /// </summary>
+        /// <typeparam name="T">必须与 obj.GetType() 完全一致。</typeparam>
+        /// <param name="obj">待回收对象。</param>
         public static void Recycle<T>(T obj) where T : new()
         {
             if (obj == null)
@@ -60,9 +76,10 @@ namespace StellarFramework.Pool
         }
 
         /// <summary>
-        /// 我主动封死弱类型 object 回收入口。
-        /// 运行时对象池主链路禁止再依赖反射式动态包装器。
+        /// 弱类型回收入口仅用于给出明确错误。
+        /// PoolKit 不通过反射猜测真实泛型池，调用方必须使用强类型 Recycle&lt;T&gt;。
         /// </summary>
+        /// <param name="obj">待回收对象；该重载不会真正回收。</param>
         public static void Recycle(object obj)
         {
             if (obj == null)
@@ -74,7 +91,5 @@ namespace StellarFramework.Pool
             PoolKitDiagnostics.LogError($"[PoolKit] Recycle(object) 已禁用: 禁止弱类型回收, RealType={obj.GetType().Name}\n" +
                             "请改为显式调用强类型接口 PoolKit.Recycle<真实类型>(obj)。");
         }
-
-        #endregion
     }
 }

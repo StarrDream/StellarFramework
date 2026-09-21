@@ -1,13 +1,3 @@
-// ==================================================================================
-// ResMgr - Commercial Convergence V2
-// ----------------------------------------------------------------------------------
-// 职责：全局资源缓存与引用计数调度中心。
-// 改造说明：
-// 1. 引入 OwnerId 机制，每次 AddRef/RemoveRef 必须提供身份证明。
-// 2. 增加 Fail-Fast 断言，严禁 RefCount 出现负数或重复卸载。
-// 3. 新增 TakeSnapshot 审计接口，一键打印所有驻留资源及其持有者。
-// ==================================================================================
-
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -17,6 +7,14 @@ using UnityEngine;
 
 namespace StellarFramework.Res
 {
+    /// <summary>
+    /// ResKit 内部共享缓存、引用计数与同地址异步合并中心。
+    /// </summary>
+    /// <remarks>
+    /// 缓存 Key = LoaderName + Path，因此第三方多 Package/多命名空间 Loader
+    /// 必须让 LoaderName 能区分真实资源域。
+    /// 本类型按 Unity 主线程语义设计，不提供额外线程同步。
+    /// </remarks>
     internal static class ResMgr
     {
         private sealed class OngoingLoadEntry
@@ -85,7 +83,10 @@ namespace StellarFramework.Res
             }
             catch (OperationCanceledException)
             {
-                return null;
+                // External cancellation is part of IResLoader's async contract.
+                // Do not convert it to null, otherwise timeouts become indistinguishable
+                // from a genuine resource-not-found/load-failed result at the caller.
+                throw;
             }
             finally
             {
@@ -291,9 +292,9 @@ namespace StellarFramework.Res
         #region 审计与诊断 (Audit & Diagnostics)
 
         /// <summary>
-        /// 打印当前内存中所有受管资源的快照
-        /// 商业化项目排查内存泄漏的利器
+        /// 开发期输出当前共享缓存、引用数和 Owner 列表。
         /// </summary>
+        /// <remarks>仅用于诊断资源泄漏，不应作为正式业务逻辑的数据来源。</remarks>
         public static void TakeSnapshot()
         {
 #if UNITY_EDITOR || DEVELOPMENT_BUILD

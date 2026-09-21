@@ -41,9 +41,20 @@ namespace StellarFramework.Tests.FrameworkValidation
             AssertProfile(catalog, "simulationkit", "foundation", "simulation");
             AssertProfile(catalog, "pathkit", "foundation", "world");
             AssertProfile(catalog, "pathkit.gridkit", "adapter", "world");
+            AssertProfile(catalog, "localizationkit.core", "foundation", "data");
+            AssertProfile(catalog, "localizationkit.settings", "adapter", "data");
+            AssertProfile(catalog, "localizationkit.ugui", "adapter", "presentation");
+            AssertProfile(catalog, "worldgenkit.debugtexture", "adapter", "world");
+            AssertProfile(catalog, "worldgenkit.mesh", "adapter", "world");
+            AssertProfile(catalog, "worldgenkit.tilemap", "adapter", "world");
+            AssertProfile(catalog, "worldgenkit.unityterrain", "adapter", "world");
+            AssertProfile(catalog, "worldkit.streaming", "extension", "world");
+            AssertProfile(catalog, "worldgenkit.streaming", "adapter", "world");
+            AssertProfile(catalog, "worldkit.streaming.savekit", "adapter", "world");
+            AssertProfile(catalog, "worldkit.streaming.unity", "adapter", "world");
             AssertProfile(catalog, "audiokit.core", "extension", "presentation");
             AssertProfile(catalog, "uikit.core", "extension", "presentation");
-            AssertProfile(catalog, "hotupdate.hybridclr", "adapter", "runtime-delivery");
+            AssertProfile(catalog, "hybridclrkit", "extension", "runtime-delivery");
         }
 
         [Test]
@@ -57,6 +68,155 @@ namespace StellarFramework.Tests.FrameworkValidation
             Assert.That(timeKit.requiredUpm, Is.Empty);
             Assert.That(timeKit.excludedCapabilities,
                 Is.EquivalentTo(new[] { "Addressables", "HybridCLR", "CodeHotUpdate" }));
+        }
+
+        [Test]
+        public void WorldFrameworkToolsProfileKeepsEditorOnlyDependencyClosure()
+        {
+            CatalogDocument catalog = ReadCatalog();
+            ProfileDocument tools = catalog.profiles.Single(profile => profile.id == "worldframework.tools");
+
+            Assert.That(tools.kind, Is.EqualTo("tooling"));
+            Assert.That(tools.tier, Is.Null.Or.Empty);
+            Assert.That(tools.category, Is.Null.Or.Empty);
+            Assert.That(tools.requiredProfileIds, Is.EqualTo(new[]
+            {
+                "toolshub.core",
+                "worldkit.core",
+                "worldgenkit.core",
+                "worldgenkit.builtins",
+                "worldgenkit.resources",
+                "worldgenkit.feature",
+                "placementkit.core"
+            }));
+            Assert.That(tools.requiredKits, Is.EqualTo(new[]
+            {
+                "ToolsHub.Core",
+                "WorldKit.Core",
+                "WorldGenKit.Core",
+                "WorldGenKit.Builtins",
+                "WorldGenKit.Resources",
+                "WorldGenKit.Feature",
+                "PlacementKit.Core"
+            }));
+            Assert.That(tools.requiredUpm, Is.Empty);
+            Assert.That(tools.excludedCapabilities,
+                Does.Contain("PlayerRuntime"));
+        }
+
+        [Test]
+        public void GridKitUnityProjectionProfileStaysAnIndependentAdapter()
+        {
+            CatalogDocument catalog = ReadCatalog();
+            ProfileDocument grid =
+                catalog.profiles.Single(profile => profile.id == "gridkit");
+            ProfileDocument projection =
+                catalog.profiles.Single(
+                    profile => profile.id == "gridkit.unityprojection");
+
+            Assert.That(projection.kind, Is.EqualTo("kit-with-dependencies"));
+            Assert.That(projection.tier, Is.EqualTo("adapter"));
+            Assert.That(projection.category, Is.EqualTo("world"));
+            Assert.That(
+                projection.requiredProfileIds,
+                Is.EqualTo(new[] { "gridkit" }));
+            Assert.That(
+                projection.requiredKits,
+                Is.EqualTo(new[] { "GridKit" }));
+            Assert.That(projection.requiredUpm, Is.Empty);
+            Assert.That(
+                projection.sourcePaths,
+                Is.EqualTo(new[]
+                {
+                    "Assets/StellarFramework/Runtime/Kits/GridKitUnityProjection"
+                }));
+            Assert.That(
+                grid.sourcePaths.Any(
+                    path => path.Contains(
+                        "GridKitUnityProjection",
+                        StringComparison.Ordinal)),
+                Is.False);
+            Assert.That(
+                grid.sourcePaths.Any(
+                    path => path.Contains(
+                        "/Adapters/",
+                        StringComparison.Ordinal)),
+                Is.False);
+        }
+
+        [Test]
+        public void LocalizationKitCoreProfileStaysStandaloneAndEngineFree()
+        {
+            CatalogDocument catalog = ReadCatalog();
+            ProfileDocument localization = catalog.profiles.Single(
+                profile => profile.id == "localizationkit.core");
+
+            Assert.That(localization.kind, Is.EqualTo("kit"));
+            Assert.That(localization.tier, Is.EqualTo("foundation"));
+            Assert.That(localization.category, Is.EqualTo("data"));
+            Assert.That(localization.requiredProfileIds, Is.Empty);
+            Assert.That(localization.requiredKits, Is.Empty);
+            Assert.That(localization.requiredUpm, Is.Empty);
+            Assert.That(localization.sourcePaths, Is.EqualTo(new[]
+            {
+                "Assets/StellarFramework/Runtime/Kits/LocalizationKit/Core",
+                "Assets/StellarFramework/FrameworkDoc/02-Kits/LocalizationKit/LocalizationKit-Guide.md"
+            }));
+            Assert.That(localization.excludedCapabilities, Does.Contain("UnityEngine"));
+            Assert.That(localization.excludedCapabilities, Does.Contain("SettingsKit"));
+            Assert.That(localization.excludedCapabilities, Does.Contain("UIKit"));
+        }
+
+        [Test]
+        public void LocalizationKitAdaptersKeepOneWayDependencyBoundaries()
+        {
+            CatalogDocument catalog = ReadCatalog();
+            ProfileDocument settings = catalog.profiles.Single(
+                profile => profile.id == "localizationkit.settings");
+            ProfileDocument ugui = catalog.profiles.Single(
+                profile => profile.id == "localizationkit.ugui");
+            ProfileDocument editor = catalog.profiles.Single(
+                profile => profile.id == "localizationkit.editor");
+
+            Assert.That(settings.requiredProfileIds, Is.EqualTo(new[]
+            {
+                "localizationkit.core",
+                "settingskit.core"
+            }));
+            Assert.That(settings.requiredUpm, Is.Empty);
+            Assert.That(ugui.requiredProfileIds, Is.EqualTo(new[]
+            {
+                "localizationkit.core"
+            }));
+            Assert.That(ugui.requiredUpm, Is.EqualTo(new[] { "com.unity.ugui" }));
+            Assert.That(editor.kind, Is.EqualTo("tooling"));
+            Assert.That(editor.tier, Is.Null.Or.Empty);
+            Assert.That(editor.category, Is.Null.Or.Empty);
+            Assert.That(editor.requiredProfileIds, Is.EqualTo(new[]
+            {
+                "localizationkit.core",
+                "localizationkit.ugui"
+            }));
+            Assert.That(settings.sourcePaths, Is.EqualTo(new[]
+            {
+                "Assets/StellarFramework/Runtime/Kits/LocalizationKit/Adapters/Settings"
+            }));
+            Assert.That(ugui.sourcePaths, Is.EqualTo(new[]
+            {
+                "Assets/StellarFramework/Runtime/Kits/LocalizationKit/Adapters/UnityUGUI"
+            }));
+            Assert.That(editor.sourcePaths, Is.EqualTo(new[]
+            {
+                "Assets/StellarFramework/Editor/LocalizationKit"
+            }));
+        }
+
+        [Test]
+        public void DistributionCatalogContainsNoSampleProfiles()
+        {
+            CatalogDocument catalog = ReadCatalog();
+            Assert.That(catalog.profiles.Any(profile => profile.kind == "sample"), Is.False);
+            Assert.That(catalog.profiles.Any(profile => profile.id != null && profile.id.StartsWith("samples.", StringComparison.Ordinal)), Is.False);
         }
 
         [Test]
@@ -99,8 +259,8 @@ namespace StellarFramework.Tests.FrameworkValidation
         [Test]
         public void ArchitectureRulesAndTimeKitDistributionAreDocumented()
         {
-            string guide = ReadAssetText("Assets/StellarFramework/KitCatalog/KitArchitectureGuide.md");
-            string matrix = ReadAssetText("Assets/StellarFramework/KitCatalog/KitExportValidationMatrix.md");
+            string guide = ReadAssetText("Assets/StellarFramework/FrameworkDoc/01-Architecture/KitArchitectureGuide.md");
+            string matrix = ReadAssetText("Assets/StellarFramework/FrameworkDoc/08-Validation/KitExportValidationMatrix.md");
             string readme = ReadAssetText("README.md");
 
             Assert.That(guide, Does.Contain("Foundation 不能依赖 Extension"));
@@ -113,6 +273,11 @@ namespace StellarFramework.Tests.FrameworkValidation
             Assert.That(guide, Does.Contain("PathKit.GridKitAdapter Profile"));
             Assert.That(guide, Does.Contain("PathKit V1 Core Semantics 已冻结"));
             Assert.That(guide, Does.Contain("Tiny Foundation Integration"));
+            Assert.That(guide, Does.Contain("WorldFramework.ToolsHub"));
+            Assert.That(guide, Does.Contain("GridKit.UnityProjectionAdapter"));
+            Assert.That(guide, Does.Contain("LocalizationKit.Core"));
+            Assert.That(guide, Does.Contain("LocalizationKit.SettingsAdapter"));
+            Assert.That(guide, Does.Contain("LocalizationKit.UnityUGUIAdapter"));
             Assert.That(matrix, Does.Contain("| TimeKit |"));
             Assert.That(matrix, Does.Contain("| GridKit |"));
             Assert.That(matrix, Does.Contain("| SpatialKit |"));
@@ -122,12 +287,20 @@ namespace StellarFramework.Tests.FrameworkValidation
             Assert.That(matrix, Does.Contain("Core semantic diff：新增 `None=0`"));
             Assert.That(matrix, Does.Contain("Core Semantics Frozen = YES"));
             Assert.That(matrix, Does.Contain("Explicit Backlog Drain Throughput"));
+            Assert.That(matrix, Does.Contain("| WorldFramework.ToolsHub |"));
+            Assert.That(matrix, Does.Contain("| GridKit.UnityProjectionAdapter |"));
+            Assert.That(matrix, Does.Contain("| LocalizationKit.Core |"));
+            Assert.That(matrix, Does.Contain("| LocalizationKit.SettingsAdapter |"));
+            Assert.That(matrix, Does.Contain("| LocalizationKit.UnityUGUIAdapter |"));
             Assert.That(readme, Does.Contain("`TimeKit`"));
             Assert.That(readme, Does.Contain("`GridKit`"));
             Assert.That(readme, Does.Contain("`SpatialKit`"));
             Assert.That(readme, Does.Contain("`SimulationKit`"));
             Assert.That(readme, Does.Contain("`PathKit`"));
             Assert.That(readme, Does.Contain("KitArchitectureGuide.md"));
+            Assert.That(readme, Does.Contain("WorldFramework.ToolsHub"));
+            Assert.That(readme, Does.Contain("GridKit.UnityProjectionAdapter"));
+            Assert.That(readme, Does.Contain("LocalizationKit"));
         }
 
         private static bool IsRuntimeKit(ProfileDocument profile)
@@ -169,6 +342,7 @@ namespace StellarFramework.Tests.FrameworkValidation
             public string kind;
             public string tier;
             public string category;
+            public string[] sourcePaths;
             public string[] requiredProfileIds;
             public string[] requiredKits;
             public string[] requiredUpm;

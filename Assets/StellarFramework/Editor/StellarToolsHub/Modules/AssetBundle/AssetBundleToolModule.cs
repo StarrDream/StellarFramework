@@ -54,11 +54,11 @@ namespace StellarFramework.Editor
         private const string SHADER_BUNDLE_NAME = "shaders"; // 全局 Shader 包名
         private const string DefaultBundleName = "art";
         private const string DefaultSampleAssetPath =
-            "Assets/StellarFramework/Samples/KitSamples/Example_ResKit/Art/AssetBundle/TestCapsule_AB.prefab";
+            "Assets/StellarFramework/Generated/ToolingFixtures/AssetBundle/TestCapsule_AB.prefab";
         private const string DefaultSampleFolderPath =
-            "Assets/StellarFramework/Samples/KitSamples/Example_ResKit/Art/AssetBundle";
+            "Assets/StellarFramework/Generated/ToolingFixtures/AssetBundle";
         private const string DefaultSampleMaterialPath =
-            "Assets/StellarFramework/Samples/KitSamples/Example_ResKit/Art/AssetBundle/TestCapsule_AB_Auto.mat";
+            "Assets/StellarFramework/Generated/ToolingFixtures/AssetBundle/TestCapsule_AB_Auto.mat";
         private const string AssetMapAssetPath = "Assets/StellarFramework/Generated/AssetMap/AssetMap.cs";
         private const string ShaderVariantCollectionAssetPath =
             "Assets/StellarFramework/Generated/AssetBundleShaders/AssetBundleShaderVariants.shadervariants";
@@ -360,7 +360,7 @@ namespace StellarFramework.Editor
 
             if (!status.HasSampleAsset)
             {
-                status.MissingItems.Add("ResKit AB 示例资源");
+                status.MissingItems.Add("AssetBundle 工具验证资源");
             }
 
             if (!status.HasAssetMap)
@@ -425,7 +425,7 @@ namespace StellarFramework.Editor
             if (File.Exists(absoluteAssetPath))
             {
                 EnsureDefaultSampleAssetMaterial(messages);
-                messages.Add("已检测到默认 AB 示例资源 TestCapsule_AB.prefab。");
+                messages.Add("已检测到 AB 工具验证资源 TestCapsule_AB.prefab。");
                 return;
             }
 
@@ -439,7 +439,7 @@ namespace StellarFramework.Editor
             PrefabUtility.SaveAsPrefabAsset(capsule, DefaultSampleAssetPath);
             UnityEngine.Object.DestroyImmediate(capsule);
             AssetDatabase.ImportAsset(DefaultSampleAssetPath, ImportAssetOptions.ForceUpdate);
-            messages.Add("已补齐默认 AB 示例资源 TestCapsule_AB.prefab。");
+            messages.Add("已补齐 AB 工具验证资源 TestCapsule_AB.prefab。");
         }
 
         private void EnsureDefaultSampleAssetMaterial(List<string> messages)
@@ -461,7 +461,7 @@ namespace StellarFramework.Editor
                 if (ApplyDefaultSampleMaterial(instance))
                 {
                     PrefabUtility.SaveAsPrefabAsset(instance, DefaultSampleAssetPath);
-                    messages.Add("已按当前渲染管线刷新默认 AB 示例材质。");
+                    messages.Add("已按当前渲染管线刷新 AB 工具验证材质。");
                 }
             }
             finally

@@ -2,7 +2,7 @@ using System;
 using System.IO;
 using System.Reflection;
 using NUnit.Framework;
-using StellarFramework.HotUpdate;
+using StellarFramework.HybridCLR;
 using UnityEngine;
 using UnityEditor;
 
@@ -11,7 +11,7 @@ namespace StellarFramework.Tests.FrameworkValidation
     public sealed class HybridCLRHotUpdateAssetExporterTests
     {
         private const string ExporterTypeName =
-            "StellarFramework.Editor.Modules.HybridCLRHotUpdateAssetExporter, StellarFramework.ToolsHub.HotUpdateKit.Editor";
+            "StellarFramework.Editor.Modules.HybridCLRHotUpdateAssetExporter, StellarFramework.ToolsHub.HybridCLRKit.Editor";
 
         private static readonly string TempAssetFolder = "Assets/Temp/HybridCLRHotUpdateAssetExporterTests";
         private static readonly string TempAbsoluteFolder =
@@ -101,9 +101,9 @@ namespace StellarFramework.Tests.FrameworkValidation
         {
             Type exporterType = RequireExporterType();
             Type reportType = Type.GetType(
-                "StellarFramework.Editor.Modules.HybridCLRHotUpdateExportReport, StellarFramework.ToolsHub.HotUpdateKit.Editor");
+                "StellarFramework.Editor.Modules.HybridCLRHotUpdateExportReport, StellarFramework.ToolsHub.HybridCLRKit.Editor");
             Type itemType = Type.GetType(
-                "StellarFramework.Editor.Modules.HybridCLRHotUpdateExportItem, StellarFramework.ToolsHub.HotUpdateKit.Editor");
+                "StellarFramework.Editor.Modules.HybridCLRHotUpdateExportItem, StellarFramework.ToolsHub.HybridCLRKit.Editor");
             Assert.That(reportType, Is.Not.Null);
             Assert.That(itemType, Is.Not.Null);
 
@@ -145,9 +145,9 @@ namespace StellarFramework.Tests.FrameworkValidation
         {
             Type exporterType = RequireExporterType();
             Type reportType = Type.GetType(
-                "StellarFramework.Editor.Modules.HybridCLRHotUpdateExportReport, StellarFramework.ToolsHub.HotUpdateKit.Editor");
+                "StellarFramework.Editor.Modules.HybridCLRHotUpdateExportReport, StellarFramework.ToolsHub.HybridCLRKit.Editor");
             Type itemType = Type.GetType(
-                "StellarFramework.Editor.Modules.HybridCLRHotUpdateExportItem, StellarFramework.ToolsHub.HotUpdateKit.Editor");
+                "StellarFramework.Editor.Modules.HybridCLRHotUpdateExportItem, StellarFramework.ToolsHub.HybridCLRKit.Editor");
             Assert.That(reportType, Is.Not.Null);
             Assert.That(itemType, Is.Not.Null);
 

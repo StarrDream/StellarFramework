@@ -9,26 +9,37 @@ namespace StellarFramework
     {
         private readonly DenseGrid<GridOccupantId> _cells;
 
+        /// <summary>获取固定占用边界。</summary>
         public GridRect Bounds => _cells.Bounds;
+
+        /// <summary>获取占用网格宽度。</summary>
         public int Width => _cells.Width;
+
+        /// <summary>获取占用网格高度。</summary>
         public int Height => _cells.Height;
+
+        /// <summary>获取底层 cell 总数，而不是当前已占用 cell 数。</summary>
         public int Count => _cells.Count;
 
+        /// <summary>创建一个固定边界、初始全部为空的整数占用网格。</summary>
         public GridOccupancy(GridRect bounds)
         {
             _cells = new DenseGrid<GridOccupantId>(bounds, GridOccupantId.None);
         }
 
+        /// <summary>判断一个坐标当前是否由有效 occupant 占用。</summary>
         public bool IsOccupied(GridCoord coord)
         {
             return TryGetOccupant(coord, out GridOccupantId occupant) && occupant.IsValid;
         }
 
+        /// <summary>尝试读取坐标的 occupant；越界时返回 false。</summary>
         public bool TryGetOccupant(GridCoord coord, out GridOccupantId occupant)
         {
             return _cells.TryGet(coord, out occupant);
         }
 
+        /// <summary>获取直接引用底层占用数据的只读连续视图。</summary>
         public ReadOnlySpan<GridOccupantId> AsReadOnlySpan() => _cells.AsReadOnlySpan();
 
         /// <summary>只读检查：目标必须全部为空，调用不会改变 Occupancy。</summary>
@@ -97,6 +108,7 @@ namespace StellarFramework
             return GridOccupancyResult.Succeeded();
         }
 
+        /// <summary>清除全部占用关系。</summary>
         public void Clear() => _cells.Clear();
 
         private GridOccupancyResult EvaluateEmptyOnly(GridOccupantId occupant, GridCoord anchor,

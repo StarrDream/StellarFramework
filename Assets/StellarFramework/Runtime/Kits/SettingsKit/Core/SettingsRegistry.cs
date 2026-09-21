@@ -5,6 +5,10 @@ using LogKit = StellarFramework.Settings.SettingsKitDiagnostics;
 
 namespace StellarFramework.Settings
 {
+    /// <summary>
+    /// SettingsKit 的定义注册表。
+    /// 只保存 Page/Definition 元数据，不保存当前设置值。
+    /// </summary>
     public sealed class SettingsRegistry
     {
         private readonly Dictionary<string, SettingsPageDefinition> _pages =
@@ -13,9 +17,14 @@ namespace StellarFramework.Settings
         private readonly Dictionary<string, SettingDefinition> _settings =
             new Dictionary<string, SettingDefinition>();
 
+        /// <summary>已注册页面的只读集合视图。</summary>
         public IReadOnlyCollection<SettingsPageDefinition> Pages => _pages.Values;
+        /// <summary>已注册设置定义的只读集合视图。</summary>
         public IReadOnlyCollection<SettingDefinition> Settings => _settings.Values;
 
+        /// <summary>
+        /// 注册或替换同 ID 页面定义。
+        /// </summary>
         public void RegisterPage(SettingsPageDefinition page)
         {
             if (page == null)
@@ -33,6 +42,10 @@ namespace StellarFramework.Settings
             _pages[page.Id] = page;
         }
 
+        /// <summary>
+        /// 注册设置定义。
+        /// 若 Page 尚不存在会自动创建占位 Page；重复 Key 会以新 Definition 替换 Registry 中的旧定义。
+        /// </summary>
         public void RegisterSetting(SettingDefinition definition)
         {
             if (definition == null)
@@ -69,16 +82,21 @@ namespace StellarFramework.Settings
             _settings[definition.Key] = definition;
         }
 
+        /// <summary>尝试查询设置定义。</summary>
         public bool TryGetSetting(string key, out SettingDefinition definition)
         {
             return _settings.TryGetValue(key, out definition);
         }
 
+        /// <summary>尝试查询页面定义。</summary>
         public bool TryGetPage(string pageId, out SettingsPageDefinition page)
         {
             return _pages.TryGetValue(pageId, out page);
         }
 
+        /// <summary>
+        /// 按 Order、DisplayName 生成新的页面排序列表。
+        /// </summary>
         public IReadOnlyList<SettingsPageDefinition> GetSortedPages()
         {
             return _pages.Values
@@ -87,6 +105,9 @@ namespace StellarFramework.Settings
                 .ToList();
         }
 
+        /// <summary>
+        /// 取得指定页的设置，并按 Order、DisplayName 排序。
+        /// </summary>
         public IReadOnlyList<SettingDefinition> GetSortedSettingsForPage(string pageId)
         {
             return _settings.Values

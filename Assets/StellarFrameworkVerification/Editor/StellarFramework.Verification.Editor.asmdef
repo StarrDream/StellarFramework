@@ -4,8 +4,12 @@
     "references": [
         "StellarFramework.ToolsHub.Editor",
         "StellarFramework.ToolsHub.Addressables.Editor",
-        "StellarFramework.HotUpdateKit",
-        "StellarFramework.ResKit"
+        "StellarFramework.HybridCLRKit",
+        "StellarFramework.ResKit",
+        "StellarFramework.ResKit.YooAsset",
+        "StellarFramework.Verification.Runtime",
+        "YooAsset",
+        "YooAsset.Editor"
     ],
     "includePlatforms": [
         "Editor"

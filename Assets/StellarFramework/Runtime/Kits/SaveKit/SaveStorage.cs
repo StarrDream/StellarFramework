@@ -210,7 +210,19 @@ namespace StellarFramework
 
         private static void TryDelete(string path)
         {
-            try { if (File.Exists(path)) File.Delete(path); } catch { }
+            try
+            {
+                if (File.Exists(path))
+                {
+                    File.Delete(path);
+                }
+            }
+            catch (Exception exception)
+            {
+                // Best-effort cleanup must not replace the primary save/storage exception,
+                // but failure is still observable for diagnosis instead of being swallowed.
+                LogKit.LogWarning($"[SaveKit] 清理临时文件失败: Path={path}, Error={exception.Message}");
+            }
         }
     }
 
@@ -223,6 +235,7 @@ namespace StellarFramework
 
         public bool FailWrite { get; set; }
         public bool FailCommit { get; set; }
+        public bool FailRead { get; set; }
         public string Description => "InMemory";
 
         public byte[] GetBytes(string slotId, SaveStorageFileKind kind)
@@ -275,6 +288,7 @@ namespace StellarFramework
         public UniTask<Stream> OpenReadAsync(SaveSlotId slotId, SaveStorageFileKind kind, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            if (FailRead) throw new IOException("模拟 Read Fail。" );
             byte[] bytes;
             if (!GetMap(kind).TryGetValue(slotId.Value, out bytes)) throw new FileNotFoundException(slotId.Value);
             return UniTask.FromResult<Stream>(new MemoryStream(bytes, false));

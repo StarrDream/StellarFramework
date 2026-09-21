@@ -8,12 +8,16 @@ namespace StellarFramework.FlowKit.Unity
     public sealed class FlowBinding : MonoBehaviour
     {
         [SerializeField] private string bindingId;
+        [Tooltip("Optional object exposed to Operation adapters. When empty, the FlowBinding component itself is bound for backward compatibility.")]
+        [SerializeField] private UnityEngine.Object target;
         private FlowHost _host;
         private FlowBindingHandle _handle;
         private bool _waitingForInitialization;
 
         public FlowBindingId BindingId => bindingId;
         public FlowBindingHandle Handle => _handle;
+        public UnityEngine.Object Target => target;
+        public object BoundValue => target != null ? target : (object)this;
 
         private void OnEnable()
         {
@@ -48,7 +52,7 @@ namespace StellarFramework.FlowKit.Unity
                 throw new InvalidOperationException("FlowBinding cannot register before FlowHost initialization.");
             if (_handle.IsValid)
                 throw new InvalidOperationException($"FlowBinding is already registered: {bindingId}");
-            _handle = _host.Bind(bindingId, this);
+            _handle = _host.Bind(bindingId, BoundValue);
         }
 
         private void OnDisable()

@@ -10,13 +10,26 @@ namespace StellarFramework
     /// </summary>
     public readonly struct GridRect : IEquatable<GridRect>, IEnumerable<GridCoord>
     {
+        /// <summary>获取矩形最小坐标；X/Y 均为 inclusive。</summary>
         public GridCoord Min { get; }
+
+        /// <summary>获取矩形尺寸。</summary>
         public GridSize Size { get; }
+
+        /// <summary>获取 X 方向 exclusive 最大边界。</summary>
         public long MaxExclusiveX => (long)Min.X + Size.Width;
+
+        /// <summary>获取 Y 方向 exclusive 最大边界。</summary>
         public long MaxExclusiveY => (long)Min.Y + Size.Height;
+
+        /// <summary>获取矩形是否为空；任一维长度为 0 即为空。</summary>
         public bool IsEmpty => Size.Width == 0 || Size.Height == 0;
+
+        /// <summary>获取矩形包含的 cell 数。</summary>
         public long Area => Size.Area;
 
+        /// <summary>创建采用 Min Inclusive / Max Exclusive 语义的矩形。</summary>
+        /// <exception cref="ArgumentOutOfRangeException">矩形会覆盖到 Int32 可表示坐标之外。</exception>
         public GridRect(GridCoord min, GridSize size)
         {
             long maxExclusiveX = (long)min.X + size.Width;
@@ -32,12 +45,14 @@ namespace StellarFramework
             Size = size;
         }
 
+        /// <summary>判断一个绝对坐标是否位于矩形内。</summary>
         public bool Contains(GridCoord coord)
         {
             return !IsEmpty && coord.X >= Min.X && (long)coord.X < MaxExclusiveX &&
                 coord.Y >= Min.Y && (long)coord.Y < MaxExclusiveY;
         }
 
+        /// <summary>判断另一个矩形是否完全位于本矩形内；空矩形始终视为被包含。</summary>
         public bool Contains(GridRect other)
         {
             if (other.IsEmpty) return true;
@@ -45,6 +60,7 @@ namespace StellarFramework
                 other.Min.Y >= Min.Y && other.MaxExclusiveY <= MaxExclusiveY;
         }
 
+        /// <summary>判断两个非空矩形是否存在正面积交叠。</summary>
         public bool Overlaps(GridRect other)
         {
             return !IsEmpty && !other.IsEmpty &&
@@ -52,6 +68,8 @@ namespace StellarFramework
                 Min.Y < other.MaxExclusiveY && other.Min.Y < MaxExclusiveY;
         }
 
+        /// <summary>尝试计算两个矩形的交集。</summary>
+        /// <returns>有正面积交集时为 true；否则输出 default 并返回 false。</returns>
         public bool TryIntersect(GridRect other, out GridRect intersection)
         {
             if (!Overlaps(other))
@@ -70,18 +88,27 @@ namespace StellarFramework
             return true;
         }
 
+        /// <summary>保持尺寸不变，将矩形整体平移指定逻辑位移。</summary>
         public GridRect Translate(GridOffset offset)
         {
             return new GridRect(GridMath.OffsetChecked(Min, offset), Size);
         }
 
+        /// <summary>获取无托管分配的 Row-Major 枚举器。</summary>
         public Enumerator GetEnumerator() => new Enumerator(this);
         IEnumerator<GridCoord> IEnumerable<GridCoord>.GetEnumerator() => new Enumerator(this);
         IEnumerator IEnumerable.GetEnumerator() => new Enumerator(this);
 
+        /// <inheritdoc />
         public bool Equals(GridRect other) => Min == other.Min && Size == other.Size;
+
+        /// <inheritdoc />
         public override bool Equals(object obj) => obj is GridRect && Equals((GridRect)obj);
+
+        /// <inheritdoc />
         public override int GetHashCode() => unchecked((Min.GetHashCode() * 397) ^ Size.GetHashCode());
+
+        /// <inheritdoc />
         public override string ToString() => string.Format("[{0}, {1}) size {2}", Min, MaxExclusiveX, Size);
 
         public static bool operator ==(GridRect left, GridRect right) => left.Equals(right);
@@ -109,9 +136,11 @@ namespace StellarFramework
                 _current = default(GridCoord);
             }
 
+            /// <inheritdoc />
             public GridCoord Current => _current;
             object IEnumerator.Current => _current;
 
+            /// <inheritdoc />
             public bool MoveNext()
             {
                 if (_rect.IsEmpty) return false;
@@ -138,6 +167,7 @@ namespace StellarFramework
                 return true;
             }
 
+            /// <inheritdoc />
             public void Reset()
             {
                 _x = _rect.Min.X;
@@ -146,6 +176,7 @@ namespace StellarFramework
                 _current = default(GridCoord);
             }
 
+            /// <inheritdoc />
             public void Dispose() { }
         }
     }

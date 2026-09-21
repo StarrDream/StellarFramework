@@ -17,12 +17,19 @@ namespace StellarFramework.Res
         Custom = 100
     }
 
+    /// <summary>
+    /// 描述一次 Loader/Scope 分配请求。
+    /// </summary>
     public struct ResLoaderRequest
     {
+        /// <summary>内置后端或 Custom 路由方式。</summary>
         public ResLoadBackend Backend;
+        /// <summary>面向诊断的业务 Owner 名称，例如 Inventory、LoginPanel。</summary>
         public string OwnerName;
+        /// <summary>Backend=Custom 时使用的统一注册表 Key。</summary>
         public string CustomKey;
 
+        /// <summary>创建使用当前默认后端的请求。</summary>
         public static ResLoaderRequest Default(string ownerName = null)
         {
             return new ResLoaderRequest
@@ -32,6 +39,7 @@ namespace StellarFramework.Res
             };
         }
 
+        /// <summary>创建指定内置后端的请求。</summary>
         public static ResLoaderRequest For(ResLoadBackend backend, string ownerName = null)
         {
             return new ResLoaderRequest
@@ -41,6 +49,7 @@ namespace StellarFramework.Res
             };
         }
 
+        /// <summary>创建指定自定义 Loader Key 的请求。</summary>
         public static ResLoaderRequest Custom(string customKey, string ownerName = null)
         {
             return new ResLoaderRequest
@@ -52,6 +61,9 @@ namespace StellarFramework.Res
         }
     }
 
+    /// <summary>
+    /// ResKit 后端工厂。只负责创建/分配 Loader，不负责执行资源加载。
+    /// </summary>
     public delegate IResLoader ResLoaderFactory(ResLoaderRequest request);
 
     /// <summary>
@@ -62,7 +74,9 @@ namespace StellarFramework.Res
     /// </summary>
     public static class ResKit
     {
+        /// <summary>内置 Resources 后端注册 Key。</summary>
         public const string KeyResources = "Resources";
+        /// <summary>内置 AssetBundle 后端注册 Key。</summary>
         public const string KeyAssetBundle = "AssetBundle";
 
         private static readonly Dictionary<string, ResLoaderFactory> _factories =
@@ -77,6 +91,50 @@ namespace StellarFramework.Res
             // 内置后端预注册进统一注册表。
             // 注册仅是登记工厂委托，不会触发实例化，因此无初始化顺序/循环依赖风险。
             _factories[KeyResources] = request => Allocate<ResourceLoader>();
+        }
+
+        /// <summary>
+        /// 创建使用当前默认后端的资源 Scope。
+        /// </summary>
+        /// <remarks>
+        /// 这是普通业务代码的推荐入口。Scope Dispose 时会自动释放全部资源引用并回收 Loader。
+        /// </remarks>
+        public static ResScope CreateScope(string ownerName = null)
+        {
+            return CreateScope(ResLoaderRequest.Default(ownerName));
+        }
+
+        /// <summary>
+        /// 创建指定内置后端的资源 Scope。
+        /// </summary>
+        public static ResScope CreateScope(ResLoadBackend backend, string ownerName = null)
+        {
+            return CreateScope(ResLoaderRequest.For(backend, ownerName));
+        }
+
+        /// <summary>
+        /// 创建指定自定义 Loader Key 的资源 Scope。
+        /// 适合 Addressables、YooAsset 等 Adapter。
+        /// </summary>
+        public static ResScope CreateCustomScope(string loaderKey, string ownerName = null)
+        {
+            return CreateScope(ResLoaderRequest.Custom(loaderKey, ownerName));
+        }
+
+        /// <summary>
+        /// 按完整请求创建资源 Scope。
+        /// Loader 未注册属于启动/配置错误，因此这里 Fail-Fast 抛出异常，而不是返回不可用 Scope。
+        /// </summary>
+        public static ResScope CreateScope(ResLoaderRequest request)
+        {
+            IResLoader loader = Allocate(request);
+            if (loader == null)
+            {
+                throw new InvalidOperationException(
+                    $"ResKit failed to create scope. Backend={request.Backend}, CustomKey={request.CustomKey ?? "null"}, Owner={request.OwnerName ?? "null"}");
+            }
+
+            return new ResScope(loader);
         }
 
         /// <summary>
@@ -144,6 +202,10 @@ namespace StellarFramework.Res
             RegisterLoader(customKey, factory);
         }
 
+        /// <summary>
+        /// 取消某个自定义 Loader Key 的注册。
+        /// 已创建 Loader/Scope 不受影响，仍按原生命周期正常释放。
+        /// </summary>
         public static void UnregisterCustomLoader(string customKey)
         {
             RegisterLoader(customKey, null);
@@ -190,6 +252,10 @@ namespace StellarFramework.Res
             return loader;
         }
 
+        /// <summary>
+        /// 按内置后端快速分配 Loader。
+        /// 普通业务优先使用 <see cref="CreateScope(ResLoadBackend,string)"/>。
+        /// </summary>
         public static IResLoader Allocate(ResLoadBackend backend, string ownerName = null)
         {
             return Allocate(ResLoaderRequest.For(backend, ownerName));

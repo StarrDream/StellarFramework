@@ -34,42 +34,20 @@ namespace StellarFramework.Tests.FrameworkValidation
         }
 
         [Test]
-        public void SimulationKitCatalogAndSampleClosureAreExplicit()
+        public void SimulationKitCatalogDocsAndBenchmarksAreExplicit()
         {
             string catalog = Read("Assets/StellarFramework/KitCatalog/KitDistributionCatalog.json");
-            string sampleAsmdef = Read(
-                "Assets/StellarFramework/Samples/KitSamples/Example_SimulationKit/StellarFramework.Samples.SimulationKit.asmdef");
-            string sample = Read("Assets/StellarFramework/Samples/KitSamples/Example_SimulationKit/Example_SimulationKit.cs");
             string mutationResult = Read(
                 "Assets/StellarFramework/Runtime/Kits/SimulationKit/SimulationMutationResult.cs");
             string usageGuide = Read(
-                "Assets/StellarFramework/Runtime/Kits/SimulationKit/SimulationKit-批量模拟调度-说明文档-Guide.md");
+                "Assets/StellarFramework/FrameworkDoc/02-Kits/SimulationKit/SimulationKit-批量模拟调度-说明文档-Guide.md");
             string sourceGuide = Read(
-                "Assets/StellarFramework/Runtime/Kits/SimulationKit/SimulationKit-批量模拟调度-源码文档-Guide.md");
+                "Assets/StellarFramework/FrameworkDoc/02-Kits/SimulationKit/SimulationKit-批量模拟调度-源码文档-Guide.md");
             string benchmark = Read(
                 "Assets/StellarFramework/Tests/EditMode/FrameworkValidation/Performance/SimulationKit/SimulationKitBenchmarkTests.cs");
-            string scene = Read("Assets/StellarFramework/Samples/KitSamples/Scenes/SimulationKit_Playable.unity");
-            string template = Read(
-                "Assets/StellarFramework/Samples/KitSamples/Editor/SampleTemplates/KitSamples/SimulationKit_Playable.unity.txt");
 
             Assert.That(catalog, Does.Contain("\"id\": \"simulationkit\""));
             Assert.That(catalog, Does.Contain("StellarFramework-SimulationKit.unitypackage"));
-            Assert.That(catalog, Does.Contain("\"id\": \"samples.simulationkit\""));
-            Assert.That(catalog, Does.Contain("StellarFramework-Sample-SimulationKit.unitypackage"));
-            Assert.That(catalog, Does.Contain("\"requiredProfileIds\": [\"simulationkit\"]"));
-            Assert.That(sampleAsmdef, Does.Contain("StellarFramework.SimulationKit.Core"));
-            Assert.That(sampleAsmdef, Does.Contain("\"autoReferenced\": false"));
-            Assert.That(sample, Does.Contain("Reset Burst"));
-            Assert.That(sample, Does.Contain("Reset Staggered"));
-            Assert.That(sample, Does.Contain("Budget 16"));
-            Assert.That(sample, Does.Contain("DrainCurrentTick"));
-            Assert.That(sample, Does.Contain("FrameStep"));
-            Assert.That(sample, Does.Contain("Frame Step (Collect once)"));
-            Assert.That(sample, Does.Contain("Game Tick"));
-            Assert.That(sample, Does.Contain("Manual Drain (same tick)"));
-            Assert.That(sample, Does.Not.Contain("while (result.HasBacklog)"));
-            Assert.That(sample, Does.Not.Contain("TimeKit"));
-            Assert.That(sample, Does.Not.Contain("Addressables"));
             Assert.That(mutationResult, Does.Contain("已注册 Entry 的业务调度状态"));
             Assert.That(mutationResult, Does.Contain("记录已观察到的时间"));
             Assert.That(usageGuide, Does.Contain("单次 `CollectDue()` 调用的 Count Budget"));
@@ -82,9 +60,6 @@ namespace StellarFramework.Tests.FrameworkValidation
             Assert.That(sourceGuide, Does.Contain("根判断保持 O(1)"));
             Assert.That(benchmark, Does.Contain("ExplicitBacklogDrainThroughput"));
             Assert.That(benchmark, Does.Contain("explicit backlog drain throughput"));
-            Assert.That(scene, Does.Contain("m_Name: Example_SimulationKit"));
-            Assert.That(scene, Does.Not.Contain("m_Script: {fileID: 0}"));
-            Assert.That(template, Does.Contain("m_Name: Example_SimulationKit"));
             Assert.That(File.Exists(Absolute(
                 "Assets/StellarFramework/Tests/EditMode/FrameworkValidation/Performance/SimulationKit/SimulationKitBenchmarkTests.cs")), Is.True);
         }

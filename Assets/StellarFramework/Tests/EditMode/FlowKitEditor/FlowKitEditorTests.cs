@@ -1,10 +1,12 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Reflection;
 using UnityEditor;
 using NUnit.Framework;
 using UnityEngine;
 using StellarFramework.FlowKit;
+using StellarFramework.FlowKit.Unity;
 using StellarFramework.Editor.Modules.FlowKit;
 
 namespace StellarFramework.Editor.Modules.FlowKit.Tests
@@ -177,17 +179,265 @@ namespace StellarFramework.Editor.Modules.FlowKit.Tests
         }
 
         [Test]
-        public void BuildValidatorAcceptsAllCurrentProjectFlows()
+        public void BuildValidatorAcceptsFrameworkRepositoryWithoutBusinessFlows()
         {
             FlowBuildValidationResult result = FlowKitBuildValidator.ValidateProject();
             Assert.That(result.Succeeded, Is.True, result.CreateSummary());
-            Assert.That(result.GraphCount, Is.GreaterThanOrEqualTo(1));
+            Assert.That(result.GraphCount, Is.EqualTo(0),
+                "Framework source repository should not require a bundled business/sample Flow graph.");
         }
 
         [Test]
-        public void FireDrillSampleGraphCompletesThroughTwoWayCommunication()
+        public void AuthoringIdRulesRequireStableLowerSnakeCaseSegments()
         {
-            FlowGraphData graph = LoadFireDrillSampleGraph();
+            Assert.That(FlowAuthoringIdRules.IsValidContractId("school.assembly.all_ready"), Is.True);
+            Assert.That(FlowAuthoringIdRules.IsValidContractId("school.assembly_zone", 2), Is.True);
+            Assert.That(FlowAuthoringIdRules.IsValidContractId("School.Assembly.Ready"), Is.False);
+            Assert.That(FlowAuthoringIdRules.IsValidContractId("school..ready"), Is.False);
+            Assert.That(FlowAuthoringIdRules.IsValidContractId("ready"), Is.False);
+            Assert.That(FlowAuthoringIdRules.IsValidArgumentKey("playerId"), Is.True);
+            Assert.That(FlowAuthoringIdRules.IsValidArgumentKey("2player"), Is.False);
+            Assert.That(FlowAuthoringIdRules.IsValidArgumentKey("player-id"), Is.False);
+        }
+
+        [Test]
+        public void ContractValidatorRejectsUnknownOperationWhenContractsAreActive()
+        {
+            var contracts = new FlowContractCatalogSnapshot();
+            contracts.StrictScopes.Add(new FlowStrictContractScope(null));
+            contracts.Operations.Add(
+                "school.video.play",
+                CreateAuthoringContract("school.video.play", FlowValueKind.Any));
+
+            var graph = new FlowGraphData { FlowId = "tests.contract.unknown_operation", EntryNodeId = "op" };
+            var node = new FlowNodeData { Id = "op", TypeId = "flow.operation" };
+            node.Parameters.Set("operation", FlowValue.FromString("school.audio.play"));
+            graph.Nodes.Add(node);
+
+            var result = new FlowBuildValidationResult();
+            FlowKitContractValidator.ValidateGraph("Assets/Test.flow.json", graph, contracts, result);
+
+            Assert.That(result.Errors, Has.Some.Contains("unknown Operation contract 'school.audio.play'"));
+        }
+
+        [Test]
+        public void ContractValidatorAllowsUnknownOperationForNonStrictPartialCatalog()
+        {
+            var contracts = new FlowContractCatalogSnapshot();
+            contracts.Operations.Add(
+                "school.video.play",
+                CreateAuthoringContract("school.video.play", FlowValueKind.Any));
+
+            var graph = new FlowGraphData { FlowId = "tests.contract.partial_catalog", EntryNodeId = "op" };
+            var node = new FlowNodeData { Id = "op", TypeId = "flow.operation" };
+            node.Parameters.Set("operation", FlowValue.FromString("rainforest.video.play"));
+            graph.Nodes.Add(node);
+
+            var result = new FlowBuildValidationResult();
+            FlowKitContractValidator.ValidateGraph("Assets/Test.flow.json", graph, contracts, result);
+
+            Assert.That(result.Errors, Is.Empty);
+        }
+
+        [Test]
+        public void ContractValidatorStrictScopeOnlyAppliesToConfiguredFlowIds()
+        {
+            var contracts = new FlowContractCatalogSnapshot();
+            contracts.StrictScopes.Add(new FlowStrictContractScope(
+                new[] { "school.main.flow" }));
+            contracts.Operations.Add(
+                "school.video.play",
+                CreateAuthoringContract("school.video.play", FlowValueKind.Any));
+
+            var graph = new FlowGraphData { FlowId = "rainforest.main.flow", EntryNodeId = "op" };
+            var node = new FlowNodeData { Id = "op", TypeId = "flow.operation" };
+            node.Parameters.Set("operation", FlowValue.FromString("rainforest.video.play"));
+            graph.Nodes.Add(node);
+
+            var result = new FlowBuildValidationResult();
+            FlowKitContractValidator.ValidateGraph("Assets/Test.flow.json", graph, contracts, result);
+
+            Assert.That(result.Errors, Is.Empty);
+        }
+
+        [Test]
+        public void StrictScopeWithOnlyInvalidFlowIdsDoesNotSilentlyBecomeGlobal()
+        {
+            var scope = new FlowStrictContractScope(new[] { string.Empty, "   " });
+
+            Assert.That(scope.AppliesTo("school.main.flow"), Is.False);
+        }
+
+        [Test]
+        public void ContractValidatorRejectsMissingRequiredOperationArgument()
+        {
+            var contracts = new FlowContractCatalogSnapshot();
+            contracts.Operations.Add(
+                "school.voice.play",
+                CreateOperationContract(
+                    "school.voice.play",
+                    CreateArgumentContract("voiceId", FlowValueKind.String, true)));
+
+            var graph = new FlowGraphData { FlowId = "school.main.flow", EntryNodeId = "op" };
+            var node = new FlowNodeData { Id = "op", TypeId = "flow.operation" };
+            node.Parameters.Set("operation", FlowValue.FromString("school.voice.play"));
+            graph.Nodes.Add(node);
+
+            var result = new FlowBuildValidationResult();
+            FlowKitContractValidator.ValidateGraph("Assets/Test.flow.json", graph, contracts, result);
+
+            Assert.That(result.Errors, Has.Some.Contains("missing required argument 'voiceId'"));
+        }
+
+        [Test]
+        public void ContractValidatorRejectsOperationArgumentTypeMismatch()
+        {
+            var contracts = new FlowContractCatalogSnapshot();
+            contracts.Operations.Add(
+                "school.voice.play",
+                CreateOperationContract(
+                    "school.voice.play",
+                    CreateArgumentContract("voiceId", FlowValueKind.String, true)));
+
+            var graph = new FlowGraphData { FlowId = "school.main.flow", EntryNodeId = "op" };
+            var node = new FlowNodeData { Id = "op", TypeId = "flow.operation" };
+            node.Parameters.Set("operation", FlowValue.FromString("school.voice.play"));
+            node.Parameters.Set("voiceId", FlowValue.FromInt(7));
+            graph.Nodes.Add(node);
+
+            var result = new FlowBuildValidationResult();
+            FlowKitContractValidator.ValidateGraph("Assets/Test.flow.json", graph, contracts, result);
+
+            Assert.That(result.Errors, Has.Some.Contains("expects String but graph contains Int"));
+        }
+
+        [Test]
+        public void ContractValidatorRejectsStateAndBlackboardTypeMismatch()
+        {
+            var contracts = new FlowContractCatalogSnapshot();
+            contracts.States.Add(
+                "school.assembly.all_ready",
+                CreateAuthoringContract("school.assembly.all_ready", FlowValueKind.Bool));
+            contracts.BlackboardKeys.Add(
+                "school.route.retry_count",
+                CreateAuthoringContract("school.route.retry_count", FlowValueKind.Int));
+
+            var graph = new FlowGraphData { FlowId = "school.main.flow", EntryNodeId = "state" };
+            var state = new FlowNodeData { Id = "state", TypeId = "flow.wait.state" };
+            state.Parameters.Set("state", FlowValue.FromString("school.assembly.all_ready"));
+            state.Parameters.Set("expected", FlowValue.FromInt(1));
+            graph.Nodes.Add(state);
+
+            var blackboard = new FlowNodeData { Id = "bb", TypeId = "flow.set.blackboard" };
+            blackboard.Parameters.Set("key", FlowValue.FromString("school.route.retry_count"));
+            blackboard.Parameters.Set("value", FlowValue.FromString("one"));
+            graph.Nodes.Add(blackboard);
+
+            var result = new FlowBuildValidationResult();
+            FlowKitContractValidator.ValidateGraph("Assets/Test.flow.json", graph, contracts, result);
+
+            Assert.That(result.Errors, Has.Some.Contains("State 'school.assembly.all_ready' expected value expects Bool but graph contains Int"));
+            Assert.That(result.Errors, Has.Some.Contains("Blackboard 'school.route.retry_count' value expects Int but graph contains String"));
+        }
+
+        [Test]
+        public void ContractValidatorRejectsUnknownBindingOnlyInStrictScope()
+        {
+            var contracts = new FlowContractCatalogSnapshot();
+            contracts.StrictScopes.Add(new FlowStrictContractScope(
+                new[] { "school.main.flow" }));
+
+            var graph = new FlowGraphData { FlowId = "school.main.flow", EntryNodeId = "op" };
+            var node = new FlowNodeData { Id = "op", TypeId = "flow.operation" };
+            node.Parameters.Set("operation", FlowValue.FromString("school.navigation.start"));
+            node.Parameters.Set("binding", FlowValue.FromBindingReference("school.assembly_zone"));
+            graph.Nodes.Add(node);
+
+            var result = new FlowBuildValidationResult();
+            FlowKitContractValidator.ValidateGraph("Assets/Test.flow.json", graph, contracts, result);
+
+            Assert.That(result.Errors, Has.Some.Contains("unknown Binding contract 'school.assembly_zone'"));
+        }
+
+        [Test]
+        public void ContractValidatorRejectsSignalPayloadTypeMismatch()
+        {
+            var contracts = new FlowContractCatalogSnapshot();
+            contracts.Signals.Add(
+                "school.video.completed",
+                CreateAuthoringContract("school.video.completed", FlowValueKind.Bool));
+
+            var graph = new FlowGraphData { FlowId = "tests.contract.signal_type", EntryNodeId = "emit" };
+            var node = new FlowNodeData { Id = "emit", TypeId = "flow.emit.signal" };
+            node.Parameters.Set("signal", FlowValue.FromString("school.video.completed"));
+            node.Parameters.Set("payload", FlowValue.FromInt(1));
+            graph.Nodes.Add(node);
+
+            var result = new FlowBuildValidationResult();
+            FlowKitContractValidator.ValidateGraph("Assets/Test.flow.json", graph, contracts, result);
+
+            Assert.That(result.Errors, Has.Some.Contains("expects Bool but graph contains Int"));
+        }
+
+        [Test]
+        public void ProjectScaffolderCreatesCompilableBoundaryFileSetWithoutOverwriting()
+        {
+            string root = Path.Combine(
+                Path.GetTempPath(),
+                "StellarFramework_FlowKitScaffold_" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(root);
+
+            try
+            {
+                string module = FlowKitProjectScaffolder.BuildModuleFiles(
+                    "school.main.flow",
+                    root,
+                    "School");
+
+                Assert.That(module, Is.Not.Empty);
+                Assert.That(File.Exists(Path.Combine(module, "Contracts", "SchoolFlowContracts.cs")), Is.True);
+                Assert.That(File.Exists(Path.Combine(module, "Bootstrap", "SchoolFlowConfigurator.cs")), Is.True);
+                Assert.That(File.Exists(Path.Combine(module, "Facts", "SchoolFlowFactsBridge.cs")), Is.True);
+                string adapter = Path.Combine(module, "Operations", "SchoolOperationAdapterExample.cs");
+                Assert.That(File.Exists(adapter), Is.True);
+                Assert.That(File.ReadAllText(adapter), Does.Contain("Operation adapter template is not implemented"));
+
+                string second = FlowKitProjectScaffolder.BuildModuleFiles(
+                    "school.main.flow",
+                    root,
+                    "School");
+                Assert.That(second, Is.Empty, "Scaffolder must never overwrite an existing module.");
+            }
+            finally
+            {
+                if (Directory.Exists(root))
+                    Directory.Delete(root, true);
+            }
+        }
+
+        [Test]
+        public void FlowBindingUsesExplicitTargetAndPreservesSelfFallback()
+        {
+            var gameObject = new GameObject("FlowBindingContractTest");
+            try
+            {
+                FlowBinding binding = gameObject.AddComponent<FlowBinding>();
+                Assert.That(binding.BoundValue, Is.SameAs(binding));
+
+                SetPrivateField(binding, "target", gameObject.transform);
+                Assert.That(binding.Target, Is.SameAs(gameObject.transform));
+                Assert.That(binding.BoundValue, Is.SameAs(gameObject.transform));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(gameObject);
+            }
+        }
+
+        [Test]
+        public void TwoWayIntegrationGraphCompletesThroughSignalStateAndOperation()
+        {
+            FlowGraphData graph = CreateTwoWayIntegrationGraph();
             FlowCompileResult compile = FlowCompiler.Compile(graph, FlowBuiltInNodes.CreateRegistry());
             Assert.That(compile.Succeeded, Is.True, JoinIssues(compile));
 
@@ -208,9 +458,9 @@ namespace StellarFramework.Editor.Modules.FlowKit.Tests
         }
 
         [Test]
-        public void FireDrillSampleGraphRoutesOperationFailureToBusinessFailure()
+        public void TwoWayIntegrationGraphRoutesOperationFailureToBusinessFailure()
         {
-            FlowGraphData graph = LoadFireDrillSampleGraph();
+            FlowGraphData graph = CreateTwoWayIntegrationGraph();
             FlowCompileResult compile = FlowCompiler.Compile(graph, FlowBuiltInNodes.CreateRegistry());
             Assert.That(compile.Succeeded, Is.True, JoinIssues(compile));
 
@@ -247,12 +497,71 @@ namespace StellarFramework.Editor.Modules.FlowKit.Tests
             Assert.That(binding.BindingReferenceValue.Id, Is.EqualTo("AssemblyPoint"));
         }
 
-        private static FlowGraphData LoadFireDrillSampleGraph()
+        private static FlowGraphData CreateTwoWayIntegrationGraph()
         {
-            const string path = "Assets/StellarFramework/Samples/KitSamples/Example_FlowKit/FireDrillWorkflow4P.flow.json";
-            TextAsset asset = AssetDatabase.LoadAssetAtPath<TextAsset>(path);
-            Assert.That(asset, Is.Not.Null, "FireDrillWorkflow4P.flow.json is missing.");
-            return StellarFramework.FlowKit.Unity.FlowGraphJson.FromTextAsset(asset);
+            var graph = new FlowGraphData
+            {
+                FlowId = "tests.editor.two_way_integration",
+                EntryNodeId = "entry"
+            };
+
+            graph.Nodes.Add(new FlowNodeData { Id = "entry", TypeId = "flow.entry" });
+
+            var ready = new FlowNodeData { Id = "ready", TypeId = "flow.wait.signal" };
+            ready.Parameters.Set("signal", FlowValue.FromString("fire_drill.player1.ready"));
+            ready.Parameters.Set("scope", FlowValue.FromString("Host"));
+            graph.Nodes.Add(ready);
+
+            var task = new FlowNodeData { Id = "task", TypeId = "flow.operation" };
+            task.Parameters.Set("operation", FlowValue.FromString("fire_drill.extinguisher_a.start"));
+            graph.Nodes.Add(task);
+
+            var taskDone = new FlowNodeData { Id = "task-done", TypeId = "flow.wait.state" };
+            taskDone.Parameters.Set("state", FlowValue.FromString("fire_drill.extinguisher_a.completed"));
+            taskDone.Parameters.Set("expected", FlowValue.FromBool(true));
+            graph.Nodes.Add(taskDone);
+
+            var safety = new FlowNodeData { Id = "safety", TypeId = "flow.operation" };
+            safety.Parameters.Set("operation", FlowValue.FromString("fire_drill.safety.check"));
+            graph.Nodes.Add(safety);
+
+            var safetyPassed = new FlowNodeData { Id = "safety-passed", TypeId = "flow.wait.state" };
+            safetyPassed.Parameters.Set("state", FlowValue.FromString("fire_drill.safety.passed"));
+            safetyPassed.Parameters.Set("expected", FlowValue.FromBool(true));
+            graph.Nodes.Add(safetyPassed);
+
+            var delay = new FlowNodeData { Id = "delay", TypeId = "flow.delay" };
+            delay.Parameters.Set("seconds", FlowValue.FromDouble(5d));
+            graph.Nodes.Add(delay);
+            graph.Nodes.Add(new FlowNodeData { Id = "complete", TypeId = "flow.complete" });
+
+            var fail = new FlowNodeData { Id = "fail", TypeId = "flow.fail" };
+            fail.Parameters.Set("message", FlowValue.FromString("Operation failed."));
+            graph.Nodes.Add(fail);
+
+            AddEdge(graph, "entry", "next", "ready");
+            AddEdge(graph, "ready", "received", "task");
+            AddEdge(graph, "task", "succeeded", "task-done");
+            AddEdge(graph, "task", "failed", "fail");
+            AddEdge(graph, "task", "cancelled", "fail");
+            AddEdge(graph, "task-done", "changed", "safety");
+            AddEdge(graph, "safety", "succeeded", "safety-passed");
+            AddEdge(graph, "safety", "failed", "fail");
+            AddEdge(graph, "safety", "cancelled", "fail");
+            AddEdge(graph, "safety-passed", "changed", "delay");
+            AddEdge(graph, "delay", "completed", "complete");
+            return graph;
+        }
+
+        private static void AddEdge(FlowGraphData graph, string fromNode, string fromPort, string toNode)
+        {
+            graph.Edges.Add(new FlowEdgeData
+            {
+                FromNodeId = fromNode,
+                FromPortId = fromPort,
+                ToNodeId = toNode,
+                ToPortId = "in"
+            });
         }
 
         private static FlowRuntimeServices CreateFireDrillServices(FlowGraphData graph, string failedOperation)
@@ -298,6 +607,48 @@ namespace StellarFramework.Editor.Modules.FlowKit.Tests
             var lines = new List<string>(result.Issues.Count);
             for (int i = 0; i < result.Issues.Count; i++) lines.Add(result.Issues[i].ToString());
             return string.Join("\n", lines);
+        }
+
+        private static FlowAuthoringContractEntry CreateAuthoringContract(string id, FlowValueKind valueKind)
+        {
+            var entry = new FlowAuthoringContractEntry();
+            SetPrivateField(entry, "id", id);
+            SetPrivateField(entry, "valueKind", valueKind);
+            return entry;
+        }
+
+        private static FlowAuthoringContractEntry CreateOperationContract(
+            string id,
+            params FlowAuthoringArgumentContract[] arguments)
+        {
+            var entry = CreateAuthoringContract(id, FlowValueKind.Any);
+            SetPrivateField(
+                entry,
+                "arguments",
+                new List<FlowAuthoringArgumentContract>(arguments ?? Array.Empty<FlowAuthoringArgumentContract>()));
+            SetPrivateField(entry, "allowAdditionalArguments", false);
+            return entry;
+        }
+
+        private static FlowAuthoringArgumentContract CreateArgumentContract(
+            string key,
+            FlowValueKind kind,
+            bool required)
+        {
+            var argument = new FlowAuthoringArgumentContract();
+            SetPrivateField(argument, "key", key);
+            SetPrivateField(argument, "valueKind", kind);
+            SetPrivateField(argument, "required", required);
+            return argument;
+        }
+
+        private static void SetPrivateField<T>(object target, string fieldName, T value)
+        {
+            FieldInfo field = target.GetType().GetField(
+                fieldName,
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(field, Is.Not.Null, $"Missing private field '{fieldName}'.");
+            field.SetValue(target, value);
         }
 
         private sealed class FireDrillTestOperationAdapter : IFlowOperationAdapter

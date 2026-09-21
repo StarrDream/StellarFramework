@@ -1,0 +1,17 @@
+{
+  "name": "StellarFramework.LocalizationKit.UnityUGUIAdapter",
+  "rootNamespace": "StellarFramework.Localization.UnityUGUI",
+  "references": [
+    "StellarFramework.LocalizationKit.Core",
+    "UnityEngine.UI"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

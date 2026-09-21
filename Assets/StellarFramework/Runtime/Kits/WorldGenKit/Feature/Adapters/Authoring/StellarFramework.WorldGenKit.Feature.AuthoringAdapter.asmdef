@@ -1,0 +1,19 @@
+{
+    "name": "StellarFramework.WorldGenKit.Feature.AuthoringAdapter",
+    "rootNamespace": "StellarFramework.WorldGenKit.Feature.AuthoringAdapter",
+    "references": [
+        "StellarFramework.WorldGenKit.Feature",
+        "StellarFramework.WorldGenKit.Authoring",
+        "StellarFramework.WorldGenKit.Builtins",
+        "StellarFramework.WorldGenKit.Core"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": true
+}

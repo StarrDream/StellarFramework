@@ -1,0 +1,16 @@
+{
+    "name": "StellarFramework.WorldKit.Streaming",
+    "rootNamespace": "StellarFramework.WorldKit.Streaming",
+    "references": [
+        "StellarFramework.WorldKit.Core"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": true
+}

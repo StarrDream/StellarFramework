@@ -403,6 +403,43 @@ namespace StellarFramework.Tests.FrameworkValidation
         }
 
         [Test]
+        public void UnityJsonSerializerRoundTripsPrimitiveWithoutRuntimeReflection()
+        {
+            var serializer = new UnityJsonSaveSerializer();
+            using (var stream = new MemoryStream())
+            {
+                serializer.SerializeAsync(typeof(int), 73, stream, System.Threading.CancellationToken.None)
+                    .GetAwaiter().GetResult();
+                string json = Encoding.UTF8.GetString(stream.ToArray());
+                Assert.That(json, Is.EqualTo("{\"Value\":73}"));
+
+                stream.Position = 0;
+                object loaded = serializer.DeserializeAsync(typeof(int), stream,
+                    System.Threading.CancellationToken.None).GetAwaiter().GetResult();
+                Assert.That(loaded, Is.EqualTo(73));
+            }
+        }
+
+        [Test]
+        public void UnityJsonSerializerRoundTripsEnumUsingStableValueBoxShape()
+        {
+            var serializer = new UnityJsonSaveSerializer();
+            using (var stream = new MemoryStream())
+            {
+                serializer.SerializeAsync(typeof(TestSaveMode), TestSaveMode.Advanced, stream,
+                        System.Threading.CancellationToken.None)
+                    .GetAwaiter().GetResult();
+                string json = Encoding.UTF8.GetString(stream.ToArray());
+                Assert.That(json, Is.EqualTo("{\"Value\":2}"));
+
+                stream.Position = 0;
+                object loaded = serializer.DeserializeAsync(typeof(TestSaveMode), stream,
+                    System.Threading.CancellationToken.None).GetAwaiter().GetResult();
+                Assert.That(loaded, Is.EqualTo(TestSaveMode.Advanced));
+            }
+        }
+
+        [Test]
         public void ContainerRejectsRandomAndTruncatedExternalFiles()
         {
             byte[] random = { 0x13, 0x37, 0x42, 0x99 };
@@ -536,6 +573,23 @@ namespace StellarFramework.Tests.FrameworkValidation
         }
 
         [Test]
+        public void ExistingMetadataReadFailureIsReportedAsStorageError()
+        {
+            var section = new IntSection("read-fail") { Value = 1 };
+            SaveKit.Register(section);
+            Assert.That(SaveKit.SaveAsync("read-fail").GetAwaiter().GetResult().IsSuccess, Is.True);
+
+            _storage.FailRead = true;
+            section.Value = 2;
+            SaveResult result = SaveKit.SaveAsync("read-fail").GetAwaiter().GetResult();
+
+            Assert.That(result.IsSuccess, Is.False);
+            Assert.That(result.ErrorCode, Is.EqualTo(SaveErrorCode.StorageError));
+            Assert.That(result.ErrorMessage, Does.Contain("metadata"));
+            Assert.That(result.Diagnostics.LastExceptionType, Is.EqualTo(typeof(IOException).FullName));
+        }
+
+        [Test]
         public void LifecycleHooksBracketCaptureAndRestore()
         {
             var events = new List<string>();
@@ -591,6 +645,13 @@ namespace StellarFramework.Tests.FrameworkValidation
 
         [Serializable]
         public sealed class IntData { public int Value; }
+
+        private enum TestSaveMode
+        {
+            Default = 0,
+            Basic = 1,
+            Advanced = 2
+        }
 
         private class IntSection : SaveSection<IntData>
         {

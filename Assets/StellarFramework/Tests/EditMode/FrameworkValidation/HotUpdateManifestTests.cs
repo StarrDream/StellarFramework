@@ -1,12 +1,7 @@
-using System.Collections.Generic;
-using System.Threading;
-using Cysharp.Threading.Tasks;
 using NUnit.Framework;
-using StellarFramework.HotUpdate;
-using StellarFramework.Res;
-using UnityEngine;
+using StellarFramework.HybridCLR;
 
-namespace StellarFramework.Tests.HotUpdate
+namespace StellarFramework.Tests.FrameworkValidation
 {
     public sealed class HotUpdateManifestTests
     {
@@ -14,26 +9,13 @@ namespace StellarFramework.Tests.HotUpdate
         public void ValidManifestPassesValidation()
         {
             HotUpdateManifest manifest = CreateValidManifest();
-
-            HotUpdateManifestValidationReport report = manifest.Validate();
+            HotUpdateManifestValidationReport report = manifest.Validate(strictAssemblyIntegrity: true);
 
             Assert.That(report.IsValid, Is.True, string.Join(" | ", report.Errors));
         }
 
         [Test]
-        public void ManifestValidationRejectsInvalidSha()
-        {
-            HotUpdateManifest manifest = CreateValidManifest();
-            manifest.hotUpdateAssemblySha256 = "1234";
-
-            HotUpdateManifestValidationReport report = manifest.Validate();
-
-            Assert.That(report.IsValid, Is.False);
-            CollectionAssert.Contains(report.Errors, "hotUpdateAssemblySha256 must be a 64-character SHA256 hex string when provided.");
-        }
-
-        [Test]
-        public void StrictManifestValidationRejectsMissingSha()
+        public void StrictValidationRequiresSha256()
         {
             HotUpdateManifest manifest = CreateValidManifest();
             manifest.hotUpdateAssemblySha256 = string.Empty;
@@ -41,128 +23,47 @@ namespace StellarFramework.Tests.HotUpdate
             HotUpdateManifestValidationReport report = manifest.Validate(strictAssemblyIntegrity: true);
 
             Assert.That(report.IsValid, Is.False);
-            CollectionAssert.Contains(report.Errors,
-                "Production hot update requires hotUpdateAssemblySha256. Re-export dll.bytes and regenerate HotUpdateManifest.json.");
+            Assert.That(report.Errors, Has.Some.Contains("requires hotUpdateAssemblySha256"));
         }
 
         [Test]
-        public void ManifestValidationRejectsMissingCoreFields()
-        {
-            HotUpdateManifest manifest = new HotUpdateManifest();
-
-            HotUpdateManifestValidationReport report = manifest.Validate();
-
-            Assert.That(report.IsValid, Is.False);
-            CollectionAssert.Contains(report.Errors, "hotUpdateAssemblyKey is empty.");
-            CollectionAssert.Contains(report.Errors, "hotUpdateEntryClass is empty.");
-            CollectionAssert.Contains(report.Errors, "hotUpdateEntryMethod is empty.");
-            CollectionAssert.Contains(report.Errors, "aotMetadataKeys are empty.");
-        }
-
-        [Test]
-        public void ManifestRoundTripsThroughJson()
-        {
-            HotUpdateManifest manifest = CreateValidManifest();
-
-            string json = manifest.ToJson(true);
-            HotUpdateManifest parsed = HotUpdateManifest.FromJson(json);
-
-            Assert.That(parsed, Is.Not.Null);
-            Assert.That(parsed.hotUpdateAssemblyKey, Is.EqualTo(manifest.hotUpdateAssemblyKey));
-            Assert.That(parsed.hotUpdateAssemblySha256, Is.EqualTo(manifest.hotUpdateAssemblySha256));
-            CollectionAssert.AreEqual(manifest.aotMetadataKeys, parsed.aotMetadataKeys);
-        }
-
-        [Test]
-        public void ManifestJsonWithUtf8BomParses()
-        {
-            HotUpdateManifest manifest = CreateValidManifest();
-
-            string json = "\ufeff" + manifest.ToJson(true);
-            HotUpdateManifest parsed = HotUpdateManifest.FromJson(json);
-
-            Assert.That(parsed, Is.Not.Null);
-            Assert.That(parsed.hotUpdateAssemblyKey, Is.EqualTo(manifest.hotUpdateAssemblyKey));
-        }
-
-        [Test]
-        public void ResourcesFallbackBuildsManifestFromSettings()
-        {
-            HotUpdateSettings settings = HotUpdateSettings.LoadOrCreateDefault();
-
-            HotUpdateManifest manifest = HotUpdateManifest.FromRuntimeSettings(settings);
-
-            Assert.That(manifest.hotUpdateAssemblyKey, Is.EqualTo(settings.HotUpdateAssemblyKey));
-            Assert.That(manifest.hotUpdateAssemblySha256, Is.EqualTo(settings.HotUpdateAssemblySha256));
-            Assert.That(manifest.hotUpdateEntryClass, Is.EqualTo(settings.HotUpdateEntryClass));
-            Assert.That(manifest.hotUpdateEntryMethod, Is.EqualTo(settings.HotUpdateEntryMethod));
-            CollectionAssert.AreEqual(settings.AotMetadataKeys, manifest.aotMetadataKeys);
-        }
-
-        [Test]
-        public void StrictSettingsValidationRejectsMissingShaAndResourcesOnlyFallback()
-        {
-            HotUpdateSettings settings = ScriptableObject.CreateInstance<HotUpdateSettings>();
-            SetPrivateField(settings, "hotUpdateAssemblySha256", string.Empty);
-            SetPrivateField(settings, "hotUpdateManifestPathOrUrl", string.Empty);
-            SetPrivateField(settings, "hotUpdateManifestFallbackToStreamingAssets", false);
-            SetPrivateField(settings, "hotUpdateManifestFallbackToResources", true);
-
-            HotUpdateSettingsValidationReport report = settings.Validate(strictProduction: true);
-
-            Assert.That(report.IsValid, Is.False);
-            CollectionAssert.Contains(report.Errors,
-                "Production hot update requires HotUpdateManifestPathOrUrl or StreamingAssets fallback. Resources-only fallback is not allowed.");
-            CollectionAssert.Contains(report.Errors,
-                "Production hot update requires HotUpdateAssemblySha256. Re-export dll.bytes so the framework can verify the hot update DLL.");
-        }
-
-        [Test]
-        public void SourceChainReturnsFirstSuccessfulManifestAndRecordsFailures()
+        public void JsonRoundTripPreservesCodeUpdateContract()
         {
             HotUpdateManifest expected = CreateValidManifest();
-            IHotUpdateManifestSource[] sources =
-            {
-                new StubManifestSource("broken", HotUpdateManifestLoadResult.Fail("broken", "Missing manifest")),
-                new StubManifestSource("good", HotUpdateManifestLoadResult.Ok(expected, "good"))
-            };
+            string json = expected.ToJson(prettyPrint: true);
 
-            HotUpdateManifestLoadResult result = HotUpdateManifestSourceChain.LoadAsync(
-                sources,
-                CancellationToken.None).GetAwaiter().GetResult();
+            HotUpdateManifest actual = HotUpdateManifest.FromJson(json);
 
-            Assert.That(result.Success, Is.True, result.Error);
-            Assert.That(result.Manifest, Is.SameAs(expected));
-            Assert.That(result.Errors, Has.Count.EqualTo(1));
-            Assert.That(result.Errors[0], Does.Contain("Missing manifest"));
+            Assert.That(actual, Is.Not.Null);
+            Assert.That(actual.hotUpdateAssemblyKey, Is.EqualTo(expected.hotUpdateAssemblyKey));
+            Assert.That(actual.hotUpdateAssemblySha256, Is.EqualTo(expected.hotUpdateAssemblySha256));
+            Assert.That(actual.hotUpdateEntryClass, Is.EqualTo(expected.hotUpdateEntryClass));
+            Assert.That(actual.hotUpdateEntryMethod, Is.EqualTo(expected.hotUpdateEntryMethod));
+            CollectionAssert.AreEqual(expected.aotMetadataKeys, actual.aotMetadataKeys);
         }
 
         [Test]
-        public void StrictSourceChainUsesExplicitSourceOnly()
+        public void DefaultSettingsUseResKitManifestAssetInsteadOfNetworkFallbacks()
         {
-            HotUpdateSettings settings = ScriptableObject.CreateInstance<HotUpdateSettings>();
-            SetPrivateField(settings, "hotUpdateManifestPathOrUrl", "https://example.com/hotupdate/HotUpdateManifest.json");
-            SetPrivateField(settings, "hotUpdateManifestFallbackToStreamingAssets", true);
-            SetPrivateField(settings, "hotUpdateManifestFallbackToResources", true);
+            HotUpdateSettings settings = HotUpdateSettings.LoadOrCreateDefault();
+            HotUpdateSettingsValidationReport report = settings.Validate(strictProduction: true);
 
-            var sources = HotUpdateManifestSourceChain.BuildDefaultSources(settings, strictProduction: true);
-
-            Assert.That(sources, Has.Count.EqualTo(1));
-            Assert.That(sources[0], Is.TypeOf<HttpHotUpdateManifestSource>());
+            Assert.That(report.IsValid, Is.True, string.Join(" | ", report.Errors));
+            Assert.That(settings.ResourceLoaderKey, Is.EqualTo("YooAsset"));
+            Assert.That(settings.HotUpdateManifestKey,
+                Is.EqualTo("Assets/GameHotUpdate/Manifest/HotUpdateManifest.json"));
         }
 
         [Test]
-        public void StrictSourceChainSkipsResourcesFallbackEvenWithoutExplicitSource()
+        public void RuntimeSettingsFallbackManifestIsAuthoringOnlyAndHasNoFakeSha()
         {
-            HotUpdateSettings settings = ScriptableObject.CreateInstance<HotUpdateSettings>();
-            SetPrivateField(settings, "hotUpdateManifestPathOrUrl", string.Empty);
-            SetPrivateField(settings, "hotUpdateManifestFallbackToStreamingAssets", true);
-            SetPrivateField(settings, "hotUpdateManifestFallbackToResources", true);
+            HotUpdateSettings settings = HotUpdateSettings.LoadOrCreateDefault();
+            HotUpdateManifest manifest = HotUpdateManifest.FromRuntimeSettings(settings);
 
-            var sources = HotUpdateManifestSourceChain.BuildDefaultSources(settings, strictProduction: true);
-
-            Assert.That(sources, Has.Count.EqualTo(1));
-            Assert.That(sources[0], Is.TypeOf<StreamingAssetsHotUpdateManifestSource>());
+            Assert.That(manifest, Is.Not.Null);
+            Assert.That(manifest.hotUpdateAssemblyKey, Is.EqualTo(settings.HotUpdateAssemblyKey));
+            Assert.That(manifest.hotUpdateAssemblySha256, Is.Empty);
+            CollectionAssert.AreEqual(settings.AotMetadataKeys, manifest.aotMetadataKeys);
         }
 
         private static HotUpdateManifest CreateValidManifest()
@@ -172,41 +73,15 @@ namespace StellarFramework.Tests.HotUpdate
                 version = 1,
                 buildTarget = "StandaloneWindows64",
                 hotUpdateAssemblyKey = "Assets/GameHotUpdate/Code/HotUpdate.dll.bytes",
-                hotUpdateAssemblySha256 = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+                hotUpdateAssemblySha256 =
+                    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                 hotUpdateEntryClass = "HotUpdate.HotUpdateMain",
                 hotUpdateEntryMethod = "Main",
-                aotMetadataKeys = new List<string>
+                aotMetadataKeys = new System.Collections.Generic.List<string>
                 {
-                    "Assets/GameHotUpdate/Metadata/mscorlib.dll.bytes",
-                    "Assets/GameHotUpdate/Metadata/System.dll.bytes"
+                    "Assets/GameHotUpdate/Metadata/mscorlib.dll.bytes"
                 }
             };
-        }
-
-        private sealed class StubManifestSource : IHotUpdateManifestSource
-        {
-            private readonly HotUpdateManifestLoadResult _result;
-
-            public StubManifestSource(string description, HotUpdateManifestLoadResult result)
-            {
-                Description = description;
-                _result = result;
-            }
-
-            public string Description { get; }
-
-            public UniTask<HotUpdateManifestLoadResult> LoadAsync(CancellationToken cancellationToken)
-            {
-                return UniTask.FromResult(_result);
-            }
-        }
-
-        private static void SetPrivateField<T>(HotUpdateSettings settings, string fieldName, T value)
-        {
-            var field = typeof(HotUpdateSettings).GetField(fieldName,
-                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
-            Assert.That(field, Is.Not.Null, fieldName);
-            field.SetValue(settings, value);
         }
     }
 }

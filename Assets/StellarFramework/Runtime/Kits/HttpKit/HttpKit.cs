@@ -12,20 +12,37 @@ using UnityEngine.Networking;
 
 namespace StellarFramework
 {
+    /// <summary>
+    /// HttpKit 的统一响应结果。
+    /// </summary>
+    /// <remarks>
+    /// 网络失败、HTTP 协议错误和数据处理错误都会令 <see cref="isSuccess"/> 为 false。
+    /// responseText 保留原始响应体，便于上层按业务协议自行解析。
+    /// </remarks>
     [Serializable]
     public class HttpResponse
     {
+        /// <summary>请求是否成功完成。</summary>
         public bool isSuccess;
+        /// <summary>HTTP 状态码；未收到服务器响应时通常为 0。</summary>
         public long responseCode;
+        /// <summary>原始文本响应体。</summary>
         public string responseText;
+        /// <summary>失败原因；成功时通常为空。</summary>
         public string error;
+        /// <summary>响应头快照。</summary>
         public Dictionary<string, string> headers;
 
+        /// <summary>创建空响应并初始化 Headers 容器。</summary>
         public HttpResponse()
         {
             headers = new Dictionary<string, string>();
         }
 
+        /// <summary>
+        /// 使用 Newtonsoft.Json 将成功响应反序列化为 T。
+        /// </summary>
+        /// <returns>反序列化失败或请求失败时返回 default。</returns>
         public T Deserialize<T>()
         {
             if (!isSuccess || string.IsNullOrEmpty(responseText))
@@ -45,6 +62,10 @@ namespace StellarFramework
             }
         }
 
+        /// <summary>
+        /// 尝试将成功响应反序列化为 T。
+        /// </summary>
+        /// <returns>请求成功且 JSON 可解析为非 null T 时返回 true。</returns>
         public bool TryDeserialize<T>(out T result)
         {
             result = default;
@@ -68,20 +89,37 @@ namespace StellarFramework
         }
     }
 
+    /// <summary>
+    /// 单次 HTTP 请求的可选配置。
+    /// </summary>
     public class RequestConfig
     {
+        /// <summary>存在全局 Auth Token 时是否自动注入 Authorization Header。</summary>
         public bool autoInjectToken = true;
+        /// <summary>额外请求头；显式 Authorization 会覆盖自动注入。</summary>
         public Dictionary<string, string> headers;
+        /// <summary>上传/下载进度回调，范围通常为 0~1。</summary>
         public Action<float> onProgress;
+        /// <summary>是否阻止 Method + URL + Body 相同的并发请求。</summary>
         public bool preventDuplicate;
+        /// <summary>UnityWebRequest timeout，单位秒。</summary>
         public int timeout = 30;
 
+        /// <summary>创建默认请求配置。</summary>
         public RequestConfig()
         {
             headers = new Dictionary<string, string>();
         }
     }
 
+    /// <summary>
+    /// 基于 UnityWebRequest + UniTask 的轻量 HTTP 门面。
+    /// </summary>
+    /// <remarks>
+    /// 首次使用时会创建 DontDestroyOnLoad 的运行时宿主。
+    /// 请求取消与重复请求检测按 Method + URL + BodyHash 维度管理。
+    /// JSON 适配当前使用 Newtonsoft.Json。
+    /// </remarks>
     public class HttpKit : MonoBehaviour
     {
         private static HttpKit _instance;
@@ -96,6 +134,9 @@ namespace StellarFramework
         private string _authToken;
         private string _tokenType = "Bearer";
 
+        /// <summary>
+        /// 获取运行时 HttpKit 实例；应用退出阶段可能返回 null。
+        /// </summary>
         public static HttpKit Instance
         {
             get
@@ -178,6 +219,10 @@ namespace StellarFramework
 
         #region Token 管理
 
+        /// <summary>
+        /// 设置全局认证 Token。
+        /// 默认以 "Bearer {token}" 形式自动注入请求。
+        /// </summary>
         public static void SetAuthToken(string token, string tokenType = "Bearer")
         {
             if (!TryGetInstance(out HttpKit instance))
@@ -189,11 +234,13 @@ namespace StellarFramework
             instance._tokenType = tokenType;
         }
 
+        /// <summary>返回当前全局认证 Token。</summary>
         public static string GetAuthToken()
         {
             return TryGetInstance(out HttpKit instance) ? instance._authToken : null;
         }
 
+        /// <summary>清除全局认证 Token，并恢复 Bearer 类型。</summary>
         public static void ClearAuthToken()
         {
             if (!TryGetInstance(out HttpKit instance))
@@ -205,6 +252,7 @@ namespace StellarFramework
             instance._tokenType = "Bearer";
         }
 
+        /// <summary>当前是否配置了非空认证 Token。</summary>
         public static bool HasAuthToken()
         {
             return TryGetInstance(out HttpKit instance) && !string.IsNullOrEmpty(instance._authToken);
@@ -214,6 +262,10 @@ namespace StellarFramework
 
         #region 文件下载
 
+        /// <summary>
+        /// 将远端文件直接下载到指定磁盘路径。
+        /// </summary>
+        /// <remarks>会自动创建父目录。任一网络/协议/IO/取消失败都会返回 false。</remarks>
         public static async UniTask<bool> DownloadFileAsync(string url, string savePath,
             Action<float> onProgress = null, int timeout = 60)
         {
@@ -443,6 +495,9 @@ namespace StellarFramework
 
         #region 取消控制
 
+        /// <summary>
+        /// 取消与指定 Method + URL + Body 完全匹配的所有活动请求。
+        /// </summary>
         public void CancelRequest(string url, string method = "GET", string body = null)
         {
             string key = GenerateRequestKey(method, url, body);
@@ -466,6 +521,7 @@ namespace StellarFramework
             LogKit.Log($"[HttpKit] 触发取消 | Method={method} | URL={url} | Count={ctsList.Length}");
         }
 
+        /// <summary>取消当前实例跟踪的全部活动请求。</summary>
         public void CancelAllRequests()
         {
             CancellationTokenSource[] ctsList;
@@ -491,6 +547,7 @@ namespace StellarFramework
 
         #region Public API - Async
 
+        /// <summary>发送 GET 请求。</summary>
         public static async UniTask<HttpResponse> GetAsync(string url, Dictionary<string, string> headers = null,
             int timeout = 30)
         {
@@ -508,6 +565,10 @@ namespace StellarFramework
             return await instance.SendRequestAsync("GET", url, null, config);
         }
 
+        /// <summary>
+        /// 发送 GET 请求并尝试将成功响应反序列化为 T。
+        /// 原始 HttpResponse 始终随结果返回。
+        /// </summary>
         public static async UniTask<(T data, HttpResponse response)> GetJsonAsync<T>(string url,
             Dictionary<string, string> headers = null, int timeout = 30)
         {
@@ -521,6 +582,7 @@ namespace StellarFramework
             return (data, response);
         }
 
+        /// <summary>发送 JSON POST 请求。</summary>
         public static async UniTask<HttpResponse> PostAsync(string url, string jsonBody,
             Dictionary<string, string> headers = null, int timeout = 30)
         {
@@ -538,6 +600,7 @@ namespace StellarFramework
             return await instance.SendRequestAsync("POST", url, jsonBody, config);
         }
 
+        /// <summary>将 dataObject 序列化为 JSON 后发送 POST。</summary>
         public static async UniTask<HttpResponse> PostAsync<T>(string url, T dataObject,
             Dictionary<string, string> headers = null, int timeout = 30)
         {
@@ -545,6 +608,9 @@ namespace StellarFramework
             return await PostAsync(url, json, headers, timeout);
         }
 
+        /// <summary>
+        /// 序列化请求对象发送 POST，并尝试反序列化成功响应。
+        /// </summary>
         public static async UniTask<(TResponse data, HttpResponse response)> PostJsonAsync<TRequest, TResponse>(
             string url,
             TRequest requestData,
@@ -561,6 +627,7 @@ namespace StellarFramework
             return (data, response);
         }
 
+        /// <summary>发送 JSON PUT 请求。</summary>
         public static async UniTask<HttpResponse> PutAsync(string url, string jsonBody,
             Dictionary<string, string> headers = null, int timeout = 30)
         {
@@ -578,6 +645,7 @@ namespace StellarFramework
             return await instance.SendRequestAsync("PUT", url, jsonBody, config);
         }
 
+        /// <summary>发送 DELETE 请求。</summary>
         public static async UniTask<HttpResponse> DeleteAsync(string url, Dictionary<string, string> headers = null,
             int timeout = 30)
         {
@@ -599,22 +667,26 @@ namespace StellarFramework
 
         #region Public API - Fire & Forget
 
+        /// <summary>GET 的回调式兼容入口，内部仍使用 UniTask。</summary>
         public static void Get(string url, Action<HttpResponse> onComplete, Dictionary<string, string> headers = null)
         {
             GetAsync(url, headers).ContinueWith(response => onComplete?.Invoke(response)).Forget();
         }
 
+        /// <summary>POST 的回调式兼容入口。</summary>
         public static void Post(string url, string jsonBody, Action<HttpResponse> onComplete,
             Dictionary<string, string> headers = null)
         {
             PostAsync(url, jsonBody, headers).ContinueWith(response => onComplete?.Invoke(response)).Forget();
         }
 
+        /// <summary>GET + JSON 反序列化的回调式兼容入口。</summary>
         public static void GetJson<T>(string url, Action<T, HttpResponse> onComplete)
         {
             GetJsonAsync<T>(url).ContinueWith(result => onComplete?.Invoke(result.data, result.response)).Forget();
         }
 
+        /// <summary>POST + JSON 请求/响应的回调式兼容入口。</summary>
         public static void PostJson<TRequest, TResponse>(string url, TRequest requestData,
             Action<TResponse, HttpResponse> onComplete)
         {

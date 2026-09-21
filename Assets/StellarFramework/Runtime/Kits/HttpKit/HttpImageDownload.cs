@@ -8,6 +8,14 @@ using UnityEngine.UI;
 
 namespace StellarFramework
 {
+    /// <summary>
+    /// HTTP 图片下载与小型内存缓存工具。
+    /// </summary>
+    /// <remarks>
+    /// 相同 URL 的并发 Texture 下载会合并为一个共享请求；每个等待者可以独立取消自己的等待。
+    /// Texture/Sprite 各维护最多 128 项的近似 LRU 缓存。
+    /// 缓存对象由本类创建和销毁，调用方不要主动 Destroy 缓存返回的资源。
+    /// </remarks>
     public static class HttpImageDownload
     {
         private const int MaxTextureCacheCount = 128;
@@ -39,6 +47,9 @@ namespace StellarFramework
 
         private static long _accessTick;
 
+        /// <summary>
+        /// 下载 Texture2D；缓存命中时直接返回缓存对象。
+        /// </summary>
         public static async UniTask<Texture2D> DownloadTextureAsync(string imageUrl,
             CancellationToken cancellationToken = default)
         {
@@ -83,6 +94,9 @@ namespace StellarFramework
             }
         }
 
+        /// <summary>
+        /// 下载图片并创建中心 Pivot 的 Sprite；结果会进入 Sprite 缓存。
+        /// </summary>
         public static async UniTask<Sprite> DownloadSpriteAsync(string imageUrl,
             CancellationToken cancellationToken = default)
         {
@@ -112,6 +126,10 @@ namespace StellarFramework
             return sprite;
         }
 
+        /// <summary>
+        /// 下载图片并赋给 Image。目标销毁时会自动取消等待。
+        /// </summary>
+        /// <returns>成功设置 Sprite 时返回 true。</returns>
         public static async UniTask<bool> DownloadToImageAsync(Image targetImage, string imageUrl,
             bool setNativeSize = false)
         {
@@ -146,13 +164,16 @@ namespace StellarFramework
         }
 
         /// <summary>
-        /// 兼容旧调用顺序
+        /// 兼容旧参数顺序的 Image 重载。
         /// </summary>
         public static UniTask<bool> DownloadToImageAsync(string imageUrl, Image targetImage, bool setNativeSize = false)
         {
             return DownloadToImageAsync(targetImage, imageUrl, setNativeSize);
         }
 
+        /// <summary>
+        /// 下载图片并赋给 RawImage。目标销毁时会自动取消等待。
+        /// </summary>
         public static async UniTask<bool> DownloadToRawImageAsync(RawImage targetRawImage, string imageUrl)
         {
             if (targetRawImage == null)
@@ -181,13 +202,16 @@ namespace StellarFramework
         }
 
         /// <summary>
-        /// 兼容旧调用顺序
+        /// 兼容旧参数顺序的 RawImage 重载。
         /// </summary>
         public static UniTask<bool> DownloadToRawImageAsync(string imageUrl, RawImage targetRawImage)
         {
             return DownloadToRawImageAsync(targetRawImage, imageUrl);
         }
 
+        /// <summary>
+        /// 取消全部进行中的共享下载，并销毁全部 Sprite/Texture 缓存。
+        /// </summary>
         public static void ClearCache()
         {
             foreach (KeyValuePair<string, OngoingDownload> pair in OngoingTasks)
@@ -217,6 +241,9 @@ namespace StellarFramework
             OngoingTasks.Clear();
         }
 
+        /// <summary>
+        /// 清除指定 URL 的进行中下载和缓存资源。
+        /// </summary>
         public static void ClearCache(string imageUrl)
         {
             if (string.IsNullOrEmpty(imageUrl))

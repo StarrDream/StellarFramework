@@ -1,0 +1,32 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6094f77fa4c893f41ae064c9bc221c07, type: 3}
+  m_Name: Localization_en-US
+  m_EditorClassIdentifier: 
+  _locale: en-US
+  _entries:
+  - _key: architecture.title
+    _value: "StellarFramework \xB7 MSV Architecture Loop"
+  - _key: architecture.subtitle
+    _value: "A repeatable loop: Mine -> Service -> Model -> BindableProperty -> View -> Complete Round -> Next Round."
+  - _key: architecture.panel.coin
+    _value: 'Round {round} | Coins: {count}/{target}'
+  - _key: architecture.panel.mine
+    _value: Mine +10
+  - _key: architecture.panel.complete_round
+    _value: Complete Round
+  - _key: architecture.panel.hint
+    _value: Mine to 30 coins, then click once more to complete the round and start the next one.
+  - _key: architecture.open_panel
+    _value: Open Panel
+  - _key: architecture.panel.close
+    _value: Close

@@ -27,12 +27,13 @@ namespace StellarFramework.Editor.Modules.FlowKit
             for (int i = 0; i < registryIssues.Count; i++)
                 result.Errors.Add("Registry: " + registryIssues[i]);
 
+            FlowContractCatalogSnapshot contracts = FlowKitContractValidator.BuildSnapshot(result);
             string[] files = Directory.GetFiles(Application.dataPath, "*.flow.json", SearchOption.AllDirectories);
             Array.Sort(files, StringComparer.OrdinalIgnoreCase);
             result.GraphCount = files.Length;
 
             for (int i = 0; i < files.Length; i++)
-                ValidateFile(files[i], registry, result);
+                ValidateFile(files[i], registry, contracts, result);
 
             return result;
         }
@@ -40,6 +41,7 @@ namespace StellarFramework.Editor.Modules.FlowKit
         private static void ValidateFile(
             string absolutePath,
             FlowNodeRegistry registry,
+            FlowContractCatalogSnapshot contracts,
             FlowBuildValidationResult result)
         {
             string assetPath = ToAssetPath(absolutePath);
@@ -47,11 +49,14 @@ namespace StellarFramework.Editor.Modules.FlowKit
             {
                 FlowGraphData graph = FlowGraphJson.FromJson(File.ReadAllText(absolutePath));
                 FlowCompileResult compile = FlowCompiler.Compile(graph, registry);
-                if (compile.Succeeded) return;
+                if (!compile.Succeeded)
+                {
+                    for (int i = 0; i < compile.Issues.Count; i++)
+                        if (compile.Issues[i].IsError)
+                            result.Errors.Add($"{assetPath}: {compile.Issues[i]}");
+                }
 
-                for (int i = 0; i < compile.Issues.Count; i++)
-                    if (compile.Issues[i].IsError)
-                        result.Errors.Add($"{assetPath}: {compile.Issues[i]}");
+                FlowKitContractValidator.ValidateGraph(assetPath, graph, contracts, result);
             }
             catch (Exception exception)
             {
@@ -72,13 +77,25 @@ namespace StellarFramework.Editor.Modules.FlowKit
     internal sealed class FlowBuildValidationResult
     {
         public int GraphCount;
+        public int ContractCatalogCount;
         public readonly List<string> Errors = new List<string>();
+        public readonly List<string> Warnings = new List<string>();
         public bool Succeeded => Errors.Count == 0;
 
         public string CreateSummary()
         {
-            if (Succeeded) return $"FlowKit build validation passed ({GraphCount} graphs).";
-            return "FlowKit build validation failed:\n - " + string.Join("\n - ", Errors);
+            if (Succeeded)
+            {
+                string warningText = Warnings.Count == 0
+                    ? string.Empty
+                    : $" Warnings={Warnings.Count}.";
+                return $"FlowKit build validation passed ({GraphCount} graphs, {ContractCatalogCount} contract catalogs).{warningText}";
+            }
+
+            string summary = "FlowKit build validation failed:\n - " + string.Join("\n - ", Errors);
+            if (Warnings.Count > 0)
+                summary += "\nWarnings:\n - " + string.Join("\n - ", Warnings);
+            return summary;
         }
     }
 }

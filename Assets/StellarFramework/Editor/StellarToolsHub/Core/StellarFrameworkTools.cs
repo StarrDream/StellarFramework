@@ -18,7 +18,6 @@ namespace StellarFramework.Editor
             "资源管理",
             "框架核心",
             "热更新",
-            "样例支持",
             "生产力",
             "常用工具"
         };

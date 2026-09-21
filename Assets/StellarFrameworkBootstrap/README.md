@@ -20,5 +20,5 @@
 ## 兼容性
 
 - Unity 版本：面向 Unity 2022.3 LTS 和 Unity 6000.x
-- 渲染管线：框架和样例支持 Built-in、URP、HDRP
-- 样例：安装完成后可在 `StellarFramework -> Tools Hub` 里点击 `构建样例` 重新生成场景和资源
+- 渲染管线：框架 Runtime 支持 Built-in、URP、HDRP
+- 文档：安装完成后通过 `FrameworkDoc` 和 Tools Hub 的 Quick Start 按需查阅各 Kit 的完整接入说明

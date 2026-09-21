@@ -1,5 +1,0 @@
-{
-    "name": "StellarFramework.Samples.SingletonKit",
-    "references": ["StellarFramework.SingletonKit", "StellarFramework.LogKit"],
-    "autoReferenced": false
-}

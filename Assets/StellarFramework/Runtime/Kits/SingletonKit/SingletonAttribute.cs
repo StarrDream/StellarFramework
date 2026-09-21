@@ -25,7 +25,8 @@ namespace StellarFramework
     }
 
     /// <summary>
-    /// 单例配置特性
+    /// 为单例类型声明生成期配置。
+    /// 运行时主链路不反射读取该 Attribute，而由生成代码写入 <see cref="SingletonMetadata"/>。
     /// </summary>
     [AttributeUsage(AttributeTargets.Class, Inherited = true)]
     public class SingletonAttribute : Attribute
@@ -47,6 +48,12 @@ namespace StellarFramework
         /// </summary>
         public bool UseContainer { get; }
 
+        /// <summary>
+        /// 创建单例配置。
+        /// </summary>
+        /// <param name="resourcePath">Resources 下的 prefab 路径，不含扩展名；仅 Global MonoBehaviour 单例使用。</param>
+        /// <param name="lifeCycle">Global 或 Scene 生命周期。</param>
+        /// <param name="useContainer">Global 单例是否挂到统一 SingletonContainer。</param>
         public SingletonAttribute(string resourcePath = "", SingletonLifeCycle lifeCycle = SingletonLifeCycle.Global, bool useContainer = true)
         {
             ResourcePath = resourcePath;

@@ -13,6 +13,10 @@ namespace StellarFramework.FSM
     /// <typeparam name="TPayload">参数载荷类型</typeparam>
     public interface IPayloadState<TPayload>
     {
+        /// <summary>
+        /// 进入状态时接收强类型载荷。
+        /// </summary>
+        /// <param name="payload">本次状态切换携带的数据。</param>
         void OnEnter(TPayload payload);
     }
 
@@ -26,8 +30,17 @@ namespace StellarFramework.FSM
         protected T Owner;
         protected float StateStartTime;
 
+        /// <summary>
+        /// 当前状态自最近一次进入起已经持续的秒数。
+        /// 使用 Time.time，因此受 timeScale 影响。
+        /// </summary>
         public float Duration => Time.time - StateStartTime;
 
+        /// <summary>
+        /// 状态首次注册进 FSM 时调用一次。
+        /// </summary>
+        /// <param name="fsm">所属状态机。</param>
+        /// <param name="owner">状态机持有者。</param>
         public virtual void OnInit(FSM<T> fsm, T owner)
         {
             FSM = fsm;
@@ -35,29 +48,34 @@ namespace StellarFramework.FSM
         }
 
         /// <summary>
-        /// 我统一在状态切换入口刷新起始时间，避免子类遗漏。
+        /// 状态切换入口统一刷新起始时间，避免子类遗漏。
         /// </summary>
         internal void InternalRecordStartTime()
         {
             StateStartTime = Time.time;
         }
 
+        /// <summary>无参进入回调。</summary>
         public virtual void OnEnter()
         {
         }
 
+        /// <summary>由外部驱动器每帧调用。</summary>
         public virtual void OnUpdate()
         {
         }
 
+        /// <summary>由外部驱动器在 FixedUpdate 中调用。</summary>
         public virtual void OnFixedUpdate()
         {
         }
 
+        /// <summary>离开当前状态前调用。</summary>
         public virtual void OnExit()
         {
         }
 
+        /// <summary>由外部驱动器在 OnGUI 中调用。</summary>
         public virtual void OnGUI()
         {
         }
@@ -68,14 +86,22 @@ namespace StellarFramework.FSM
     #region 状态机驱动器
 
     /// <summary>
-    /// 有限状态机
-    /// 我保持它纯 C#、轻量、低分配，但必须显式阻断状态切换重入，否则业务状态会被污染。
+    /// 轻量纯 C# 有限状态机。
+    /// 状态实例注册后会复用，不在每次切换时重复创建。
     /// </summary>
+    /// <remarks>
+    /// 状态切换是同步操作，并显式阻断 OnEnter/OnExit 中再次 ChangeState 的重入。
+    /// FSM 不自动挂接 MonoBehaviour 生命周期，调用方需要自己转发 Update/FixedUpdate/OnGUI。
+    /// Clear 后实例进入不可复用状态。
+    /// </remarks>
     /// <typeparam name="T">持有者类型</typeparam>
     public class FSM<T>
     {
+        /// <summary>状态机持有者。</summary>
         public T Owner { get; private set; }
+        /// <summary>当前状态；尚未进入任何状态时为 null。</summary>
         public FSMState<T> CurrentState { get; private set; }
+        /// <summary>最近一次离开的状态；用于 RevertToPreviousState。</summary>
         public FSMState<T> PreviousState { get; private set; }
 
         private readonly Dictionary<Type, FSMState<T>> _stateCache = new Dictionary<Type, FSMState<T>>();
@@ -83,6 +109,9 @@ namespace StellarFramework.FSM
         private bool _isTransitioning;
         private bool _isCleared;
 
+        /// <summary>
+        /// 创建状态机。owner 不能为空。
+        /// </summary>
         public FSM(T owner)
         {
             if (owner == null)
@@ -96,7 +125,7 @@ namespace StellarFramework.FSM
         }
 
         /// <summary>
-        /// 注册状态（手动注册实例）
+        /// 注册已有状态实例。重复注册同一具体类型会被忽略。
         /// </summary>
         public void AddState(FSMState<T> state)
         {
@@ -123,7 +152,7 @@ namespace StellarFramework.FSM
         }
 
         /// <summary>
-        /// 注册状态（自动创建实例）
+        /// 通过无参构造创建并注册状态。每个具体状态类型只保留一个实例。
         /// </summary>
         public void AddState<TState>() where TState : FSMState<T>, new()
         {
@@ -143,8 +172,9 @@ namespace StellarFramework.FSM
         }
 
         /// <summary>
-        /// 无参切换状态
+        /// 切换到已注册的无参状态。
         /// </summary>
+        /// <remarks>切换顺序为旧状态 OnExit -> 更新 Current/Previous -> 新状态 OnEnter。</remarks>
         public void ChangeState<TState>() where TState : FSMState<T>
         {
             Type type = typeof(TState);
@@ -165,7 +195,7 @@ namespace StellarFramework.FSM
         }
 
         /// <summary>
-        /// 带参切换状态
+        /// 切换到实现 <see cref="IPayloadState{TPayload}"/> 的状态，并传入强类型载荷。
         /// </summary>
         public void ChangeState<TState, TPayload>(TPayload payload)
             where TState : FSMState<T>, IPayloadState<TPayload>
@@ -188,8 +218,9 @@ namespace StellarFramework.FSM
         }
 
         /// <summary>
-        /// 返回上一个状态
+        /// 返回最近一次离开的状态。
         /// </summary>
+        /// <remarks>这是一次真正的状态切换，因此当前状态会成为新的 PreviousState。</remarks>
         public void RevertToPreviousState()
         {
             if (!EnsureUsable("RevertToPreviousState"))
@@ -239,6 +270,7 @@ namespace StellarFramework.FSM
 
         #region 驱动方法
 
+        /// <summary>把外部 Update 驱动转发给当前状态。</summary>
         public void OnUpdate()
         {
             if (!EnsureUsable("OnUpdate"))
@@ -249,6 +281,7 @@ namespace StellarFramework.FSM
             CurrentState?.OnUpdate();
         }
 
+        /// <summary>把外部 FixedUpdate 驱动转发给当前状态。</summary>
         public void OnFixedUpdate()
         {
             if (!EnsureUsable("OnFixedUpdate"))
@@ -259,6 +292,7 @@ namespace StellarFramework.FSM
             CurrentState?.OnFixedUpdate();
         }
 
+        /// <summary>把外部 OnGUI 驱动转发给当前状态。</summary>
         public void OnGUI()
         {
             if (!EnsureUsable("OnGUI"))
@@ -271,11 +305,14 @@ namespace StellarFramework.FSM
 
         #endregion
 
+        /// <summary>
+        /// 当前状态的类型名；没有当前状态时返回 "None"。
+        /// </summary>
         public string CurrentStateName => CurrentState != null ? CurrentState.GetType().Name : "None";
 
         /// <summary>
-        /// 清理状态机
-        /// 我显式进入 cleared 状态，防止外部还拿着引用继续驱动。
+        /// 清空状态缓存和 Owner，并将状态机永久标记为 cleared。
+        /// 调用后外部应丢弃该 FSM 实例，不要重新注册或驱动。
         /// </summary>
         public void Clear()
         {

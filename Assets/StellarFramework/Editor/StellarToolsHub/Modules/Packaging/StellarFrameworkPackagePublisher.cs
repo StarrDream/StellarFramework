@@ -32,15 +32,6 @@ namespace StellarFramework.Editor.Modules
         private const string KitBootstrapRequestPrefix = "__StellarFramework-KitBootstrap-";
         private const string KitBootstrapPayloadPrefix = "__StellarFramework-KitPayload-";
 
-        private static readonly string[] OptionalSampleProfileIds =
-        {
-            "samples.actionkit", "samples.audiokit", "samples.bindablekit", "samples.configkit", "samples.gridkit",
-            "samples.eventkit", "samples.fsmkit", "samples.httpkit", "samples.logkit", "samples.poolkit",
-            "samples.reskit", "samples.settingskit", "samples.singletonkit", "samples.spatialkit", "samples.simulationkit",
-            "samples.pathkit", "samples.pathkit.gridkit", "samples.uikit",
-            "samples.architecture", "samples.flowkit", "samples.hotupdate.hybridclr"
-        };
-
         private static readonly IReadOnlyDictionary<string, string> UpmPackageSources =
             new Dictionary<string, string>(StringComparer.Ordinal)
             {
@@ -272,70 +263,9 @@ namespace StellarFramework.Editor.Modules
             ExportKitPackageAndReveal("uikit.reskit");
         }
 
-        public static void ExportHotUpdateCorePackage()
+        public static void ExportHybridCLRKitPackage()
         {
-            ExportKitPackageAndReveal("hotupdate.core");
-        }
-
-        public static void ExportHotUpdateAddressablesPackage()
-        {
-            ExportKitPackageAndReveal("hotupdate.addressables");
-        }
-
-        public static void ExportHotUpdateHybridClrPackage()
-        {
-            ExportKitPackageAndReveal("hotupdate.hybridclr");
-        }
-
-        public static void ExportActionKitSamplePackage() => ExportKitPackageAndReveal("samples.actionkit");
-
-        public static void ExportAudioKitSamplePackage() => ExportKitPackageAndReveal("samples.audiokit");
-
-        public static void ExportBindableKitSamplePackage() => ExportKitPackageAndReveal("samples.bindablekit");
-
-        public static void ExportGridKitSamplePackage() => ExportKitPackageAndReveal("samples.gridkit");
-
-        public static void ExportSimulationKitSamplePackage() => ExportKitPackageAndReveal("samples.simulationkit");
-
-        public static void ExportPathKitSamplePackage() => ExportKitPackageAndReveal("samples.pathkit");
-
-        public static void ExportPathKitGridKitAdapterSamplePackage() => ExportKitPackageAndReveal("samples.pathkit.gridkit");
-
-        public static void ExportConfigKitSamplePackage() => ExportKitPackageAndReveal("samples.configkit");
-
-        public static void ExportEventKitSamplePackage() => ExportKitPackageAndReveal("samples.eventkit");
-
-        public static void ExportFsmKitSamplePackage() => ExportKitPackageAndReveal("samples.fsmkit");
-
-        public static void ExportHttpKitSamplePackage() => ExportKitPackageAndReveal("samples.httpkit");
-
-        public static void ExportLogKitSamplePackage() => ExportKitPackageAndReveal("samples.logkit");
-
-        public static void ExportPoolKitSamplePackage() => ExportKitPackageAndReveal("samples.poolkit");
-
-        public static void ExportResKitSamplePackage() => ExportKitPackageAndReveal("samples.reskit");
-
-        public static void ExportSettingsKitSamplePackage() => ExportKitPackageAndReveal("samples.settingskit");
-
-        public static void ExportSingletonKitSamplePackage() => ExportKitPackageAndReveal("samples.singletonkit");
-
-        public static void ExportUIKitSamplePackage() => ExportKitPackageAndReveal("samples.uikit");
-
-        public static void ExportArchitectureSamplePackage() => ExportKitPackageAndReveal("samples.architecture");
-
-        public static void ExportFlowKitSamplePackage() => ExportKitPackageAndReveal("samples.flowkit");
-
-        public static void ExportHotUpdateHybridClrSamplePackage() => ExportKitPackageAndReveal("samples.hotupdate.hybridclr");
-
-        public static void ExportAllOptionalSamplePackages()
-        {
-            foreach (string profileId in OptionalSampleProfileIds)
-            {
-                ExportKitPackageInternal(profileId);
-            }
-
-            AssetDatabase.Refresh();
-            EditorUtility.RevealInFinder(ToProjectPath(KitExportRoot));
+            ExportKitPackageAndReveal("hybridclrkit");
         }
 
         internal static string ExportStandaloneArchitectureInternal()
@@ -1058,8 +988,8 @@ namespace StellarFramework.Editor.Modules
                 "- HybridCLR (`com.code-philosophy.hybridclr`)\r\n\r\n" +
                 "## 兼容性\r\n\r\n" +
                 "- Unity 版本：面向 Unity 2022.3 LTS 和 Unity 6000.x。\r\n" +
-                "- 渲染管线：Runtime 和 Samples 通过 `RenderPipelineCompatibility` 自动选择 Built-in、URP 或 HDRP 的可用 Lit Shader。\r\n" +
-                "- 样例：导出包保留 SampleTemplates，安装后可在 Tools Hub 里重新点击 `构建样例` 生成场景和资源。\r\n\r\n" +
+                "- 渲染管线：Runtime 通过 `RenderPipelineCompatibility` 兼容 Built-in、URP 或 HDRP。\r\n" +
+                "- 使用说明：各 Kit 的接入方式、边界、最小代码片段和排错统一由 FrameworkDoc 维护；分发包不携带 Sample 产品线。\r\n\r\n" +
                 "## 说明\r\n\r\n" +
                 "- 单包里已经内嵌完整框架 payload，用户不需要再手动选择基础包或热更包。\r\n" +
                 "- 安装器会先补齐 UPM 依赖，再自动导入完整框架内容。\r\n";
@@ -1121,13 +1051,7 @@ namespace StellarFramework.Editor.Modules
         {
             "Assets/StellarFramework/Editor/StellarToolsHub/Modules/Packaging",
             "Assets/StellarFramework/Editor/KitPackageBootstrap",
-            "Assets/StellarFramework/Samples/KitSamples/Scenes",
-            "Assets/StellarFramework/Samples/KitSamples/Generated",
-            "Assets/StellarFramework/Samples/KitSamples/Example_ResKit/Addressables",
-            "Assets/StellarFramework/Samples/KitSamples/Example_ResKit/Art",
-            "Assets/StellarFramework/Samples/KitSamples/Example_ResKit/Resources",
-            "Assets/StellarFramework/Samples/ArchitectureDemo/Scene",
-            "Assets/StellarFramework/Samples/ArchitectureDemo/Resources",
+            "Assets/StellarFramework/Samples",
             "Assets/StellarFramework/Resources/Audio",
             "Assets/StellarFramework/Tests",
             "Assets/StellarFrameworkBootstrap",
@@ -1156,16 +1080,10 @@ namespace StellarFramework.Editor.Modules
 
         private static readonly string[] BasePackageExcludedPrefixes =
         {
-            "Assets/StellarFramework/Runtime/Kits/HotUpdateKit",
+            "Assets/StellarFramework/Runtime/Kits/HybridCLRKit",
             "Assets/StellarFramework/Runtime/Kits/Reskit/Loaders/AddressableLoader",
             "Assets/StellarFramework/Editor/StellarToolsHub/Modules/Addressables",
-            "Assets/StellarFramework/Samples/KitSamples/Scenes",
-            "Assets/StellarFramework/Samples/KitSamples/Generated",
-            "Assets/StellarFramework/Samples/KitSamples/Example_ResKit/Addressables",
-            "Assets/StellarFramework/Samples/KitSamples/Example_ResKit/Art",
-            "Assets/StellarFramework/Samples/KitSamples/Example_ResKit/Resources",
-            "Assets/StellarFramework/Samples/ArchitectureDemo/Scene",
-            "Assets/StellarFramework/Samples/ArchitectureDemo/Resources",
+            "Assets/StellarFramework/Samples",
             "Assets/StellarFramework/Resources/Audio",
             "Assets/StellarFramework/Tests"
         };

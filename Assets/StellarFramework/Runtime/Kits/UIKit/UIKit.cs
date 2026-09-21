@@ -8,23 +8,43 @@ using UnityEngine.UI;
 
 namespace StellarFramework.UI
 {
+    /// <summary>
+    /// UIKit 当前运行状态的只读快照。
+    /// 用于调试、自动测试和现场问题诊断，不参与 UI 业务状态。
+    /// </summary>
     public sealed class UIKitRuntimeSnapshot
     {
+        /// <summary>UIKit 是否已经完成初始化。</summary>
         public bool IsInitialized;
+        /// <summary>UIKit 是否正处于初始化过程中。</summary>
         public bool IsInitializing;
+        /// <summary>UIKit 实例是否已进入销毁状态。</summary>
         public bool IsDisposed;
+        /// <summary>是否存在有效 RootCanvas。</summary>
         public bool HasRootCanvas;
+        /// <summary>是否存在 StaticCanvas。</summary>
         public bool HasStaticCanvas;
+        /// <summary>是否存在 DynamicCanvas。</summary>
         public bool HasDynamicCanvas;
+        /// <summary>当前加载策略类型名。</summary>
         public string LoadStrategyName;
+        /// <summary>当前已创建并缓存的 Panel 类型名。</summary>
         public readonly List<string> CachedPanels = new List<string>();
+        /// <summary>当前处于激活状态的 Panel 类型名。</summary>
         public readonly List<string> ActivePanels = new List<string>();
+        /// <summary>当前正在异步加载的 Panel 类型名。</summary>
         public readonly List<string> LoadingPanels = new List<string>();
 
+        /// <summary>缓存 Panel 数量。</summary>
         public int CachedPanelCount => CachedPanels.Count;
+        /// <summary>激活 Panel 数量。</summary>
         public int ActivePanelCount => ActivePanels.Count;
+        /// <summary>异步加载中的 Panel 数量。</summary>
         public int LoadingPanelCount => LoadingPanels.Count;
 
+        /// <summary>
+        /// 创建一个未绑定 UIKit 实例的空快照。
+        /// </summary>
         public static UIKitRuntimeSnapshot Empty(string reason)
         {
             return new UIKitRuntimeSnapshot
@@ -33,6 +53,9 @@ namespace StellarFramework.UI
             };
         }
 
+        /// <summary>
+        /// 生成人类可读的多行诊断文本。
+        /// </summary>
         public string ToMultilineString()
         {
             StringBuilder builder = new StringBuilder(256);
@@ -54,6 +77,7 @@ namespace StellarFramework.UI
             return builder.ToString();
         }
 
+        /// <inheritdoc />
         public override string ToString()
         {
             return ToMultilineString();
@@ -65,6 +89,14 @@ namespace StellarFramework.UI
         }
     }
 
+    /// <summary>
+    /// UIKit 运行时管理器。
+    /// 负责 UIRoot、Panel 缓存、异步并发加载、面板栈和加载策略生命周期。
+    /// </summary>
+    /// <remarks>
+    /// UIKit 本身不决定资源系统，通过 <see cref="IUILoadStrategy"/> 与 Resources/ResKit/Addressables/YooAsset 解耦。
+    /// 同步 API 只有在当前加载策略声明 SupportSyncLoad=true 时可用；不确定时优先使用 Async API。
+    /// </remarks>
     [Singleton("Managers/UIKit", SingletonLifeCycle.Global, false)]
     public class UIKit : MonoSingleton<UIKit>
     {
@@ -78,10 +110,15 @@ namespace StellarFramework.UI
         private bool _isInitializing;
         private bool _isDisposed;
 
+        /// <summary>初始化后实例化出的 UIRoot 根 Canvas。</summary>
         public Canvas RootCanvas { get; private set; }
+        /// <summary>常驻 UI 使用的 Static Canvas。</summary>
         public Canvas StaticCanvas { get; private set; }
+        /// <summary>常规页面/弹窗使用的 Dynamic Canvas。</summary>
         public Canvas DynamicCanvas { get; private set; }
+        /// <summary>UIRoot 上的 CanvasScaler。</summary>
         public CanvasScaler RootScaler { get; private set; }
+        /// <summary>UIRoot 中配置的 UI Camera；Overlay 模式下可以为空。</summary>
         public Camera UICamera { get; private set; }
 
         private readonly Dictionary<UIPanelBase.PanelLayer, Transform> _layers =
@@ -112,6 +149,10 @@ namespace StellarFramework.UI
 
         #region 配置与初始化
 
+        /// <summary>
+        /// 在初始化前注入明确的加载策略。
+        /// 初始化开始后不能再切换策略。
+        /// </summary>
         public void Configure(IUILoadStrategy loadStrategy)
         {
             if (_isInitialized || _isInitializing)
@@ -130,6 +171,9 @@ namespace StellarFramework.UI
             _loadStrategy = loadStrategy;
         }
 
+        /// <summary>
+        /// 在初始化前应用 UIKitSettings，并通过默认策略工厂创建加载策略。
+        /// </summary>
         public void Configure(UIKitSettings settings)
         {
             if (_isInitialized || _isInitializing)
@@ -142,6 +186,10 @@ namespace StellarFramework.UI
             _loadStrategy = CreateDefaultLoadStrategy(_settings);
         }
 
+        /// <summary>
+        /// 同步初始化 UIRoot。
+        /// 当前策略必须支持同步加载。
+        /// </summary>
         public void Init()
         {
             if (_isDisposed)
@@ -193,6 +241,10 @@ namespace StellarFramework.UI
             LogKit.Log($"[UIKit] 同步初始化完成, Strategy={_loadStrategy.GetType().Name}");
         }
 
+        /// <summary>
+        /// 异步初始化 UIRoot。
+        /// 重复调用已初始化实例会直接返回；并发初始化调用不会启动第二份加载。
+        /// </summary>
         public async UniTask InitAsync()
         {
             if (_isDisposed)
@@ -270,6 +322,10 @@ namespace StellarFramework.UI
             _loadStrategy = CreateDefaultLoadStrategy(_settings);
         }
 
+        /// <summary>
+        /// 注册默认加载策略工厂。
+        /// Adapter 可在启动阶段用此入口替换 Resources 默认策略，而不修改 UIKit Core。
+        /// </summary>
         public static void RegisterDefaultLoadStrategyFactory(Func<UIKitSettings, IUILoadStrategy> factory)
         {
             if (factory == null)
@@ -406,6 +462,10 @@ namespace StellarFramework.UI
             }
         }
 
+        /// <summary>
+        /// 设置 UIRoot 的参考分辨率与 MatchWidthOrHeight。
+        /// 仅在初始化完成、RootScaler 有效后调用。
+        /// </summary>
         public void SetResolution(Vector2 resolution, float matchWidthOrHeight)
         {
             if (RootScaler == null)
@@ -425,16 +485,28 @@ namespace StellarFramework.UI
 
         #region 静态公开 API
 
+        /// <summary>
+        /// 同步打开 TPanel。等价于 <see cref="OpenPanel{TPanel}"/>。
+        /// 已缓存但关闭的面板会复用原实例并再次调用 OnOpen。
+        /// </summary>
         public static TPanel Open<TPanel>(UIPanelDataBase data = null) where TPanel : UIPanelBase
         {
             return OpenPanel<TPanel>(data);
         }
 
+        /// <summary>
+        /// 异步打开 TPanel。等价于 <see cref="OpenPanelAsync{TPanel}"/>。
+        /// 同类型并发首次加载会共享一个加载任务。
+        /// </summary>
         public static UniTask<TPanel> OpenAsync<TPanel>(UIPanelDataBase data = null) where TPanel : UIPanelBase
         {
             return OpenPanelAsync<TPanel>(data);
         }
 
+        /// <summary>
+        /// 同步打开面板并压入 UIKit 栈。
+        /// 全屏面板会使被遮挡的下层面板进入 Pause/隐藏状态。
+        /// </summary>
         public static TPanel Push<TPanel>(UIPanelDataBase data = null) where TPanel : UIPanelBase
         {
             TPanel panel = OpenPanel<TPanel>(data);
@@ -446,6 +518,9 @@ namespace StellarFramework.UI
             return panel;
         }
 
+        /// <summary>
+        /// 异步打开面板并压入 UIKit 栈。
+        /// </summary>
         public static async UniTask<TPanel> PushAsync<TPanel>(UIPanelDataBase data = null)
             where TPanel : UIPanelBase
         {
@@ -458,6 +533,9 @@ namespace StellarFramework.UI
             return panel;
         }
 
+        /// <summary>
+        /// 关闭当前栈顶 Panel，并恢复新的栈顶可见状态。
+        /// </summary>
         public static void Pop()
         {
             if (!TryGetRuntimeInstance(nameof(Pop), null, out UIKit instance))
@@ -468,6 +546,9 @@ namespace StellarFramework.UI
             instance.TryPop();
         }
 
+        /// <summary>
+        /// 连续弹出栈顶 Panel，直到 TPanel 成为目标栈位置。
+        /// </summary>
         public static void PopTo<TPanel>() where TPanel : UIPanelBase
         {
             if (!TryGetRuntimeInstance(nameof(PopTo), typeof(TPanel), out UIKit instance))
@@ -478,6 +559,9 @@ namespace StellarFramework.UI
             instance.TryPopTo<TPanel>();
         }
 
+        /// <summary>
+        /// 清空 UIKit 面板栈，并按正常 Close 语义处理栈内 Panel。
+        /// </summary>
         public static void ClearStack()
         {
             if (!TryGetRuntimeInstance(nameof(ClearStack), null, out UIKit instance))
@@ -488,21 +572,33 @@ namespace StellarFramework.UI
             instance.ClearStackInternal();
         }
 
+        /// <summary>
+        /// 关闭 TPanel。destroyOnClose=false 时仅隐藏并保留缓存实例。
+        /// </summary>
         public static void Close<TPanel>() where TPanel : UIPanelBase
         {
             ClosePanel<TPanel>();
         }
 
+        /// <summary>
+        /// 同步预加载 TPanel，只创建并缓存，不调用 OnOpen。
+        /// </summary>
         public static TPanel Preload<TPanel>() where TPanel : UIPanelBase
         {
             return PreloadPanel<TPanel>();
         }
 
+        /// <summary>
+        /// 异步预加载 TPanel，只创建并缓存，不调用 OnOpen。
+        /// </summary>
         public static UniTask<TPanel> PreloadAsync<TPanel>() where TPanel : UIPanelBase
         {
             return PreloadPanelAsync<TPanel>();
         }
 
+        /// <summary>
+        /// 捕获 UIKit 当前诊断快照。
+        /// </summary>
         public static UIKitRuntimeSnapshot TakeSnapshot()
         {
             return Instance != null
@@ -510,11 +606,18 @@ namespace StellarFramework.UI
                 : UIKitRuntimeSnapshot.Empty("UIKit instance is null");
         }
 
+        /// <summary>
+        /// 将当前 UIKit 快照输出到 LogKit。
+        /// </summary>
         public static void LogSnapshot()
         {
             LogKit.Log(TakeSnapshot().ToMultilineString());
         }
 
+        /// <summary>
+        /// 重复执行指定 Panel 的打开/关闭，用于开发期缓存和生命周期压力检查。
+        /// </summary>
+        /// <remarks>这是诊断 API，不应放入正式业务流程。</remarks>
         public static async UniTask<UIKitRuntimeSnapshot> StressOpenCloseAsync<TPanel>(
             int iterations,
             UIPanelDataBase data = null,
@@ -552,6 +655,10 @@ namespace StellarFramework.UI
             return snapshot;
         }
 
+        /// <summary>
+        /// 同步打开指定 Panel。
+        /// 若 Panel 已缓存则复用，否则通过加载策略创建。
+        /// </summary>
         public static TPanel OpenPanel<TPanel>(UIPanelDataBase data = null) where TPanel : UIPanelBase
         {
             return TryGetRuntimeInstance(nameof(OpenPanel), typeof(TPanel), out UIKit instance)
@@ -559,6 +666,10 @@ namespace StellarFramework.UI
                 : null;
         }
 
+        /// <summary>
+        /// 异步打开指定 Panel。
+        /// 同类型并发首次加载会等待同一个创建任务，避免重复实例化。
+        /// </summary>
         public static async UniTask<TPanel> OpenPanelAsync<TPanel>(UIPanelDataBase data = null)
             where TPanel : UIPanelBase
         {
@@ -570,6 +681,9 @@ namespace StellarFramework.UI
             return await instance.OpenPanelInternalAsync<TPanel>(data);
         }
 
+        /// <summary>
+        /// 同步创建并缓存指定 Panel，但保持未打开状态。
+        /// </summary>
         public static TPanel PreloadPanel<TPanel>() where TPanel : UIPanelBase
         {
             return TryGetRuntimeInstance(nameof(PreloadPanel), typeof(TPanel), out UIKit instance)
@@ -577,6 +691,9 @@ namespace StellarFramework.UI
                 : null;
         }
 
+        /// <summary>
+        /// 异步创建并缓存指定 Panel，但保持未打开状态。
+        /// </summary>
         public static async UniTask<TPanel> PreloadPanelAsync<TPanel>() where TPanel : UIPanelBase
         {
             if (!TryGetRuntimeInstance(nameof(PreloadPanelAsync), typeof(TPanel), out UIKit instance))
@@ -587,6 +704,10 @@ namespace StellarFramework.UI
             return await instance.GetOrLoadPanelInternalAsync<TPanel>();
         }
 
+        /// <summary>
+        /// 返回已经缓存的 TPanel，不触发加载。
+        /// 未创建时返回 null。
+        /// </summary>
         public static TPanel GetPanel<TPanel>() where TPanel : UIPanelBase
         {
             if (Instance == null)
@@ -603,6 +724,10 @@ namespace StellarFramework.UI
             return null;
         }
 
+        /// <summary>
+        /// 对已缓存 Panel 调用 OnRefresh。
+        /// 不存在缓存实例时记录错误，不会隐式创建。
+        /// </summary>
         public static void RefreshPanel<TPanel>(UIPanelDataBase data) where TPanel : UIPanelBase
         {
             if (Instance == null)
@@ -614,6 +739,9 @@ namespace StellarFramework.UI
             Instance.RefreshPanelInternal(typeof(TPanel), data);
         }
 
+        /// <summary>
+        /// 按 TPanel 类型关闭 Panel。
+        /// </summary>
         public static void ClosePanel<TPanel>() where TPanel : UIPanelBase
         {
             if (Instance == null)
@@ -625,6 +753,9 @@ namespace StellarFramework.UI
             Instance.ClosePanelInternal(typeof(TPanel));
         }
 
+        /// <summary>
+        /// 按运行时 Type 关闭 Panel。
+        /// </summary>
         public static void ClosePanel(Type panelType)
         {
             if (Instance == null)
@@ -636,6 +767,10 @@ namespace StellarFramework.UI
             Instance.ClosePanelInternal(panelType);
         }
 
+        /// <summary>
+        /// 关闭所有已缓存 Panel。
+        /// destroyOnClose=false 的面板仍会留在缓存中。
+        /// </summary>
         public static void CloseAllPanels()
         {
             if (Instance == null)
@@ -651,6 +786,12 @@ namespace StellarFramework.UI
             }
         }
 
+        /// <summary>
+        /// 强制关闭并销毁全部 Panel，同时释放对应加载策略句柄。
+        /// </summary>
+        /// <remarks>
+        /// 适合测试、场景体系重置或 UIKit 彻底清理；普通页面切换优先使用 Close/Pop。
+        /// </remarks>
         public static void DestroyAllPanels()
         {
             if (Instance == null)

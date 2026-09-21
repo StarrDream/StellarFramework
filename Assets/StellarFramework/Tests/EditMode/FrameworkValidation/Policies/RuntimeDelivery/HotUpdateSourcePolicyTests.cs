@@ -16,13 +16,15 @@ namespace StellarFramework.Tests.FrameworkValidation
         }
 
         [Test]
-        public void SingletonGeneratorExcludesOptionalAddressablesHotUpdateAssembly()
+        public void SingletonGeneratorHasNoHybridClrOrLegacyHotUpdateDependency()
         {
             string source = File.ReadAllText(ToAbsoluteAssetPath(
                 "Assets/StellarFramework/Runtime/Kits/SingletonKit/Editor/SingletonGenerator.cs"));
 
-            Assert.That(source, Does.Contain("StellarFramework.HotUpdateKit.Addressables"));
-            Assert.That(source, Does.Contain("OptionalHotUpdateAddressablesRuntimeAssemblyName"));
+            Assert.That(source, Does.Not.Contain("StellarFramework.HotUpdateKit.Addressables"));
+            Assert.That(source, Does.Not.Contain("OptionalHotUpdateAddressablesRuntimeAssemblyName"));
+            Assert.That(source, Does.Not.Contain("StellarFramework.HybridCLRKit"));
+            Assert.That(source, Does.Contain("StellarFramework.ResKit.Addressables"));
         }
 
         private static string ToAbsoluteAssetPath(string assetPath)

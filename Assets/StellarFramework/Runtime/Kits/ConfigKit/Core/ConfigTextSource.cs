@@ -12,12 +12,21 @@ namespace StellarFramework
     /// </summary>
     public readonly struct ConfigTextLoadResult
     {
+        /// <summary>读取到的原始文本；失败时通常为 null。</summary>
         public readonly string Text;
+        /// <summary>是否来自 PersistentDataPath 用户覆盖文件。</summary>
         public readonly bool IsUserSave;
+        /// <summary>失败原因；成功时为 null/empty。</summary>
         public readonly string Error;
 
+        /// <summary>
+        /// 文本非空且没有错误时视为成功。
+        /// </summary>
         public bool IsSuccess => !string.IsNullOrEmpty(Text) && string.IsNullOrEmpty(Error);
 
+        /// <summary>
+        /// 创建读取结果。
+        /// </summary>
         public ConfigTextLoadResult(string text, bool isUserSave, string error = null)
         {
             Text = text;
@@ -31,6 +40,11 @@ namespace StellarFramework
     /// </summary>
     public interface IConfigTextSource
     {
+        /// <summary>
+        /// 异步读取相对路径对应的原始配置文本。
+        /// </summary>
+        /// <param name="relativePath">相对于数据源根目录的路径。</param>
+        /// <param name="cancellationToken">取消令牌。</param>
         UniTask<ConfigTextLoadResult> LoadAsync(string relativePath, CancellationToken cancellationToken = default);
     }
 
@@ -41,8 +55,14 @@ namespace StellarFramework
     {
         private static IConfigTextSource _default = new StreamingAssetsConfigTextSource();
 
+        /// <summary>
+        /// 当前默认文本来源。初始为 <see cref="StreamingAssetsConfigTextSource"/>。
+        /// </summary>
         public static IConfigTextSource Default => _default;
 
+        /// <summary>
+        /// 替换默认文本来源；传入 null 时恢复 StreamingAssets 默认实现。
+        /// </summary>
         public static void ConfigureDefault(IConfigTextSource source)
         {
             _default = source ?? new StreamingAssetsConfigTextSource();
@@ -54,6 +74,9 @@ namespace StellarFramework
     /// </summary>
     public sealed class StreamingAssetsConfigTextSource : IConfigTextSource
     {
+        /// <summary>
+        /// 优先从 PersistentDataPath 读取用户覆盖；不存在时回退 StreamingAssets。
+        /// </summary>
         public async UniTask<ConfigTextLoadResult> LoadAsync(string relativePath,
             CancellationToken cancellationToken = default)
         {
@@ -103,8 +126,14 @@ namespace StellarFramework
         }
     }
 
+    /// <summary>
+    /// ConfigKit 的跨平台路径规范化辅助。
+    /// </summary>
     public static class ConfigPathUtility
     {
+        /// <summary>
+        /// 将反斜杠转换为 '/' 并移除开头的 '/'，确保路径保持相对形式。
+        /// </summary>
         public static string NormalizeRelativePath(string relativePath)
         {
             return string.IsNullOrWhiteSpace(relativePath)
@@ -112,6 +141,9 @@ namespace StellarFramework
                 : relativePath.Replace("\\", "/").TrimStart('/');
         }
 
+        /// <summary>
+        /// 生成当前平台可被 UnityWebRequest 读取的 StreamingAssets URL。
+        /// </summary>
         public static string GetStreamingAssetsUrl(string relativePath)
         {
             string normalizedPath = NormalizeRelativePath(relativePath);
@@ -124,6 +156,9 @@ namespace StellarFramework
 #endif
         }
 
+        /// <summary>
+        /// 生成 PersistentDataPath 下的绝对路径。
+        /// </summary>
         public static string GetPersistentPath(string relativePath)
         {
             return Path.Combine(Application.persistentDataPath, NormalizeRelativePath(relativePath));

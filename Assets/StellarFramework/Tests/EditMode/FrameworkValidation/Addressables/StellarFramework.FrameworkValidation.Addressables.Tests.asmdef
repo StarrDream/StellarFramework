@@ -3,15 +3,13 @@
   "rootNamespace": "StellarFramework.Tests",
     "references": [
     "StellarFramework.ToolsHub.Addressables.Editor",
-        "StellarFramework.HotUpdateKit",
-        "StellarFramework.HotUpdateKit.HybridCLR",
-    "StellarFramework.HotUpdateKit.Addressables",
     "StellarFramework.ResKit",
     "StellarFramework.ResKit.Addressables",
     "StellarFramework.SingletonKit",
     "UniTask",
     "UniTask.Addressables",
     "Unity.Addressables",
+    "Unity.Addressables.Editor",
     "Unity.ResourceManager"
   ],
   "includePlatforms": [

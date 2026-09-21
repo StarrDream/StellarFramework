@@ -79,5 +79,51 @@ namespace StellarFramework.Tests.PlayMode
             GlobalEnumEvent.Broadcast(PlayModeTestEvent.E2);
             Assert.AreEqual(0, callbackBCount, "已注销的回调不应再被触发。");
         }
+
+        [UnityTest]
+        public IEnumerator DestroyingHostWithMultipleBindingsUnregistersAllWithoutMutationException()
+        {
+            int callbackCount = 0;
+            GameObject host = new GameObject("EventHost_Destroy_Multiple");
+
+            GlobalEnumEvent.Register(PlayModeTestEvent.E1, () => callbackCount++)
+                .UnRegisterWhenGameObjectDestroyed(host);
+            GlobalEnumEvent.Register(PlayModeTestEvent.E2, () => callbackCount++)
+                .UnRegisterWhenGameObjectDestroyed(host);
+
+            Object.Destroy(host);
+            yield return null;
+
+            GlobalEnumEvent.Broadcast(PlayModeTestEvent.E1);
+            GlobalEnumEvent.Broadcast(PlayModeTestEvent.E2);
+
+            Assert.AreEqual(0, callbackCount,
+                "宿主销毁后，绑定到同一 EventUnregisterTrigger 的全部 Token 都必须安全注销。");
+        }
+
+        [UnityTest]
+        public IEnumerator DisablingHostWithMultipleBindingsUnregistersAllWithoutMutationException()
+        {
+            int callbackCount = 0;
+            GameObject host = new GameObject("EventHost_Disable_Multiple");
+            EventUnregisterOnDisableTrigger lifecycle = host.AddComponent<EventUnregisterOnDisableTrigger>();
+
+            GlobalEnumEvent.Register(PlayModeTestEvent.E1, () => callbackCount++)
+                .UnRegisterWhenDisabled(lifecycle);
+            GlobalEnumEvent.Register(PlayModeTestEvent.E2, () => callbackCount++)
+                .UnRegisterWhenDisabled(lifecycle);
+
+            host.SetActive(false);
+            yield return null;
+
+            GlobalEnumEvent.Broadcast(PlayModeTestEvent.E1);
+            GlobalEnumEvent.Broadcast(PlayModeTestEvent.E2);
+
+            Assert.AreEqual(0, callbackCount,
+                "宿主失活后，绑定到同一 EventUnregisterOnDisableTrigger 的全部 Token 都必须安全注销。");
+
+            Object.Destroy(host);
+            yield return null;
+        }
     }
 }

@@ -9,8 +9,8 @@ using LogKit = StellarFramework.ConfigKitJsonDiagnostics;
 namespace StellarFramework
 {
     /// <summary>
-    /// 配置工具包门面 (Facade / Registry)
-    /// 职责: 统一调度加载流程，维护所有 NormalConfig 和 NetConfig 实例的生命周期
+    /// JSON 配置门面与缓存注册表。
+    /// 统一调度 NormalConfig / NetConfig 加载，并确保同名配置在生命周期内绑定到唯一相对路径。
     /// </summary>
     public static class ConfigKit
     {
@@ -50,6 +50,10 @@ namespace StellarFramework
             });
         }
 
+        /// <summary>
+        /// 异步加载并缓存普通配置。
+        /// 同名并发请求会复用同一个实际加载任务；调用方自己的取消只取消等待，不取消共享底层加载。
+        /// </summary>
         public static async UniTask<NormalConfig> LoadNormalConfigAsync(string configName, string relativePath,
             CancellationToken cancellationToken = default)
         {
@@ -120,6 +124,10 @@ namespace StellarFramework
             });
         }
 
+        /// <summary>
+        /// 异步加载并缓存网络配置。
+        /// 同名并发请求会复用同一个实际加载任务。
+        /// </summary>
         public static async UniTask<NetConfig> LoadNetConfigAsync(string configName, string relativePath,
             CancellationToken cancellationToken = default)
         {
@@ -173,7 +181,8 @@ namespace StellarFramework
         #endregion
 
         /// <summary>
-        /// 清理所有缓存的配置实例
+        /// 清理所有已加载配置、正在跟踪的共享任务和“配置名 -> 路径”绑定。
+        /// 不会删除磁盘上的配置文件。
         /// </summary>
         public static void ClearAll()
         {

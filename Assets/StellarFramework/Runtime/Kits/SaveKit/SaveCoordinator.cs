@@ -8,6 +8,16 @@ using Cysharp.Threading.Tasks;
 
 namespace StellarFramework
 {
+    /// <summary>
+    /// Orchestrates SaveKit's capture, serialization, container I/O, migration, validation, and restore pipeline.
+    /// </summary>
+    /// <remarks>
+    /// This type is intentionally internal: callers interact through <see cref="SaveKit"/> while the coordinator
+    /// enforces operation serialization and failure ordering. A save is assembled completely before the storage
+    /// commit path is invoked. A load validates container/checksum/migration/section data before restore proceeds.
+    /// Unknown-section preservation is retained separately so loading with a reduced registration set does not
+    /// silently destroy forward-compatible data when the configured policy is Preserve.
+    /// </remarks>
     internal sealed class SaveCoordinator
     {
         private readonly SaveKitOptions _options;
@@ -34,6 +44,7 @@ namespace StellarFramework
             _lifecycleHooks = lifecycleHooks == null ? Array.Empty<ISaveLifecycleHooks>() : lifecycleHooks.ToArray();
         }
 
+        /// <summary>Returns a defensive diagnostics snapshot so tooling cannot mutate coordinator state.</summary>
         public SaveOperationDiagnostics LastDiagnostics => _lastDiagnostics == null ? null : _lastDiagnostics.Clone();
 
         public bool TryRegisterSerializer(ISaveSerializer serializer, out string error)
@@ -61,6 +72,8 @@ namespace StellarFramework
         {
             lock (_gate)
             {
+                // Save/load/delete share section instances and preserved-unknown state. Serializing operations here
+                // keeps those mutable runtime contracts deterministic without pretending the whole Kit is thread-safe.
                 if (_busy) return false;
                 _busy = true;
                 return true;
@@ -82,11 +95,19 @@ namespace StellarFramework
             try
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                SaveMetadata previous = await TryReadMetadataAsync(slotId, cancellationToken, true);
-                if (previous == null && await _storage.ExistsAsync(slotId, SaveStorageFileKind.Current, cancellationToken))
+                SaveMetadataReadResult previousRead =
+                    await TryReadMetadataAsync(slotId, cancellationToken, true);
+                if (!previousRead.IsSuccess)
                 {
-                    return Fail(slotId, SaveErrorCode.ContainerCorrupted, "现有 current 存档无法验证，已阻止覆盖。", diagnostics, total);
+                    diagnostics.LastExceptionType = previousRead.ExceptionType;
+                    return Fail(
+                        slotId,
+                        previousRead.ErrorCode,
+                        previousRead.ErrorMessage,
+                        diagnostics,
+                        total);
                 }
+                SaveMetadata previous = previousRead.Metadata;
 
                 DateTime now = DateTime.UtcNow;
                 var metadata = new SaveMetadata
@@ -698,22 +719,45 @@ namespace StellarFramework
             finally { Exit(); }
         }
 
-        private async UniTask<SaveMetadata> TryReadMetadataAsync(SaveSlotId slotId, CancellationToken cancellationToken, bool current)
+        private async UniTask<SaveMetadataReadResult> TryReadMetadataAsync(
+            SaveSlotId slotId,
+            CancellationToken cancellationToken,
+            bool current)
         {
             SaveStorageFileKind kind = current ? SaveStorageFileKind.Current : SaveStorageFileKind.Backup;
-            if (!await _storage.ExistsAsync(slotId, kind, cancellationToken)) return null;
+            if (!await _storage.ExistsAsync(slotId, kind, cancellationToken))
+                return SaveMetadataReadResult.Success(null);
             try
             {
                 using (Stream stream = await _storage.OpenReadAsync(slotId, kind, cancellationToken))
                 {
                     // A save must never rotate an unchecked current file into backup.
                     // Read the payloads here so checksum corruption blocks overwrite.
-                    return SaveContainerReader.TryRead(stream, _options, out SaveSnapshot snapshot,
-                        out SaveErrorCode ignoredCode, out string ignoredMessage) ? snapshot.Metadata : null;
+                    if (SaveContainerReader.TryRead(
+                            stream,
+                            _options,
+                            out SaveSnapshot snapshot,
+                            out SaveErrorCode errorCode,
+                            out string errorMessage))
+                    {
+                        return SaveMetadataReadResult.Success(snapshot.Metadata);
+                    }
+
+                    return SaveMetadataReadResult.Failure(
+                        errorCode == SaveErrorCode.None ? SaveErrorCode.ContainerCorrupted : errorCode,
+                        string.IsNullOrEmpty(errorMessage)
+                            ? "现有存档无法验证，已阻止覆盖。"
+                            : errorMessage);
                 }
             }
             catch (OperationCanceledException) { throw; }
-            catch { return null; }
+            catch (Exception exception)
+            {
+                return SaveMetadataReadResult.Failure(
+                    SaveErrorCode.StorageError,
+                    "读取现有存档 metadata 失败: " + exception.Message,
+                    exception.GetType().FullName);
+            }
         }
 
         private async UniTask<SaveSnapshotReadResult> TryReadSnapshotAsync(SaveSlotId slotId, SaveStorageFileKind kind,
@@ -827,6 +871,42 @@ namespace StellarFramework
             public SaveSnapshot Snapshot;
             public SaveErrorCode ErrorCode;
             public string ErrorMessage;
+        }
+
+        private sealed class SaveMetadataReadResult
+        {
+            public bool IsSuccess;
+            public SaveMetadata Metadata;
+            public SaveErrorCode ErrorCode;
+            public string ErrorMessage;
+            public string ExceptionType;
+
+            public static SaveMetadataReadResult Success(SaveMetadata metadata)
+            {
+                return new SaveMetadataReadResult
+                {
+                    IsSuccess = true,
+                    Metadata = metadata,
+                    ErrorCode = SaveErrorCode.None,
+                    ErrorMessage = string.Empty,
+                    ExceptionType = null
+                };
+            }
+
+            public static SaveMetadataReadResult Failure(
+                SaveErrorCode errorCode,
+                string errorMessage,
+                string exceptionType = null)
+            {
+                return new SaveMetadataReadResult
+                {
+                    IsSuccess = false,
+                    Metadata = null,
+                    ErrorCode = errorCode,
+                    ErrorMessage = errorMessage ?? string.Empty,
+                    ExceptionType = exceptionType
+                };
+            }
         }
 
         private sealed class PreservedUnknownResult

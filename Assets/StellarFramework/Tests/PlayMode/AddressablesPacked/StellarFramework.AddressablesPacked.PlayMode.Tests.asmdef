@@ -1,0 +1,39 @@
+{
+  "name": "StellarFramework.AddressablesPacked.PlayMode.Tests",
+  "rootNamespace": "StellarFramework.Tests.PlayMode",
+  "references": [
+    "StellarFramework.HybridCLRKit",
+    "StellarFramework.ResKit",
+    "StellarFramework.ResKit.Addressables",
+    "StellarFramework.SingletonKit",
+    "StellarFramework.LogKit",
+    "StellarFramework.PoolKit",
+    "UniTask",
+    "UniTask.Addressables",
+    "Unity.Addressables",
+    "Unity.Addressables.Editor",
+    "Unity.ResourceManager"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": false,
+  "defineConstraints": [
+    "UNITY_ADDRESSABLES"
+  ],
+  "versionDefines": [
+    {
+      "name": "com.unity.addressables",
+      "expression": "1.0.0",
+      "define": "UNITY_ADDRESSABLES"
+    }
+  ],
+  "noEngineReferences": false,
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ]
+}

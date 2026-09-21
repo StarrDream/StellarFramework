@@ -1,0 +1,29 @@
+{
+  "name": "StellarFramework.YooAssetHotUpdate.PlayMode.Tests",
+  "rootNamespace": "StellarFramework.Tests.PlayMode",
+  "references": [
+    "StellarFramework.HybridCLRKit",
+    "StellarFramework.ResKit",
+    "StellarFramework.ResKit.YooAsset",
+    "StellarFramework.LogKit",
+    "StellarFramework.PoolKit",
+    "StellarFramework.Verification.Editor",
+    "UniTask",
+    "YooAsset",
+    "YooAsset.Editor"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": false,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ],
+  "noEngineReferences": false
+}

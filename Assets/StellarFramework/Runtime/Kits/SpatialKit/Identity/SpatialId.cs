@@ -27,9 +27,16 @@ namespace StellarFramework
         /// <summary>标识是否为无效的零值。</summary>
         public bool IsInvalid => Value == 0;
 
+        /// <inheritdoc />
         public bool Equals(SpatialId other) => Value == other.Value;
+
+        /// <inheritdoc />
         public override bool Equals(object obj) => obj is SpatialId other && Equals(other);
+
+        /// <inheritdoc />
         public override int GetHashCode() => Value;
+
+        /// <inheritdoc />
         public override string ToString() => Value.ToString();
 
         public static bool operator ==(SpatialId left, SpatialId right) => left.Equals(right);

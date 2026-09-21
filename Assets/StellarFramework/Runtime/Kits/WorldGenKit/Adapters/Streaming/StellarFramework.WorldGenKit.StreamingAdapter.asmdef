@@ -1,0 +1,19 @@
+{
+    "name": "StellarFramework.WorldGenKit.StreamingAdapter",
+    "rootNamespace": "StellarFramework.WorldGenKit.StreamingAdapter",
+    "references": [
+        "StellarFramework.WorldKit.Core",
+        "StellarFramework.WorldKit.Streaming",
+        "StellarFramework.WorldGenKit.Core",
+        "StellarFramework.WorldGenKit.Builtins"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": true
+}

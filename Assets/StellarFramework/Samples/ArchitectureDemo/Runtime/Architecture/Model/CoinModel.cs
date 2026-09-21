@@ -6,6 +6,7 @@ namespace StellarFramework.Demo
     public interface ICoinModelReadOnly : IReadOnlyModel
     {
         IReadOnlyBindableProperty<int> CoinCount { get; }
+        IReadOnlyBindableProperty<int> RoundNumber { get; }
     }
 
     /// <summary>
@@ -14,15 +15,19 @@ namespace StellarFramework.Demo
     /// </summary>
     public class CoinModel : AbstractModel, ICoinModelReadOnly
     {
-        // 规范：使用 BindableProperty 实现 0GC 的数据变更通知
+        // 当前轮已经获得的金币。
         public BindableProperty<int> CoinCount = new BindableProperty<int>(0);
+        // 从 1 开始计数，完成一轮后递增。
+        public BindableProperty<int> RoundNumber = new BindableProperty<int>(1);
+
         IReadOnlyBindableProperty<int> ICoinModelReadOnly.CoinCount => CoinCount;
+        IReadOnlyBindableProperty<int> ICoinModelReadOnly.RoundNumber => RoundNumber;
 
         public override void Init()
         {
             base.Init();
-            // 可以在此处进行本地存档的读取与反序列化初始化
             CoinCount.Value = 0;
+            RoundNumber.Value = 1;
         }
     }
 }

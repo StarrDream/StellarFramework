@@ -28,16 +28,15 @@ namespace StellarFramework.Editor.Modules
             new KitAssemblyInfo("ResKit.Core", "StellarFramework.ResKit"),
             new KitAssemblyInfo("ResKit.AssetBundle", "StellarFramework.ResKit.AssetBundle", true),
             new KitAssemblyInfo("ResKit.Addressables", "StellarFramework.ResKit.Addressables", true),
+            new KitAssemblyInfo("ResKit.YooAsset", "StellarFramework.ResKit.YooAsset", true),
+            new KitAssemblyInfo("HybridCLRKit", "StellarFramework.HybridCLRKit"),
             new KitAssemblyInfo("SettingsKit.Core", "StellarFramework.SettingsKit"),
             new KitAssemblyInfo("SettingsKit.UnityAdapters", "StellarFramework.SettingsKit.UnityAdapters", true),
             new KitAssemblyInfo("SettingsKit.AudioKitAdapter", "StellarFramework.SettingsKit.AudioKit", true),
             new KitAssemblyInfo("SingletonKit", "StellarFramework.SingletonKit"),
             new KitAssemblyInfo("TimeKit", "StellarFramework.TimeKit"),
             new KitAssemblyInfo("UIKit.Core", "StellarFramework.UIKit"),
-            new KitAssemblyInfo("UIKit.ResKitAdapter", "StellarFramework.UIKit.ResKit", true),
-            new KitAssemblyInfo("HotUpdate.Core", "StellarFramework.HotUpdateKit", true),
-            new KitAssemblyInfo("HotUpdate.Addressables", "StellarFramework.HotUpdateKit.Addressables", true),
-            new KitAssemblyInfo("HotUpdate.HybridCLR", "StellarFramework.HotUpdateKit.HybridCLR", true)
+            new KitAssemblyInfo("UIKit.ResKitAdapter", "StellarFramework.UIKit.ResKit", true)
         };
 
         public override string Description => "自动扫描当前已加载程序集，展示已导入 Kit 与可选 Adapter；不依赖任何具体 Kit。";

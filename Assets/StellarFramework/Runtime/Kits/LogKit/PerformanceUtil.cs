@@ -1,10 +1,8 @@
 ﻿// ==================================================================================
-// PerformanceUtil - Commercial Convergence V2
+// PerformanceUtil
 // ----------------------------------------------------------------------------------
-// 职责：仅负责 CPU 耗时测量、内存快照与 GC 控制。
-// 改造说明：
-// 1. 彻底移除 MeasureExecutionTime 内部的 try-catch，遵循 Fail-Fast 原则。
-//    性能测试工具不应干涉或掩盖业务代码的异常抛出行为。
+// 仅负责 CPU 耗时测量、内存快照与显式 GC 控制。
+// 性能测量不会捕获业务异常，避免改变被测代码的错误语义。
 // ==================================================================================
 
 using System;
@@ -14,12 +12,17 @@ using UnityEngine.Profiling;
 
 namespace StellarFramework
 {
+    /// <summary>
+    /// 开发期性能诊断辅助。
+    /// 不替代 Unity Profiler，也不应放在高频生产逻辑中。
+    /// </summary>
     public static class PerformanceUtil
     {
         /// <summary>
-        /// 测量代码块的执行耗时
-        /// 仅在 Editor 或 Development Build 中生效，Release 包自动剔除，零性能开销
+        /// 测量同步代码块的执行耗时。
+        /// 仅在 Editor 或 Development Build 中生效；Release 中调用点会被条件编译移除。
         /// </summary>
+        /// <remarks>不会捕获 action 抛出的异常，异常保持原始传播语义。</remarks>
         [Conditional("UNITY_EDITOR"), Conditional("DEVELOPMENT_BUILD")]
         public static void MeasureExecutionTime(Action action, string actionName = "Action")
         {
@@ -40,7 +43,7 @@ namespace StellarFramework
         }
 
         /// <summary>
-        /// 打印当前内存快照
+        /// 打印 Unity Reserved、Unity Allocated 与托管堆的大致内存快照。
         /// </summary>
         public static void LogMemoryUsage()
         {
@@ -55,8 +58,11 @@ namespace StellarFramework
         }
 
         /// <summary>
-        /// 强制执行完整的垃圾回收 (极度危险，仅限场景切换或明确的内存释放节点使用)
+        /// 强制执行完整 GC，并请求 Resources.UnloadUnusedAssets。
         /// </summary>
+        /// <remarks>
+        /// 会造成明显主线程停顿。只应在加载界面、场景切换等允许卡顿的明确节点调用。
+        /// </remarks>
         public static void ForceGarbageCollection()
         {
             LogKit.LogWarning("[PerformanceUtil] 正在执行强制 GC，将引发主线程阻塞与帧率抖动...");

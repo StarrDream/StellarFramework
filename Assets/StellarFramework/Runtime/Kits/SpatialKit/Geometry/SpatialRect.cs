@@ -7,13 +7,22 @@ namespace StellarFramework
     /// </summary>
     public readonly struct SpatialRect : IEquatable<SpatialRect>
     {
+        /// <summary>获取 inclusive 最小 X。</summary>
         public float MinX { get; }
+
+        /// <summary>获取 inclusive 最小 Y。</summary>
         public float MinY { get; }
+
+        /// <summary>获取 exclusive 最大 X。</summary>
         public float MaxExclusiveX { get; }
+
+        /// <summary>获取 exclusive 最大 Y。</summary>
         public float MaxExclusiveY { get; }
 
+        /// <summary>获取矩形是否为空。</summary>
         public bool IsEmpty => MinX == MaxExclusiveX || MinY == MaxExclusiveY;
 
+        /// <summary>创建一个 [Min, MaxExclusive) 连续空间矩形。</summary>
         public SpatialRect(float minX, float minY, float maxExclusiveX, float maxExclusiveY)
         {
             ValidateFinite(minX, nameof(minX));
@@ -45,13 +54,19 @@ namespace StellarFramework
         {
         }
 
+        /// <summary>判断点是否位于半开矩形内。</summary>
         public bool Contains(SpatialPoint point) =>
             point.X >= MinX && point.X < MaxExclusiveX &&
             point.Y >= MinY && point.Y < MaxExclusiveY;
 
+        /// <inheritdoc />
         public bool Equals(SpatialRect other) => MinX == other.MinX && MinY == other.MinY &&
             MaxExclusiveX == other.MaxExclusiveX && MaxExclusiveY == other.MaxExclusiveY;
+
+        /// <inheritdoc />
         public override bool Equals(object obj) => obj is SpatialRect other && Equals(other);
+
+        /// <inheritdoc />
         public override int GetHashCode()
         {
             unchecked
@@ -62,6 +77,7 @@ namespace StellarFramework
                 return (hash * 397) ^ MaxExclusiveY.GetHashCode();
             }
         }
+        /// <inheritdoc />
         public override string ToString() => string.Format("[{0}, {1}) - [{2}, {3})", MinX, MinY, MaxExclusiveX, MaxExclusiveY);
 
         public static bool operator ==(SpatialRect left, SpatialRect right) => left.Equals(right);

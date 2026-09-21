@@ -111,14 +111,12 @@ StellarFramework
 │  │  └─ UIKit
 │  └─ PlayMode
 ├─ Samples
-│  └─ KitSamples、ArchitectureDemo
+│  └─ ArchitectureDemo
 └─ KitCatalog
    └─ KitDistributionCatalog.json、KitExportValidationMatrix.md
 
 StellarFrameworkVerification       (Current，Maintainer-only)
 ├─ Editor
-├─ Example_FrameworkValidation
-├─ Scenes
 ├─ README.md
 └─ ValidationArchitecture.md
 
@@ -131,24 +129,24 @@ StellarFrameworkVerification       (Future，按需创建)
 
 Tests/EditMode/FrameworkValidation 保留现有程序集 StellarFramework.FrameworkValidation.Tests，不为了目录美观上移 asmdef。目录迁移不改变旧 namespace，也不锁死测试的物理路径。
 
-根目录下尚未归类的 DeveloperQuickToolsLogicTests、FrameworkValidationReportTests、HotUpdateManifestTests、HybridCLRHotUpdateAssetExporterTests、ResKitAssetBundleManagerTests 属于 Legacy / Cross-cutting，职责清晰后再迁移。
+根目录下尚未归类的 DeveloperQuickToolsLogicTests、HotUpdateManifestTests、HybridCLRHotUpdateAssetExporterTests、ResKitAssetBundleManagerTests 属于 Legacy / Cross-cutting，职责清晰后再迁移。
 
-StellarFrameworkVerification 是维护者专用区，当前包含集中 Runner、发布前工具和场景；不进入普通 Kit、Sample 或 Full Package 分发。Future Integration、PlayerSmoke、Release、Tools 只有在有真实内容时创建，不创建空目录。
+StellarFrameworkVerification 是维护者专用区，当前只保留发布前工具和验证规范；不进入普通 Kit、Demo 或 Full Package 分发。Future Integration、PlayerSmoke、Release、Tools 只有在有真实内容时创建，不创建空目录。
 
 ## 4. Samples 与 Verification 的区别
 
 | 类型 | 面向谁 | 目标 | 是否导出 | 多 Kit | 业务语义 |
 | --- | --- | --- | ---: | ---: | ---: |
-| Sample | 框架使用者 | 教学 | 是，可选 | 尽量少 | 极少 |
+| Demo | 框架使用者 | 建立整体认知 | 否，仓库内 | 尽量少 | 极少 |
 | Kit Behavior | 框架维护者 | 单 Kit 正确性 | 否 | 否 | 否 |
 | Performance | 框架维护者 | 性能趋势 | 否 | 可按需 | 否 |
 | Policy | 框架维护者 | 工程规则 | 否 | 是 | 否 |
 | Integration | 框架维护者 | 多 Kit 协作 | 否 | 是 | Fake-only |
 | Release | 框架维护者 | 真实分发链路 | 否 | 是 | 最小 |
 
-ArchitectureDemo 继续作为架构教学样例；KitSamples 继续作为各 Kit 的最小教学面。它们不是 Bug 回归套件，也不是完整游戏示范。GameHotUpdate 按 Runtime Delivery Example / Verification Fixture 处理，不粗暴归入普通 Sample。
+ArchitectureDemo 是唯一用户入门 Demo；各 Kit 的完整教学面回归 FrameworkDoc。它不是 Bug 回归套件，也不是完整游戏示范。GameHotUpdate 按 Runtime Delivery / Verification Fixture 处理，不归入普通 Demo。
 
-Fixture 为测试服务，Sample 为学习服务。当前没有新增 Fixture 架构的必要。
+Fixture 为测试服务，Demo 为学习服务。Addressables 与 AssetBundle 的测试资源必须进入专用 Fixture 路径，不能反向借用 Demo 资产。
 
 ## 5. 决策树
 

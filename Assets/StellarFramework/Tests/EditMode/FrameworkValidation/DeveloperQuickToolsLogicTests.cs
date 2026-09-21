@@ -136,7 +136,7 @@ namespace StellarFramework.Tests.FrameworkValidation
 
             var projectScene = new DeveloperQuickSceneReference { Guid = "project", Path = "Assets/Scenes/Main.unity" };
             var packageScene = new DeveloperQuickSceneReference { Guid = "package", Path = "Packages/com.company.demo/Samples~/Demo.unity" };
-            var frameworkScene = new DeveloperQuickSceneReference { Guid = "framework", Path = "Assets/StellarFramework/Samples/KitSamples/Scenes/UIKit_Playable.unity" };
+            var frameworkScene = new DeveloperQuickSceneReference { Guid = "framework", Path = "Assets/StellarFramework/Samples/ArchitectureDemo/Scene/FrameworkArchitecture_Playable.unity" };
 
             preferences.RecentScenes.Add(projectScene);
             preferences.RecentScenes.Add(packageScene);
@@ -157,9 +157,8 @@ namespace StellarFramework.Tests.FrameworkValidation
         public void QuickSceneListKeepsFrameworkScenesButFiltersPackageAndTildeScenes()
         {
             Assert.That(DeveloperQuickToolsLogic.ShouldIncludeSceneInQuickList("Assets/Scenes/Main.unity"), Is.True);
-            Assert.That(DeveloperQuickToolsLogic.ShouldIncludeSceneInQuickList("Assets/StellarFramework/Samples/KitSamples/Scenes/UIKit_Playable.unity"), Is.True);
             Assert.That(DeveloperQuickToolsLogic.ShouldIncludeSceneInQuickList("Assets/StellarFramework/Samples/ArchitectureDemo/Scene/FrameworkArchitecture_Playable.unity"), Is.True);
-            Assert.That(DeveloperQuickToolsLogic.IsFrameworkScene("Assets/StellarFramework/Samples/KitSamples/Scenes/UIKit_Playable.unity"), Is.True);
+            Assert.That(DeveloperQuickToolsLogic.IsFrameworkScene("Assets/StellarFramework/Samples/ArchitectureDemo/Scene/FrameworkArchitecture_Playable.unity"), Is.True);
             Assert.That(DeveloperQuickToolsLogic.ShouldIncludeSceneInQuickList("Packages/com.company.demo/Samples~/Demo.unity"), Is.False);
             Assert.That(DeveloperQuickToolsLogic.ShouldIncludeSceneInQuickList("Assets/ThirdParty/Package/Samples~/Demo.unity"), Is.False);
             Assert.That(DeveloperQuickToolsLogic.ShouldIncludeSceneInQuickList("Assets/ThirdParty/Package/Scenes~/Demo.unity"), Is.False);
@@ -194,13 +193,13 @@ namespace StellarFramework.Tests.FrameworkValidation
         {
             var frameworkScene = new DeveloperQuickSceneReference
             {
-                Path = "Assets/StellarFramework/Samples/KitSamples/Scenes/UIKit_Playable.unity",
-                Name = "UIKit_Playable"
+                Path = "Assets/StellarFramework/Samples/ArchitectureDemo/Scene/FrameworkArchitecture_Playable.unity",
+                Name = "FrameworkArchitecture_Playable"
             };
 
             string label = DeveloperQuickToolsLogic.BuildSceneMenuLabel("StellarFramework", frameworkScene, true, false);
 
-            Assert.That(label, Is.EqualTo("StellarFramework/UIKit_Playable  (框架 > Samples > KitSamples > Scenes)"));
+            Assert.That(label, Is.EqualTo("StellarFramework/FrameworkArchitecture_Playable  (框架 > Samples > ArchitectureDemo > Scene)"));
             Assert.That(label.Count(character => character == '/'), Is.EqualTo(1));
         }
 

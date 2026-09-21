@@ -1,0 +1,23 @@
+{
+  "name": "StellarFramework.ToolsHub.WorldFramework.Editor.Tests",
+  "rootNamespace": "StellarFramework.Editor.Modules.WorldFramework.Tests",
+  "references": [
+    "StellarFramework.ToolsHub.WorldFramework.Editor",
+    "StellarFramework.WorldKit.Core",
+    "StellarFramework.WorldGenKit.Core",
+    "StellarFramework.WorldGenKit.Builtins",
+    "StellarFramework.WorldGenKit.Resources",
+    "StellarFramework.WorldGenKit.Feature",
+    "StellarFramework.PlacementKit.Core"
+  ],
+  "includePlatforms": ["Editor"],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": false,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false,
+  "optionalUnityReferences": ["TestAssemblies"]
+}

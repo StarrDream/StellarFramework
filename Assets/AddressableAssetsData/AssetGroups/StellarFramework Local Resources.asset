@@ -17,20 +17,8 @@ MonoBehaviour:
     m_SerializedData: []
   m_GUID: 08e8bd6463d9556469e2abbc80bfa3d6
   m_SerializeEntries:
-  - m_GUID: 2f4e6ce4629f4f8bbd4c1a6a38c4a901
-    m_Address: Assets/StellarFramework/Samples/KitSamples/Example_ResKit/Art/AssetBundle/TestCapsule_AB.prefab
-    m_ReadOnly: 0
-    m_SerializedLabels: []
-    FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: a5b5f730c6ca4b4a81ed07abfba53e2c
-    m_Address: Assets/StellarFramework/Samples/KitSamples/Example_ResKit/Addressables/TestSphere_AA.prefab
-    m_ReadOnly: 0
-    m_SerializedLabels:
-    - hotupdate
-    - reskit-aa-test
-    FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: ade5c4063c9730a41be23e644947d8a7
-    m_Address: Assets/StellarFramework/Samples/KitSamples/Example_ResKit/Resources/ResKitTest/TestCube_Res.prefab
+  - m_GUID: 7a8d731ec27f4debbbf53bfe6dd470d3
+    m_Address: Assets/StellarFramework/Tests/Fixtures/Addressables/AddressablesTestPrefab.prefab
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0

@@ -208,6 +208,31 @@ namespace StellarFramework
                 _instance = (T)this;
             }
 
+            try
+            {
+                InitModules();
+            }
+            catch
+            {
+                // InitModules 只允许做注册。若注册阶段抛错，回滚尚未初始化的容器，
+                // 保持实例可诊断且允许修复后重新 Init；异常继续向上传播，禁止吞错。
+                foreach (IModel model in _models.Values)
+                {
+                    if (model != null) model.Architecture = null;
+                }
+
+                foreach (IService service in _services.Values)
+                {
+                    if (service != null) service.Architecture = null;
+                }
+
+                _models.Clear();
+                _readOnlyModels.Clear();
+                _services.Clear();
+                _state = ArchitectureState.Uninitialized;
+                throw;
+            }
+
             // 先全量校验 Model/Service 再逐个 Init，
             // 避免"部分初始化后才发现空对象回滚状态"导致下次 Init 重复初始化。
             foreach (IModel model in _models.Values)

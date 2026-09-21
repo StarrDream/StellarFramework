@@ -2,6 +2,16 @@ using System;
 
 namespace StellarFramework
 {
+    /// <summary>
+    /// Shared A*/Dijkstra execution core. The runner owns no graph data and writes only to the supplied
+    /// reusable workspace and caller destination buffer.
+    /// </summary>
+    /// <remarks>
+    /// Important invariants: edge costs are positive; cost addition is overflow-checked; the output path is
+    /// written only after its complete parent chain and required length are known; improved closed records are
+    /// reopened instead of being discarded. These rules preserve deterministic failure semantics and prevent
+    /// partial output on buffer-size failures.
+    /// </remarks>
     internal static class PathSearchRunner
     {
         internal static PathSearchResult Run(IPathGraph graph, PathSearchRequest request,
@@ -118,6 +128,8 @@ namespace StellarFramework
                         improved.ParentIndex = currentIndex;
                         if (existing.State == PathRecordState.Closed)
                         {
+                            // An admissible heuristic may still be inconsistent. Reopening a closed node when
+                            // a cheaper G cost is found preserves optimality instead of assuming monotonic H.
                             improved.State = PathRecordState.Open;
                             workspace.PushOpen(existingIndex, useHeuristic);
                         }
@@ -209,6 +221,8 @@ namespace StellarFramework
         private static PathSearchResult BuildPathResult(PathSearchWorkspace workspace, int goalIndex,
             Span<PathNodeId> destination, int expanded)
         {
+            // Count the entire parent chain first. This guarantees OutputBufferTooSmall is failure-atomic:
+            // destination remains untouched instead of containing a misleading partial path.
             int required = 0;
             int cursor = goalIndex;
             while (cursor >= 0)

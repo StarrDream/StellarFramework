@@ -25,45 +25,31 @@ namespace StellarFramework.Tests.FrameworkValidation
         }
 
         [Test]
-        public void PathKitCatalogGuidesTestsBenchmarksAndSamplesAreRegistered()
+        public void PathKitCatalogGuidesAndBenchmarksAreRegistered()
         {
             string catalog = Read("Assets/StellarFramework/KitCatalog/KitDistributionCatalog.json");
             Assert.That(catalog, Does.Contain("\"id\": \"pathkit\""));
             Assert.That(catalog, Does.Contain("\"id\": \"pathkit.gridkit\""));
             Assert.That(catalog, Does.Contain("StellarFramework-PathKit.unitypackage"));
             Assert.That(catalog, Does.Contain("StellarFramework-PathKit-GridKitAdapter.unitypackage"));
-            Assert.That(catalog, Does.Contain("samples.pathkit"));
-            Assert.That(catalog, Does.Contain("samples.pathkit.gridkit"));
-            Assert.That(catalog, Does.Contain("PathKit_Playable.unity"));
-            Assert.That(catalog, Does.Contain("PathKit_GridKitAdapter_Playable.unity"));
-            string usageGuide = Read("Assets/StellarFramework/Runtime/Kits/PathKit/PathKit-路径搜索-说明文档-Guide.md");
-            string sourceGuide = Read("Assets/StellarFramework/Runtime/Kits/PathKit/PathKit-路径搜索-源码文档-Guide.md");
+            string usageGuide = Read("Assets/StellarFramework/FrameworkDoc/02-Kits/PathKit/PathKit-路径搜索-说明文档-Guide.md");
+            string sourceGuide = Read("Assets/StellarFramework/FrameworkDoc/02-Kits/PathKit/PathKit-路径搜索-源码文档-Guide.md");
             Assert.That(usageGuide, Does.Contain("Quick Start"));
             Assert.That(usageGuide, Does.Contain("PathSearchStatus.None"));
             Assert.That(usageGuide, Does.Contain("FindPath 不会返回 None"));
             Assert.That(sourceGuide, Does.Contain("Closed record"));
             Assert.That(sourceGuide, Does.Contain("PathSearchStatus.None = 0"));
-            Assert.That(sourceGuide, Does.Contain("Core standalone Sample"));
-            Assert.That(Read("Assets/StellarFramework/Runtime/Kits/PathKit/Adapters/GridKit/PathKit-GridKit适配器-Guide.md"), Does.Contain("NoCornerCut"));
+            Assert.That(Read("Assets/StellarFramework/FrameworkDoc/02-Kits/PathKit/PathKit-GridKit适配器-Guide.md"), Does.Contain("NoCornerCut"));
             Assert.That(File.Exists(Absolute("Assets/StellarFramework/Tests/EditMode/FrameworkValidation/Performance/PathKit/PathKitBenchmarkTests.cs")), Is.True);
-            Assert.That(File.Exists(Absolute("Assets/StellarFramework/Samples/KitSamples/Editor/SampleTemplates/KitSamples/PathKit_Playable.unity.txt")), Is.True);
-            Assert.That(File.Exists(Absolute("Assets/StellarFramework/Samples/KitSamples/Editor/SampleTemplates/KitSamples/PathKit_GridKitAdapter_Playable.unity.txt")), Is.True);
-            Assert.That(Read("Assets/StellarFramework/Samples/KitSamples/Samples_Index.md"), Does.Contain("PathKit_Playable.unity"));
-            Assert.That(Read("Assets/StellarFramework/Samples/KitSamples/Scenes/README.md"), Does.Contain("PathKit_GridKitAdapter_Playable.unity"));
-            Assert.That(Read("Assets/StellarFramework/Samples/KitSamples/Editor/SampleTemplates/KitSamples/PathKit_Playable.unity.txt"), Does.Contain("m_Name: Directional Light"));
-            Assert.That(Read("Assets/StellarFramework/Samples/KitSamples/Editor/SampleTemplates/KitSamples/PathKit_GridKitAdapter_Playable.unity.txt"), Does.Contain("m_Name: Directional Light"));
-            Assert.That(File.Exists(Absolute("Assets/StellarFramework/Samples/KitSamples/Scenes/PathKit_Playable.unity")), Is.True);
-            Assert.That(File.Exists(Absolute("Assets/StellarFramework/Samples/KitSamples/Scenes/PathKit_GridKitAdapter_Playable.unity")), Is.True);
         }
 
         [Test]
-        public void PathKitExporterAddsCoreAdapterAndSampleEntryPoints()
+        public void PathKitExporterAddsCoreAndAdapterEntryPoints()
         {
             string publisher = Read("Assets/StellarFramework/Editor/StellarToolsHub/Modules/Packaging/StellarFrameworkPackagePublisher.cs");
             Assert.That(publisher, Does.Contain("ExportPathKitPackage"));
             Assert.That(publisher, Does.Contain("ExportPathKitGridKitAdapterPackage"));
-            Assert.That(publisher, Does.Contain("ExportPathKitSamplePackage"));
-            Assert.That(publisher, Does.Contain("ExportPathKitGridKitAdapterSamplePackage"));
+            Assert.That(publisher, Does.Not.Contain("ExportPathKitSamplePackage"));
             Assert.That(publisher, Does.Contain("excludedSourcePaths"));
         }
 

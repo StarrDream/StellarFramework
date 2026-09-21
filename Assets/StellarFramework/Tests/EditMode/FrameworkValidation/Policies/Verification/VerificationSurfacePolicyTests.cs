@@ -12,8 +12,8 @@ namespace StellarFramework.Tests.FrameworkValidation
             Assert.That(File.Exists(ToAbsoluteAssetPath("Assets/StellarFrameworkVerification/README.md")), Is.True);
             Assert.That(File.Exists(ToAbsoluteAssetPath("Assets/StellarFrameworkVerification/ValidationArchitecture.md")), Is.True);
             Assert.That(File.Exists(ToAbsoluteAssetPath("Assets/StellarFrameworkVerification/Editor/ReleaseVerificationHubModule.cs")), Is.True);
-            Assert.That(File.Exists(ToAbsoluteAssetPath("Assets/StellarFrameworkVerification/Scenes/FrameworkValidation_Playable.unity")), Is.True);
-            Assert.That(File.Exists(ToAbsoluteAssetPath("Assets/StellarFrameworkVerification/Example_FrameworkValidation/FrameworkValidationRunner.cs")), Is.True);
+            Assert.That(File.Exists(ToAbsoluteAssetPath("Assets/StellarFrameworkVerification/Scenes/FrameworkValidation_Playable.unity")), Is.False);
+            Assert.That(File.Exists(ToAbsoluteAssetPath("Assets/StellarFrameworkVerification/Example_FrameworkValidation/FrameworkValidationRunner.cs")), Is.False);
         }
 
         [Test]
@@ -21,8 +21,8 @@ namespace StellarFramework.Tests.FrameworkValidation
         {
             string architecture = ReadAssetText("Assets/StellarFrameworkVerification/ValidationArchitecture.md");
             string rootReadme = ReadAssetText("README.md");
-            string testsGuide = ReadAssetText("Assets/StellarFramework/Tests/Tests-说明文档-Guide.md");
-            string matrix = ReadAssetText("Assets/StellarFramework/KitCatalog/KitExportValidationMatrix.md");
+            string testsGuide = ReadAssetText("Assets/StellarFramework/FrameworkDoc/08-Validation/Tests-说明文档-Guide.md");
+            string matrix = ReadAssetText("Assets/StellarFramework/FrameworkDoc/08-Validation/KitExportValidationMatrix.md");
 
             Assert.That(architecture, Does.Contain("StellarFramework 验证架构与发布验收规范"));
             Assert.That(architecture, Does.Contain("Kit Behavior"));

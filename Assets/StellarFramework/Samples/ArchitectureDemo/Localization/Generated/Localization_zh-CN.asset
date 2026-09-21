@@ -1,0 +1,33 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6094f77fa4c893f41ae064c9bc221c07, type: 3}
+  m_Name: Localization_zh-CN
+  m_EditorClassIdentifier: 
+  _locale: zh-CN
+  _entries:
+  - _key: architecture.title
+    _value: "StellarFramework \xB7 MSV \u67B6\u6784\u95ED\u73AF"
+  - _key: architecture.subtitle
+    _value: "\u4E00\u4E2A\u53EF\u91CD\u590D\u7684\u5C0F\u5FAA\u73AF\uFF1A\u6316\u77FF -> Service
+      -> Model -> BindableProperty -> View -> \u5B8C\u6210\u672C\u8F6E -> \u4E0B\u4E00\u8F6E\u3002"
+  - _key: architecture.panel.coin
+    _value: "\u7B2C {round} \u8F6E | \u91D1\u5E01: {count}/{target}"
+  - _key: architecture.panel.mine
+    _value: "\u6316\u77FF +10"
+  - _key: architecture.panel.complete_round
+    _value: "\u5B8C\u6210\u672C\u8F6E"
+  - _key: architecture.panel.hint
+    _value: "\u8FDE\u7EED\u6316\u77FF\u81F3 30 \u91D1\u5E01\uFF0C\u518D\u70B9\u51FB\u4E00\u6B21\u5B8C\u6210\u672C\u8F6E\u5E76\u5F00\u59CB\u4E0B\u4E00\u8F6E\u3002"
+  - _key: architecture.open_panel
+    _value: "\u6253\u5F00\u9762\u677F"
+  - _key: architecture.panel.close
+    _value: "\u5173\u95ED"

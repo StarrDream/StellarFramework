@@ -9,6 +9,63 @@ namespace StellarFramework.Tests.FrameworkValidation
     public sealed class GridKitBenchmarkTests
     {
         [Test, Category("Benchmark")]
+        public void GridTopologyBenchmark_1MNeighborQueries()
+        {
+            const int iterations = 1000000;
+            Orthogonal4Topology four = new Orthogonal4Topology();
+            Orthogonal8Topology eight = new Orthogonal8Topology();
+            HexTopology hex = new HexTopology();
+
+            Span<GridCoord> square4 = stackalloc GridCoord[4];
+            Span<GridCoord> square8 = stackalloc GridCoord[8];
+            Span<HexCoord> hex6 = stackalloc HexCoord[6];
+
+            long allocatedBefore = GC.GetTotalMemory(false);
+            long checksum = 0L;
+
+            Stopwatch fourWatch = Stopwatch.StartNew();
+            for (int i = 0; i < iterations; i++)
+            {
+                GridCoord center = new GridCoord(i % 2048 - 1024, (i / 2048) % 2048 - 1024);
+                checksum += four.WriteNeighbors(center, square4);
+                checksum += four.GetDistance(center, square4[0]);
+            }
+            fourWatch.Stop();
+
+            Stopwatch eightWatch = Stopwatch.StartNew();
+            for (int i = 0; i < iterations; i++)
+            {
+                GridCoord center = new GridCoord(i % 2048 - 1024, (i / 2048) % 2048 - 1024);
+                checksum += eight.WriteNeighbors(center, square8);
+                checksum += eight.GetDistance(center, square8[1]);
+            }
+            eightWatch.Stop();
+
+            Stopwatch hexWatch = Stopwatch.StartNew();
+            for (int i = 0; i < iterations; i++)
+            {
+                HexCoord center = new HexCoord(i % 2048 - 1024, (i / 2048) % 2048 - 1024);
+                checksum += hex.WriteNeighbors(center, hex6);
+                checksum += hex.GetDistance(center, hex6[0]);
+            }
+            hexWatch.Stop();
+
+            long allocatedDelta = GC.GetTotalMemory(false) - allocatedBefore;
+            string message = string.Format(
+                "Grid topology benchmark env={0} iterations={1} ortho4Ms={2:F3} ortho8Ms={3:F3} hex6Ms={4:F3} checksum={5} allocationDelta={6}",
+                Application.unityVersion, iterations,
+                fourWatch.Elapsed.TotalMilliseconds,
+                eightWatch.Elapsed.TotalMilliseconds,
+                hexWatch.Elapsed.TotalMilliseconds,
+                checksum,
+                allocatedDelta);
+
+            TestContext.Progress.WriteLine(message);
+            UnityEngine.Debug.Log(message);
+            Assert.That(checksum, Is.GreaterThan(0L));
+        }
+
+        [Test, Category("Benchmark")]
         public void GridKitBenchmark_1MStorageGeometryAndOccupancy()
         {
             const int width = 1000;

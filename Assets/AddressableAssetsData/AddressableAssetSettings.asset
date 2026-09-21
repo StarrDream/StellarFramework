@@ -17,7 +17,7 @@ MonoBehaviour:
     serializedVersion: 2
     Hash: 00000000000000000000000000000000
   m_OptimizeCatalogSize: 0
-  m_BuildRemoteCatalog: 1
+  m_BuildRemoteCatalog: 0
   m_BundleLocalCatalog: 0
   m_CatalogRequestsTimeout: 0
   m_DisableCatalogUpdateOnStart: 0
@@ -45,7 +45,6 @@ MonoBehaviour:
   m_overridePlayerVersion: '[UnityEditor.PlayerSettings.bundleVersion]'
   m_GroupAssets:
   - {fileID: 11400000, guid: 40583c01e3b8a214489a211798224db7, type: 2}
-  - {fileID: 11400000, guid: 69fc24f53cb35704ebf0239f71d4631c, type: 2}
   - {fileID: 11400000, guid: 0190aaae5b2862b4dad9c9d9b7610bf6, type: 2}
   m_BuildSettings:
     m_CompileScriptsInVirtualMode: 0
@@ -59,23 +58,9 @@ MonoBehaviour:
       m_ProfileName: Stellar Local Built-in
       m_Values:
       - m_Id: 59dcae6239e0abe4dbd20741e5245765
-        m_Value: ServerData/HotUpdate/[BuildTarget]
+        m_Value:
       - m_Id: 5ab95aa309579d540b79ba98877eedd8
-        m_Value: http://[PrivateIpAddress]/HotUpdate/[BuildTarget]
-      - m_Id: 999194c739426194b989b047a4df15f1
-        m_Value: '[UnityEditor.EditorUserBuildSettings.activeBuildTarget]'
-      - m_Id: d4558f0558d2be5439d8132c3c9d0dcb
-        m_Value: '{UnityEngine.AddressableAssets.Addressables.RuntimePath}/[BuildTarget]'
-      - m_Id: da4c1723d847c18439616ec894604cf7
-        m_Value: '[UnityEngine.AddressableAssets.Addressables.BuildPath]/[BuildTarget]'
-    - m_InheritedParent: 
-      m_Id: fb4e86bbaf090e24ea1c82f611ddc86e
-      m_ProfileName: Stellar Remote HotUpdate
-      m_Values:
-      - m_Id: 59dcae6239e0abe4dbd20741e5245765
-        m_Value: ServerData/HotUpdate/[BuildTarget]
-      - m_Id: 5ab95aa309579d540b79ba98877eedd8
-        m_Value: http://[PrivateIpAddress]/HotUpdate/[BuildTarget]
+        m_Value:
       - m_Id: 999194c739426194b989b047a4df15f1
         m_Value: '[UnityEditor.EditorUserBuildSettings.activeBuildTarget]'
       - m_Id: d4558f0558d2be5439d8132c3c9d0dcb
@@ -102,9 +87,7 @@ MonoBehaviour:
   m_LabelTable:
     m_LabelNames:
     - default
-    - hotupdate
     - reskit-aa-test
-    - codehotfix
   m_SchemaTemplates: []
   m_GroupTemplateObjects:
   - {fileID: 11400000, guid: ee9273a3c299a2543a988dc54d69333d, type: 2}

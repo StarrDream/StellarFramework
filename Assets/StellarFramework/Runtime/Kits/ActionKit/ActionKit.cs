@@ -14,6 +14,12 @@ namespace StellarFramework
     /// </summary>
     public static class ActionKit
     {
+        /// <summary>
+        /// 为指定 GameObject 创建一个新的动作链。
+        /// 链会在 Start/Await 完成后自动回收到 PoolKit，回收后禁止继续持有或复用该实例。
+        /// </summary>
+        /// <param name="target">动作生命周期宿主；宿主销毁会取消正在运行的链。</param>
+        /// <returns>可继续追加步骤的链；target 为空时返回 null。</returns>
         public static UniActionChain Sequence(GameObject target)
         {
             if (target == null)
@@ -27,6 +33,9 @@ namespace StellarFramework
             return chain;
         }
 
+        /// <summary>
+        /// 以组件所在 GameObject 作为生命周期宿主创建动作链。
+        /// </summary>
         public static UniActionChain Sequence(Component component)
         {
             if (component == null || component.gameObject == null)
@@ -38,6 +47,12 @@ namespace StellarFramework
             return Sequence(component.gameObject);
         }
 
+        /// <summary>
+        /// 创建并立即启动“等待指定秒数后执行回调”的短链。
+        /// </summary>
+        /// <remarks>
+        /// 必须提供 target，用于自动取消和生命周期收口。业务异常不会被静默吞掉。
+        /// </remarks>
         public static UniActionChain Delay(
             float seconds,
             Action callback,
@@ -95,8 +110,14 @@ namespace StellarFramework
         private ChainState _state = ChainState.None;
         private int _version;
 
+        /// <summary>
+        /// 当前链的时间等待/补间是否忽略 Time.timeScale。
+        /// </summary>
         public bool IsIgnoreTimeScale => _ignoreTimeScale;
 
+        /// <summary>
+        /// 设置链的生命周期宿主。仅允许在 Idle 状态调用。
+        /// </summary>
         public void SetTarget(GameObject target)
         {
             if (!EnsureUsable("SetTarget"))
@@ -120,6 +141,10 @@ namespace StellarFramework
             _target = target;
         }
 
+        /// <summary>
+        /// 设置后续时间型步骤是否使用 unscaled time。
+        /// 必须在 Start/Await 之前调用。
+        /// </summary>
         public UniActionChain SetUpdate(bool ignoreTimeScale)
         {
             if (!EnsureBuildable("SetUpdate"))
@@ -179,6 +204,10 @@ namespace StellarFramework
 
         #region Build API
 
+        /// <summary>
+        /// 向序列尾部追加自定义异步步骤。
+        /// </summary>
+        /// <param name="task">接收链级 CancellationToken 的异步任务。</param>
         public UniActionChain AppendTask(Func<CancellationToken, UniTask> task)
         {
             if (!EnsureBuildable("AppendTask"))
@@ -196,6 +225,9 @@ namespace StellarFramework
             return this;
         }
 
+        /// <summary>
+        /// 追加秒级延时。seconds 必须大于等于 0。
+        /// </summary>
         public UniActionChain Delay(float seconds)
         {
             if (!EnsureBuildable("Delay"))
@@ -221,6 +253,9 @@ namespace StellarFramework
             return this;
         }
 
+        /// <summary>
+        /// 追加帧延时。frames 必须大于等于 0。
+        /// </summary>
         public UniActionChain DelayFrame(int frames)
         {
             if (!EnsureBuildable("DelayFrame"))
@@ -240,6 +275,9 @@ namespace StellarFramework
             return this;
         }
 
+        /// <summary>
+        /// 追加同步回调步骤。
+        /// </summary>
         public UniActionChain Callback(
             Action action,
             [CallerMemberName] string member = "",
@@ -272,6 +310,10 @@ namespace StellarFramework
             return this;
         }
 
+        /// <summary>
+        /// 等待条件返回 true 后继续后续步骤。
+        /// </summary>
+        /// <remarks>条件在 PlayerLoop 中轮询，不应放置昂贵逻辑或持续产生 GC 的表达式。</remarks>
         public UniActionChain Until(Func<bool> condition)
         {
             if (!EnsureBuildable("Until"))
@@ -290,6 +332,12 @@ namespace StellarFramework
             return this;
         }
 
+        /// <summary>
+        /// 将多个 UniTask 并行执行，并等待全部完成后继续序列。
+        /// </summary>
+        /// <remarks>
+        /// 当前实现会为任务数组分配一个 UniTask[]；高频路径应避免每帧动态构造 Parallel。
+        /// </remarks>
         public UniActionChain Parallel(params Func<CancellationToken, UniTask>[] asyncActions)
         {
             if (!EnsureBuildable("Parallel"))
@@ -326,6 +374,9 @@ namespace StellarFramework
             return this;
         }
 
+        /// <summary>
+        /// 注册链正常完成后的回调。
+        /// </summary>
         public UniActionChain OnComplete(Action onComplete)
         {
             if (!EnsureBuildable("OnComplete"))
@@ -337,6 +388,9 @@ namespace StellarFramework
             return this;
         }
 
+        /// <summary>
+        /// 注册链因宿主销毁或主动 Cancel 而取消后的回调。
+        /// </summary>
         public UniActionChain OnCancel(Action onCancel)
         {
             if (!EnsureBuildable("OnCancel"))
@@ -348,6 +402,10 @@ namespace StellarFramework
             return this;
         }
 
+        /// <summary>
+        /// 注册步骤抛出异常时的观察回调。
+        /// 该回调不会吞掉异常。
+        /// </summary>
         public UniActionChain OnError(Action<Exception> onError)
         {
             if (!EnsureBuildable("OnError"))
@@ -363,6 +421,10 @@ namespace StellarFramework
 
         #region Runner
 
+        /// <summary>
+        /// 请求取消当前链。
+        /// 已完成、已取消或已故障的链重复调用不会产生额外效果。
+        /// </summary>
         public void Cancel()
         {
             if (!EnsureUsable("Cancel"))
@@ -391,6 +453,10 @@ namespace StellarFramework
             _selfCts.Cancel();
         }
 
+        /// <summary>
+        /// 以 fire-and-forget 方式启动动作链。
+        /// </summary>
+        /// <returns>返回自身仅用于链式书写；运行完成后实例会自动回池，调用方不得继续使用。</returns>
         public UniActionChain Start()
         {
             if (!EnsureRunnable("Start"))
@@ -410,6 +476,10 @@ namespace StellarFramework
             return this;
         }
 
+        /// <summary>
+        /// 启动动作链并异步等待结束。
+        /// </summary>
+        /// <remarks>同一条链只能 Start 或 Await 一次；完成后自动回池。</remarks>
         public async UniTask Await()
         {
             if (!EnsureRunnable("Await"))

@@ -1,0 +1,17 @@
+{
+  "name": "StellarFramework.LocalizationKit.SettingsAdapter",
+  "rootNamespace": "StellarFramework.Localization.SettingsAdapter",
+  "references": [
+    "StellarFramework.LocalizationKit.Core",
+    "StellarFramework.SettingsKit"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

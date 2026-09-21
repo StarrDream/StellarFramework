@@ -40,11 +40,17 @@ namespace StellarFramework.Event
         private Action _onUnRegister;
         private bool _isUnregistered;
 
+        /// <summary>
+        /// 用指定注销动作创建句柄。传入 null 代表安全的空句柄。
+        /// </summary>
         public CustomUnRegister(Action onUnRegister)
         {
             _onUnRegister = onUnRegister;
         }
 
+        /// <summary>
+        /// 执行注销动作。该操作具有幂等性，多次调用只会执行一次底层回调。
+        /// </summary>
         public void UnRegister()
         {
             if (_isUnregistered)
@@ -109,6 +115,10 @@ namespace StellarFramework.Event
             return this;
         }
 
+        /// <summary>
+        /// 尝试取得或自动挂载 OnDestroy 注销触发器。
+        /// 仅有效 Scene 中的 GameObject 可以动态挂载。
+        /// </summary>
         public static bool TryAttachDestroyTrigger(GameObject gameObject, out EventUnregisterTrigger trigger)
         {
             trigger = null;
@@ -133,6 +143,9 @@ namespace StellarFramework.Event
             return trigger != null;
         }
 
+        /// <summary>
+        /// 尝试取得或自动挂载 OnDisable 注销触发器。
+        /// </summary>
         public static bool TryAttachDisableTrigger(GameObject gameObject, out EventUnregisterOnDisableTrigger trigger)
         {
             trigger = null;
@@ -165,7 +178,11 @@ namespace StellarFramework.Event
     public class EventUnregisterTrigger : MonoBehaviour
     {
         private readonly HashSet<IUnRegister> _unRegisters = new HashSet<IUnRegister>();
+        private bool _isUnregistering;
 
+        /// <summary>
+        /// 将注销句柄绑定到当前 GameObject 的 OnDestroy。
+        /// </summary>
         public void Add(IUnRegister unRegister)
         {
             if (unRegister == null)
@@ -188,17 +205,32 @@ namespace StellarFramework.Event
                 return;
             }
 
+            // OnDestroy 会主动驱动集合中的 Token 注销；池化 EventToken 在回收时又会反向调用
+            // trigger.Remove(this)。此时不能修改正在 foreach 的 HashSet，否则会抛
+            // InvalidOperationException: Collection was modified。
+            if (_isUnregistering)
+            {
+                return;
+            }
+
             _unRegisters.Remove(unRegister);
         }
 
         private void OnDestroy()
         {
-            foreach (IUnRegister unRegister in _unRegisters)
+            _isUnregistering = true;
+            try
             {
-                unRegister?.UnRegister();
+                foreach (IUnRegister unRegister in _unRegisters)
+                {
+                    unRegister?.UnRegister();
+                }
             }
-
-            _unRegisters.Clear();
+            finally
+            {
+                _isUnregistering = false;
+                _unRegisters.Clear();
+            }
         }
     }
 
@@ -210,7 +242,11 @@ namespace StellarFramework.Event
     public class EventUnregisterOnDisableTrigger : MonoBehaviour
     {
         private readonly HashSet<IUnRegister> _unRegisters = new HashSet<IUnRegister>();
+        private bool _isUnregistering;
 
+        /// <summary>
+        /// 将注销句柄绑定到当前 GameObject 的 OnDisable。
+        /// </summary>
         public void Add(IUnRegister unRegister)
         {
             if (unRegister == null)
@@ -234,17 +270,31 @@ namespace StellarFramework.Event
                 return;
             }
 
+            // 与 OnDestroy Trigger 相同：EventToken 回收时会反向解除生命周期绑定。
+            // OnDisable 正在遍历时忽略这次 Remove，最后统一 Clear，避免修改迭代中的 HashSet。
+            if (_isUnregistering)
+            {
+                return;
+            }
+
             _unRegisters.Remove(unRegister);
         }
 
         private void OnDisable()
         {
-            foreach (IUnRegister unRegister in _unRegisters)
+            _isUnregistering = true;
+            try
             {
-                unRegister?.UnRegister();
+                foreach (IUnRegister unRegister in _unRegisters)
+                {
+                    unRegister?.UnRegister();
+                }
             }
-
-            _unRegisters.Clear();
+            finally
+            {
+                _isUnregistering = false;
+                _unRegisters.Clear();
+            }
         }
     }
 }

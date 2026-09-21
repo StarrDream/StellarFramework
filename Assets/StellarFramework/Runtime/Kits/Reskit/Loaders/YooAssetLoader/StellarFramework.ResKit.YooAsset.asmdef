@@ -1,0 +1,26 @@
+{
+  "name": "StellarFramework.ResKit.YooAsset",
+  "rootNamespace": "StellarFramework.Res",
+  "references": [
+    "StellarFramework.ResKit",
+    "StellarFramework.PoolKit",
+    "StellarFramework.LogKit",
+    "UniTask",
+    "YooAsset"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [
+    {
+      "name": "com.tuyoogame.yooasset",
+      "expression": "[2.3.15,3.0.0)",
+      "define": "STELLARFRAMEWORK_YOOASSET_2"
+    }
+  ],
+  "noEngineReferences": false
+}

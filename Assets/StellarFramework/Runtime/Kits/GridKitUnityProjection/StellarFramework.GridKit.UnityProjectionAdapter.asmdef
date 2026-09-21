@@ -1,0 +1,16 @@
+{
+  "name": "StellarFramework.GridKit.UnityProjectionAdapter",
+  "rootNamespace": "StellarFramework.GridKit.UnityProjection",
+  "references": [
+    "StellarFramework.GridKit.Core"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": false,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

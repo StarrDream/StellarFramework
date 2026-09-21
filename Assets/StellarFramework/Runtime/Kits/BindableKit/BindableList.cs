@@ -6,6 +6,9 @@ using UnityEngine;
 
 namespace StellarFramework.Bindable
 {
+    /// <summary>
+    /// BindableList 产生的结构变化类型。
+    /// </summary>
     public enum ListEventType
     {
         Add,
@@ -14,14 +17,31 @@ namespace StellarFramework.Bindable
         Replace
     }
 
+    /// <summary>
+    /// BindableList 的单次变化描述。
+    /// </summary>
+    /// <typeparam name="T">元素类型。</typeparam>
     public struct ListEvent<T>
     {
+        /// <summary>变化类型。</summary>
         public ListEventType Type;
+        /// <summary>新增、删除或替换后的元素。</summary>
         public T Item;
+        /// <summary>Replace 时被替换掉的旧元素；其他事件通常为 default。</summary>
         public T OldItem;
+        /// <summary>变化发生的索引；Clear / NotifyRefresh 使用 -1。</summary>
         public int Index;
     }
 
+    /// <summary>
+    /// 带同步变化通知的轻量列表。
+    /// </summary>
+    /// <remarks>
+    /// 所有通知都在触发修改的线程同步执行。本类型不做线程同步。
+    /// 为保持通知顺序与底层 List 状态一致，监听回调中禁止再次修改同一个 BindableList；
+    /// 需要连锁修改时应把操作延后到当前通知完成之后。
+    /// </remarks>
+    /// <typeparam name="T">元素类型。</typeparam>
     [Serializable]
     public class BindableList<T> : IEnumerable<T>
     {
@@ -32,8 +52,15 @@ namespace StellarFramework.Bindable
         private int _iteratingCount;
         private bool _isNotifying;
 
+        /// <summary>
+        /// 当前元素数量。
+        /// </summary>
         public int Count => _list.Count;
 
+        /// <summary>
+        /// 读取或替换指定索引的元素。
+        /// 设置成功后发送 <see cref="ListEventType.Replace"/>。
+        /// </summary>
         public T this[int index]
         {
             get => _list[index];
@@ -63,6 +90,9 @@ namespace StellarFramework.Bindable
             }
         }
 
+        /// <summary>
+        /// 在列表末尾新增元素并发送 Add 事件。
+        /// </summary>
         public void Add(T item)
         {
             if (!EnsureMutationAllowed("Add"))
@@ -79,6 +109,10 @@ namespace StellarFramework.Bindable
             });
         }
 
+        /// <summary>
+        /// 删除第一个与 item 相等的元素。
+        /// </summary>
+        /// <returns>找到并删除时返回 true；未找到或当前禁止修改时返回 false。</returns>
         public bool Remove(T item)
         {
             if (!EnsureMutationAllowed("Remove"))
@@ -103,6 +137,10 @@ namespace StellarFramework.Bindable
             return true;
         }
 
+        /// <summary>
+        /// 删除指定索引元素。
+        /// </summary>
+        /// <returns>删除成功时返回 true；索引非法或当前禁止修改时返回 false。</returns>
         public bool RemoveAt(int index)
         {
             if (!EnsureMutationAllowed("RemoveAt"))
@@ -128,6 +166,10 @@ namespace StellarFramework.Bindable
             return true;
         }
 
+        /// <summary>
+        /// 清空列表。
+        /// 空列表不会重复发送 Clear 事件。
+        /// </summary>
         public void Clear()
         {
             if (!EnsureMutationAllowed("Clear"))
@@ -148,16 +190,27 @@ namespace StellarFramework.Bindable
             });
         }
 
+        /// <summary>
+        /// 判断列表是否包含指定元素。
+        /// </summary>
         public bool Contains(T item)
         {
             return _list.Contains(item);
         }
 
+        /// <summary>
+        /// 返回指定元素第一次出现的位置；不存在时返回 -1。
+        /// </summary>
         public int IndexOf(T item)
         {
             return _list.IndexOf(item);
         }
 
+        /// <summary>
+        /// 订阅列表结构变化。
+        /// </summary>
+        /// <param name="onListChanged">变化回调。</param>
+        /// <returns>可手动注销或绑定 Unity 生命周期的句柄。</returns>
         public IUnRegister Register(Action<ListEvent<T>> onListChanged)
         {
             if (onListChanged == null)
@@ -169,6 +222,12 @@ namespace StellarFramework.Bindable
             return AddNode(onListChanged);
         }
 
+        /// <summary>
+        /// 在列表内容没有通过本类型 API 改变、但 View 需要重新读取全部状态时主动发出刷新通知。
+        /// </summary>
+        /// <remarks>
+        /// 当前实现使用 Replace + Index=-1 表示“整体刷新”，调用方不应把它解释成真实单项 Replace。
+        /// </remarks>
         public void NotifyRefresh()
         {
             if (_isNotifying)
@@ -185,6 +244,10 @@ namespace StellarFramework.Bindable
             });
         }
 
+        /// <summary>
+        /// 注销该列表上的全部订阅者。
+        /// 通知进行中调用时会延迟到当前遍历结束后清理。
+        /// </summary>
         public void UnRegisterAll()
         {
             if (_iteratingCount > 0)
@@ -458,6 +521,10 @@ namespace StellarFramework.Bindable
             }
         }
 
+        /// <summary>
+        /// 返回底层列表的枚举器。
+        /// 枚举期间仍应遵守 List 的常规规则，不要并发修改集合。
+        /// </summary>
         public IEnumerator<T> GetEnumerator()
         {
             return _list.GetEnumerator();

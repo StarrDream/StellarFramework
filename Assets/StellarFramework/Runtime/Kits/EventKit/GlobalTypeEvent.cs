@@ -4,12 +4,26 @@ using UnityEngine;
 
 namespace StellarFramework.Event
 {
+    /// <summary>
+    /// 类型事件的标记接口。事件数据类型实现该接口后即可作为 GlobalTypeEvent 的强类型事件键。
+    /// </summary>
     public interface ITypeEvent
     {
     }
 
+    /// <summary>
+    /// 以事件数据类型本身作为 Key 的全局事件总线。
+    /// </summary>
+    /// <remarks>
+    /// 注册和广播均为同步调用，不做线程同步。
+    /// 同一个回调重复注册会被拦截；推荐始终保存 Register 返回的 IUnRegister 做精确注销。
+    /// </remarks>
     public static class GlobalTypeEvent
     {
+        /// <summary>
+        /// 注册 T 类型事件。
+        /// </summary>
+        /// <returns>精确注销该次注册的句柄。</returns>
         public static IUnRegister Register<T>(Action<T> onEvent) where T : ITypeEvent
         {
             if (onEvent == null)
@@ -29,11 +43,17 @@ namespace StellarFramework.Event
             return EventBox<T>.AllocateToken(onEvent);
         }
 
+        /// <summary>
+        /// 同步广播一个已有事件实例。
+        /// </summary>
         public static void Broadcast<T>(T e) where T : ITypeEvent
         {
             EventBox<T>.Invoke(e);
         }
 
+        /// <summary>
+        /// 创建 T 的默认实例并同步广播。
+        /// </summary>
         public static void Broadcast<T>() where T : ITypeEvent, new()
         {
             EventBox<T>.Invoke(new T());

@@ -1,0 +1,22 @@
+{
+  "name": "StellarFramework.Verification.Runtime",
+  "rootNamespace": "StellarFrameworkVerification.Runtime",
+  "references": [
+    "StellarFramework.HybridCLRKit",
+    "StellarFramework.ResKit",
+    "StellarFramework.ResKit.YooAsset",
+    "StellarFramework.LogKit",
+    "StellarFramework.PoolKit",
+    "UniTask",
+    "YooAsset"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

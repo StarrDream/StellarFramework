@@ -1,0 +1,17 @@
+{
+    "name": "StellarFramework.WorldGenKit.Feature.PlacementAdapter",
+    "rootNamespace": "StellarFramework.WorldGenKit.Feature.PlacementAdapter",
+    "references": [
+        "StellarFramework.WorldGenKit.Feature",
+        "StellarFramework.PlacementKit.Core"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": true
+}

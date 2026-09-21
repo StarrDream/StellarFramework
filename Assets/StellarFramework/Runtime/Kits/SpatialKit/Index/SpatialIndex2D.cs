@@ -7,6 +7,11 @@ namespace StellarFramework
     /// 连续二维点的动态均匀空间哈希索引。
     /// 该类型只保存 SpatialId、坐标和内部桶链表，不持有业务对象或 Unity 生命周期。
     /// </summary>
+    /// <remarks>
+    /// 查询结果写入调用方提供的 Span；容量不足时通过 SpatialQueryResult.MatchCount 报告完整匹配数，
+    /// 不在热路径创建结果集合。索引不是线程安全容器，同一实例的插入/移动/查询应由调用方串行化。
+    /// BucketSize 直接影响候选桶数量与桶内链长度，应根据典型查询半径和点密度选择，而不是越小越好。
+    /// </remarks>
     public sealed class SpatialIndex2D
     {
         private const int MinimumGrowth = 4;
@@ -25,6 +30,9 @@ namespace StellarFramework
         /// <summary>当前活动点数量。</summary>
         public int Count => _count;
 
+        /// <summary>创建一个动态二维均匀空间哈希索引。</summary>
+        /// <param name="bucketSize">逻辑空间中的有限正数桶边长。</param>
+        /// <param name="initialCapacity">预计活动点数量；0 表示按需增长。</param>
         public SpatialIndex2D(float bucketSize, int initialCapacity = 0)
         {
             if (float.IsNaN(bucketSize) || float.IsInfinity(bucketSize) || bucketSize <= 0f)

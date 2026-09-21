@@ -37,15 +37,16 @@ namespace StellarFramework.Tests.FrameworkValidation
         }
 
         [Test]
-        public void DistributionCatalogKeepsHotUpdateAndHybridClrOutOfStandaloneProfiles()
+        public void DistributionCatalogKeepsHybridClrOutOfStandaloneProfiles()
         {
             string catalog = ReadAssetText("Assets/StellarFramework/KitCatalog/KitDistributionCatalog.json");
 
             Assert.That(catalog, Does.Contain("standalone.architecture"));
             Assert.That(catalog, Does.Contain("standalone.extensions"));
-            Assert.That(catalog, Does.Contain("hotupdate.hybridclr"));
+            Assert.That(catalog, Does.Contain("\"id\": \"hybridclrkit\""));
             Assert.That(catalog, Does.Contain("com.code-philosophy.hybridclr"));
-            Assert.That(catalog, Does.Contain("HotUpdateKit/Adapters/HybridCLR"));
+            Assert.That(catalog, Does.Contain("Runtime/Kits/HybridCLRKit"));
+            Assert.That(catalog, Does.Not.Contain("\"id\": \"hotupdate.addressables\""));
             Assert.That(catalog, Does.Contain("\"excludedCapabilities\": [\"Addressables\", \"HybridCLR\", \"CodeHotUpdate\"]"));
         }
 
@@ -82,6 +83,10 @@ namespace StellarFramework.Tests.FrameworkValidation
             Assert.That(bootstrap, Does.Contain("AssetDatabase.DeleteAsset(RuntimeArchitectureSourcePath)"));
             Assert.That(bootstrap, Does.Contain("RestoreRuntimeSources"));
             Assert.That(bootstrap, Does.Contain("StellarFramework-Architecture-"));
+            Assert.That(
+                bootstrap.TrimStart(),
+                Does.StartWith("#if UNITY_EDITOR"),
+                "Kit bootstrap must remain hard-gated from Player/SBP script compilation.");
         }
 
         [Test]
@@ -181,19 +186,15 @@ namespace StellarFramework.Tests.FrameworkValidation
         }
 
         [Test]
-        public void AddressablesLoaderDoesNotRequireHotUpdateKit()
+        public void AddressablesLoaderIsIndependentFromHybridClrKit()
         {
             string addressablesAsmdef = ReadAssetText(
                 "Assets/StellarFramework/Runtime/Kits/Reskit/Loaders/AddressableLoader/StellarFramework.ResKit.Addressables.asmdef");
-            string hotUpdateAdapterAsmdef = ReadAssetText(
-                "Assets/StellarFramework/Runtime/Kits/HotUpdateKit/Adapters/Addressables/StellarFramework.HotUpdateKit.Addressables.asmdef");
             string catalog = ReadAssetText("Assets/StellarFramework/KitCatalog/KitDistributionCatalog.json");
 
-            Assert.That(addressablesAsmdef, Does.Not.Contain("StellarFramework.HotUpdateKit"));
-            Assert.That(hotUpdateAdapterAsmdef, Does.Contain("StellarFramework.HotUpdateKit"));
-            Assert.That(hotUpdateAdapterAsmdef, Does.Contain("StellarFramework.ResKit.Addressables"));
+            Assert.That(addressablesAsmdef, Does.Not.Contain("StellarFramework.HybridCLRKit"));
             Assert.That(catalog, Does.Contain("\"id\": \"reskit.addressables\""));
-            Assert.That(catalog, Does.Contain("\"id\": \"hotupdate.addressables\""));
+            Assert.That(catalog, Does.Not.Contain("\"id\": \"hotupdate.addressables\""));
         }
 
         [Test]
@@ -322,76 +323,31 @@ namespace StellarFramework.Tests.FrameworkValidation
         }
 
         [Test]
-        public void SamplesAreOptionalProfilesWithTheirOwnAssemblies()
+        public void SamplesAreNotDistributionProfilesOrExporterEntryPoints()
         {
             string catalog = ReadAssetText("Assets/StellarFramework/KitCatalog/KitDistributionCatalog.json");
             string publisher = ReadAssetText(
                 "Assets/StellarFramework/Editor/StellarToolsHub/Modules/Packaging/StellarFrameworkPackagePublisher.cs");
-            string uiKitSampleAsmdef = ReadAssetText(
-                "Assets/StellarFramework/Samples/KitSamples/Example_UIKit/StellarFramework.Samples.UIKit.asmdef");
-            string supportAsmdef = ReadAssetText(
-                "Assets/StellarFramework/Samples/StellarFramework.Samples.Runtime.asmdef");
-
-            Assert.That(catalog, Does.Contain("\"id\": \"samples.uikit\""));
-            Assert.That(catalog, Does.Contain("\"id\": \"samples.architecture\""));
-            Assert.That(catalog, Does.Contain("\"id\": \"samples.hotupdate.hybridclr\""));
-            Assert.That(catalog, Does.Contain("StellarFramework-Sample-UIKit.unitypackage"));
-            Assert.That(catalog, Does.Contain("\"requiredProfileIds\": [\"uikit.core\"]"));
-            Assert.That(catalog, Does.Not.Contain("\"sourcePaths\": [\"Assets/StellarFramework/Samples\"]"));
-            Assert.That(uiKitSampleAsmdef, Does.Contain("StellarFramework.Samples.UIKit"));
-            Assert.That(uiKitSampleAsmdef, Does.Contain("StellarFramework.UIKit"));
-            Assert.That(supportAsmdef, Does.Contain("StellarFramework.Samples.Support"));
-            Assert.That(supportAsmdef, Does.Contain("\"references\": []"));
-            Assert.That(publisher, Does.Contain("ExportUIKitSamplePackage"));
-            Assert.That(publisher, Does.Contain("ExportAllOptionalSamplePackages"));
-            Assert.That(publisher, Does.Contain("OptionalSampleProfileIds"));
-            Assert.That(publisher, Does.Contain("\"samples.spatialkit\""));
+            Assert.That(catalog, Does.Not.Contain("\"kind\": \"sample\""));
+            Assert.That(catalog, Does.Not.Contain("\"id\": \"samples."));
+            Assert.That(publisher, Does.Not.Contain("SamplePackage"));
+            Assert.That(publisher, Does.Not.Contain("OptionalSampleProfileIds"));
+            Assert.That(publisher, Does.Contain("\"Assets/StellarFramework/Samples\""));
         }
 
         [Test]
-        public void TimeKitAndSaveKitSamplesKeepIndependentBoundaries()
-        {
-            string catalog = ReadAssetText("Assets/StellarFramework/KitCatalog/KitDistributionCatalog.json");
-            string timeKitAsmdef = ReadAssetText(
-                "Assets/StellarFramework/Samples/KitSamples/Example_TimeKit/StellarFramework.Samples.TimeKit.asmdef");
-            string saveKitAsmdef = ReadAssetText(
-                "Assets/StellarFramework/Samples/KitSamples/Example_SaveKit/StellarFramework.Samples.SaveKit.asmdef");
-
-            Assert.That(catalog, Does.Contain("\"id\": \"samples.timekit\""));
-            Assert.That(catalog, Does.Contain("Example_TimeKit"));
-            Assert.That(catalog, Does.Contain("Scenes/TimeKit_Playable.unity"));
-            Assert.That(catalog, Does.Contain("\"id\": \"samples.savekit\""));
-            Assert.That(catalog, Does.Contain("Example_SaveKit"));
-            Assert.That(catalog, Does.Contain("Scenes/SaveKit_Playable.unity"));
-            Assert.That(timeKitAsmdef, Does.Contain("StellarFramework.TimeKit"));
-            Assert.That(timeKitAsmdef, Does.Not.Contain("SaveKit"));
-            Assert.That(timeKitAsmdef, Does.Not.Contain("EventKit"));
-            Assert.That(saveKitAsmdef, Does.Contain("StellarFramework.SaveKit.Core"));
-            Assert.That(saveKitAsmdef, Does.Not.Contain("TimeKit"));
-            Assert.That(saveKitAsmdef, Does.Not.Contain("Newtonsoft"));
-            Assert.That(saveKitAsmdef, Does.Not.Contain("ToolsHub"));
-        }
-
-        [Test]
-        public void GridKitKeepsZeroDependencyRuntimeAndSampleBoundaries()
+        public void GridKitKeepsZeroDependencyRuntimeBoundary()
         {
             string root = Path.Combine(Application.dataPath, "StellarFramework/Runtime/Kits/GridKit");
             string asmdef = ReadAssetText(
                 "Assets/StellarFramework/Runtime/Kits/GridKit/StellarFramework.GridKit.Core.asmdef");
             string catalog = ReadAssetText("Assets/StellarFramework/KitCatalog/KitDistributionCatalog.json");
-            string sampleAsmdef = ReadAssetText(
-                "Assets/StellarFramework/Samples/KitSamples/Example_GridKit/StellarFramework.Samples.GridKit.asmdef");
 
             Assert.That(Directory.Exists(root), Is.True);
             Assert.That(asmdef, Does.Contain("\"references\": []"));
             Assert.That(asmdef, Does.Contain("\"noEngineReferences\": true"));
             Assert.That(catalog, Does.Contain("\"id\": \"gridkit\""));
             Assert.That(catalog, Does.Contain("StellarFramework-GridKit.unitypackage"));
-            Assert.That(catalog, Does.Contain("\"id\": \"samples.gridkit\""));
-            Assert.That(catalog, Does.Contain("Scenes/GridKit_Playable.unity"));
-            Assert.That(sampleAsmdef, Does.Contain("StellarFramework.GridKit.Core"));
-            Assert.That(sampleAsmdef, Does.Not.Contain("StellarFramework.TimeKit"));
-            Assert.That(sampleAsmdef, Does.Not.Contain("StellarFramework.ResKit"));
 
             foreach (string sourcePath in Directory.GetFiles(root, "*.cs", SearchOption.AllDirectories))
             {
@@ -405,35 +361,18 @@ namespace StellarFramework.Tests.FrameworkValidation
         }
 
         [Test]
-        public void SpatialKitKeepsZeroDependencyRuntimeAndSampleBoundaries()
+        public void SpatialKitKeepsZeroDependencyRuntimeBoundary()
         {
             string root = Path.Combine(Application.dataPath, "StellarFramework/Runtime/Kits/SpatialKit");
             string asmdef = ReadAssetText(
                 "Assets/StellarFramework/Runtime/Kits/SpatialKit/StellarFramework.SpatialKit.Core.asmdef");
             string catalog = ReadAssetText("Assets/StellarFramework/KitCatalog/KitDistributionCatalog.json");
-            string sampleAsmdef = ReadAssetText(
-                "Assets/StellarFramework/Samples/KitSamples/Example_SpatialKit/StellarFramework.Samples.SpatialKit.asmdef");
-            string sample = ReadAssetText(
-                "Assets/StellarFramework/Samples/KitSamples/Example_SpatialKit/Example_SpatialKit.cs");
-            string scene = ReadAssetText(
-                "Assets/StellarFramework/Samples/KitSamples/Scenes/SpatialKit_Playable.unity");
 
             Assert.That(Directory.Exists(root), Is.True);
             Assert.That(asmdef, Does.Contain("\"references\": []"));
             Assert.That(asmdef, Does.Contain("\"noEngineReferences\": true"));
             Assert.That(catalog, Does.Contain("\"id\": \"spatialkit\""));
             Assert.That(catalog, Does.Contain("StellarFramework-SpatialKit.unitypackage"));
-            Assert.That(catalog, Does.Contain("\"id\": \"samples.spatialkit\""));
-            Assert.That(catalog, Does.Contain("Scenes/SpatialKit_Playable.unity"));
-            Assert.That(File.Exists(ToAbsoluteAssetPath("Assets/StellarFramework/Samples/KitSamples/Scenes/SpatialKit_Playable.unity")), Is.True);
-            Assert.That(sampleAsmdef, Does.Contain("StellarFramework.SpatialKit.Core"));
-            Assert.That(sampleAsmdef, Does.Not.Contain("StellarFramework.GridKit.Core"));
-            Assert.That(sampleAsmdef, Does.Not.Contain("StellarFramework.ResKit"));
-            Assert.That(sample, Does.Contain("QueryRect"));
-            Assert.That(sample, Does.Contain("QueryCircle"));
-            Assert.That(sample, Does.Contain("FindNearest"));
-            Assert.That(scene, Does.Contain("m_Name: Example_SpatialKit"));
-            Assert.That(scene, Does.Not.Contain("m_Script: {fileID: 0}"));
 
             foreach (string sourcePath in Directory.GetFiles(root, "*.cs", SearchOption.AllDirectories))
             {
@@ -624,38 +563,42 @@ namespace StellarFramework.Tests.FrameworkValidation
         }
 
         [Test]
-        public void HotUpdateExportsKeepAddressablesAndHybridClrAsExplicitOptInLayers()
+        public void HybridClrKitIsOneBackendAgnosticCodeUpdateProfile()
         {
             string catalog = ReadAssetText("Assets/StellarFramework/KitCatalog/KitDistributionCatalog.json");
             string publisher = ReadAssetText(
                 "Assets/StellarFramework/Editor/StellarToolsHub/Modules/Packaging/StellarFrameworkPackagePublisher.cs");
 
-            Assert.That(catalog, Does.Contain("\"id\": \"hotupdate.core\""));
-            Assert.That(catalog, Does.Contain("StellarFramework-HotUpdate-Core.unitypackage"));
-            Assert.That(catalog, Does.Contain("StellarFramework-HotUpdate-Addressables.unitypackage"));
-            Assert.That(catalog, Does.Contain("StellarFramework-HotUpdate-HybridCLR.unitypackage"));
-            Assert.That(catalog, Does.Contain("\"excludedCapabilities\": [\"Addressables\", \"HybridCLR\", \"CodeHotUpdate\"]"));
+            Assert.That(catalog, Does.Contain("\"id\": \"hybridclrkit\""));
+            Assert.That(catalog, Does.Contain("StellarFramework-HybridCLRKit.unitypackage"));
+            Assert.That(catalog, Does.Not.Contain("\"id\": \"hotupdate.core\""));
+            Assert.That(catalog, Does.Not.Contain("\"id\": \"hotupdate.addressables\""));
+            Assert.That(catalog, Does.Not.Contain("\"id\": \"hotupdate.hybridclr\""));
             Assert.That(catalog, Does.Contain("com.code-philosophy.hybridclr"));
-            Assert.That(publisher, Does.Contain("ExportHotUpdateCorePackage"));
-            Assert.That(publisher, Does.Contain("ExportHotUpdateHybridClrPackage"));
+            Assert.That(publisher, Does.Contain("ExportHybridCLRKitPackage"));
         }
 
         [Test]
-        public void HotUpdateCoreDoesNotContainHybridClrRuntimeImplementation()
+        public void HybridClrKitUsesResKitAndDoesNotDependOnAddressables()
         {
-            string core = ReadAssetText("Assets/StellarFramework/Runtime/Kits/HotUpdateKit/HotUpdateContracts.cs");
+            string core = ReadAssetText("Assets/StellarFramework/Runtime/Kits/HybridCLRKit/HotUpdateContracts.cs");
             string adapter = ReadAssetText(
-                "Assets/StellarFramework/Runtime/Kits/HotUpdateKit/Adapters/HybridCLR/HybridCLRHotUpdateAdapter.cs");
-            string adapterAsmdef = ReadAssetText(
-                "Assets/StellarFramework/Runtime/Kits/HotUpdateKit/Adapters/HybridCLR/StellarFramework.HotUpdateKit.HybridCLR.asmdef");
+                "Assets/StellarFramework/Runtime/Kits/HybridCLRKit/Runtime/HybridCLRHotUpdateAdapter.cs");
+            string asmdef = ReadAssetText(
+                "Assets/StellarFramework/Runtime/Kits/HybridCLRKit/StellarFramework.HybridCLRKit.asmdef");
             string catalog = ReadAssetText("Assets/StellarFramework/KitCatalog/KitDistributionCatalog.json");
 
-            Assert.That(core, Does.Contain("UnavailableCodeHotUpdateStrategy"));
-            Assert.That(core, Does.Not.Contain("class HybridCLRHook"));
+            Assert.That(core, Does.Contain("public static class HybridCLRKit"));
             Assert.That(adapter, Does.Contain("class HybridCLRHook"));
-            Assert.That(adapter, Does.Contain("class HybridCLRAAHotUpdateRunner"));
-            Assert.That(adapterAsmdef, Does.Contain("StellarFramework.HotUpdateKit"));
-            Assert.That(catalog, Does.Contain("Adapters/HybridCLR"));
+            Assert.That(adapter, Does.Contain("class HybridCLRRunner"));
+            Assert.That(adapter, Does.Contain("ResKit.CreateCustomScope"));
+            Assert.That(adapter, Does.Contain("settings.ResourceLoaderKey"));
+            Assert.That(adapter, Does.Not.Contain("AddressableHotUpdateManager"));
+            Assert.That(adapter, Does.Not.Contain("CheckCatalogUpdates"));
+            Assert.That(adapter, Does.Not.Contain("DownloadDependencies"));
+            Assert.That(asmdef, Does.Not.Contain("Unity.Addressables"));
+            Assert.That(asmdef, Does.Not.Contain("StellarFramework.ResKit.Addressables"));
+            Assert.That(catalog, Does.Contain("\"id\": \"hybridclrkit\""));
         }
 
         private static void AssertChildToolsHubAssembly(string kitFolder, string expectedReference)
