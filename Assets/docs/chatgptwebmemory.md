@@ -1428,3 +1428,173 @@ Current active milestone is **P7 — Feature / POI + PlacementKit**. P7 follows 
 - Added `YooAssetContentUpdaterPolicyTests` **3/3 PASS**: invalid config returns stable `InvalidOptions`, default retry policy scope is version/Manifest only, and projects can opt into fail-fast with `RetryPolicy=null`.
 - Re-ran the real simulated RemoteCDN E2E after updater changes: **PASS**, bundle size `1,062,593`, forced interruption `262,144`, resumed HTTP Range `262,144`, HotUpdate assembly loaded and entry executed. Runtime verification now also requires the intentional first failure to be classified exactly as `DownloadFailed`.
 - Final focused gates after the auto-trigger optimization: `AssetsMapGeneratorTests` **5/5**, `ResScopeConcurrencyTests` **3/3**, `YooAssetContentUpdaterPolicyTests` **3/3**, `KitArchitectureMetadataPolicyTests` **10/10**, `StandaloneSourceExportPolicyTests` **29/29**, `PackagePublisherPolicyTests` **23/23**, `DocumentationHubPolicyTests` **3/3**; Unity compilation/error query remained **0 errors**.
+
+### 2026-09-21 — Distribution dependency truth / Recommended Profile refinement
+
+- This pass intentionally refined distribution boundaries instead of adding more ResKit/UIKit features. The governing rule is now: atomic Kit profiles describe real implementation dependencies; higher-level convenience must be represented by Recommended Profiles, not by coupling unrelated runtime modules.
+- `KitDistributionCatalog.json` moved to **schema v3** and now has **75 atomic distribution profiles + 2 Recommended Profiles**. Recommended Profiles are composition presets only; they reuse the existing atomic dependency resolver and do not create new Runtime assemblies.
+- Added `uikit.standard` with roots `uikit.core + uikit.tools`. Its resolved closure is `logkit, runtime.core, singletonkit, toolshub.core, uikit.core, uikit.tools`. UIKit.Core no longer hard-depends on PoolKit, Newtonsoft.Json or ToolsHub; it still correctly depends on Runtime.Core + SingletonKit.
+- Added `hotupdate.full` with roots `reskit.yooasset + reskit.tools + hybridclrkit.tools`. Its intended closure is `generated.assetmap, hybridclrkit, hybridclrkit.tools, logkit, poolkit, reskit.core, reskit.tools, reskit.yooasset, toolshub.core`. UPM resolution continues to supply UniTask, YooAsset and HybridCLR.
+- Split optional ToolsHub/editor UX away from Runtime profiles: new tooling profiles include `actionkit.tools`, `eventkit.tools`, `configkit.tools`, `singletonkit.tools`, `reskit.tools`, `audiokit.tools`, `reskit.assetbundle.tools`, `hybridclrkit.tools` and `uikit.tools`.
+- Current Catalog audit result: **0 Runtime profiles depend on `toolshub.core` and 0 Runtime profiles directly source `Assets/StellarFramework/Editor/StellarToolsHub/...`**. A policy test now locks this boundary.
+- Dependency truth corrections: ResKit.Core keeps only its real framework runtime dependencies LogKit + PoolKit; SingletonKit and Generated.AssetMap are not Core dependencies. ResKit.AssetBundle owns SingletonKit + Generated.AssetMap because AssetBundleManager actually uses both. HybridCLRKit no longer carries stale PoolKit/SingletonKit asmdef references.
+- UIKit asmdef audit removed stale PoolKit. Unity compilation proved the UIKit.ResKit adapter must still directly reference SingletonKit because its referenced UIKit type inherits `MonoSingleton<>`; that dependency was restored at the adapter layer. Unity also proved the AssetBundle adapter still needs generated singular `AssetMap`; Generated.AssetMap was restored there rather than returned to ResKit.Core.
+- Editor-code boundary is semantic, not folder-name-only: build-essential editor infrastructure remains with its owning core when required for correctness. In particular `SingletonKit/Editor/SingletonGenerator` stays inside SingletonKit delivery because the runtime intentionally relies on generated static metadata instead of runtime reflection. Optional ToolsHub panels/audits/codegen UX are separate tooling profiles.
+- Kit Package Exporter now has a first-class **推荐 Profile** tab. It displays each Recommended Profile's root atomic profiles, resolved final closure and output package, and exports through the existing combined-package path.
+- Final validation after adding closure/asmdef regression gates: Unity compile/error query **0 errors**; `KitArchitectureMetadataPolicyTests` **14/14 PASS**, `StandaloneSourceExportPolicyTests` **30/30 PASS**, `PackagePublisherPolicyTests` **23/23 PASS**. The Recommended Profile closure tests verify exact `uikit.standard` and `hotupdate.full` closures, and asmdef policy tests lock the corrected ResKit/UIKit/HybridCLR dependency ownership.
+- No commit/push/reset/clean was performed in this pass.
+
+### 2026-09-21 — Unity top-menu consolidation
+
+- User requested the Unity top-level `StellarFramework` menu to remain intentionally minimal. Final policy: the only visible `StellarFramework/...` menu paths are **`StellarFramework/Tools Hub`** and **`StellarFramework/Export`**.
+- The previous source-project menu `StellarFramework/Framework Source/Kit Package Exporter` was renamed to the single `StellarFramework/Export` entry. The window title/header is now `StellarFramework Export` because it covers Recommended Profiles, Kit combinations, samples, standalone source and full-framework export.
+- Removed duplicate top-level menus for `StellarFramework/ResKit/Regenerate AssetsMap` and `StellarFramework/Verification/Export HybridCLR Generated Assets`. AssetsMap manual rebuild + generated-file ping now live in Tools Hub -> `ResKit 资源审计`; HybridCLR DLL/AOT/Manifest export was already available in Tools Hub -> `HybridCLR DLL 导出`.
+- The verification-only YooAsset/HybridCLR release actions were moved into a source-project-only ToolsHub module `HotUpdate 发布验证` under the `热更新` group. It provides buttons for verification package build and Runtime HotUpdate E2E preparation without creating additional top-level menus.
+- Bootstrap is the one semantic exception to “put it in ToolsHub”: in a clean project ToolsHub does not exist before installation. The bootstrap window therefore auto-opens once after importing the public package and keeps a recovery entry under `Window/StellarFramework Bootstrap Installer`; it no longer contributes any `StellarFramework/...` menu path. Framework development projects are explicitly excluded from bootstrap auto-open.
+- Added a repository-wide menu policy test that scans **all C# files under Assets**, extracts every `[MenuItem("StellarFramework/...]` path and only allows Tools Hub + Export. This prevents Verification/Bootstrap or future Kit tools from re-growing the menu hierarchy.
+- README, Distribution Guide, ResKit/GridKit/SpatialKit/SaveKit guides, PlayMode verification error guidance and generated single-package dependency instructions were updated to the new entry paths. Historical memory records retain their original paths as historical evidence.
+- Fresh validation: Unity compile/update idle and **0 errors**; `StandaloneSourceExportPolicyTests` **31/31 PASS**, `PackagePublisherPolicyTests` **23/23 PASS**, `BootstrapInstallerPolicyTests` **3/3 PASS**, `VerificationSurfacePolicyTests` **3/3 PASS**. UnitySkills executed both `StellarFramework/Tools Hub` and `StellarFramework/Export` successfully.
+- No commit/push/reset/clean was performed.
+
+### 2026-09-22 — Localization standalone delivery + Export UI unification
+
+- User asked whether LocalizationKit can be used by an otherwise complete project that only lacks localization. Verified current Core architecture before changing export UX: `StellarFramework.LocalizationKit.Core.asmdef` has **zero references** and `noEngineReferences=true`. Therefore `LocalizationKit.Core` is a valid standalone domain package with no StellarFramework Kit or UPM dependency.
+- Formalized three Localization delivery levels instead of forcing one mega package: `LocalizationKit.Core` for pure domain localization; `LocalizationKit.UnityUGUIAdapter` for optional Unity UGUI authoring/binding; `Localization Complete` Recommended Profile for the full Unity development experience. `LocalizationKit.SettingsAdapter` remains optional and is not pulled in unless the project intentionally uses SettingsKit for language selection.
+- Added `localizationkit.tools` tooling Profile and new ToolsHub module `Localization 本地化`. It combines the existing Editor validator API with ToolsHub and exposes Catalog validation / coverage / fallback / placeholder checks plus Source Han Sans example-font maintenance. Runtime Core and UGUI Adapter do **not** depend on ToolsHub.
+- Removed the two legacy `Tools/Stellar Framework/Localization/...` menu entries. Validator/font installer remain callable APIs; visual entry is now ToolsHub. Added policy coverage so legacy `Tools/Stellar Framework/` Kit menus cannot silently return.
+- Improved validator UX: added explicit `ValidateAndShowReport(LocalizationCatalogAsset)`; the ToolsHub module owns an editable Catalog field, follows Unity Selection when appropriate, and validates the actual field value instead of pretending an ObjectField selection works while still reading global Selection.
+- Added Recommended Profile `localization.complete` (order 10) -> `localizationkit.tools`; existing `uikit.standard` is displayed as **UIKit Complete** (order 20); `hotupdate.full` is order 30. Exact Localization closure is `localizationkit.core, localizationkit.editor, localizationkit.tools, localizationkit.ugui, toolshub.core`. It intentionally excludes SettingsKit/UIKit/ResKit/Addressables/HybridCLR.
+- Reworked `StellarFramework Export` from a horizontal IMGUI tab window into the same UI Toolkit shell used by ToolsHub: matching dark palette, 288px left navigation, top title bar, right header/content card, footer and search field. Manual export navigation is now ordered **01 基础能力 -> 02 功能系统 -> 03 适配扩展 -> 04 开发工具**, with Recommended combinations above and Samples / Source & Full Framework below.
+- Manual selections persist across export sections, allowing real cross-layer combination export. Footer now reports the global selected Profile count, offers Clear Selection, previews the deduplicated dependency closure and exports one combined package.
+- Current Recommended Profiles: `Localization Complete`, `UIKit Complete`, `Hot Update Full`. They remain composition presets over atomic Profiles and do not create new Runtime assemblies.
+- Documentation updated: README Chinese/English distribution guidance, LocalizationKit guide, ToolsHub guide, KitArchitectureGuide, KitDistributionGuide and KitExportValidationMatrix. Current Catalog baseline is **76 atomic Profiles + 3 Recommended Profiles** = 19 kit, 37 kit-with-dependencies, 15 tooling, 2 shared-runtime, 2 single-file, 1 generated-support; tier counts remain 21 Foundation / 9 Extension / 26 Adapter / 20 non-tier.
+- Fresh final validation: Unity compile/error query **0 errors**; Localization Core **15/15 PASS**; Localization Adapter/Editor **15/15 PASS**; KitArchitectureMetadataPolicy **14/14 PASS**; StandaloneSourceExportPolicy **31/31 PASS**; PackagePublisherPolicy **23/23 PASS**; DocumentationHubPolicy **3/3 PASS**; QuickStartCatalogPolicy **20/20 PASS**. Unity successfully executed both `StellarFramework/Tools Hub` and `StellarFramework/Export`; `git diff --check` exit 0.
+- No commit/push/reset/clean was performed.
+
+### 2026-09-22 — Production delivery model + Localization Scanner/Exchange implementation
+
+- Began the approved production-delivery plan. P1-P5 are implemented far enough to compile and pass focused regression; work continues into UIKit adaptation next.
+- Export UI no longer treats internal architecture `tier=foundation/extension/adapter` as the primary user-facing model. Catalog tiers remain architecture-policy metadata, while Export is being converted to the delivery view **01 基础功能 / 02 完整功能 / 03 扩展功能**. Basic = atomic Runtime Kit with only real hard dependencies; Complete = composed production-ready feature; Extension = atomic Adapter/Tooling plus composed extension.
+- Added Recommended Profile `reskit.complete` -> `reskit.tools`. Renamed the temporary complete UI profile id from `uikit.standard` to `uikit.complete`; UIKit Complete roots are now `uikit.reskit + uikit.tools + reskit.tools`, so “Complete” includes ResKit integration/audit/tooling instead of only UIKit Runtime. Recommended Profiles now carry `deliveryGroup=complete|extension`; `hotupdate.full` is a composed extension.
+- `LocalizedTextView` now owns serialized stable `BindingId` plus `Key`; scanner-managed identity does not change on Rename/Reparent/Reorder. It can auto-resolve `LocalizationContext` from parents at runtime, so scanned prefabs do not need hard scene references. A custom inspector keeps normal usage simple and hides BindingId under Advanced.
+- Added Editor-only `LocalizationSourceRegistry` recording BindingId, Key, prefab GUID, LocalFileId, current hierarchy, component type, source locale/text/hash and status. Runtime lookup does not depend on this registry.
+- Added `LocalizationUiScanner` for UGUI Text prefab scanning. Scan is Preview-first, then Apply. It classifies New / Synced / SourceChanged / DuplicateBindingId / DynamicCandidate / Conflict; dynamic-looking text is not auto-selected. Apply writes/repairs `LocalizedTextView`, source table and registry with Undo support.
+- Binding identity rules are implemented and tested: sibling reorder does not alter generated Key; existing BindingId/Key survive rescans; independent prefab copies with duplicated serialized BindingId Fork a new identity; Prefab Variant inherited identity is treated separately and conflicting source changes are blocked for explicit review.
+- Initial key format is readable + stable short identity, e.g. `ui.panel_login.btn_confirm.c4729f11`; sibling indices are not used. Hierarchy/index data is transient scan location/metadata only.
+- Added `LocalizationWorkspaceAsset` (Editor-only) for source locale plus arbitrary enabled language/table configuration.
+- Added `LocalizationTranslationExchange`: JSON and CSV export/import for external manual/AI translation. Unity performs no remote AI calls. Files include key, BindingId, source, sourceHash, prefab/hierarchy/component context and per-locale translations. Import validates locale/table configuration and rejects stale source hashes so old translations cannot silently overwrite newer source strings.
+- ToolsHub `Localization 本地化` now includes Workspace, Scan & Bind preview/apply, JSON/CSV Import/Export, Catalog validation and example-font maintenance.
+- Focused validation after P1-P5: Unity compile **0 errors**; LocalizationUiScannerTests **4/4 PASS**; LocalizationTranslationExchangeTests **3/3 PASS**; Localization Core **15/15 PASS**; Localization Adapter **15/15 PASS**; KitArchitectureMetadataPolicy **14/14 PASS**; StandaloneSourceExportPolicy **31/31 PASS**.
+- No commit/push/reset/clean was performed.
+
+### 2026-09-22 — Clean-project delivery verification + UIKit/Singleton distribution handoff
+
+- Dedicated clean verification project:
+  - path: `C:\CodingToolsWorkerCenter\StellarFramework-test`
+  - Unity: `2022.3.62f3c1`
+  - UnitySkills: `http://127.0.0.1:8093/`
+- Localization Complete clean import/function validation: **PASS / 0 Error**.
+  - `Panel_Login` scanned three UGUI texts and produced stable keys:
+    - 登录 -> `ui.panel_login.title.675d49a1`
+    - 确认 -> `ui.panel_login.btn_confirm.325c4437`
+    - 退出 -> `ui.panel_login.btn_quit.589345c0`
+  - Reparent/reorder kept BindingId/Key stable.
+  - Source text change kept identity but triggered SourceChanged/NeedsReview.
+  - JSON/CSV external translation roundtrip worked for configured target locales.
+  - stale `sourceHash` correctly blocked old translation overwrite.
+  - TMP scanner/binding also passed; 用户名 -> `ui.panel_tmp.user_name_label.c624722e`.
+- ResKit Complete clean import/function validation: **PASS / 0 Error**.
+  - Bootstrap auto-installed UniTask from a clean baseline.
+  - Two `ResScope` instances sharing one Resources TextAsset verified cache lifecycle `0 -> 1 -> 1 -> 0`.
+  - AssetsMap support and ResKit ToolsHub module present.
+- UIKit Complete clean import exposed and then verified two real mother-project-hidden distribution defects:
+  1. clean project initially had no generated Singleton static registry.
+  2. `uikit.core` initially omitted runtime-required `Assets/StellarFramework/Resources/Managers/UIKit.prefab`.
+- UIKit fix state:
+  - `uikit.core.sourcePaths` now includes `Assets/StellarFramework/Resources/Managers/UIKit.prefab`.
+  - Singleton generated output moved away from the mother-project-owned fixed asmdef model to target-project output:
+    `Assets/Generated/StellarFramework/SingletonRegister/SingletonRegister.cs`.
+  - old fixed `Assets/StellarFramework/Generated/SingletonRegister` code/asmdef was removed.
+  - `SingletonGenerator` now scans loaded assemblies through `AppDomain.CurrentDomain.GetAssemblies()`, writes only when content changes, and retains build-time generation gate.
+  - Kit bootstrap calls Singleton registry generation after payload import.
+- Real UIKit clean PlayMode validation after these fixes: **PASS / 0 Runtime Errors**.
+  - generated register contains `StellarFramework.UI.UIKit`
+  - default UI strategy = `ResKitUILoadStrategy`
+  - UIRoot generator PASS
+  - SafeArea Panel routing PASS
+  - FullScreen Panel routing PASS
+  - 20:9 `phone_tall` breakpoint PASS
+  - 4:3 `tablet` breakpoint PASS
+  - Static/Dynamic dual SafeAreaRoot PASS
+  - orientation-independent Shape Aspect PASS
+- Additional business-Singleton regression:
+  - clean project added `CleanBusinessSingleton : ISingleton` with `[Singleton("", Global, true)]`.
+  - manual `SingletonGenerator.Generate()` immediately found it, proving scanner/generator logic is correct.
+  - several unreliable self-bootstrap/TypeCache timing ideas were rejected by clean-project evidence.
+- Canonical Kit bootstrap installer was physically migrated in the mother project from:
+  `Assets/StellarFramework/Editor/KitPackageBootstrap/StellarFrameworkKitPackageBootstrapInstaller.cs`
+  to:
+  `Assets/Editor/StellarFramework/KitPackageBootstrap/StellarFrameworkKitPackageBootstrapInstaller.cs`
+  so it remains in Unity's predefined Editor assembly after payload import instead of being captured by `Assets/StellarFramework/StellarFramework.asmdef`.
+- Publisher canonical paths and Policy tests were updated to the new bootstrap root.
+- Mother-project validation after path migration:
+  - Unity **0 Error**
+  - Architecture **16/16 PASS**
+  - Standalone Export **32/32 PASS**
+  - Package Publisher **23/23 PASS**
+- Final clean-project diagnostic (important): adding both
+  1. `[DidReloadScripts]` scheduling on the bootstrap Installer, and
+  2. fallback `Assembly.Load("StellarFramework.Singleton.Editor")` inside `TryGenerateSingletonRegistryIfAvailable()`
+  made the clean project automatically update `SingletonRegister.cs` with `CleanBusinessSingleton` while keeping UIKit present; Unity remained **0 Error**.
+- **Exact continuation point for next conversation:** those final two proven diagnostic changes currently exist in `StellarFramework-test` and still need to be ported into the mother project's canonical installer:
+  `Assets/Editor/StellarFramework/KitPackageBootstrap/StellarFrameworkKitPackageBootstrapInstaller.cs`.
+  After porting:
+  1. compile mother project / check 0 errors;
+  2. run Architecture + Standalone + Publisher policies;
+  3. re-export `uikit.complete`;
+  4. final 8093 clean import;
+  5. confirm business Singleton auto-update still works without manual Generate;
+  6. rerun UIKit PlayMode validation and confirm PASS.
+- Other completed delivery state in this pass:
+  - Localization Complete includes UGUI + TMP production workflow.
+  - TMP Essential Resources are not copied into framework payloads.
+  - Package Publisher maps `com.unity.textmeshpro -> com.unity.textmeshpro@3.0.7`.
+  - real package inspection confirmed no accidental `Assets/TextMesh Pro`, Tests, Packaging implementation, or temporary Verification sources in payloads.
+  - UIKit.Adaptation supports `PanelLayoutRegion.FullScreen/SafeArea`, standard UIRoot dual regions, long-edge/short-edge Shape Aspect, and multiple SafeAreaRoots.
+- No commit/push/reset/clean was performed.
+
+### 2026-09-22 — Clean-project delivery verification + UIKit/Singleton distribution handoff completed
+
+- Continued exactly from the previous handoff point. The mother project's canonical bootstrap installer is:
+  `Assets/Editor/StellarFramework/KitPackageBootstrap/StellarFrameworkKitPackageBootstrapInstaller.cs`.
+- Synchronized the proven domain-reload production path back to the mother installer:
+  - added `UnityEditor.Callbacks` + `[DidReloadScripts]`;
+  - schedules a delayed Singleton registry refresh after script reload and retries while Unity is compiling/updating;
+  - confirmed the mother installer already contained the required fallback `Assembly.Load("StellarFramework.Singleton.Editor")`, so no duplicate fallback path was added.
+- Strengthened `KitArchitectureMetadataPolicyTests.SingletonKitDistributionOwnsBuildEssentialRegistryBootstrap` to assert `[DidReloadScripts]` and the escaped `Assembly.Load("StellarFramework.Singleton.Editor")` source contract. A previously latent bad string literal in that dirty test source was exposed by a fresh domain compile and fixed before delivery.
+- Final mother-project verification after all temporary export helpers were removed:
+  - compile: **0 errors / 0 warnings**;
+  - `KitArchitectureMetadataPolicyTests`: **16/16 PASS**;
+  - `StandaloneSourceExportPolicyTests`: **32/32 PASS**;
+  - `PackagePublisherPolicyTests`: **23/23 PASS**;
+  - Unity Console: **0 Error**.
+- Re-exported `uikit.complete` from the current mother project. Final artifact:
+  `BuildArtifacts/StellarFramework/Kits/StellarFramework-Profile-UIKit-Complete.unitypackage`
+  with fresh timestamp `2026-09-22T05:47:33Z`; the one-shot exporter used only for this action was deleted immediately afterwards.
+- Final 8093 verification used `C:\CodingToolsWorkerCenter\StellarFramework-test` and explicitly removed the previous framework payload, previous generated Singleton registry, and the earlier diagnostic-only `SingletonKitAutoBootstrap` before importing the newly exported UIKit Complete package. The clean validation helper/business source itself was preserved.
+- **Business Singleton auto-refresh is now proven without manual Generate:** after the clean import, `Assets/Generated/StellarFramework/SingletonRegister/SingletonRegister.cs` was recreated automatically at `05:50:01` and contains both:
+  - `CleanBusinessSingleton` metadata + pure singleton creator;
+  - `StellarFramework.UI.UIKit` metadata.
+  The old diagnostic `Assets/Editor/StellarFramework/SingletonKitAutoBootstrap.cs` is absent, so this result comes from the distributed production Installer + Singleton editor assembly path rather than the earlier test bridge.
+- The freshly imported clean-project Installer was inspected and contains the production `[DidReloadScripts] -> delayCall -> TryGenerateSingletonRegistryIfAvailable()` path. Clean-project compile remained **0 errors / 0 warnings** and Console **0 Error**.
+- Re-ran real UIKit PlayMode validation after regenerating the target-project UIRoot through `UIKitEditor.CreateUIRootPrefab()`:
+  - PlayMode fixture: **1/1 PASS**;
+  - runtime initialized with `ResKitUILoadStrategy`;
+  - Root / StaticCanvas / DynamicCanvas present;
+  - Static + Dynamic `FullScreenRoot` routing present;
+  - Static + Dynamic `SafeAreaRoot` routing present;
+  - 20:9 `phone_tall` breakpoint PASS;
+  - 4:3 `tablet` breakpoint PASS;
+  - portrait/landscape Shape Aspect equivalence PASS.
+- Temporary clean-project PlayMode validation asmdef/source and temporary mother-project export trigger/test were removed after evidence was collected. Final 8093 cleanup compile: **0 errors / 0 warnings**, Console **0 Error**.
+- The previous UIKit/Singleton distribution handoff is therefore closed. No commit/push/reset/clean was performed; unrelated mother-project dirty worktree state remains preserved.

@@ -53,8 +53,7 @@ namespace StellarFramework.Editor.Modules
             "UnityEngine.CoreModule"
         };
 
-        [MenuItem("StellarFramework/Verification/Export HybridCLR Generated Assets")]
-        public static void ExportCurrentBuildTargetFromMenu()
+        public static void ExportCurrentBuildTarget()
         {
             HybridCLRHotUpdateExportReport report = ExportGeneratedAssets(EditorUserBuildSettings.activeBuildTarget);
             LogReport(report);

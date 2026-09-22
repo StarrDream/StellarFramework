@@ -16,8 +16,43 @@ namespace StellarFramework.Editor
     public class SingletonGenerator : IPreprocessBuildWithReport
     {
         private const string OptionalAddressablesRuntimeAssemblyName = "StellarFramework.ResKit.Addressables";
+        public const string GeneratedDirectory = "Assets/Generated/StellarFramework/SingletonRegister";
+        public const string GeneratedFilePath = GeneratedDirectory + "/SingletonRegister.cs";
 
         public int callbackOrder => 0;
+
+        public static void ScheduleAutomaticGeneration()
+        {
+            EditorApplication.delayCall -= QueueGenerationAfterReload;
+            EditorApplication.delayCall += QueueGenerationAfterReload;
+        }
+
+        private static void QueueGenerationAfterReload()
+        {
+            EditorApplication.delayCall -= GenerateAfterScriptsReload;
+            EditorApplication.delayCall += GenerateAfterScriptsReload;
+        }
+
+        private static void GenerateAfterScriptsReload()
+        {
+            if (EditorApplication.isCompiling || EditorApplication.isUpdating)
+            {
+                EditorApplication.delayCall -= GenerateAfterScriptsReload;
+                EditorApplication.delayCall += GenerateAfterScriptsReload;
+                return;
+            }
+
+            try
+            {
+                GenerateInternal(false);
+            }
+            catch (Exception exception)
+            {
+                Debug.LogError(
+                    "[SingletonGenerator] 脚本重载后自动生成失败。请修复错误后重新编译或通过 ToolsHub 手动生成。\n" +
+                    exception);
+            }
+        }
 
         /// <summary>
         /// 挂载构建前置钩子，确保打出的包一定包含最新的单例注册表。
@@ -29,6 +64,11 @@ namespace StellarFramework.Editor
         }
 
         public static void Generate()
+        {
+            GenerateInternal(true);
+        }
+
+        private static bool GenerateInternal(bool logWhenUnchanged)
         {
             List<Type> types = GetSingletonTypes()
                 .Where(type => type != null)
@@ -80,7 +120,7 @@ namespace StellarFramework.Editor
                     continue;
                 }
 
-                string typeName = type.FullName;
+                string typeName = GetCSharpTypeName(type);
                 if (string.IsNullOrEmpty(typeName))
                 {
                     Debug.LogError($"[SingletonGenerator] 跳过非法类型: FullName 为空, Type={type.Name}");
@@ -118,18 +158,43 @@ namespace StellarFramework.Editor
             sb.AppendLine("    }");
             sb.AppendLine("}");
 
-            string dir = "Assets/StellarFramework/Generated/SingletonRegister";
-            if (!Directory.Exists(dir))
+            string generatedSource = sb.ToString();
+            if (File.Exists(GeneratedFilePath))
             {
-                Directory.CreateDirectory(dir);
+                string existing = File.ReadAllText(GeneratedFilePath, Encoding.UTF8);
+                if (string.Equals(existing, generatedSource, StringComparison.Ordinal))
+                {
+                    if (logWhenUnchanged)
+                    {
+                        LogKit.Log(
+                            $"[SingletonGenerator] 静态注册表已是最新版本, Metadata={metadataCount}, PureCreator={creatorCount}, Path={GeneratedFilePath}");
+                    }
+
+                    return false;
+                }
             }
 
-            string filePath = $"{dir}/SingletonRegister.cs";
-            File.WriteAllText(filePath, sb.ToString(), Encoding.UTF8);
-            AssetDatabase.Refresh();
+            if (!Directory.Exists(GeneratedDirectory))
+            {
+                Directory.CreateDirectory(GeneratedDirectory);
+            }
+
+            File.WriteAllText(
+                GeneratedFilePath,
+                generatedSource,
+                new UTF8Encoding(false));
+            AssetDatabase.ImportAsset(
+                GeneratedFilePath,
+                ImportAssetOptions.ForceUpdate);
 
             LogKit.Log(
-                $"[SingletonGenerator] 静态注册表生成完毕, Metadata={metadataCount}, PureCreator={creatorCount}, Path={filePath}");
+                $"[SingletonGenerator] 静态注册表生成完毕, Metadata={metadataCount}, PureCreator={creatorCount}, Path={GeneratedFilePath}");
+            return true;
+        }
+
+        private static string GetCSharpTypeName(Type type)
+        {
+            return type?.FullName?.Replace('+', '.');
         }
 
         private static bool ShouldSkipType(Type type)
@@ -143,16 +208,11 @@ namespace StellarFramework.Editor
 
         private static IEnumerable<Type> GetSingletonTypes()
         {
-#if UNITY_2019_2_OR_NEWER
-            return TypeCache.GetTypesWithAttribute<SingletonAttribute>();
-#else
             return AppDomain.CurrentDomain.GetAssemblies()
                 .SelectMany(GetLoadableTypes)
                 .Where(type => type != null && type.GetCustomAttribute<SingletonAttribute>() != null);
-#endif
         }
 
-#if !UNITY_2019_2_OR_NEWER
         private static IEnumerable<Type> GetLoadableTypes(Assembly assembly)
         {
             try
@@ -164,7 +224,6 @@ namespace StellarFramework.Editor
                 return exception.Types.Where(type => type != null);
             }
         }
-#endif
     }
 }
 #endif

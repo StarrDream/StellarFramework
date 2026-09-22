@@ -3,7 +3,6 @@
     "rootNamespace": "",
     "references": [
         "StellarFramework.LogKit",
-        "StellarFramework.PoolKit",
         "StellarFramework.Runtime",
         "StellarFramework.SingletonKit",
         "GUID:f51ebe6a0ceec4240a699833d6309b23"

@@ -128,6 +128,14 @@ namespace StellarFramework.UI
             _roleLayers =
                 new Dictionary<UIPanelBase.PanelCanvasRole, Dictionary<UIPanelBase.PanelLayer, Transform>>();
 
+        private readonly Dictionary<
+                UIPanelBase.PanelCanvasRole,
+                Dictionary<UIPanelBase.PanelLayoutRegion, Dictionary<UIPanelBase.PanelLayer, Transform>>>
+            _roleRegionLayers =
+                new Dictionary<
+                    UIPanelBase.PanelCanvasRole,
+                    Dictionary<UIPanelBase.PanelLayoutRegion, Dictionary<UIPanelBase.PanelLayer, Transform>>>();
+
         private readonly Dictionary<Type, UIPanelBase> _panelCache =
             new Dictionary<Type, UIPanelBase>();
 
@@ -384,6 +392,17 @@ namespace StellarFramework.UI
                 return false;
             }
 
+            Dictionary<UIPanelBase.PanelLayer, Transform> dynamicSafeLayers =
+                BuildSafeAreaLayerMap(
+                    rootGo.transform,
+                    UIPanelBase.PanelCanvasRole.Dynamic,
+                    dynamicLayers);
+            Dictionary<UIPanelBase.PanelLayer, Transform> staticSafeLayers =
+                BuildSafeAreaLayerMap(
+                    rootGo.transform,
+                    UIPanelBase.PanelCanvasRole.Static,
+                    staticLayers);
+
             rootGo.transform.SetParent(null, false);
             DontDestroyOnLoad(rootGo);
 
@@ -403,6 +422,20 @@ namespace StellarFramework.UI
             _roleLayers[UIPanelBase.PanelCanvasRole.Dynamic] = dynamicLayers;
             _roleLayers[UIPanelBase.PanelCanvasRole.Static] = staticLayers;
 
+            _roleRegionLayers.Clear();
+            _roleRegionLayers[UIPanelBase.PanelCanvasRole.Dynamic] =
+                new Dictionary<UIPanelBase.PanelLayoutRegion, Dictionary<UIPanelBase.PanelLayer, Transform>>
+                {
+                    [UIPanelBase.PanelLayoutRegion.FullScreen] = dynamicLayers,
+                    [UIPanelBase.PanelLayoutRegion.SafeArea] = dynamicSafeLayers
+                };
+            _roleRegionLayers[UIPanelBase.PanelCanvasRole.Static] =
+                new Dictionary<UIPanelBase.PanelLayoutRegion, Dictionary<UIPanelBase.PanelLayer, Transform>>
+                {
+                    [UIPanelBase.PanelLayoutRegion.FullScreen] = staticLayers,
+                    [UIPanelBase.PanelLayoutRegion.SafeArea] = staticSafeLayers
+                };
+
             return true;
         }
 
@@ -416,10 +449,16 @@ namespace StellarFramework.UI
                 roleRoot = root;
             }
 
+            Transform layerRoot = roleRoot.Find("FullScreenRoot") ?? roleRoot;
+
             foreach (UIPanelBase.PanelLayer layer in Enum.GetValues(typeof(UIPanelBase.PanelLayer)))
             {
                 string layerName = layer.ToString();
-                Transform layerTrans = roleRoot.Find(layerName);
+                Transform layerTrans = layerRoot.Find(layerName);
+                if (layerTrans == null && layerRoot != roleRoot)
+                {
+                    layerTrans = roleRoot.Find(layerName);
+                }
                 if (layerTrans == null && roleRoot != root)
                 {
                     layerTrans = root.Find(layerName);
@@ -436,6 +475,36 @@ namespace StellarFramework.UI
             }
 
             return true;
+        }
+
+        private Dictionary<UIPanelBase.PanelLayer, Transform> BuildSafeAreaLayerMap(
+            Transform root,
+            UIPanelBase.PanelCanvasRole role,
+            Dictionary<UIPanelBase.PanelLayer, Transform> fullScreenFallback)
+        {
+            Transform roleRoot = FindRoleRoot(root, role) ?? root;
+            Transform safeAreaRoot = roleRoot.Find("SafeAreaRoot");
+            if (safeAreaRoot == null)
+            {
+                return fullScreenFallback;
+            }
+
+            var safeMap = new Dictionary<UIPanelBase.PanelLayer, Transform>();
+            foreach (UIPanelBase.PanelLayer layer in Enum.GetValues(typeof(UIPanelBase.PanelLayer)))
+            {
+                Transform layerTrans = safeAreaRoot.Find(layer.ToString());
+                if (layerTrans == null)
+                {
+                    Debug.LogWarning(
+                        $"[UIKit] SafeAreaRoot exists but layer is missing. Role={role}, Layer={layer}. " +
+                        "SafeArea panels fall back to FullScreen layers.");
+                    return fullScreenFallback;
+                }
+
+                safeMap[layer] = layerTrans;
+            }
+
+            return safeMap;
         }
 
         private static Canvas FindRoleCanvas(Transform root, UIPanelBase.PanelCanvasRole role)
@@ -1144,10 +1213,16 @@ namespace StellarFramework.UI
                 return null;
             }
 
-            if (!TryGetLayer(panel.CanvasRole, panel.Layer, out Transform layerTrans) || layerTrans == null)
+            if (!TryGetLayer(
+                    panel.CanvasRole,
+                    panel.LayoutRegion,
+                    panel.Layer,
+                    out Transform layerTrans) ||
+                layerTrans == null)
             {
                 Debug.LogError(
-                    $"[UIKit] CreatePanelFromPrefab 失败: 层级不存在, Panel={panelName}, CanvasRole={panel.CanvasRole}, Layer={panel.Layer}");
+                    $"[UIKit] CreatePanelFromPrefab 失败: 层级不存在, Panel={panelName}, " +
+                    $"CanvasRole={panel.CanvasRole}, LayoutRegion={panel.LayoutRegion}, Layer={panel.Layer}");
                 Destroy(go);
                 return null;
             }
@@ -1175,9 +1250,27 @@ namespace StellarFramework.UI
             return panel;
         }
 
-        private bool TryGetLayer(UIPanelBase.PanelCanvasRole role, UIPanelBase.PanelLayer layer, out Transform layerTrans)
+        private bool TryGetLayer(
+            UIPanelBase.PanelCanvasRole role,
+            UIPanelBase.PanelLayoutRegion region,
+            UIPanelBase.PanelLayer layer,
+            out Transform layerTrans)
         {
             layerTrans = null;
+            if (_roleRegionLayers.TryGetValue(
+                    role,
+                    out Dictionary<
+                        UIPanelBase.PanelLayoutRegion,
+                        Dictionary<UIPanelBase.PanelLayer, Transform>> regionMap) &&
+                regionMap.TryGetValue(
+                    region,
+                    out Dictionary<UIPanelBase.PanelLayer, Transform> layerMap) &&
+                layerMap.TryGetValue(layer, out layerTrans) &&
+                layerTrans != null)
+            {
+                return true;
+            }
+
             if (_roleLayers.TryGetValue(role, out Dictionary<UIPanelBase.PanelLayer, Transform> roleMap) &&
                 roleMap.TryGetValue(layer, out layerTrans) &&
                 layerTrans != null)
@@ -1546,6 +1639,7 @@ namespace StellarFramework.UI
             _closingPanels.Clear();
             _layers.Clear();
             _roleLayers.Clear();
+            _roleRegionLayers.Clear();
 
             RootCanvas = null;
             StaticCanvas = null;

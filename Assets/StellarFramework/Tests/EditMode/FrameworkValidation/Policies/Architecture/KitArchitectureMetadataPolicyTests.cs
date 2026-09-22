@@ -21,10 +21,10 @@ namespace StellarFramework.Tests.FrameworkValidation
         };
 
         [Test]
-        public void RuntimeKitProfilesUseSchemaV2ArchitectureMetadata()
+        public void RuntimeKitProfilesUseSchemaV3ArchitectureMetadata()
         {
             CatalogDocument catalog = ReadCatalog();
-            Assert.That(catalog.schemaVersion, Is.EqualTo(2));
+            Assert.That(catalog.schemaVersion, Is.EqualTo(3));
             Assert.That(catalog.profiles, Is.Not.Empty);
 
             foreach (ProfileDocument profile in catalog.profiles.Where(IsRuntimeKit))
@@ -44,6 +44,7 @@ namespace StellarFramework.Tests.FrameworkValidation
             AssertProfile(catalog, "localizationkit.core", "foundation", "data");
             AssertProfile(catalog, "localizationkit.settings", "adapter", "data");
             AssertProfile(catalog, "localizationkit.ugui", "adapter", "presentation");
+            AssertProfile(catalog, "localizationkit.tmp", "adapter", "presentation");
             AssertProfile(catalog, "worldgenkit.debugtexture", "adapter", "world");
             AssertProfile(catalog, "worldgenkit.mesh", "adapter", "world");
             AssertProfile(catalog, "worldgenkit.tilemap", "adapter", "world");
@@ -54,7 +55,213 @@ namespace StellarFramework.Tests.FrameworkValidation
             AssertProfile(catalog, "worldkit.streaming.unity", "adapter", "world");
             AssertProfile(catalog, "audiokit.core", "extension", "presentation");
             AssertProfile(catalog, "uikit.core", "extension", "presentation");
+            AssertProfile(catalog, "uikit.adaptation", "adapter", "presentation");
             AssertProfile(catalog, "hybridclrkit", "extension", "runtime-delivery");
+        }
+
+        [Test]
+        public void UIKitAdaptationRemainsOptionalAndCompleteUIKitComposesIt()
+        {
+            CatalogDocument catalog = ReadCatalog();
+            ProfileDocument uiCore = catalog.profiles.Single(profile => profile.id == "uikit.core");
+            ProfileDocument adaptation = catalog.profiles.Single(profile => profile.id == "uikit.adaptation");
+            ProfileDocument adaptationTools =
+                catalog.profiles.Single(profile => profile.id == "uikit.adaptation.tools");
+            RecommendedProfileDocument complete =
+                catalog.recommendedProfiles.Single(profile => profile.id == "uikit.complete");
+
+            Assert.That(uiCore.excludedCapabilities, Does.Not.Contain("SafeArea"));
+            Assert.That(uiCore.excludedSourcePaths,
+                Does.Contain("Assets/StellarFramework/Runtime/Kits/UIKit/Adapters/Adaptation"));
+            Assert.That(adaptation.requiredProfileIds, Is.EqualTo(new[] { "uikit.core" }));
+            Assert.That(adaptation.requiredUpm, Is.EqualTo(new[] { "com.unity.ugui" }));
+            Assert.That(adaptationTools.kind, Is.EqualTo("tooling"));
+            Assert.That(adaptationTools.requiredProfileIds,
+                Is.EqualTo(new[] { "uikit.adaptation", "toolshub.core" }));
+            Assert.That(complete.profileIds, Does.Contain("uikit.adaptation.tools"));
+
+            string panelBase = ReadAssetText(
+                "Assets/StellarFramework/Runtime/Kits/UIKit/UIPanelBase.cs");
+            string uiKit = ReadAssetText(
+                "Assets/StellarFramework/Runtime/Kits/UIKit/UIKit.cs");
+            string uiKitEditor = ReadAssetText(
+                "Assets/StellarFramework/Runtime/Kits/UIKit/Editor/UIKitEditor.cs");
+            string adaptationProfile = ReadAssetText(
+                "Assets/StellarFramework/Runtime/Kits/UIKit/Adapters/Adaptation/UIAdaptationProfile.cs");
+
+            Assert.That(panelBase, Does.Contain("PanelLayoutRegion"));
+            Assert.That(panelBase, Does.Contain("FullScreen = 0"));
+            Assert.That(panelBase, Does.Contain("SafeArea = 1"));
+            Assert.That(uiKit, Does.Contain("panel.LayoutRegion"));
+            Assert.That(uiKit, Does.Contain("_roleRegionLayers"));
+            Assert.That(uiKitEditor, Does.Contain("FullScreenRoot"));
+            Assert.That(uiKitEditor, Does.Contain("SafeAreaRoot"));
+            Assert.That(adaptationProfile, Does.Contain("CalculateShapeAspect"));
+            Assert.That(adaptationProfile, Does.Contain("ResolveOrientation"));
+        }
+
+        [Test]
+        public void RecommendedProfilesComposeExistingKitProfilesWithoutCreatingRuntimeModules()
+        {
+            CatalogDocument catalog = ReadCatalog();
+            Assert.That(catalog.recommendedProfiles, Is.Not.Null.And.Not.Empty);
+
+            RecommendedProfileDocument localization =
+                catalog.recommendedProfiles.Single(profile => profile.id == "localization.complete");
+            Assert.That(localization.profileIds, Is.EqualTo(new[]
+            {
+                "localizationkit.tools",
+                "localizationkit.tmp.tools"
+            }));
+            Assert.That(localization.deliveryGroup, Is.EqualTo("complete"));
+            Assert.That(localization.output,
+                Is.EqualTo("StellarFramework-Profile-Localization-Complete.unitypackage"));
+
+            RecommendedProfileDocument resKit =
+                catalog.recommendedProfiles.Single(profile => profile.id == "reskit.complete");
+            Assert.That(resKit.profileIds, Is.EqualTo(new[] { "reskit.tools" }));
+            Assert.That(resKit.deliveryGroup, Is.EqualTo("complete"));
+            Assert.That(resKit.output, Is.EqualTo("StellarFramework-Profile-ResKit-Complete.unitypackage"));
+
+            RecommendedProfileDocument ui =
+                catalog.recommendedProfiles.Single(profile => profile.id == "uikit.complete");
+            Assert.That(ui.profileIds, Is.EqualTo(new[]
+            {
+                "uikit.reskit",
+                "uikit.tools",
+                "uikit.adaptation.tools",
+                "reskit.tools"
+            }));
+            Assert.That(ui.deliveryGroup, Is.EqualTo("complete"));
+            Assert.That(ui.output, Is.EqualTo("StellarFramework-Profile-UIKit-Complete.unitypackage"));
+
+            RecommendedProfileDocument hotUpdate =
+                catalog.recommendedProfiles.Single(profile => profile.id == "hotupdate.full");
+            Assert.That(hotUpdate.profileIds,
+                Is.EqualTo(new[] { "reskit.yooasset", "reskit.tools", "hybridclrkit.tools" }));
+            Assert.That(hotUpdate.deliveryGroup, Is.EqualTo("extension"));
+            Assert.That(hotUpdate.output, Is.EqualTo("StellarFramework-Profile-HotUpdate-Full.unitypackage"));
+
+            var kitProfileIds = catalog.profiles.Select(profile => profile.id).ToHashSet(StringComparer.Ordinal);
+            foreach (RecommendedProfileDocument profile in catalog.recommendedProfiles)
+            {
+                Assert.That(profile.profileIds, Is.Not.Null.And.Not.Empty, profile.id);
+                Assert.That(profile.profileIds.All(kitProfileIds.Contains), Is.True, profile.id);
+            }
+        }
+
+        [Test]
+        public void ResKitAndUIKitKeepRuntimeAndEditorDistributionBoundariesSeparated()
+        {
+            CatalogDocument catalog = ReadCatalog();
+            ProfileDocument resCore = catalog.profiles.Single(profile => profile.id == "reskit.core");
+            ProfileDocument resTools = catalog.profiles.Single(profile => profile.id == "reskit.tools");
+            ProfileDocument uiCore = catalog.profiles.Single(profile => profile.id == "uikit.core");
+            ProfileDocument uiTools = catalog.profiles.Single(profile => profile.id == "uikit.tools");
+            ProfileDocument hybridCore = catalog.profiles.Single(profile => profile.id == "hybridclrkit");
+            ProfileDocument hybridTools = catalog.profiles.Single(profile => profile.id == "hybridclrkit.tools");
+
+            Assert.That(resCore.sourcePaths, Is.EqualTo(new[] { "Assets/StellarFramework/Runtime/Kits/Reskit" }));
+            Assert.That(resCore.requiredProfileIds, Is.EqualTo(new[] { "logkit", "poolkit" }));
+            Assert.That(resCore.requiredProfileIds, Does.Not.Contain("singletonkit"));
+            Assert.That(resCore.requiredProfileIds, Does.Not.Contain("toolshub.core"));
+            Assert.That(resCore.requiredProfileIds, Does.Not.Contain("generated.assetmap"));
+            Assert.That(resTools.kind, Is.EqualTo("tooling"));
+            Assert.That(resTools.requiredProfileIds,
+                Is.EqualTo(new[] { "reskit.core", "generated.assetmap", "toolshub.core" }));
+
+            Assert.That(uiCore.requiredProfileIds, Is.EqualTo(new[] { "runtime.core", "singletonkit" }));
+            Assert.That(uiCore.sourcePaths,
+                Does.Contain("Assets/StellarFramework/Resources/Managers/UIKit.prefab"));
+            Assert.That(uiCore.requiredProfileIds, Does.Not.Contain("poolkit"));
+            Assert.That(uiCore.requiredProfileIds, Does.Not.Contain("toolshub.core"));
+            Assert.That(uiCore.requiredUpm, Does.Not.Contain("com.unity.nuget.newtonsoft-json"));
+            Assert.That(uiTools.kind, Is.EqualTo("tooling"));
+            Assert.That(uiTools.requiredProfileIds, Is.EqualTo(new[] { "uikit.core", "toolshub.core" }));
+
+            Assert.That(hybridCore.sourcePaths,
+                Is.EqualTo(new[] { "Assets/StellarFramework/Runtime/Kits/HybridCLRKit" }));
+            Assert.That(hybridTools.kind, Is.EqualTo("tooling"));
+            Assert.That(hybridTools.requiredProfileIds, Is.EqualTo(new[] { "hybridclrkit", "toolshub.core" }));
+        }
+
+        [Test]
+        public void SingletonKitDistributionOwnsBuildEssentialRegistryBootstrap()
+        {
+            CatalogDocument catalog = ReadCatalog();
+            ProfileDocument singleton = catalog.profiles.Single(profile => profile.id == "singletonkit");
+            Assert.That(singleton.sourcePaths, Does.Contain("Assets/StellarFramework/Runtime/Kits/SingletonKit"));
+
+            string generator = ReadAssetText(
+                "Assets/StellarFramework/Runtime/Kits/SingletonKit/Editor/SingletonGenerator.cs");
+            string kitInstaller = ReadAssetText(
+                "Assets/Editor/StellarFramework/KitPackageBootstrap/StellarFrameworkKitPackageBootstrapInstaller.cs");
+
+            Assert.That(generator,
+                Does.Contain("Assets/Generated/StellarFramework/SingletonRegister"));
+            Assert.That(generator,
+                Does.Not.Contain("Assets/StellarFramework/Generated/SingletonRegister"));
+            Assert.That(generator, Does.Contain("AppDomain.CurrentDomain.GetAssemblies()"));
+            Assert.That(generator, Does.Contain("OnPreprocessBuild"));
+            Assert.That(kitInstaller, Does.Contain("[InitializeOnLoad]"));
+            Assert.That(kitInstaller, Does.Contain("[DidReloadScripts]"));
+            Assert.That(kitInstaller, Does.Contain("TryGenerateSingletonRegistryIfAvailable"));
+            Assert.That(kitInstaller,
+                Does.Contain("Assembly.Load(\"StellarFramework.Singleton.Editor\")"));
+            Assert.That(kitInstaller, Does.Contain("SingletonGenerator"));
+            Assert.That(
+                File.Exists(
+                    "Assets/StellarFramework/Generated/SingletonRegister/" +
+                    "StellarFramework.Generated.SingletonRegister.asmdef"),
+                Is.False,
+                "Standalone SingletonKit must not rely on a fixed generated asmdef with hard-coded Kit references.");
+        }
+
+        [Test]
+        public void RuntimeProfilesDoNotDependOnToolsHubOrSourceToolsHubModules()
+        {
+            CatalogDocument catalog = ReadCatalog();
+            foreach (ProfileDocument profile in catalog.profiles.Where(IsRuntimeKit))
+            {
+                Assert.That(profile.requiredProfileIds ?? Array.Empty<string>(),
+                    Does.Not.Contain("toolshub.core"),
+                    $"{profile.id} must keep ToolsHub as a tooling dependency, not a runtime dependency.");
+                Assert.That((profile.sourcePaths ?? Array.Empty<string>()).Any(path =>
+                        path.StartsWith("Assets/StellarFramework/Editor/StellarToolsHub/", StringComparison.Ordinal)),
+                    Is.False,
+                    $"{profile.id} must not source ToolsHub editor modules directly.");
+            }
+        }
+
+        [Test]
+        public void ResourceAndUiAsmdefsKeepDependenciesAtTheirOwningLayer()
+        {
+            string resCore = ReadAssetText(
+                "Assets/StellarFramework/Runtime/Kits/Reskit/StellarFramework.ResKit.asmdef");
+            string resAssetBundle = ReadAssetText(
+                "Assets/StellarFramework/Runtime/Kits/Reskit/Loaders/AssetBundleLoader/StellarFramework.ResKit.AssetBundle.asmdef");
+            string uiCore = ReadAssetText(
+                "Assets/StellarFramework/Runtime/Kits/UIKit/StellarFramework.UIKit.asmdef");
+            string uiResKit = ReadAssetText(
+                "Assets/StellarFramework/Runtime/Kits/UIKit/Adapters/ResKit/StellarFramework.UIKit.ResKit.asmdef");
+            string hybridClr = ReadAssetText(
+                "Assets/StellarFramework/Runtime/Kits/HybridCLRKit/StellarFramework.HybridCLRKit.asmdef");
+
+            Assert.That(resCore, Does.Contain("StellarFramework.LogKit"));
+            Assert.That(resCore, Does.Contain("StellarFramework.PoolKit"));
+            Assert.That(resCore, Does.Not.Contain("StellarFramework.SingletonKit"));
+            Assert.That(resCore, Does.Not.Contain("StellarFramework.Generated.AssetMap"));
+            Assert.That(resAssetBundle, Does.Contain("StellarFramework.SingletonKit"));
+            Assert.That(resAssetBundle, Does.Contain("StellarFramework.Generated.AssetMap"));
+
+            Assert.That(uiCore, Does.Contain("StellarFramework.SingletonKit"));
+            Assert.That(uiCore, Does.Not.Contain("StellarFramework.PoolKit"));
+            Assert.That(uiResKit, Does.Contain("StellarFramework.SingletonKit"));
+            Assert.That(uiResKit, Does.Not.Contain("StellarFramework.PoolKit"));
+
+            Assert.That(hybridClr, Does.Contain("StellarFramework.ResKit"));
+            Assert.That(hybridClr, Does.Not.Contain("StellarFramework.PoolKit"));
+            Assert.That(hybridClr, Does.Not.Contain("StellarFramework.SingletonKit"));
         }
 
         [Test]
@@ -177,6 +384,14 @@ namespace StellarFramework.Tests.FrameworkValidation
                 profile => profile.id == "localizationkit.ugui");
             ProfileDocument editor = catalog.profiles.Single(
                 profile => profile.id == "localizationkit.editor");
+            ProfileDocument tools = catalog.profiles.Single(
+                profile => profile.id == "localizationkit.tools");
+            ProfileDocument tmp = catalog.profiles.Single(
+                profile => profile.id == "localizationkit.tmp");
+            ProfileDocument tmpEditor = catalog.profiles.Single(
+                profile => profile.id == "localizationkit.tmp.editor");
+            ProfileDocument tmpTools = catalog.profiles.Single(
+                profile => profile.id == "localizationkit.tmp.tools");
 
             Assert.That(settings.requiredProfileIds, Is.EqualTo(new[]
             {
@@ -209,6 +424,22 @@ namespace StellarFramework.Tests.FrameworkValidation
             {
                 "Assets/StellarFramework/Editor/LocalizationKit"
             }));
+            Assert.That(tools.kind, Is.EqualTo("tooling"));
+            Assert.That(tools.requiredProfileIds, Is.EqualTo(new[]
+            {
+                "localizationkit.editor",
+                "toolshub.core"
+            }));
+            Assert.That(tools.sourcePaths, Is.EqualTo(new[]
+            {
+                "Assets/StellarFramework/Editor/StellarToolsHub/Modules/LocalizationKit"
+            }));
+            Assert.That(tmp.requiredProfileIds, Is.EqualTo(new[] { "localizationkit.core" }));
+            Assert.That(tmp.requiredUpm, Is.EqualTo(new[] { "com.unity.textmeshpro" }));
+            Assert.That(tmpEditor.requiredProfileIds,
+                Is.EqualTo(new[] { "localizationkit.tmp", "localizationkit.editor" }));
+            Assert.That(tmpTools.requiredProfileIds,
+                Is.EqualTo(new[] { "localizationkit.tmp.editor", "toolshub.core" }));
         }
 
         [Test]
@@ -244,14 +475,21 @@ namespace StellarFramework.Tests.FrameworkValidation
             string publisher = ReadAssetText(
                 "Assets/StellarFramework/Editor/StellarToolsHub/Modules/Packaging/StellarFrameworkPackagePublisher.cs");
 
-            Assert.That(exporter, Does.Contain("Foundation Kits"));
-            Assert.That(exporter, Does.Contain("Extension Kits"));
-            Assert.That(exporter, Does.Contain("Adapter Profiles"));
+            Assert.That(exporter, Does.Contain("01  基础功能"));
+            Assert.That(exporter, Does.Contain("02  完整功能"));
+            Assert.That(exporter, Does.Contain("03  扩展功能"));
+            Assert.That(exporter, Does.Contain("GetBasicDeliveryProfiles"));
+            Assert.That(exporter, Does.Contain("GetAtomicExtensionProfiles"));
+            Assert.That(exporter, Does.Contain("deliveryGroup"));
+            Assert.That(exporter, Does.Contain("TwoPaneSplitView"));
+            Assert.That(exporter, Does.Contain("ToolbarSearchField"));
             Assert.That(exporter, Does.Contain("GetProfileBadge"));
             Assert.That(exporter, Does.Contain("MatchesSearch"));
-            Assert.That(exporter, Does.Contain("EditorStyles.toolbarSearchField"));
             Assert.That(exporter, Does.Contain("ExportKitPackageGroupInternal"));
-            Assert.That(publisher, Does.Contain("CurrentDistributionCatalogSchemaVersion = 2"));
+            Assert.That(publisher, Does.Contain("CurrentDistributionCatalogSchemaVersion = 3"));
+            Assert.That(exporter, Does.Contain("推荐组合"));
+            Assert.That(exporter, Does.Contain("ResolveRecommendedProfileClosureIds"));
+            Assert.That(publisher, Does.Contain("ExportRecommendedProfileInternal"));
             Assert.That(publisher, Does.Contain("ValidateDistributionCatalog"));
             Assert.That(publisher, Does.Contain("Foundation Kit profile"));
         }
@@ -278,6 +516,8 @@ namespace StellarFramework.Tests.FrameworkValidation
             Assert.That(guide, Does.Contain("LocalizationKit.Core"));
             Assert.That(guide, Does.Contain("LocalizationKit.SettingsAdapter"));
             Assert.That(guide, Does.Contain("LocalizationKit.UnityUGUIAdapter"));
+            Assert.That(guide, Does.Contain("LocalizationKit.Tools"));
+            Assert.That(guide, Does.Contain("LocalizationKit.TMPAdapter"));
             Assert.That(matrix, Does.Contain("| TimeKit |"));
             Assert.That(matrix, Does.Contain("| GridKit |"));
             Assert.That(matrix, Does.Contain("| SpatialKit |"));
@@ -292,6 +532,8 @@ namespace StellarFramework.Tests.FrameworkValidation
             Assert.That(matrix, Does.Contain("| LocalizationKit.Core |"));
             Assert.That(matrix, Does.Contain("| LocalizationKit.SettingsAdapter |"));
             Assert.That(matrix, Does.Contain("| LocalizationKit.UnityUGUIAdapter |"));
+            Assert.That(matrix, Does.Contain("| LocalizationKit.Tools |"));
+            Assert.That(matrix, Does.Contain("| LocalizationKit.TMPAdapter |"));
             Assert.That(readme, Does.Contain("`TimeKit`"));
             Assert.That(readme, Does.Contain("`GridKit`"));
             Assert.That(readme, Does.Contain("`SpatialKit`"));
@@ -333,6 +575,7 @@ namespace StellarFramework.Tests.FrameworkValidation
         {
             public int schemaVersion;
             public ProfileDocument[] profiles;
+            public RecommendedProfileDocument[] recommendedProfiles;
         }
 
         [Serializable]
@@ -343,10 +586,20 @@ namespace StellarFramework.Tests.FrameworkValidation
             public string tier;
             public string category;
             public string[] sourcePaths;
+            public string[] excludedSourcePaths;
             public string[] requiredProfileIds;
             public string[] requiredKits;
             public string[] requiredUpm;
             public string[] excludedCapabilities;
+        }
+
+        [Serializable]
+        private sealed class RecommendedProfileDocument
+        {
+            public string id;
+            public string output;
+            public string deliveryGroup;
+            public string[] profileIds;
         }
     }
 }

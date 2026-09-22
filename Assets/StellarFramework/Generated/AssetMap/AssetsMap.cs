@@ -195,5 +195,68 @@ namespace StellarFramework.Generated
                 }
             }
         }
+
+        public static class TextMesh_Pro
+        {
+
+            public static class Fonts
+            {
+                public const string LiberationSans___OFL = "Assets/TextMesh Pro/Fonts/LiberationSans - OFL.txt";
+                public const string LiberationSans = "Assets/TextMesh Pro/Fonts/LiberationSans.ttf";
+            }
+
+            public static class Resources
+            {
+                public const string LineBreaking_Following_Characters = "Assets/TextMesh Pro/Resources/LineBreaking Following Characters.txt";
+                public const string LineBreaking_Leading_Characters = "Assets/TextMesh Pro/Resources/LineBreaking Leading Characters.txt";
+                public const string TMP_Settings = "Assets/TextMesh Pro/Resources/TMP Settings.asset";
+
+                public static class Fonts___Materials
+                {
+                    public const string LiberationSans_SDF___Drop_Shadow = "Assets/TextMesh Pro/Resources/Fonts & Materials/LiberationSans SDF - Drop Shadow.mat";
+                    public const string LiberationSans_SDF___Fallback = "Assets/TextMesh Pro/Resources/Fonts & Materials/LiberationSans SDF - Fallback.asset";
+                    public const string LiberationSans_SDF___Outline = "Assets/TextMesh Pro/Resources/Fonts & Materials/LiberationSans SDF - Outline.mat";
+                    public const string LiberationSans_SDF = "Assets/TextMesh Pro/Resources/Fonts & Materials/LiberationSans SDF.asset";
+                }
+
+                public static class Sprite_Assets
+                {
+                    public const string EmojiOne = "Assets/TextMesh Pro/Resources/Sprite Assets/EmojiOne.asset";
+                }
+
+                public static class Style_Sheets
+                {
+                    public const string Default_Style_Sheet = "Assets/TextMesh Pro/Resources/Style Sheets/Default Style Sheet.asset";
+                }
+            }
+
+            public static class Shaders
+            {
+                public const string TMP_Bitmap_Custom_Atlas = "Assets/TextMesh Pro/Shaders/TMP_Bitmap-Custom-Atlas.shader";
+                public const string TMP_Bitmap_Mobile = "Assets/TextMesh Pro/Shaders/TMP_Bitmap-Mobile.shader";
+                public const string TMP_Bitmap = "Assets/TextMesh Pro/Shaders/TMP_Bitmap.shader";
+                public const string TMP_SDF_Overlay = "Assets/TextMesh Pro/Shaders/TMP_SDF Overlay.shader";
+                public const string TMP_SDF_SSD = "Assets/TextMesh Pro/Shaders/TMP_SDF SSD.shader";
+                public const string TMP_SDF_Mobile_Masking = "Assets/TextMesh Pro/Shaders/TMP_SDF-Mobile Masking.shader";
+                public const string TMP_SDF_Mobile_Overlay = "Assets/TextMesh Pro/Shaders/TMP_SDF-Mobile Overlay.shader";
+                public const string TMP_SDF_Mobile_SSD = "Assets/TextMesh Pro/Shaders/TMP_SDF-Mobile SSD.shader";
+                public const string TMP_SDF_Mobile = "Assets/TextMesh Pro/Shaders/TMP_SDF-Mobile.shader";
+                public const string TMP_SDF_Surface_Mobile = "Assets/TextMesh Pro/Shaders/TMP_SDF-Surface-Mobile.shader";
+                public const string TMP_SDF_Surface = "Assets/TextMesh Pro/Shaders/TMP_SDF-Surface.shader";
+                public const string TMP_SDF = "Assets/TextMesh Pro/Shaders/TMP_SDF.shader";
+                public const string TMP_Sprite = "Assets/TextMesh Pro/Shaders/TMP_Sprite.shader";
+                public const string TMPro = "Assets/TextMesh Pro/Shaders/TMPro.cginc";
+                public const string TMPro_Mobile = "Assets/TextMesh Pro/Shaders/TMPro_Mobile.cginc";
+                public const string TMPro_Properties = "Assets/TextMesh Pro/Shaders/TMPro_Properties.cginc";
+                public const string TMPro_Surface = "Assets/TextMesh Pro/Shaders/TMPro_Surface.cginc";
+            }
+
+            public static class Sprites
+            {
+                public const string EmojiOne_Attribution = "Assets/TextMesh Pro/Sprites/EmojiOne Attribution.txt";
+                public const string EmojiOne_json = "Assets/TextMesh Pro/Sprites/EmojiOne.json";
+                public const string EmojiOne_png = "Assets/TextMesh Pro/Sprites/EmojiOne.png";
+            }
+        }
     }
 }

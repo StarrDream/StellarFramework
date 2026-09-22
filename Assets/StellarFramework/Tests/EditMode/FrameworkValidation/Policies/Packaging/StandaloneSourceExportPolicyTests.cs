@@ -13,6 +13,79 @@ namespace StellarFramework.Tests.FrameworkValidation
     public sealed class StandaloneSourceExportPolicyTests
     {
         [Test]
+        public void RecommendedProfilesResolveToStableDependencyClosures()
+        {
+            Type publisherType = AppDomain.CurrentDomain.GetAssemblies()
+                .Select(assembly => assembly.GetType(
+                    "StellarFramework.Editor.Modules.StellarFrameworkPackagePublisher", false))
+                .FirstOrDefault(type => type != null);
+            Assert.That(publisherType, Is.Not.Null);
+
+            MethodInfo resolveMethod = publisherType.GetMethod(
+                "ResolveRecommendedProfileClosureIds",
+                BindingFlags.Static | BindingFlags.NonPublic);
+            Assert.That(resolveMethod, Is.Not.Null);
+
+            string[] localizationClosure =
+                (string[])resolveMethod.Invoke(null, new object[] { "localization.complete" });
+            Assert.That(localizationClosure, Is.EqualTo(new[]
+            {
+                "localizationkit.core",
+                "localizationkit.editor",
+                "localizationkit.tmp",
+                "localizationkit.tmp.editor",
+                "localizationkit.tmp.tools",
+                "localizationkit.tools",
+                "localizationkit.ugui",
+                "toolshub.core"
+            }));
+
+            string[] resKitClosure =
+                (string[])resolveMethod.Invoke(null, new object[] { "reskit.complete" });
+            Assert.That(resKitClosure, Is.EqualTo(new[]
+            {
+                "generated.assetmap",
+                "logkit",
+                "poolkit",
+                "reskit.core",
+                "reskit.tools",
+                "toolshub.core"
+            }));
+
+            string[] uiClosure = (string[])resolveMethod.Invoke(null, new object[] { "uikit.complete" });
+            Assert.That(uiClosure, Is.EqualTo(new[]
+            {
+                "generated.assetmap",
+                "logkit",
+                "poolkit",
+                "reskit.core",
+                "reskit.tools",
+                "runtime.core",
+                "singletonkit",
+                "toolshub.core",
+                "uikit.adaptation",
+                "uikit.adaptation.tools",
+                "uikit.core",
+                "uikit.reskit",
+                "uikit.tools"
+            }));
+
+            string[] hotUpdateClosure = (string[])resolveMethod.Invoke(null, new object[] { "hotupdate.full" });
+            Assert.That(hotUpdateClosure, Is.EqualTo(new[]
+            {
+                "generated.assetmap",
+                "hybridclrkit",
+                "hybridclrkit.tools",
+                "logkit",
+                "poolkit",
+                "reskit.core",
+                "reskit.tools",
+                "reskit.yooasset",
+                "toolshub.core"
+            }));
+        }
+
+        [Test]
         public void PublisherDefinesStandaloneArchitectureAndExtensionsExports()
         {
             string source = ReadAssetText(
@@ -59,9 +132,13 @@ namespace StellarFramework.Tests.FrameworkValidation
 
             Assert.That(catalog, Does.Contain("\"id\": \"runtime.tools\""));
             Assert.That(catalog, Does.Contain("StellarFramework-Runtime-Tools.unitypackage"));
-            Assert.That(catalog, Does.Contain("\"requiredProfileIds\": [\"runtime.core\", \"poolkit\", \"singletonkit\", \"toolshub.core\"]"));
+            Assert.That(catalog, Does.Contain("\"requiredProfileIds\": [\"runtime.core\", \"singletonkit\"]"));
+            Assert.That(catalog, Does.Contain("\"id\": \"uikit.tools\""));
+            Assert.That(catalog, Does.Contain("\"id\": \"reskit.tools\""));
+            Assert.That(catalog, Does.Contain("\"id\": \"hybridclrkit.tools\""));
             Assert.That(catalog, Does.Contain("\"id\": \"reskit.assetbundle\""));
-            Assert.That(catalog, Does.Contain("\"requiredKits\": [\"ResKit.Core\"]"));
+            Assert.That(catalog,
+                Does.Contain("\"requiredKits\": [\"ResKit.Core\", \"SingletonKit\", \"Generated.AssetMap\"]"));
             Assert.That(runner, Does.Not.Contain("MonoSingleton<"));
             Assert.That(runner, Does.Not.Contain("LogKit."));
             Assert.That(runner, Does.Not.Contain("[Singleton"));
@@ -74,7 +151,7 @@ namespace StellarFramework.Tests.FrameworkValidation
             string publisher = ReadAssetText(
                 "Assets/StellarFramework/Editor/StellarToolsHub/Modules/Packaging/StellarFrameworkPackagePublisher.cs");
             string bootstrap = ReadAssetText(
-                "Assets/StellarFramework/Editor/KitPackageBootstrap/StellarFrameworkKitPackageBootstrapInstaller.cs");
+                "Assets/Editor/StellarFramework/KitPackageBootstrap/StellarFrameworkKitPackageBootstrapInstaller.cs");
 
             Assert.That(publisher, Does.Contain("flattenRuntimeSources = profiles.Any"));
             Assert.That(bootstrap, Does.Contain("TryFlattenRuntimeSources"));
@@ -401,12 +478,17 @@ namespace StellarFramework.Tests.FrameworkValidation
             Assert.That(publisher, Does.Contain("WriteCombinedKitDependencyGuide"));
             Assert.That(publisher, Does.Contain("IsFrameworkSourceProject"));
             Assert.That(publisher, Does.Contain("Modules/Packaging"));
-            Assert.That(window, Does.Contain("Framework Source/Kit Package Exporter"));
+            Assert.That(window, Does.Contain("[MenuItem(\"StellarFramework/Export\")]"));
             Assert.That(window, Does.Contain("ExportKitPackageGroupInternal"));
             Assert.That(window, Does.Contain("自动合并依赖"));
-            Assert.That(window, Does.Contain("Foundation Kits"));
-            Assert.That(window, Does.Contain("Extension Kits"));
-            Assert.That(window, Does.Contain("Adapter Profiles"));
+            Assert.That(window, Does.Contain("01  基础功能"));
+            Assert.That(window, Does.Contain("02  完整功能"));
+            Assert.That(window, Does.Contain("03  扩展功能"));
+            Assert.That(window, Does.Contain("GetBasicDeliveryProfiles"));
+            Assert.That(window, Does.Contain("GetAtomicExtensionProfiles"));
+            Assert.That(window, Does.Contain("deliveryGroup"));
+            Assert.That(window, Does.Contain("TwoPaneSplitView"));
+            Assert.That(window, Does.Contain("ToolbarSearchField"));
             Assert.That(window, Does.Contain("自动带依赖"));
             Assert.That(window, Does.Contain("独立"));
             Assert.That(window, Does.Contain("Architecture.cs"));
@@ -415,12 +497,69 @@ namespace StellarFramework.Tests.FrameworkValidation
         }
 
         [Test]
+        public void StellarFrameworkTopMenuOnlyExposesToolsHubAndExport()
+        {
+            string projectRoot = Directory.GetParent(Application.dataPath)?.FullName ?? Application.dataPath;
+            string assetsRoot = Path.Combine(projectRoot, "Assets");
+            var menuPaths = new List<string>();
+
+            foreach (string filePath in Directory.GetFiles(assetsRoot, "*.cs", SearchOption.AllDirectories))
+            {
+                foreach (string line in File.ReadLines(filePath))
+                {
+                    const string marker = "[MenuItem(\"StellarFramework/";
+                    int markerIndex = line.IndexOf(marker, StringComparison.Ordinal);
+                    if (markerIndex < 0)
+                    {
+                        continue;
+                    }
+
+                    int pathStart = markerIndex + "[MenuItem(\"".Length;
+                    int pathEnd = line.IndexOf('"', pathStart);
+                    Assert.That(pathEnd, Is.GreaterThan(pathStart), filePath);
+                    menuPaths.Add(line.Substring(pathStart, pathEnd - pathStart));
+                }
+            }
+
+            Assert.That(menuPaths, Is.Not.Empty);
+            Assert.That(menuPaths.All(path =>
+                    path == "StellarFramework/Tools Hub %#t" ||
+                    path == "StellarFramework/Export"),
+                Is.True,
+                "StellarFramework 顶层菜单只允许 Tools Hub 与 Export；Kit 专属功能应优先进入 ToolsHub。");
+            Assert.That(menuPaths.Count(path => path == "StellarFramework/Tools Hub %#t"), Is.EqualTo(1));
+            Assert.That(menuPaths.Count(path => path == "StellarFramework/Export"), Is.EqualTo(2),
+                "Export 有一个执行 MenuItem 和一个 validation MenuItem。");
+
+            const string legacyToolsPrefix = "[MenuItem(\"Tools/Stellar Framework/";
+            foreach (string filePath in Directory.GetFiles(assetsRoot, "*.cs", SearchOption.AllDirectories))
+            {
+                string source = File.ReadAllText(filePath);
+                Assert.That(source, Does.Not.Contain(legacyToolsPrefix),
+                    $"Kit 工具应进入 ToolsHub，不应重新创建 legacy Tools/Stellar Framework 菜单：{filePath}");
+            }
+
+            string resKitHub = ReadAssetText(
+                "Assets/StellarFramework/Editor/StellarToolsHub/Modules/ResKit/ResKitAuditHubModule.cs");
+            string assetsMapGenerator = ReadAssetText(
+                "Assets/StellarFramework/Editor/StellarToolsHub/Modules/ResKit/AssetsMapGenerator.cs");
+            string hybridClr = ReadAssetText(
+                "Assets/StellarFramework/Editor/StellarToolsHub/Modules/HybridCLRKit/HybridCLRHotUpdateAssetExporter.cs");
+
+            Assert.That(resKitHub, Does.Contain("AssetsMapGenerator.GenerateIfNeeded"));
+            Assert.That(resKitHub, Does.Contain("重建 AssetsMap"));
+            Assert.That(assetsMapGenerator, Does.Not.Contain("StellarFramework/ResKit/Regenerate AssetsMap"));
+            Assert.That(hybridClr, Does.Contain("[StellarTool(\"HybridCLR DLL 导出\""));
+            Assert.That(hybridClr, Does.Not.Contain("StellarFramework/Verification/Export HybridCLR Generated Assets"));
+        }
+
+        [Test]
         public void KitExportsInstallOnlyTheirDeclaredUpmDependencies()
         {
             string publisher = ReadAssetText(
                 "Assets/StellarFramework/Editor/StellarToolsHub/Modules/Packaging/StellarFrameworkPackagePublisher.cs");
             string installer = ReadAssetText(
-                "Assets/StellarFramework/Editor/KitPackageBootstrap/StellarFrameworkKitPackageBootstrapInstaller.cs");
+                "Assets/Editor/StellarFramework/KitPackageBootstrap/StellarFrameworkKitPackageBootstrapInstaller.cs");
             string catalog = ReadAssetText("Assets/StellarFramework/KitCatalog/KitDistributionCatalog.json");
 
             Assert.That(publisher, Does.Contain("CreateKitBootstrapAssets"));
@@ -476,14 +615,94 @@ namespace StellarFramework.Tests.FrameworkValidation
                 Assert.That(File.Exists(outputPath), Is.True);
                 string[] outerPackagePaths = ReadUnityPackagePaths(outputPath);
                 Assert.That(outerPackagePaths, Does.Contain(
-                    "Assets/StellarFramework/Editor/KitPackageBootstrap/StellarFrameworkKitPackageBootstrapInstaller.cs"));
+                    "Assets/Editor/StellarFramework/KitPackageBootstrap/StellarFrameworkKitPackageBootstrapInstaller.cs"));
                 Assert.That(outerPackagePaths, Does.Contain(
-                    "Assets/StellarFramework/Editor/KitPackageBootstrap/__StellarFramework-KitBootstrap-Validation-KitBootstrap-EventKit.json"));
+                    "Assets/Editor/StellarFramework/KitPackageBootstrap/__StellarFramework-KitBootstrap-Validation-KitBootstrap-EventKit.json"));
                 Assert.That(outerPackagePaths, Does.Contain(
-                    "Assets/StellarFramework/Editor/KitPackageBootstrap/__StellarFramework-KitPayload-Validation-KitBootstrap-EventKit.unitypackage.bytes"));
+                    "Assets/Editor/StellarFramework/KitPackageBootstrap/__StellarFramework-KitPayload-Validation-KitBootstrap-EventKit.unitypackage.bytes"));
                 Assert.That(outerPackagePaths, Does.Not.Contain(
                     "Assets/StellarFramework/Runtime/Kits/EventKit/StellarFramework.EventKit.asmdef"));
                 Assert.That(File.ReadAllText(guidePath), Does.Contain("Bootstrap 会直接导入 Kit payload"));
+            }
+            finally
+            {
+                if (!string.IsNullOrWhiteSpace(outputPath) && File.Exists(outputPath))
+                {
+                    File.Delete(outputPath);
+                }
+
+                if (!string.IsNullOrWhiteSpace(guidePath) && File.Exists(guidePath))
+                {
+                    File.Delete(guidePath);
+                }
+            }
+        }
+
+        [Test]
+        public void LocalizationCompleteExportSerializesTmpDependencyWithoutBundlingTmpProjectAssets()
+        {
+            Type publisherType = AppDomain.CurrentDomain.GetAssemblies()
+                .Select(assembly => assembly.GetType(
+                    "StellarFramework.Editor.Modules.StellarFrameworkPackagePublisher",
+                    false))
+                .FirstOrDefault(type => type != null);
+            Assert.That(publisherType, Is.Not.Null);
+
+            MethodInfo exportMethod = publisherType.GetMethod(
+                "ExportKitPackageGroupInternal",
+                BindingFlags.Static | BindingFlags.NonPublic);
+            Assert.That(exportMethod, Is.Not.Null);
+
+            const string outputFileName = "Validation-Localization-Complete.unitypackage";
+            string outputPath = null;
+            string guidePath = null;
+            try
+            {
+                outputPath = (string)exportMethod.Invoke(
+                    null,
+                    new object[]
+                    {
+                        new[] { "localizationkit.tools", "localizationkit.tmp.tools" },
+                        outputFileName
+                    });
+                guidePath = Path.Combine(
+                    Path.GetDirectoryName(outputPath) ?? string.Empty,
+                    Path.GetFileNameWithoutExtension(outputFileName) + "-Dependencies.md");
+
+                string requestPath =
+                    "Assets/Editor/StellarFramework/KitPackageBootstrap/" +
+                    "__StellarFramework-KitBootstrap-Validation-Localization-Complete.json";
+                string payloadPath =
+                    "Assets/Editor/StellarFramework/KitPackageBootstrap/" +
+                    "__StellarFramework-KitPayload-Validation-Localization-Complete.unitypackage.bytes";
+
+                byte[] requestBytes = ReadUnityPackageAsset(outputPath, requestPath);
+                byte[] payloadBytes = ReadUnityPackageAsset(outputPath, payloadPath);
+                Assert.That(requestBytes, Is.Not.Null.And.Not.Empty);
+                Assert.That(payloadBytes, Is.Not.Null.And.Not.Empty);
+
+                string requestJson = Encoding.UTF8.GetString(requestBytes);
+                Assert.That(requestJson, Does.Contain("\"packageId\": \"com.unity.textmeshpro\""));
+                Assert.That(requestJson, Does.Contain("\"source\": \"com.unity.textmeshpro@3.0.7\""));
+                Assert.That(requestJson, Does.Contain("\"packageId\": \"com.unity.ugui\""));
+
+                string[] payloadPaths = ReadUnityPackagePaths(payloadBytes);
+                Assert.That(
+                    payloadPaths.Any(path =>
+                        path.Contains("LocalizationKit/Adapters/TMP", StringComparison.Ordinal)),
+                    Is.True);
+                Assert.That(
+                    payloadPaths.Any(path =>
+                        path.StartsWith("Assets/TextMesh Pro", StringComparison.Ordinal)),
+                    Is.False);
+                Assert.That(
+                    payloadPaths.Any(path =>
+                        path.Contains("/Tests/", StringComparison.Ordinal)),
+                    Is.False);
+                Assert.That(
+                    payloadPaths.Any(path =>
+                        path.Contains("Modules/Packaging", StringComparison.Ordinal)),
+                    Is.False);
             }
             finally
             {
@@ -624,13 +843,49 @@ namespace StellarFramework.Tests.FrameworkValidation
 
         private static string[] ReadUnityPackagePaths(string path)
         {
-            using (FileStream input = File.OpenRead(path))
+            return ReadUnityPackagePaths(File.ReadAllBytes(path));
+        }
+
+        private static string[] ReadUnityPackagePaths(byte[] packageBytes)
+        {
+            Dictionary<string, byte[]> entries = ReadUnityPackageTarEntries(packageBytes);
+            return entries
+                .Where(pair => pair.Key.EndsWith("/pathname", StringComparison.Ordinal))
+                .Select(pair => Encoding.UTF8.GetString(pair.Value).Trim('\0'))
+                .ToArray();
+        }
+
+        private static byte[] ReadUnityPackageAsset(string packagePath, string assetPath)
+        {
+            Dictionary<string, byte[]> entries =
+                ReadUnityPackageTarEntries(File.ReadAllBytes(packagePath));
+            foreach (KeyValuePair<string, byte[]> pair in entries
+                         .Where(pair => pair.Key.EndsWith("/pathname", StringComparison.Ordinal)))
+            {
+                string path = Encoding.UTF8.GetString(pair.Value).Trim('\0');
+                if (!string.Equals(path, assetPath, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                string folder = pair.Key.Substring(0, pair.Key.IndexOf('/', StringComparison.Ordinal));
+                return entries.TryGetValue(folder + "/asset", out byte[] assetBytes)
+                    ? assetBytes
+                    : null;
+            }
+
+            return null;
+        }
+
+        private static Dictionary<string, byte[]> ReadUnityPackageTarEntries(byte[] packageBytes)
+        {
+            using (var input = new MemoryStream(packageBytes))
             using (var gzip = new GZipStream(input, CompressionMode.Decompress))
             using (var output = new MemoryStream())
             {
                 gzip.CopyTo(output);
                 byte[] tarBytes = output.ToArray();
-                var paths = new List<string>();
+                var entries = new Dictionary<string, byte[]>(StringComparer.Ordinal);
                 int offset = 0;
                 while (offset + 512 <= tarBytes.Length)
                 {
@@ -641,16 +896,20 @@ namespace StellarFramework.Tests.FrameworkValidation
                     }
 
                     string sizeText = Encoding.ASCII.GetString(tarBytes, offset + 124, 12).Trim('\0', ' ');
-                    long size = string.IsNullOrWhiteSpace(sizeText) ? 0L : Convert.ToInt64(sizeText, 8);
-                    if (entryName.EndsWith("/pathname", StringComparison.Ordinal) && size > 0)
+                    long size = string.IsNullOrWhiteSpace(sizeText)
+                        ? 0L
+                        : Convert.ToInt64(sizeText, 8);
+                    Assert.That(size, Is.LessThanOrEqualTo(int.MaxValue), entryName);
+                    byte[] data = new byte[(int)size];
+                    if (size > 0)
                     {
-                        paths.Add(Encoding.UTF8.GetString(tarBytes, offset + 512, (int)size).Trim('\0'));
+                        Buffer.BlockCopy(tarBytes, offset + 512, data, 0, (int)size);
                     }
-
+                    entries[entryName] = data;
                     offset += 512 + (int)(((size + 511L) / 512L) * 512L);
                 }
 
-                return paths.ToArray();
+                return entries;
             }
         }
     }

@@ -1,0 +1,29 @@
+{
+  "name": "StellarFramework.ToolsHub.LocalizationKitTMP.Editor",
+  "rootNamespace": "StellarFramework.Editor.Modules",
+  "references": [
+    "StellarFramework.ToolsHub.Editor",
+    "StellarFramework.LocalizationKit.Editor",
+    "StellarFramework.LocalizationKit.UnityUGUIAdapter",
+    "StellarFramework.LocalizationKit.TMPAdapter",
+    "StellarFramework.LocalizationKit.TMP.Editor",
+    "Unity.TextMeshPro"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [
+    {
+      "name": "com.unity.textmeshpro",
+      "expression": "3.0.0",
+      "define": "STELLAR_LOCALIZATION_TMP"
+    }
+  ],
+  "noEngineReferences": false
+}

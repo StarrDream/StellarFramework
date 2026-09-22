@@ -204,11 +204,27 @@ namespace StellarFramework.Editor
 
             canvasRoot.AddComponent<GraphicRaycaster>();
 
-            CreateLayerNode(canvasRoot, UIPanelBase.PanelLayer.Bottom);
-            CreateLayerNode(canvasRoot, UIPanelBase.PanelLayer.Middle);
-            CreateLayerNode(canvasRoot, UIPanelBase.PanelLayer.Top);
-            CreateLayerNode(canvasRoot, UIPanelBase.PanelLayer.Popup);
-            CreateLayerNode(canvasRoot, UIPanelBase.PanelLayer.System);
+            GameObject fullScreenRoot = CreateRegionRoot(canvasRoot, "FullScreenRoot");
+            GameObject safeAreaRoot = CreateRegionRoot(canvasRoot, "SafeAreaRoot");
+            foreach (UIPanelBase.PanelLayer layer in System.Enum.GetValues(typeof(UIPanelBase.PanelLayer)))
+            {
+                CreateLayerNode(fullScreenRoot, layer);
+                CreateLayerNode(safeAreaRoot, layer);
+            }
+        }
+
+        private static GameObject CreateRegionRoot(GameObject parent, string name)
+        {
+            GameObject regionRoot = new GameObject(name);
+            regionRoot.layer = LayerMask.NameToLayer("UI");
+            regionRoot.transform.SetParent(parent.transform, false);
+
+            RectTransform rt = regionRoot.AddComponent<RectTransform>();
+            rt.anchorMin = Vector2.zero;
+            rt.anchorMax = Vector2.one;
+            rt.offsetMin = Vector2.zero;
+            rt.offsetMax = Vector2.zero;
+            return regionRoot;
         }
 
         private static string GetHierarchyPath(GameObject go)

@@ -11,7 +11,7 @@ namespace StellarFramework.Localization.UnityUGUI
     /// Context 不使用全局静态单例，因此同一项目可以按场景/子系统维护独立本地化上下文。
     /// Awake 会尝试初始化；也可在测试或运行时通过 Configure 后显式 TryInitialize。
     /// </remarks>
-    public sealed class LocalizationContext : MonoBehaviour
+    public sealed class LocalizationContext : MonoBehaviour, ILocalizationContext
     {
         [SerializeField] private LocalizationCatalogAsset _catalog;
 

@@ -50,7 +50,7 @@ namespace StellarFramework.Tests.PlayMode
             Assert.That(
                 Directory.Exists(packageDirectory),
                 Is.True,
-                "Verification package is missing. Run StellarFramework/Verification/Build YooAsset HotUpdate Package before this PlayMode gate.");
+                "Verification package is missing. Open StellarFramework/Tools Hub -> HotUpdate 发布验证 and build the YooAsset HotUpdate verification package before this PlayMode gate.");
 
             _cacheRoot = Path.Combine(
                 Directory.GetParent(Application.dataPath)?.FullName ?? Application.dataPath,

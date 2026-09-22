@@ -2,6 +2,8 @@
 using System;
 using System.IO;
 using UnityEditor;
+using UnityEngine;
+using StellarFramework.Editor;
 using StellarFrameworkVerification.Runtime;
 using YooAsset;
 using YooAsset.Editor;
@@ -76,16 +78,14 @@ namespace StellarFrameworkVerification.Editor
             return result;
         }
 
-        [MenuItem("StellarFramework/Verification/Build YooAsset HotUpdate Package")]
-        private static void BuildFromMenu()
+        public static void BuildAndLog()
         {
             BuildResult result = Build();
             UnityEngine.Debug.Log(
                 $"[HotUpdateVerification] YooAsset package built: {result.OutputPackageDirectory}");
         }
 
-        [MenuItem("StellarFramework/Verification/Prepare Runtime HotUpdate E2E")]
-        private static void PrepareRuntimeE2E()
+        public static void PrepareRuntimeE2E()
         {
             BuildResult buildResult = Build();
             string verificationRoot = Path.Combine(
@@ -141,6 +141,42 @@ namespace StellarFrameworkVerification.Editor
         {
             if (!Directory.Exists(path)) return;
             Directory.Delete(path, true);
+        }
+    }
+
+    [StellarTool("HotUpdate 发布验证", "热更新", -10,
+        RequiredAssemblyNames = new[]
+        {
+            "StellarFramework.Verification.Runtime",
+            "StellarFramework.ResKit.YooAsset",
+            "YooAsset.Editor"
+        })]
+    public sealed class HotUpdateVerificationHubModule : ToolModule
+    {
+        public override string Icon => "d_TestPassed";
+        public override string Description =>
+            "维护者专用：构建 YooAsset 验证包，并准备 ResKit + YooAsset + HybridCLR Runtime E2E。";
+
+        public override void OnGUI()
+        {
+            Section("维护者发布验证");
+            EditorGUILayout.HelpBox(
+                "这里只服务 StellarFramework 源码工程的发布 Gate，不属于业务项目 Runtime，也不会随 Kit 分发。",
+                MessageType.Info);
+
+            if (PrimaryButton("构建 YooAsset HotUpdate 验证包", GUILayout.Height(32)))
+            {
+                YooAssetHotUpdateVerificationBuilder.BuildAndLog();
+            }
+
+            if (PrimaryButton("准备 Runtime HotUpdate E2E", GUILayout.Height(32)))
+            {
+                YooAssetHotUpdateVerificationBuilder.PrepareRuntimeE2E();
+            }
+
+            EditorGUILayout.HelpBox(
+                "Runtime E2E 会准备 RemoteCDN / ClientCache 配置；随后进入 Play Mode 执行对应验证 Gate。",
+                MessageType.None);
         }
     }
 }

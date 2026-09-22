@@ -12,7 +12,7 @@ StellarFramework 是一个 Unity 基础开发框架，包含架构分层、UI、
 - `Assets/StellarFramework/Samples` 是面向使用者的 Kit 教学样例，不是完整业务 Demo。
 - `Assets/StellarFrameworkVerification` 是维护者专用的 Integration、Player、Release 验证区，不会分发给使用者。
 - `GameHotUpdate` 按 Runtime Delivery Example / Verification Fixture 处理，不作为普通 Sample。
-- `Kit Package Exporter` 用于导出单 Kit、组合 Kit、样例包和独立 `Architecture.cs` / `Extensions.cs`。
+- `StellarFramework Export` 用于导出 Recommended Profile、单 Kit、组合 Kit、样例包和独立 `Architecture.cs` / `Extensions.cs`。
 - `StellarFramework.unitypackage` 用于完整框架的一键安装。
 
 ## 运行环境
@@ -26,7 +26,7 @@ StellarFramework 是一个 Unity 基础开发框架，包含架构分层、UI、
 
 使用 Unity `2022.3.62f3c1`（或兼容的 Unity 2022.3 LTS / Unity 6000.x）打开工程根目录。首次打开会解析 UniTask、Addressables、HybridCLR 等 UPM 依赖。
 
-导出入口：`StellarFramework -> Framework Source -> Kit Package Exporter`。
+导出入口：`StellarFramework -> Export`。
 
 ### 按需导出
 
@@ -36,6 +36,7 @@ StellarFramework 是一个 Unity 基础开发框架，包含架构分层、UI、
 | --- | --- |
 | 架构或静态扩展 | `Architecture.cs`、`Extensions.cs`，不引入 Kit |
 | UI | `UIKit.Core`；默认使用 Resources，不依赖 ResKit |
+| 本地化 | 只缺领域能力时导出 `LocalizationKit.Core`；`Localization Complete` 默认包含 UGUI + TMP 扫描/绑定、翻译 Workspace 与 JSON/CSV 外部翻译交换 |
 | 资源加载 | `ResKit.Core`、`ResKit.AssetBundle`、`ResKit.Addressables` 或 `ResKit.YooAsset` |
 | 代码热更 | `HybridCLRKit`；内容版本/下载由项目的 YooAsset 启动层负责 |
 | 网格基础能力 | `GridKit`，无必需 Kit 或 UPM 依赖 |
@@ -54,11 +55,13 @@ StellarFramework 是一个 Unity 基础开发框架，包含架构分层、UI、
 | 通用路径搜索 | `PathKit`，Graph-first A* / Dijkstra、正 long 成本、边界预算与原子路径输出；V1 Core Semantics 已冻结，GridKit 通过可选适配器接入 |
 | 声明式工作流 | `FlowKit.Core` 纯 C# 工作流运行时；`FlowKit.UnityIntegration` 提供可选 Unity Host/Binding，不依赖 UniTask、Addressables 或 HybridCLR |
 
+完整组合位于 `StellarFramework -> Export -> 02 完整功能`，当前提供 `Localization Complete`、`ResKit Complete` 与 `UIKit Complete`；其中 UIKit Complete 默认组合 ResKit 与 UIKit.Adaptation。 `Hot Update Full` 位于 `03 扩展功能`。这些都只是经过验证的 Profile 组合，不会创建新的 Runtime 模块。
+
 ### 单包安装
 
 - 导入 `StellarFramework.unitypackage`。
-- 打开 `StellarFramework -> 安装 -> 单包安装器`。
-- 点击 `一键安装 StellarFramework`。
+- Bootstrap 安装窗口会自动弹出。
+- 点击 `一键安装 StellarFramework`。如果手动关闭，可从 `Window -> StellarFramework Bootstrap Installer` 重新打开。
 
 详细说明：
 
@@ -129,7 +132,7 @@ Assets
 | `EventKit` | 事件注册与派发 |
 | `FSMKit` | 状态机 |
 | `HttpKit` | HTTP 请求封装 |
-| `UIKit` | UI 面板管理与页面栈 |
+| `UIKit` | UI 面板管理与页面栈；可选 Adaptation 提供 Safe Area / Aspect Breakpoint / 多尺寸适配 |
 | `ResKit` | `Resources / AssetBundle / Addressables / YooAsset / 自定义 Loader` 统一加载入口 |
 | `HybridCLRKit` | 独立的启动期代码热更新；通过 ResKit 读取 Manifest、DLL 与 AOT metadata |
 | `SettingsKit` | 设置项注册、扩展页、存储 |
@@ -167,6 +170,9 @@ Assets
 | `ResKit` | 资源构建与资源审计 |
 | `SettingsKit` | 设置中心工具 |
 | `UIKit` | UI 绑定生成与 UIKit 工具 |
+| `UIKit UI适配` | Safe Area / Breakpoint Profile、常见屏幕 Preview 与 Anchor 风险检查 |
+| `Localization 本地化` | UI 扫描绑定、稳定 BindingId、Translation Matrix、JSON/CSV 外部翻译交换与校验 |
+| `Localization TMP` | 可选 TextMeshPro 本地化扫描与稳定 BindingId 绑定 |
 | `FlowKit` | Graph Validator 与独立 FlowKit Graph 窗口（仅框架开发工程） |
 | `World Framework` | Editor-only World/Profile/Pipeline/Biome/Resource/Feature/Placement Authoring、Heatmap、Validator 与 Runtime diagnostics |
 
@@ -238,9 +244,11 @@ The primary development baseline is Unity `2022.3.62f3c1`. First import resolves
 
 ### Distribution model
 
-Use `StellarFramework -> Framework Source -> Kit Package Exporter` to export only the Kits a project needs. The exporter resolves dependency closure and generates dependency documentation beside the package.
+Use `StellarFramework -> Export` to export only the Kits a project needs. The exporter resolves dependency closure and generates dependency documentation beside the package.
 
 Examples of independently selectable capabilities include `UIKit.Core`, ResKit backends, `GridKit`, `SpatialKit`, `SimulationKit`, `PathKit`, `FlowKit`, `LocalizationKit.Core`, `WorldKit.Core`, `WorldGenKit.Core`, Builtins/Authoring/Resources/Feature, `PlacementKit.Core`, Streaming, and the independent Unity presentation adapters.
+
+The export window presents delivery-oriented sections: atomic Basic Features, production-ready Complete Features, and optional Extension Features. `Localization Complete` includes both UGUI and TMP scan/bind workflows plus external JSON/CSV translation exchange; `UIKit Complete` composes ResKit and UIKit.Adaptation. `Hot Update Full` remains a composed extension. These are composition presets over atomic profiles, not new runtime modules. If a project only needs localization domain logic, export `LocalizationKit.Core` directly; it has no framework or UPM dependency.
 
 A complete `StellarFramework.unitypackage` remains available for one-package installation.
 

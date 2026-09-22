@@ -1,0 +1,20 @@
+{
+  "name": "StellarFramework.ToolsHub.LocalizationKit.Editor",
+  "rootNamespace": "StellarFramework.Editor.Modules",
+  "references": [
+    "StellarFramework.ToolsHub.Editor",
+    "StellarFramework.LocalizationKit.Editor",
+    "StellarFramework.LocalizationKit.UnityUGUIAdapter"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

@@ -231,10 +231,13 @@ namespace StellarFramework.Localization.Editor
                 Math.Min(presentCells, requiredCells));
         }
 
-        [MenuItem("Tools/Stellar Framework/Localization/Validate Selected Catalog")]
-        private static void ValidateSelectedCatalog()
+        public static void ValidateSelectedCatalogAndShowReport()
         {
-            LocalizationCatalogAsset catalog = Selection.activeObject as LocalizationCatalogAsset;
+            ValidateAndShowReport(Selection.activeObject as LocalizationCatalogAsset);
+        }
+
+        public static void ValidateAndShowReport(LocalizationCatalogAsset catalog)
+        {
             if (catalog == null)
             {
                 EditorUtility.DisplayDialog(

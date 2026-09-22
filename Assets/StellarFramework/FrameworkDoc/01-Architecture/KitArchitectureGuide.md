@@ -32,7 +32,27 @@ Adapter Profile：可选的 Kit 间、Unity 或第三方技术栈连接层
 
 支持的 category：`diagnostics`、`infrastructure`、`flow`、`data`、`network`、`resource`、`simulation`、`presentation`、`world`、`gameplay`、`runtime-delivery`。
 
-`sample`、`tooling`、`shared-runtime`、`single-file` 和 `generated-support` 不填写 tier/category。Catalog 的 schema v2 会在导出时校验 Runtime Kit Profile 的元数据，并拒绝 Foundation 直接依赖 Extension。
+`sample`、`tooling`、`shared-runtime`、`single-file` 和 `generated-support` 不填写 tier/category。Catalog 的 schema v3 会在导出时校验 Runtime Kit Profile 的元数据、拒绝 Foundation 直接依赖 Extension，并校验 Recommended Profile 引用的原子 Profile 是否真实存在且可用。
+
+Catalog 中的 `profiles` 与 `recommendedProfiles` 是两层不同概念：
+
+- `profiles`：原子分发单元，描述 Kit、Adapter、Tooling、Generated Support 等真实源码与依赖闭包。
+- `recommendedProfiles`：面向常见项目目标的推荐导出配置，只组合已有原子 Profile，不生成新的 Runtime assembly，也不能隐藏或改写底层依赖。
+
+当前推荐交付配置：
+
+- `localization.complete`：完整本地化生产配置，包含 Core、UnityUGUI + TextMeshPro 运行时绑定、UGUI/TMP Scanner、稳定 Binding Registry、Translation Workspace、JSON/CSV 交换、Validator 与 ToolsHub；不强制引入 SettingsKit、UIKit 或资源系统。
+- `reskit.complete`：完整 ResKit 开发配置，以 `reskit.tools` 为入口，包含 ResKit.Core、PoolKit、LogKit、Generated.AssetMap、ToolsHub 与资源审计/生成工具；具体 AssetBundle/Addressables/YooAsset 后端继续按项目选择。
+- `uikit.complete`：完整 UIKit 生产配置，包含 UIKit Runtime/Tools、UIKit.ResKitAdapter、ResKit Complete、UIKit.Adaptation Runtime/Tools 与 ToolsHub；第三方资源后端仍按项目需要扩展。
+- `hotupdate.full`：完整热更新扩展，以 `reskit.yooasset + reskit.tools + hybridclrkit.tools` 为入口，自动得到 ResKit、YooAsset、HybridCLR、PoolKit、LogKit、ToolsHub、AssetsMap 与对应编辑器工具。
+
+Export 的用户导航与架构 tier 是两个独立维度：
+
+- `01 基础功能`：可按需单独选择的原子 Runtime Kit，只补齐真实硬依赖。
+- `02 完整功能`：经过验证的组合交付，例如 Localization / ResKit / UIKit Complete。
+- `03 扩展功能`：Adapter、Editor Tooling 等原子扩展，以及 Hot Update Full 这类组合扩展。
+
+`foundation / extension / adapter` 继续作为内部架构依赖规则，不再直接承担用户导出分类。
 
 ## 当前分类
 
@@ -40,7 +60,7 @@ Adapter Profile：可选的 Kit 间、Unity 或第三方技术栈连接层
 | --- | --- |
 | Foundation | LogKit、EventKit、PoolKit、SingletonKit、FSMKit、ActionKit、BindableKit、ConfigKit.Core、HttpKit、ResKit.Core、SettingsKit.Core、TimeKit、SaveKit.Core、GridKit、WorldKit.Core、SpatialKit、SimulationKit、PathKit、FlowKit.Core、PlacementKit.Core |
 | Extension | AudioKit.Core、UIKit.Core、HybridCLRKit、WorldGenKit.Core、WorldGenKit.Builtins、WorldGenKit.Authoring、WorldGenKit.Resources、WorldGenKit.Feature、WorldKit.Streaming |
-| Adapter | ConfigKit.NewtonsoftJson、SettingsKit.UnityAdapters、SettingsKit.AudioKitAdapter、AudioKit.ResKitAdapter、ResKit.AssetBundle、ResKit.Addressables、ResKit.YooAsset、UIKit.ResKitAdapter、SaveKit.NewtonsoftJson、PathKit.GridKitAdapter、FlowKit.UnityIntegration、Feature.ResourcesAdapter、Feature.PlacementAdapter、Feature.AuthoringAdapter、Feature.WorldKitAdapter、Feature.SaveKitAdapter、WorldGenKit.DebugTextureAdapter、WorldGenKit.MeshAdapter、WorldGenKit.TilemapAdapter、WorldGenKit.UnityTerrainAdapter、WorldGenKit.StreamingAdapter、WorldKit.Streaming.SaveKitAdapter、WorldKit.Streaming.UnityAdapter |
+| Adapter | ConfigKit.NewtonsoftJson、SettingsKit.UnityAdapters、SettingsKit.AudioKitAdapter、AudioKit.ResKitAdapter、ResKit.AssetBundle、ResKit.Addressables、ResKit.YooAsset、UIKit.ResKitAdapter、UIKit.Adaptation、LocalizationKit.SettingsAdapter、LocalizationKit.UnityUGUIAdapter、LocalizationKit.TMPAdapter、SaveKit.NewtonsoftJson、PathKit.GridKitAdapter、FlowKit.UnityIntegration、Feature.ResourcesAdapter、Feature.PlacementAdapter、Feature.AuthoringAdapter、Feature.WorldKitAdapter、Feature.SaveKitAdapter、WorldGenKit.DebugTextureAdapter、WorldGenKit.MeshAdapter、WorldGenKit.TilemapAdapter、WorldGenKit.UnityTerrainAdapter、WorldGenKit.StreamingAdapter、WorldKit.Streaming.SaveKitAdapter、WorldKit.Streaming.UnityAdapter |
 
 这只是展示和依赖约束元数据，不会让 Foundation 自动安装。选择某个 Kit 时，导出器仍只按 `requiredProfileIds` 计算实际依赖闭包。
 
@@ -153,7 +173,17 @@ LocalizationKit.Core 是 `foundation / data`：只负责稳定 `LocaleId`、`Loc
 
 `LocalizationKit.UnityUGUIAdapter` 是 `adapter / presentation`：提供 `LocalizationCatalogAsset` / `LocalizationTableAsset` ScriptableObject authoring、`LocalizationContext`、`LocalizedTextView` 和 `LocalizedButtonLabel`。UGUI View 只负责表现，切语言时只更新已绑定 View；业务 Model 不被修改。
 
-`LocalizationKit.Editor` 是 Editor-only tooling：验证 zh-CN / en-US coverage、duplicate/missing key、empty value、initial/fallback locale，并输出 Coverage Report。字体继续属于 Presentation/Sample 层，不进入 Core。
+`LocalizationKit.TMPAdapter` 是独立 `adapter / presentation`：基于 Core 的 `ILocalizationContext` 契约为 TextMeshPro 提供 `LocalizedTMPTextView`，不要求 Core 或 TMP 反向依赖 UGUI。对应 `LocalizationKit.TMP.Editor` 负责 TMP Prefab Scanner，`LocalizationKit.TMP.Tools` 只提供 ToolsHub 入口；三者均保持为可选 Profile。完整 `localization.complete` 会同时组合 UGUI 与 TMP，以覆盖正常 Unity UI 生产链；只需要其中一种时仍可单独导出。
+
+`LocalizationKit.Editor` 是 Editor-only 生产与验证边界：除 Catalog coverage / duplicate / missing / fallback validator 外，还拥有稳定 Binding Registry、UGUI Scanner、Translation Workspace 与 JSON/CSV 外部翻译交换；`LocalizationKit.Tools` 仅负责将这些能力接入 ToolsHub。扫描采用 Preview → Apply；机器身份使用持久化 BindingId，Hierarchy/Sibling 顺序只作为当前位置元数据，不参与长期 Key 身份。源文本变化保留 Key/BindingId 并通过 sourceHash 标记译文需复核。
+
+## UIKit.Adaptation 的定位
+
+`UIKit.Adaptation` 是 `adapter / presentation`：在不增加 UIKit.Core 负担的前提下提供 CanvasScaler 配置、Safe Area、屏幕形状 Breakpoint、横竖屏、Layout Variant 与低频屏幕变化检测。Breakpoint 的 aspect 统一使用“长边 / 短边”得到 >= 1 的 Shape Aspect；Orientation 单独判断，因此同一 20:9 设备横竖屏都使用同一个比例区间。
+
+标准 UIRoot 的 Static/Dynamic Canvas 各自包含 `FullScreenRoot` 与 `SafeAreaRoot`。Panel 通过 `UIPanelBase.PanelLayoutRegion` 显式选择区域：背景、遮罩、转场默认 FullScreen；需要避开刘海/圆角的交互内容选择 SafeArea。旧 Panel 默认仍为 FullScreen，旧 UIRoot 缺少区域节点时 UIKit 会回退到既有 Layer 结构，避免破坏既有项目。
+
+`UIKit.Adaptation.Tools` 是 Editor-only ToolsHub 能力：设备比例预览、SafeArea preview、Breakpoint 校验、Anchor 风险提示与 Layout Variant Capture。完整 `uikit.complete` 默认组合 Adaptation Runtime/Tools，但 `UIKit.Core` 本身仍可完全不使用该扩展。
 
 ## SimulationKit 的定位
 
@@ -165,7 +195,10 @@ SimulationKit 不依赖 UnityEngine、TimeKit、GridKit、SpatialKit、ResKit、
 
 - 所有 Kit 继续按需导出；Foundation 不等于默认全量安装。
 - Exporter 与 ToolsHub 以 Kit Catalog 为唯一分发事实来源。
-- Exporter 的 Foundation / Extension / Adapter 分组只改善选择界面，不改变多选、搜索、依赖去重、UPM 安装或导出闭包。
+- Runtime Profile 禁止依赖 `toolshub.core`，也禁止直接把 `Assets/StellarFramework/Editor/StellarToolsHub/...` 作为自身源码；可视化、审计和便捷编辑器能力必须进入独立 `tooling` Profile。
+- Editor 代码是否独立拆分取决于职责，而不是目录名：构建正确性所必需的生成器可以随 Core 交付，例如 SingletonKit 的 `SingletonGenerator`；ToolsHub 面板、审计器、CodeGen UX 等可选开发体验则独立为 tooling Profile。
+- Recommended Profile 只是推荐组合，不是新的 Kit。它必须复用原子 Profile 的真实依赖闭包，不能为了“一键导入”重新制造大一统模块。
+- Exporter 面向用户只显示“基础功能 / 完整功能 / 扩展功能”交付模型；Foundation / Extension / Adapter 继续只承担内部依赖约束，不改变多选、搜索、依赖去重、UPM 安装或导出闭包。
 - 新 Kit 最低交付应包含 Runtime 源码、asmdef、使用/源码文档、测试、Catalog Profile、验收矩阵、README 登记和干净工程导入验证。
 
 ## 新 Kit 的 Validation Contract

@@ -118,7 +118,7 @@ namespace StellarFramework.Tests.FrameworkValidation
                 "Assets/StellarFramework/Editor/StellarToolsHub/Modules/Packaging/StellarFrameworkPackagePublisher.cs");
 
             Assert.That(source, Does.Contain("Assets/StellarFramework/Editor/StellarToolsHub/Modules/Packaging"));
-            Assert.That(source, Does.Contain("Assets/StellarFramework/Editor/KitPackageBootstrap"));
+            Assert.That(source, Does.Contain("Assets/Editor/StellarFramework/KitPackageBootstrap"));
             Assert.That(source, Does.Contain("FullPayloadExcludedPrefixes"));
         }
 
@@ -155,6 +155,7 @@ namespace StellarFramework.Tests.FrameworkValidation
             Assert.That(source, Does.Contain("一键安装"));
             Assert.That(source, Does.Contain("com.cysharp.unitask"));
             Assert.That(source, Does.Contain("com.unity.addressables"));
+            Assert.That(source, Does.Contain("com.unity.textmeshpro@3.0.7"));
         }
 
         [Test]
@@ -204,7 +205,8 @@ namespace StellarFramework.Tests.FrameworkValidation
             Assert.That(bootstrapAsmdef, Does.Contain("\"references\": []"));
             Assert.That(bootstrapAsmdef, Does.Not.Contain("UniTask"));
             Assert.That(bootstrapAsmdef, Does.Not.Contain("Newtonsoft"));
-            Assert.That(bootstrapWindow, Does.Contain("StellarFramework/安装/单包安装器"));
+            Assert.That(bootstrapWindow, Does.Contain("Window/StellarFramework Bootstrap Installer"));
+            Assert.That(bootstrapWindow, Does.Contain("TryAutoOpen"));
             Assert.That(bootstrapWindow, Does.Contain("一键安装 StellarFramework"));
             Assert.That(bootstrapWindow, Does.Not.Contain("安装基础框架"));
             Assert.That(bootstrapWindow, Does.Not.Contain("安装完整热更新框架"));

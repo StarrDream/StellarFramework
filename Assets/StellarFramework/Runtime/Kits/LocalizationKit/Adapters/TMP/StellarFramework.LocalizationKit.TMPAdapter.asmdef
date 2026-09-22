@@ -1,0 +1,23 @@
+{
+  "name": "StellarFramework.LocalizationKit.TMPAdapter",
+  "rootNamespace": "StellarFramework.Localization.TMP",
+  "references": [
+    "StellarFramework.LocalizationKit.Core",
+    "Unity.TextMeshPro"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [
+    {
+      "name": "com.unity.textmeshpro",
+      "expression": "3.0.0",
+      "define": "STELLAR_LOCALIZATION_TMP"
+    }
+  ],
+  "noEngineReferences": false
+}

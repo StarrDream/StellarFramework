@@ -42,9 +42,21 @@ namespace StellarFramework.UI
             Static = 1
         }
 
+        /// <summary>
+        /// Panel 在 UIRoot 中使用的布局区域。
+        /// FullScreen 适合背景、遮罩、转场和必须铺满屏幕的页面；
+        /// SafeArea 适合顶部导航、按钮、文字等需要避开刘海/圆角区域的交互内容。
+        /// </summary>
+        public enum PanelLayoutRegion
+        {
+            FullScreen = 0,
+            SafeArea = 1
+        }
+
         [Header("Base")]
         [SerializeField] protected PanelLayer layer = PanelLayer.Middle;
         [SerializeField] protected PanelCanvasRole canvasRole = PanelCanvasRole.Dynamic;
+        [SerializeField] protected PanelLayoutRegion layoutRegion = PanelLayoutRegion.FullScreen;
         [SerializeField] protected bool destroyOnClose = false;
 
         [Header("Stack")]
@@ -63,6 +75,8 @@ namespace StellarFramework.UI
         public PanelLayer Layer => layer;
         /// <summary>配置的 Canvas 角色。</summary>
         public PanelCanvasRole CanvasRole => canvasRole;
+        /// <summary>Panel 使用全屏区域还是 Safe Area 区域。</summary>
+        public PanelLayoutRegion LayoutRegion => layoutRegion;
         /// <summary>关闭时是否销毁实例而不是缓存隐藏。</summary>
         public bool DestroyOnClose => destroyOnClose;
         /// <summary>是否作为全屏栈面板处理。</summary>

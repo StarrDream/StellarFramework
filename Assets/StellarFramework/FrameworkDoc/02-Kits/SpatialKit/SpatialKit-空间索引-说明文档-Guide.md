@@ -57,7 +57,7 @@ if (index.TryFindNearest(new SpatialPoint(0f, 0f), 20f, out SpatialId nearest))
 
 `StellarFramework.SpatialKit.Core.asmdef` 没有程序集引用并设置 `noEngineReferences=true`。SpatialKit Core 不需要 Architecture、GridKit、ResKit、Addressables、HybridCLR、UniTask 或其他 UPM。
 
-在框架原始工程中打开 `StellarFramework -> Framework Source -> Kit Package Exporter`，选择 `SpatialKit` 可导出 `StellarFramework-SpatialKit.unitypackage`。SpatialKit Core 的导出闭包不携带 Samples、Addressables、HybridCLR 或代码热更。
+在框架原始工程中打开 `StellarFramework -> Export`，选择 `SpatialKit` 可导出 `StellarFramework-SpatialKit.unitypackage`。SpatialKit Core 的导出闭包不携带 Samples、Addressables、HybridCLR 或代码热更。
 
 ## 使用与验收
 

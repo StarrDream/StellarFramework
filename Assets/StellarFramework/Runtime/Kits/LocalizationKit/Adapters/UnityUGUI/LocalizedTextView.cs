@@ -13,23 +13,31 @@ namespace StellarFramework.Localization.UnityUGUI
         [SerializeField] private LocalizationContext _context;
         [SerializeField] private Text _target;
         [SerializeField] private string _key;
+        [SerializeField, HideInInspector] private string _bindingId;
+        [SerializeField] private bool _autoResolveContext = true;
         private bool _isBound;
 
         /// <summary>当前文本 Key。</summary>
         public string Key => _key ?? string.Empty;
+        /// <summary>Editor Scanner 首次绑定时生成的稳定身份，不因层级改名、重排或 Reparent 自动改变。</summary>
+        public string BindingId => _bindingId ?? string.Empty;
         /// <summary>目标 UGUI Text。</summary>
         public Text Target => _target;
         /// <summary>使用的 LocalizationContext。</summary>
         public LocalizationContext Context => _context;
+        /// <summary>未显式配置 Context 时，是否从父级自动解析。</summary>
+        public bool AutoResolveContext => _autoResolveContext;
 
         private void OnEnable()
         {
+            if (!Application.isPlaying) return;
             if (!Bind(out string error))
                 Debug.LogError("[LocalizedTextView] " + error, this);
         }
 
         private void OnDisable()
         {
+            if (!Application.isPlaying) return;
             Unbind();
         }
 
@@ -45,6 +53,24 @@ namespace StellarFramework.Localization.UnityUGUI
             _context = context;
             _target = target;
             _key = key;
+
+            if (rebind && !Bind(out string error))
+                Debug.LogError("[LocalizedTextView] " + error, this);
+        }
+
+        /// <summary>
+        /// Editor Scanner/工具链使用的稳定绑定配置。
+        /// BindingId 只在首次生成、显式 Fork 或冲突修复时变化；普通扫描不能根据层级重算。
+        /// </summary>
+        public void ConfigureBinding(string bindingId, Text target, string key, LocalizationContext context = null)
+        {
+            bool rebind = _isBound;
+            if (rebind) Unbind();
+
+            _bindingId = bindingId == null ? string.Empty : bindingId.Trim();
+            _target = target;
+            _key = key == null ? string.Empty : key.Trim();
+            _context = context;
 
             if (rebind && !Bind(out string error))
                 Debug.LogError("[LocalizedTextView] " + error, this);
@@ -91,6 +117,10 @@ namespace StellarFramework.Localization.UnityUGUI
         /// </summary>
         public bool Refresh(out string error)
         {
+            if (_context == null && _autoResolveContext)
+            {
+                _context = GetComponentInParent<LocalizationContext>(true);
+            }
             if (_context == null)
             {
                 error = "LocalizationContext is not assigned.";

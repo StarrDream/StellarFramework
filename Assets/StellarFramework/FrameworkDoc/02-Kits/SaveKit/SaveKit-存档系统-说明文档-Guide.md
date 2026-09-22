@@ -52,7 +52,7 @@ SaveKit.Core 是 Foundation / data，依赖 LogKit 和 UniTask。
 
 ## 4. 导入 Profile
 
-在框架开发工程中打开 `Kit Package Exporter`。
+在框架开发工程中打开 `StellarFramework -> Export`。
 
 选择 `SaveKit.Core` 时会包含 LogKit 和 Core 源码。
 

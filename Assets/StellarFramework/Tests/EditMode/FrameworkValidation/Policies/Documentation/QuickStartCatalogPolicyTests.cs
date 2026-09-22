@@ -161,6 +161,9 @@ namespace StellarFramework.Tests.FrameworkValidation
             Assert.That(source, Does.Contain("HybridCLR DLL 导出"));
             Assert.That(source, Does.Contain("资源打包 (AssetBundle)"));
             Assert.That(source, Does.Contain("ResKit 资源审计"));
+            Assert.That(source, Does.Contain("Localization 本地化"));
+            Assert.That(source, Does.Contain("Localization TMP"));
+            Assert.That(source, Does.Contain("UIKit UI适配"));
         }
 
         [Test]

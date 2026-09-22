@@ -12,25 +12,31 @@ NOT RUN 和 BLOCKED 不得写成 PASS；未运行的 Benchmark 不得填写推�
 
 ## 当前可选目标
 
-当前 Catalog 包含 **67 个分发 Profile**：2 个 single-file、2 个 shared-runtime、5 个 tooling、1 个 generated-support、19 个 `kit`、38 个 `kit-with-dependencies`；架构 tier 为 **21 Foundation / 9 Extension / 27 Adapter / 10 non-tier**。Catalog 当前不再包含 sample Profile。
+当前 Catalog schema v3 包含 **81 个原子分发 Profile + 4 个 Recommended Profile**：2 single-file、2 shared-runtime、1 generated-support、19 kit、39 kit-with-dependencies、18 tooling；架构 tier 为 **21 Foundation / 9 Extension / 28 Adapter / 23 non-tier**。Recommended Profile 为 Localization Complete、ResKit Complete、UIKit Complete 与 Hot Update Full。Catalog 当前不再包含 sample Profile。
 
-Catalog schema v2 以 `tier` / `category` 描述架构职责；它不改变 `kind` 的分发语义，也不会让同层 Kit 自动安装。完整规则见 [KitArchitectureGuide.md](KitArchitectureGuide.md)。
+Catalog schema v3 以 `tier` / `category` 描述架构职责，并用 `recommendedProfiles` 表示高层推荐导出配置；Recommended Profile 只组合原子 Profile，不创建新的 Runtime 模块。Runtime Profile 当前 **0 个依赖 ToolsHub.Core、0 个直接打包 ToolsHub 模块**。完整规则见 [KitArchitectureGuide.md](../01-Architecture/KitArchitectureGuide.md)。
 
 关键组合如下：
 
 | 目标 | 导入后包含 | 明确不包含 |
 | --- | --- | --- |
-| AudioKit.Core | PoolKit、SingletonKit、ToolsHub.Core | ResKit、Addressables、HybridCLR |
+| AudioKit.Core | PoolKit、SingletonKit | ResKit、ToolsHub、Addressables、HybridCLR |
+| AudioKit.Tools | AudioKit.Core、ToolsHub.Core、Audio 诊断工具 | Player Runtime |
 | AudioKit.ResKitAdapter | AudioKit.Core、ResKit.Core | Addressables、HybridCLR |
 | ConfigKit.Core | 文本来源、路径和覆盖规则 | Newtonsoft Json、Addressables、HybridCLR |
-| ConfigKit.NewtonsoftJson | ConfigKit.Core、ToolsHub.Core、JSON 配置工具 | Addressables、HybridCLR |
+| ConfigKit.NewtonsoftJson | ConfigKit.Core、Newtonsoft JSON Runtime Adapter | ToolsHub、Addressables、HybridCLR |
+| ConfigKit.Tools | ConfigKit.NewtonsoftJson、ToolsHub.Core、JSON 配置工具 | Player Runtime |
 | SettingsKit.Core | SingletonKit、设置定义与存储 | AudioKit、LogKit、Addressables、HybridCLR |
 | SettingsKit.UnityAdapters | SettingsKit.Core、Unity 图形/语言/输入适配器 | AudioKit、Addressables、HybridCLR |
 | SettingsKit.AudioKitAdapter | SettingsKit.Core、AudioKit.Core | ResKit、Addressables、HybridCLR |
 | LocalizationKit.Core | LocaleId/Key、不可变 Table/Catalog、显式 Fallback、Lookup/切换事件、命名参数格式化 | 零依赖、engine-free；不含 SettingsKit/UIKit/Unity/字体 |
 | LocalizationKit.SettingsAdapter | LocalizationKit.Core + SettingsKit.Core，桥接 ILanguageSettingsAdapter | 不包含 UIKit；Core 不反向依赖 SettingsKit |
 | LocalizationKit.UnityUGUIAdapter | ScriptableObject Table/Catalog、LocalizationContext、LocalizedText/Button | 仅 LocalizationKit.Core + com.unity.ugui；不包含 SettingsKit/UIKit |
-| LocalizationKit.Editor | zh-CN/en-US coverage、duplicate/missing/empty/fallback validator | Editor-only；不进入 Player Runtime |
+| LocalizationKit.Editor | zh-CN/en-US coverage、duplicate/missing/empty/fallback validator API | Editor-only；不进入 Player Runtime；不依赖 ToolsHub |
+| LocalizationKit.Tools | LocalizationKit.Editor + ToolsHub.Core，本地化校验与示例字体维护入口 | Editor-only；Core/UGUI 不反向依赖 ToolsHub |
+| LocalizationKit.TMPAdapter | Core + TextMeshPro Runtime binding，基于 `ILocalizationContext` | Runtime 不依赖 UnityUGUIAdapter；TextMeshPro 为可选 UPM |
+| LocalizationKit.TMP.Editor / Tools | TMP Prefab Scan & Bind、稳定 BindingId、ToolsHub 入口 | 可选扩展；Scanner 复用现有 Unity authoring/registry 链 |
+| Recommended: Localization Complete | `localizationkit.tools + localizationkit.tmp.tools`，闭包自动补齐 Core / UnityUGUI / TMP / Scanner / Workspace / Exchange / Editor / ToolsHub | 不强制 SettingsKit、UIKit、ResKit、热更 |
 | TimeKit | LogKit、游戏世界 Tick 与定时调度 | ActionKit、UniTask、Addressables、HybridCLR |
 | SaveKit.Core | LogKit、存档容器、Section、事务、Migration 与 FileSystem Storage | Newtonsoft、TimeKit、Addressables、HybridCLR |
 | SaveKit.NewtonsoftJson | SaveKit.Core、Newtonsoft JSON Serializer | TimeKit、Addressables、HybridCLR |
@@ -64,9 +70,20 @@ Catalog schema v2 以 `tier` / `category` 描述架构职责；它不改变 `kin
 | FlowKit.Core | 纯 C# Graph/Compiler/Plan、Runner、Timer、Signal、State、Blackboard、Polling、Operation、Parallel/Race/Join 与 Snapshot | UnityEngine、UniTask、Addressables、HybridCLR、UI、资源和业务对象 |
 | FlowKit.UnityIntegration | FlowHost、稳定 FlowBinding、JSON Graph 入口 | UniTask、Addressables、HybridCLR、ResKit、ToolsHub |
 | FlowKit.ToolsHub | ToolsHub 内嵌 FlowKit 编辑器、Graph Validator、运行时诊断 | Editor-only；不进入玩家 Runtime；无独立 FlowKit 顶层菜单 |
+| ResKit.Core | LogKit、PoolKit、Resources/Custom Loader、Scope/引用计数 | SingletonKit、Generated.AssetMap、ToolsHub、Addressables、YooAsset、HybridCLR |
+| ResKit.Tools | ResKit.Core、Generated.AssetMap、ToolsHub.Core、AssetsMap Generator、资源驻留/引用计数审计 | Player Runtime |
+| ResKit.AssetBundle | ResKit.Core、SingletonKit、Generated.AssetMap | ToolsHub；AssetBundle 构建工具独立在 ResKit.AssetBundle.Tools |
 | ResKit.Addressables | ResKit.Core + Addressables Load/Release Adapter | HybridCLR、YooAsset、catalog/download 热更新编排 |
 | ResKit.YooAsset | ResKit.Core、UniTask、YooAsset 2.3.x Adapter | Addressables、HybridCLR、YooAsset 启动/版本/下载流程 |
-| HybridCLRKit | ResKit.Core、HybridCLR 运行时与 DLL/AOT/Manifest 导出工具 | Addressables、YooAsset、HttpKit、内容版本/下载流程 |
+| HybridCLRKit | ResKit.Core、HybridCLR Runtime、AOT Metadata/HotUpdate Assembly 加载 | ToolsHub、Addressables、YooAsset、HttpKit、内容版本/下载流程 |
+| HybridCLRKit.Tools | HybridCLRKit、ToolsHub.Core、DLL/AOT/Manifest 导出与诊断工具 | Player Runtime |
+| UIKit.Core | Runtime.Core、SingletonKit、UniTask、UGUI、Resources/Custom Load Strategy | PoolKit、Newtonsoft、ToolsHub、ResKit |
+| UIKit.Tools | UIKit.Core、ToolsHub.Core、CodeGen、Panel Inspector、UIKit Hub | Player Runtime |
+| Recommended: ResKit Complete | `reskit.tools`，依赖闭包自动补齐 ResKit.Core / PoolKit / LogKit / Generated.AssetMap / ToolsHub.Core | 具体资源后端 |
+| UIKit.Adaptation | UIKit.Core、SafeArea、Aspect Breakpoint、低频屏幕变化应用、BreakpointChanged、Layout Variant | ToolsHub、ResKit、热更后端 |
+| UIKit.Adaptation.Tools | UIKit.Adaptation、ToolsHub Preview、SafeArea/Anchor/Breakpoint Validator、Layout Variant Capture | Player Runtime |
+| Recommended: UIKit Complete | `uikit.reskit + uikit.tools + uikit.adaptation.tools + reskit.tools`，组合 UIKit、ResKit 与多尺寸适配完整开发体验 | 第三方资源后端、HybridCLR |
+| Recommended: Hot Update Full | `reskit.yooasset + reskit.tools + hybridclrkit.tools`，依赖闭包自动补齐 ResKit.Core / PoolKit / LogKit / Generated.AssetMap / ToolsHub.Core / HybridCLRKit | Addressables |
 
 完整 Profile、依赖闭包与 UPM 要求以 [KitDistributionCatalog.json](KitDistributionCatalog.json) 为准。
 

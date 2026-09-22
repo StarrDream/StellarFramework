@@ -33,8 +33,7 @@ namespace StellarFramework.Localization.Editor
         private static UnityWebRequest _request;
         private static byte[] _fontBytes;
 
-        [MenuItem("Tools/Stellar Framework/Localization/Install Source Han Sans Example Font")]
-        public static void InstallFromMenu()
+        public static void Install()
         {
             if (_stage != InstallStage.None)
             {

@@ -22,13 +22,13 @@ namespace StellarFramework.Editor.Modules
         private const string StandaloneExportRoot = "BuildArtifacts/StellarFramework/Standalone";
         private const string KitExportRoot = "BuildArtifacts/StellarFramework/Kits";
         private const string DistributionCatalogPath = "Assets/StellarFramework/KitCatalog/KitDistributionCatalog.json";
-        private const int CurrentDistributionCatalogSchemaVersion = 2;
+        private const int CurrentDistributionCatalogSchemaVersion = 3;
         private const string ArchitectureStandaloneOutputFileName = "StellarArchitecture.cs";
         private const string ExtensionsStandaloneOutputFileName = "StellarExtensions.cs";
         private const string ArchitectureSourcePath = "Assets/StellarFramework/Runtime/Core/Architecture/StellarFramework.cs";
         private const string KitBootstrapSourcePath =
-            "Assets/StellarFramework/Editor/KitPackageBootstrap/StellarFrameworkKitPackageBootstrapInstaller.cs";
-        private const string KitBootstrapRoot = "Assets/StellarFramework/Editor/KitPackageBootstrap";
+            "Assets/Editor/StellarFramework/KitPackageBootstrap/StellarFrameworkKitPackageBootstrapInstaller.cs";
+        private const string KitBootstrapRoot = "Assets/Editor/StellarFramework/KitPackageBootstrap";
         private const string KitBootstrapRequestPrefix = "__StellarFramework-KitBootstrap-";
         private const string KitBootstrapPayloadPrefix = "__StellarFramework-KitPayload-";
 
@@ -42,6 +42,7 @@ namespace StellarFramework.Editor.Modules
                 { "com.unity.nuget.newtonsoft-json", "com.unity.nuget.newtonsoft-json@3.2.2" },
                 { "com.unity.addressables", "com.unity.addressables@1.22.3" },
                 { "com.unity.ugui", "com.unity.ugui@1.0.0" },
+                { "com.unity.textmeshpro", "com.unity.textmeshpro@3.0.7" },
                 {
                     "com.code-philosophy.hybridclr",
                     "https://github.com/focus-creative-games/hybridclr_unity.git#4feac30cb2e105992986c737f7f54992b8300e1a"
@@ -453,6 +454,40 @@ namespace StellarFramework.Editor.Modules
                 .ToArray();
         }
 
+        internal static RecommendedProfile[] GetRecommendedProfiles()
+        {
+            return (LoadDistributionCatalog().recommendedProfiles ?? Array.Empty<RecommendedProfile>())
+                .OrderBy(profile => profile.order)
+                .ThenBy(profile => profile.displayName, StringComparer.Ordinal)
+                .ToArray();
+        }
+
+        internal static string[] ResolveRecommendedProfileClosureIds(string recommendedProfileId)
+        {
+            DistributionCatalog catalog = LoadDistributionCatalog();
+            RecommendedProfile recommendedProfile = FindRecommendedProfile(catalog, recommendedProfileId);
+            var closureById = new Dictionary<string, DistributionProfile>(StringComparer.Ordinal);
+            var profilesById = catalog.profiles.ToDictionary(profile => profile.id, StringComparer.Ordinal);
+
+            foreach (string profileId in recommendedProfile.profileIds)
+            {
+                DistributionProfile rootProfile = profilesById[profileId];
+                foreach (DistributionProfile dependency in ResolveProfileClosure(catalog, rootProfile))
+                {
+                    closureById[dependency.id] = dependency;
+                }
+            }
+
+            return closureById.Keys.OrderBy(profileId => profileId, StringComparer.Ordinal).ToArray();
+        }
+
+        internal static string ExportRecommendedProfileInternal(string recommendedProfileId)
+        {
+            DistributionCatalog catalog = LoadDistributionCatalog();
+            RecommendedProfile recommendedProfile = FindRecommendedProfile(catalog, recommendedProfileId);
+            return ExportKitPackageGroupInternal(recommendedProfile.profileIds, recommendedProfile.output);
+        }
+
         internal static bool IsFrameworkSourceProject()
         {
             return File.Exists(ToProjectPath(DistributionCatalogPath)) &&
@@ -689,6 +724,66 @@ namespace StellarFramework.Editor.Modules
                     }
                 }
             }
+
+            if (catalog.recommendedProfiles == null || catalog.recommendedProfiles.Length == 0)
+            {
+                throw new InvalidOperationException(
+                    "Kit distribution catalog must define at least one recommended Profile.");
+            }
+
+            var recommendedIds = new HashSet<string>(StringComparer.Ordinal);
+            foreach (RecommendedProfile recommendedProfile in catalog.recommendedProfiles)
+            {
+                if (recommendedProfile == null || string.IsNullOrWhiteSpace(recommendedProfile.id) ||
+                    !recommendedIds.Add(recommendedProfile.id))
+                {
+                    throw new InvalidOperationException(
+                        "Kit distribution catalog contains an invalid or duplicate recommended Profile id.");
+                }
+
+                if (string.IsNullOrWhiteSpace(recommendedProfile.displayName) ||
+                    string.IsNullOrWhiteSpace(recommendedProfile.output) ||
+                    string.IsNullOrWhiteSpace(recommendedProfile.deliveryGroup) ||
+                    recommendedProfile.profileIds == null || recommendedProfile.profileIds.Length == 0)
+                {
+                    throw new InvalidOperationException(
+                        $"Recommended Profile '{recommendedProfile.id}' is incomplete.");
+                }
+
+                if (recommendedProfile.deliveryGroup != "complete" &&
+                    recommendedProfile.deliveryGroup != "extension")
+                {
+                    throw new InvalidOperationException(
+                        $"Recommended Profile '{recommendedProfile.id}' has invalid deliveryGroup '{recommendedProfile.deliveryGroup}'.");
+                }
+
+                foreach (string profileId in recommendedProfile.profileIds)
+                {
+                    if (!profilesById.TryGetValue(profileId, out DistributionProfile dependency))
+                    {
+                        throw new InvalidOperationException(
+                            $"Recommended Profile '{recommendedProfile.id}' references unknown distribution profile '{profileId}'.");
+                    }
+
+                    if (dependency.availability != "available")
+                    {
+                        throw new InvalidOperationException(
+                            $"Recommended Profile '{recommendedProfile.id}' references unavailable distribution profile '{profileId}'.");
+                    }
+                }
+            }
+        }
+
+        private static RecommendedProfile FindRecommendedProfile(DistributionCatalog catalog, string recommendedProfileId)
+        {
+            RecommendedProfile recommendedProfile = catalog.recommendedProfiles?
+                .FirstOrDefault(profile => string.Equals(profile.id, recommendedProfileId, StringComparison.Ordinal));
+            if (recommendedProfile == null)
+            {
+                throw new InvalidOperationException($"Unknown recommended Profile: {recommendedProfileId}");
+            }
+
+            return recommendedProfile;
         }
 
         internal static string[] ResolveKitProfileClosureIds(string profileId)
@@ -980,7 +1075,7 @@ namespace StellarFramework.Editor.Modules
                 "# StellarFramework 单包安装说明\r\n\r\n" +
                 "## 使用方式\r\n\r\n" +
                 "只需要导入 `StellarFramework.unitypackage` 这一个包。\r\n\r\n" +
-                "导入后打开 `StellarFramework/安装/单包安装器`，点击“一键安装 StellarFramework”，安装器会继续完成依赖安装和完整框架导入。\r\n\r\n" +
+                "导入后 Bootstrap 安装窗口会自动弹出，点击“一键安装 StellarFramework”，安装器会继续完成依赖安装和完整框架导入。若手动关闭，可从 `Window/StellarFramework Bootstrap Installer` 重新打开。\r\n\r\n" +
                 "## 自动安装的依赖\r\n\r\n" +
                 "- UniTask (`com.cysharp.unitask`)\r\n" +
                 "- Newtonsoft.Json (`com.unity.nuget.newtonsoft-json`)\r\n" +
@@ -1008,6 +1103,7 @@ namespace StellarFramework.Editor.Modules
         {
             public int schemaVersion;
             public DistributionProfile[] profiles;
+            public RecommendedProfile[] recommendedProfiles;
         }
 
         [Serializable]
@@ -1026,6 +1122,18 @@ namespace StellarFramework.Editor.Modules
             public string[] requiredKits;
             public string[] requiredUpm;
             public string[] excludedCapabilities;
+        }
+
+        [Serializable]
+        internal sealed class RecommendedProfile
+        {
+            public string id;
+            public string displayName;
+            public int order;
+            public string deliveryGroup;
+            public string description;
+            public string output;
+            public string[] profileIds;
         }
 
         [Serializable]
@@ -1050,7 +1158,6 @@ namespace StellarFramework.Editor.Modules
         private static readonly string[] FullPayloadExcludedPrefixes =
         {
             "Assets/StellarFramework/Editor/StellarToolsHub/Modules/Packaging",
-            "Assets/StellarFramework/Editor/KitPackageBootstrap",
             "Assets/StellarFramework/Samples",
             "Assets/StellarFramework/Resources/Audio",
             "Assets/StellarFramework/Tests",

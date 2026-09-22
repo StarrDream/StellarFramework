@@ -28,6 +28,7 @@ namespace StellarFramework.Editor.Modules
         private FieldInfo _sharedCacheField;
         private MethodInfo _gcMethod;
         private double _lastRefreshTime;
+        private string _assetsMapStatus;
 
         private sealed class ResDataSnapshot
         {
@@ -47,9 +48,13 @@ namespace StellarFramework.Editor.Modules
 
         public override void OnGUI()
         {
+            DrawAssetsMapTools();
+
             if (!Application.isPlaying)
             {
-                EditorGUILayout.HelpBox("资源审计功能仅在游戏运行 (Play Mode) 时提供实时数据。", MessageType.Info);
+                EditorGUILayout.HelpBox(
+                    "AssetsMap 维护功能可直接使用；资源驻留、引用计数与持有者审计仅在游戏运行 (Play Mode) 时提供实时数据。",
+                    MessageType.Info);
                 return;
             }
 
@@ -62,6 +67,42 @@ namespace StellarFramework.Editor.Modules
             DrawToolbar();
             HandleAutoRefresh();
             DrawResourceList();
+        }
+
+        private void DrawAssetsMapTools()
+        {
+            Section("AssetsMap");
+            EditorGUILayout.LabelField(
+                "维护 backend-neutral 的 Assets/... 资源键常量。自动生成器会在相关资源变化时更新；这里提供显式手动重建入口。",
+                EditorStyles.wordWrappedMiniLabel);
+
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                if (PrimaryButton("重建 AssetsMap", GUILayout.Width(150)))
+                {
+                    bool changed = AssetsMapGenerator.GenerateIfNeeded();
+                    _assetsMapStatus = changed
+                        ? "AssetsMap 已重新生成并导入。"
+                        : "AssetsMap 已是最新，无需改写。";
+                    Debug.Log("[ResKit] " + _assetsMapStatus);
+                }
+
+                if (GUILayout.Button("定位生成文件", GUILayout.Width(120)))
+                {
+                    UnityEngine.Object asset =
+                        AssetDatabase.LoadMainAssetAtPath(AssetsMapGenerator.OutputAssetPath);
+                    if (asset != null)
+                    {
+                        EditorGUIUtility.PingObject(asset);
+                        Selection.activeObject = asset;
+                    }
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(_assetsMapStatus))
+            {
+                EditorGUILayout.HelpBox(_assetsMapStatus, MessageType.None);
+            }
         }
 
         private void InitializeReflection()

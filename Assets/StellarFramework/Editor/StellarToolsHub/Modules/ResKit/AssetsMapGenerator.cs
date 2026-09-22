@@ -34,8 +34,7 @@ namespace StellarFramework.Editor
             "uint", "ulong", "unchecked", "unsafe", "ushort", "using", "virtual", "void", "volatile", "while"
         };
 
-        [MenuItem("StellarFramework/ResKit/Regenerate AssetsMap")]
-        public static void GenerateFromMenu()
+        public static void GenerateAndLog()
         {
             bool changed = GenerateIfNeeded();
             Debug.Log(changed

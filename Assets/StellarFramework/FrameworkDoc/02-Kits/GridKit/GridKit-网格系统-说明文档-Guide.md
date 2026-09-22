@@ -100,7 +100,7 @@ Empty --TryOccupy(A)--> A --TryRelease(A)--> Empty
 
 GridKit 不再维护独立 Playable Sample。负坐标、row-major index、Footprint 变换与 Occupancy 原子性由本 Guide 的代码示例和 EditMode 行为测试共同维护。
 
-在框架开发工程的 `StellarFramework -> Framework Source -> Kit Package Exporter` 选择 `GridKit` 导出 `StellarFramework-GridKit.unitypackage`。GridKit 没有必需 UPM，安装器不会拉入 Addressables 或 HybridCLR。
+在框架开发工程的 `StellarFramework -> Export` 选择 `GridKit` 导出 `StellarFramework-GridKit.unitypackage`。GridKit 没有必需 UPM，安装器不会拉入 Addressables 或 HybridCLR。
 
 ## 生产检查
 

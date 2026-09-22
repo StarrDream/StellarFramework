@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "catalogId": "stellarframework.distribution",
   "description": "Declarative export profiles for the source framework project. Runtime code remains modular; profiles describe business-project artifacts.",
   "profiles": [
@@ -11,15 +11,25 @@
       "category": "flow",
       "availability": "available",
       "output": "StellarFramework-ActionKit.unitypackage",
-      "sourcePaths": [
-        "Assets/StellarFramework/Runtime/Kits/ActionKit",
-        "Assets/StellarFramework/Editor/StellarToolsHub/Modules/ActionKit"
-      ],
-      "requiredProfileIds": ["logkit", "poolkit", "toolshub.core"],
-      "requiredKits": ["LogKit", "PoolKit", "ToolsHub.Core"],
+      "sourcePaths": ["Assets/StellarFramework/Runtime/Kits/ActionKit"],
+      "requiredProfileIds": ["logkit", "poolkit"],
+      "requiredKits": ["LogKit", "PoolKit"],
       "requiredUpm": ["com.cysharp.unitask"],
       "optionalCapabilities": [],
       "excludedCapabilities": ["Addressables", "HybridCLR", "CodeHotUpdate"]
+    },
+    {
+      "id": "actionkit.tools",
+      "displayName": "ActionKit.Tools",
+      "kind": "tooling",
+      "availability": "available",
+      "output": "StellarFramework-ActionKit-Tools.unitypackage",
+      "sourcePaths": ["Assets/StellarFramework/Editor/StellarToolsHub/Modules/ActionKit"],
+      "requiredProfileIds": ["actionkit", "toolshub.core"],
+      "requiredKits": ["ActionKit", "ToolsHub.Core"],
+      "requiredUpm": ["com.cysharp.unitask"],
+      "optionalCapabilities": ["ActionDiagnostics"],
+      "excludedCapabilities": ["PlayerRuntime"]
     },
     {
       "id": "bindablekit",
@@ -585,15 +595,25 @@
       "category": "infrastructure",
       "availability": "available",
       "output": "StellarFramework-EventKit.unitypackage",
-      "sourcePaths": [
-        "Assets/StellarFramework/Runtime/Kits/EventKit",
-        "Assets/StellarFramework/Editor/StellarToolsHub/Modules/EventKit"
-      ],
-      "requiredProfileIds": ["toolshub.core"],
-      "requiredKits": ["ToolsHub.Core"],
+      "sourcePaths": ["Assets/StellarFramework/Runtime/Kits/EventKit"],
+      "requiredProfileIds": [],
+      "requiredKits": [],
       "requiredUpm": [],
       "optionalCapabilities": [],
       "excludedCapabilities": ["HybridCLR", "CodeHotUpdate"]
+    },
+    {
+      "id": "eventkit.tools",
+      "displayName": "EventKit.Tools",
+      "kind": "tooling",
+      "availability": "available",
+      "output": "StellarFramework-EventKit-Tools.unitypackage",
+      "sourcePaths": ["Assets/StellarFramework/Editor/StellarToolsHub/Modules/EventKit"],
+      "requiredProfileIds": ["eventkit", "toolshub.core"],
+      "requiredKits": ["EventKit", "ToolsHub.Core"],
+      "requiredUpm": [],
+      "optionalCapabilities": ["EventDiagnostics"],
+      "excludedCapabilities": ["PlayerRuntime"]
     },
     {
       "id": "configkit.core",
@@ -618,15 +638,25 @@
       "category": "data",
       "availability": "available",
       "output": "StellarFramework-ConfigKit-NewtonsoftJson.unitypackage",
-      "sourcePaths": [
-        "Assets/StellarFramework/Runtime/Kits/ConfigKit/Adapters/NewtonsoftJson",
-        "Assets/StellarFramework/Editor/StellarToolsHub/Modules/ConfigKit"
-      ],
-      "requiredProfileIds": ["configkit.core", "toolshub.core"],
-      "requiredKits": ["ConfigKit.Core", "ToolsHub.Core"],
+      "sourcePaths": ["Assets/StellarFramework/Runtime/Kits/ConfigKit/Adapters/NewtonsoftJson"],
+      "requiredProfileIds": ["configkit.core"],
+      "requiredKits": ["ConfigKit.Core"],
       "requiredUpm": ["com.cysharp.unitask", "com.unity.nuget.newtonsoft-json"],
       "optionalCapabilities": ["JObjectConfiguration", "NormalConfig", "NetConfig"],
       "excludedCapabilities": ["Addressables", "HybridCLR", "CodeHotUpdate"]
+    },
+    {
+      "id": "configkit.tools",
+      "displayName": "ConfigKit.Tools",
+      "kind": "tooling",
+      "availability": "available",
+      "output": "StellarFramework-ConfigKit-Tools.unitypackage",
+      "sourcePaths": ["Assets/StellarFramework/Editor/StellarToolsHub/Modules/ConfigKit"],
+      "requiredProfileIds": ["configkit.json", "toolshub.core"],
+      "requiredKits": ["ConfigKit.NewtonsoftJson", "ToolsHub.Core"],
+      "requiredUpm": ["com.cysharp.unitask", "com.unity.nuget.newtonsoft-json"],
+      "optionalCapabilities": ["ConfigEditorTools"],
+      "excludedCapabilities": ["PlayerRuntime"]
     },
     {
       "id": "localizationkit.core",
@@ -688,6 +718,60 @@
       "requiredUpm": [],
       "optionalCapabilities": ["ZhCnEnUsCoverage", "DuplicateKeyValidation", "EmptyValueValidation", "FallbackValidation", "CoverageReport"],
       "excludedCapabilities": ["PlayerRuntime", "Addressables", "HybridCLR", "CodeHotUpdate"]
+    },
+    {
+      "id": "localizationkit.tools",
+      "displayName": "LocalizationKit.Tools",
+      "kind": "tooling",
+      "availability": "available",
+      "output": "StellarFramework-LocalizationKit-Tools.unitypackage",
+      "sourcePaths": ["Assets/StellarFramework/Editor/StellarToolsHub/Modules/LocalizationKit"],
+      "requiredProfileIds": ["localizationkit.editor", "toolshub.core"],
+      "requiredKits": ["LocalizationKit.Editor", "ToolsHub.Core"],
+      "requiredUpm": [],
+      "optionalCapabilities": ["PrefabScanAndBind", "StableBindingRegistry", "TranslationWorkspace", "TranslationMatrix", "JsonCsvExchange", "CatalogValidationHub", "ExampleFontMaintenance"],
+      "excludedCapabilities": ["PlayerRuntime", "SettingsKit", "Addressables", "HybridCLR", "CodeHotUpdate"]
+    },
+    {
+      "id": "localizationkit.tmp",
+      "displayName": "LocalizationKit.TMPAdapter",
+      "kind": "kit-with-dependencies",
+      "tier": "adapter",
+      "category": "presentation",
+      "availability": "available",
+      "output": "StellarFramework-LocalizationKit-TMPAdapter.unitypackage",
+      "sourcePaths": ["Assets/StellarFramework/Runtime/Kits/LocalizationKit/Adapters/TMP"],
+      "requiredProfileIds": ["localizationkit.core"],
+      "requiredKits": ["LocalizationKit.Core"],
+      "requiredUpm": ["com.unity.textmeshpro"],
+      "optionalCapabilities": ["LocalizedTMPText", "StableBindingId", "ContextContract"],
+      "excludedCapabilities": ["SettingsKit", "UIKit", "Addressables", "HybridCLR", "CodeHotUpdate"]
+    },
+    {
+      "id": "localizationkit.tmp.editor",
+      "displayName": "LocalizationKit.TMP.Editor",
+      "kind": "tooling",
+      "availability": "available",
+      "output": "StellarFramework-LocalizationKit-TMP-Editor.unitypackage",
+      "sourcePaths": ["Assets/StellarFramework/Editor/LocalizationKitTMP"],
+      "requiredProfileIds": ["localizationkit.tmp", "localizationkit.editor"],
+      "requiredKits": ["LocalizationKit.TMPAdapter", "LocalizationKit.Editor"],
+      "requiredUpm": ["com.unity.textmeshpro"],
+      "optionalCapabilities": ["TMPPrefabScan", "TMPStableBinding", "TMPDuplicateFork"],
+      "excludedCapabilities": ["PlayerRuntime", "SettingsKit", "UIKit", "Addressables", "HybridCLR", "CodeHotUpdate"]
+    },
+    {
+      "id": "localizationkit.tmp.tools",
+      "displayName": "LocalizationKit.TMP.Tools",
+      "kind": "tooling",
+      "availability": "available",
+      "output": "StellarFramework-LocalizationKit-TMP-Tools.unitypackage",
+      "sourcePaths": ["Assets/StellarFramework/Editor/StellarToolsHub/Modules/LocalizationKitTMP"],
+      "requiredProfileIds": ["localizationkit.tmp.editor", "toolshub.core"],
+      "requiredKits": ["LocalizationKit.TMP.Editor", "ToolsHub.Core"],
+      "requiredUpm": ["com.unity.textmeshpro"],
+      "optionalCapabilities": ["TMPScanAndBindHub"],
+      "excludedCapabilities": ["PlayerRuntime", "SettingsKit", "Addressables", "HybridCLR", "CodeHotUpdate"]
     },
     {
       "id": "settingskit.core",
@@ -826,15 +910,25 @@
       "category": "infrastructure",
       "availability": "available",
       "output": "StellarFramework-SingletonKit.unitypackage",
-      "sourcePaths": [
-        "Assets/StellarFramework/Runtime/Kits/SingletonKit",
-        "Assets/StellarFramework/Editor/StellarToolsHub/Modules/SingletonKit"
-      ],
-      "requiredProfileIds": ["toolshub.core"],
-      "requiredKits": ["ToolsHub.Core"],
+      "sourcePaths": ["Assets/StellarFramework/Runtime/Kits/SingletonKit"],
+      "requiredProfileIds": [],
+      "requiredKits": [],
       "requiredUpm": [],
       "optionalCapabilities": [],
       "excludedCapabilities": ["HybridCLR", "CodeHotUpdate"]
+    },
+    {
+      "id": "singletonkit.tools",
+      "displayName": "SingletonKit.Tools",
+      "kind": "tooling",
+      "availability": "available",
+      "output": "StellarFramework-SingletonKit-Tools.unitypackage",
+      "sourcePaths": ["Assets/StellarFramework/Editor/StellarToolsHub/Modules/SingletonKit"],
+      "requiredProfileIds": ["singletonkit", "toolshub.core"],
+      "requiredKits": ["SingletonKit", "ToolsHub.Core"],
+      "requiredUpm": [],
+      "optionalCapabilities": ["SingletonDiagnostics"],
+      "excludedCapabilities": ["PlayerRuntime"]
     },
     {
       "id": "logkit",
@@ -870,20 +964,30 @@
       "category": "resource",
       "availability": "available",
       "output": "StellarFramework-ResKit-Core.unitypackage",
-      "sourcePaths": [
-        "Assets/StellarFramework/Runtime/Kits/Reskit",
-        "Assets/StellarFramework/Editor/StellarToolsHub/Modules/ResKit"
-      ],
+      "sourcePaths": ["Assets/StellarFramework/Runtime/Kits/Reskit"],
       "excludedSourcePaths": [
         "Assets/StellarFramework/Runtime/Kits/Reskit/Loaders/AddressableLoader",
         "Assets/StellarFramework/Runtime/Kits/Reskit/Loaders/AssetBundleLoader",
         "Assets/StellarFramework/Runtime/Kits/Reskit/Loaders/YooAssetLoader"
       ],
-      "requiredProfileIds": ["logkit", "poolkit", "singletonkit", "generated.assetmap", "toolshub.core"],
-      "requiredKits": ["LogKit", "PoolKit", "SingletonKit", "Generated.AssetMap", "ToolsHub.Core"],
+      "requiredProfileIds": ["logkit", "poolkit"],
+      "requiredKits": ["LogKit", "PoolKit"],
       "requiredUpm": ["com.cysharp.unitask"],
       "optionalCapabilities": ["ResourcesResourceLoading", "CustomResourceLoading"],
       "excludedCapabilities": ["Addressables", "HybridCLR", "CodeHotUpdate"]
+    },
+    {
+      "id": "reskit.tools",
+      "displayName": "ResKit.Tools",
+      "kind": "tooling",
+      "availability": "available",
+      "output": "StellarFramework-ResKit-Tools.unitypackage",
+      "sourcePaths": ["Assets/StellarFramework/Editor/StellarToolsHub/Modules/ResKit"],
+      "requiredProfileIds": ["reskit.core", "generated.assetmap", "toolshub.core"],
+      "requiredKits": ["ResKit.Core", "Generated.AssetMap", "ToolsHub.Core"],
+      "requiredUpm": ["com.cysharp.unitask"],
+      "optionalCapabilities": ["AssetsMapGenerator", "ResourceAudit", "ReferenceCountInspection"],
+      "excludedCapabilities": ["PlayerRuntime"]
     },
     {
       "id": "audiokit.core",
@@ -893,18 +997,28 @@
       "category": "presentation",
       "availability": "available",
       "output": "StellarFramework-AudioKit-Core.unitypackage",
-      "sourcePaths": [
-        "Assets/StellarFramework/Runtime/Kits/AudioKit",
-        "Assets/StellarFramework/Editor/StellarToolsHub/Modules/AudioKit"
-      ],
+      "sourcePaths": ["Assets/StellarFramework/Runtime/Kits/AudioKit"],
       "excludedSourcePaths": [
         "Assets/StellarFramework/Runtime/Kits/AudioKit/Adapters/ResKit"
       ],
-      "requiredProfileIds": ["poolkit", "singletonkit", "toolshub.core"],
-      "requiredKits": ["PoolKit", "SingletonKit", "ToolsHub.Core"],
+      "requiredProfileIds": ["poolkit", "singletonkit"],
+      "requiredKits": ["PoolKit", "SingletonKit"],
       "requiredUpm": ["com.cysharp.unitask"],
       "optionalCapabilities": ["ResourcesAudioLoading", "CustomAudioLoading"],
       "excludedCapabilities": ["ResKit", "Addressables", "HybridCLR", "CodeHotUpdate"]
+    },
+    {
+      "id": "audiokit.tools",
+      "displayName": "AudioKit.Tools",
+      "kind": "tooling",
+      "availability": "available",
+      "output": "StellarFramework-AudioKit-Tools.unitypackage",
+      "sourcePaths": ["Assets/StellarFramework/Editor/StellarToolsHub/Modules/AudioKit"],
+      "requiredProfileIds": ["audiokit.core", "toolshub.core"],
+      "requiredKits": ["AudioKit.Core", "ToolsHub.Core"],
+      "requiredUpm": ["com.cysharp.unitask"],
+      "optionalCapabilities": ["AudioDiagnostics"],
+      "excludedCapabilities": ["PlayerRuntime"]
     },
     {
       "id": "audiokit.reskit",
@@ -931,15 +1045,25 @@
       "category": "resource",
       "availability": "available",
       "output": "StellarFramework-ResKit-AssetBundle.unitypackage",
-      "sourcePaths": [
-        "Assets/StellarFramework/Runtime/Kits/Reskit/Loaders/AssetBundleLoader",
-        "Assets/StellarFramework/Editor/StellarToolsHub/Modules/AssetBundle"
-      ],
-      "requiredProfileIds": ["reskit.core"],
-      "requiredKits": ["ResKit.Core"],
+      "sourcePaths": ["Assets/StellarFramework/Runtime/Kits/Reskit/Loaders/AssetBundleLoader"],
+      "requiredProfileIds": ["reskit.core", "singletonkit", "generated.assetmap"],
+      "requiredKits": ["ResKit.Core", "SingletonKit", "Generated.AssetMap"],
       "requiredUpm": ["com.cysharp.unitask"],
       "optionalCapabilities": [],
       "excludedCapabilities": ["Addressables", "HybridCLR", "CodeHotUpdate"]
+    },
+    {
+      "id": "reskit.assetbundle.tools",
+      "displayName": "ResKit.AssetBundle.Tools",
+      "kind": "tooling",
+      "availability": "available",
+      "output": "StellarFramework-ResKit-AssetBundle-Tools.unitypackage",
+      "sourcePaths": ["Assets/StellarFramework/Editor/StellarToolsHub/Modules/AssetBundle"],
+      "requiredProfileIds": ["reskit.assetbundle", "toolshub.core"],
+      "requiredKits": ["ResKit.AssetBundle", "ToolsHub.Core"],
+      "requiredUpm": ["com.cysharp.unitask"],
+      "optionalCapabilities": ["AssetBundleBuildTools"],
+      "excludedCapabilities": ["PlayerRuntime"]
     },
     {
       "id": "reskit.addressables",
@@ -979,16 +1103,26 @@
       "category": "runtime-delivery",
       "availability": "available",
       "output": "StellarFramework-HybridCLRKit.unitypackage",
-      "sourcePaths": [
-        "Assets/StellarFramework/Runtime/Kits/HybridCLRKit",
-        "Assets/StellarFramework/Editor/StellarToolsHub/Modules/HybridCLRKit"
-      ],
+      "sourcePaths": ["Assets/StellarFramework/Runtime/Kits/HybridCLRKit"],
       "excludedSourcePaths": [],
       "requiredProfileIds": ["reskit.core"],
       "requiredKits": ["ResKit.Core"],
       "requiredUpm": ["com.cysharp.unitask", "com.code-philosophy.hybridclr"],
       "optionalCapabilities": ["HybridCLR", "CodeHotUpdate", "ResKitBackendAgnostic"],
       "excludedCapabilities": ["AddressablesResourceHotUpdate"]
+    },
+    {
+      "id": "hybridclrkit.tools",
+      "displayName": "HybridCLRKit.Tools",
+      "kind": "tooling",
+      "availability": "available",
+      "output": "StellarFramework-HybridCLRKit-Tools.unitypackage",
+      "sourcePaths": ["Assets/StellarFramework/Editor/StellarToolsHub/Modules/HybridCLRKit"],
+      "requiredProfileIds": ["hybridclrkit", "toolshub.core"],
+      "requiredKits": ["HybridCLRKit", "ToolsHub.Core"],
+      "requiredUpm": ["com.cysharp.unitask", "com.code-philosophy.hybridclr"],
+      "optionalCapabilities": ["HybridCLRAssetExport", "HybridCLRBuildDiagnostics"],
+      "excludedCapabilities": ["PlayerRuntime"]
     },
     {
       "id": "uikit.core",
@@ -1000,16 +1134,34 @@
       "output": "StellarFramework-UIKit-Core.unitypackage",
       "sourcePaths": [
         "Assets/StellarFramework/Runtime/Kits/UIKit",
-        "Assets/StellarFramework/Editor/StellarToolsHub/Modules/UIKit"
+        "Assets/StellarFramework/Resources/Managers/UIKit.prefab"
       ],
       "excludedSourcePaths": [
-        "Assets/StellarFramework/Runtime/Kits/UIKit/Adapters/ResKit"
+        "Assets/StellarFramework/Runtime/Kits/UIKit/Adapters/Adaptation",
+        "Assets/StellarFramework/Runtime/Kits/UIKit/Adapters/ResKit",
+        "Assets/StellarFramework/Runtime/Kits/UIKit/Editor"
       ],
-      "requiredProfileIds": ["runtime.core", "poolkit", "singletonkit", "toolshub.core"],
-      "requiredKits": ["Runtime.Core", "PoolKit", "SingletonKit", "ToolsHub.Core"],
-      "requiredUpm": ["com.cysharp.unitask", "com.unity.ugui", "com.unity.nuget.newtonsoft-json"],
+      "requiredProfileIds": ["runtime.core", "singletonkit"],
+      "requiredKits": ["Runtime.Core", "SingletonKit"],
+      "requiredUpm": ["com.cysharp.unitask", "com.unity.ugui"],
       "optionalCapabilities": ["ResourcesUILoadStrategy", "CustomUILoadStrategy"],
       "excludedCapabilities": ["ResKit", "Addressables", "HybridCLR", "CodeHotUpdate"]
+    },
+    {
+      "id": "uikit.tools",
+      "displayName": "UIKit.Tools",
+      "kind": "tooling",
+      "availability": "available",
+      "output": "StellarFramework-UIKit-Tools.unitypackage",
+      "sourcePaths": [
+        "Assets/StellarFramework/Runtime/Kits/UIKit/Editor",
+        "Assets/StellarFramework/Editor/StellarToolsHub/Modules/UIKit"
+      ],
+      "requiredProfileIds": ["uikit.core", "toolshub.core"],
+      "requiredKits": ["UIKit.Core", "ToolsHub.Core"],
+      "requiredUpm": ["com.cysharp.unitask", "com.unity.ugui"],
+      "optionalCapabilities": ["UIKitCodeGen", "UIPanelInspector", "UIKitHub"],
+      "excludedCapabilities": ["PlayerRuntime"]
     },
     {
       "id": "uikit.reskit",
@@ -1027,6 +1179,38 @@
       "requiredUpm": ["com.cysharp.unitask", "com.unity.ugui"],
       "optionalCapabilities": ["ResKitUILoadStrategy"],
       "excludedCapabilities": ["Addressables", "HybridCLR", "CodeHotUpdate"]
+    },
+    {
+      "id": "uikit.adaptation",
+      "displayName": "UIKit.Adaptation",
+      "kind": "kit-with-dependencies",
+      "tier": "adapter",
+      "category": "presentation",
+      "availability": "available",
+      "output": "StellarFramework-UIKit-Adaptation.unitypackage",
+      "sourcePaths": [
+        "Assets/StellarFramework/Runtime/Kits/UIKit/Adapters/Adaptation"
+      ],
+      "requiredProfileIds": ["uikit.core"],
+      "requiredKits": ["UIKit.Core"],
+      "requiredUpm": ["com.unity.ugui"],
+      "optionalCapabilities": ["SafeArea", "AspectBreakpoints", "RuntimeScreenAdaptation", "LayoutVariants"],
+      "excludedCapabilities": ["ResKit", "Addressables", "HybridCLR", "CodeHotUpdate"]
+    },
+    {
+      "id": "uikit.adaptation.tools",
+      "displayName": "UIKit.Adaptation.Tools",
+      "kind": "tooling",
+      "availability": "available",
+      "output": "StellarFramework-UIKit-Adaptation-Tools.unitypackage",
+      "sourcePaths": [
+        "Assets/StellarFramework/Editor/StellarToolsHub/Modules/UIKitAdaptation"
+      ],
+      "requiredProfileIds": ["uikit.adaptation", "toolshub.core"],
+      "requiredKits": ["UIKit.Adaptation", "ToolsHub.Core"],
+      "requiredUpm": ["com.unity.ugui"],
+      "optionalCapabilities": ["AdaptationPreview", "SafeAreaValidation", "AnchorRiskValidation", "LayoutVariantCapture"],
+      "excludedCapabilities": ["PlayerRuntime"]
     },
     {
       "id": "savekit.core",
@@ -1071,6 +1255,44 @@
       "requiredUpm": ["com.cysharp.unitask"],
       "optionalCapabilities": ["SaveInspector", "RawPreview", "HexPreview", "MigrationDryRun", "SaveDiagnostics"],
       "excludedCapabilities": ["NewtonsoftJson", "TimeKit", "Addressables", "HybridCLR", "CodeHotUpdate"]
+    }
+  ],
+  "recommendedProfiles": [
+    {
+      "id": "localization.complete",
+      "displayName": "Localization Complete",
+      "order": 10,
+      "deliveryGroup": "complete",
+      "description": "完整 Unity 本地化开发配置：纯 C# Core + UGUI/TMP 扫描与运行时绑定 + Translation Workspace/JSON/CSV + Validator + ToolsHub；不强制引入 SettingsKit、UIKit 或资源系统。",
+      "output": "StellarFramework-Profile-Localization-Complete.unitypackage",
+      "profileIds": ["localizationkit.tools", "localizationkit.tmp.tools"]
+    },
+    {
+      "id": "reskit.complete",
+      "displayName": "ResKit Complete",
+      "order": 20,
+      "deliveryGroup": "complete",
+      "description": "完整 ResKit 开发配置：ResKit.Core + AssetsMap + ToolsHub 资源审计/生成工具；资源后端仍按项目需要单独选择。",
+      "output": "StellarFramework-Profile-ResKit-Complete.unitypackage",
+      "profileIds": ["reskit.tools"]
+    },
+    {
+      "id": "uikit.complete",
+      "displayName": "UIKit Complete",
+      "order": 30,
+      "deliveryGroup": "complete",
+      "description": "完整 UIKit 开发配置：UIKit Runtime/Tools + ResKit 统一资源管理/审计 + Safe Area/Breakpoint/Layout Variant 多机型适配 + ToolsHub；具体第三方资源后端仍按项目需要扩展。",
+      "output": "StellarFramework-Profile-UIKit-Complete.unitypackage",
+      "profileIds": ["uikit.reskit", "uikit.tools", "uikit.adaptation.tools", "reskit.tools"]
+    },
+    {
+      "id": "hotupdate.full",
+      "displayName": "Hot Update Full",
+      "order": 40,
+      "deliveryGroup": "extension",
+      "description": "完整资源与代码热更开发配置：ResKit + YooAsset + HybridCLR，并包含资源审计、AssetsMap 与 HybridCLR 编辑器工具。",
+      "output": "StellarFramework-Profile-HotUpdate-Full.unitypackage",
+      "profileIds": ["reskit.yooasset", "reskit.tools", "hybridclrkit.tools"]
     }
   ]
 }

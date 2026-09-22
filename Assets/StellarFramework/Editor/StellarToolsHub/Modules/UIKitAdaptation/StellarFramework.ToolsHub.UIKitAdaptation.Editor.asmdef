@@ -1,0 +1,21 @@
+{
+  "name": "StellarFramework.ToolsHub.UIKitAdaptation.Editor",
+  "rootNamespace": "StellarFramework.Editor.Modules",
+  "references": [
+    "StellarFramework.ToolsHub.Editor",
+    "StellarFramework.UIKit",
+    "StellarFramework.UIKit.Adaptation",
+    "UnityEngine.UI"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

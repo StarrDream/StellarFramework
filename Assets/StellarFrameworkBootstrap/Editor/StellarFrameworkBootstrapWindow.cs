@@ -3,16 +3,42 @@ using UnityEngine;
 
 namespace StellarFrameworkBootstrap
 {
+    [InitializeOnLoad]
     internal sealed class StellarFrameworkBootstrapWindow : EditorWindow
     {
+        private const string AutoOpenSessionKey = "StellarFrameworkBootstrap.AutoOpenWindowShown";
         private Vector2 _scroll;
 
-        [MenuItem("StellarFramework/安装/单包安装器")]
+        static StellarFrameworkBootstrapWindow()
+        {
+            EditorApplication.delayCall += TryAutoOpen;
+        }
+
+        [MenuItem("Window/StellarFramework Bootstrap Installer")]
         public static void Open()
         {
             StellarFrameworkBootstrapWindow window = GetWindow<StellarFrameworkBootstrapWindow>("单包安装器");
             window.minSize = new Vector2(620, 420);
             window.Show();
+        }
+
+        private static void TryAutoOpen()
+        {
+            if (EditorApplication.isCompiling || EditorApplication.isUpdating)
+            {
+                EditorApplication.delayCall += TryAutoOpen;
+                return;
+            }
+
+            if (StellarFrameworkBootstrapPackageUtility.IsFrameworkDevelopmentProject() ||
+                SessionState.GetBool(AutoOpenSessionKey, false) ||
+                !System.IO.File.Exists(StellarFrameworkBootstrapPackageUtility.GetEmbeddedPayloadPath()))
+            {
+                return;
+            }
+
+            SessionState.SetBool(AutoOpenSessionKey, true);
+            Open();
         }
 
         private void Update()

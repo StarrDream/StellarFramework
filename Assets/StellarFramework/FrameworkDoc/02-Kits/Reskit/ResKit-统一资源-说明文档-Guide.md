@@ -78,7 +78,7 @@ Assets/StellarFramework/Generated/AssetMap/AssetsMap.cs
 - C# 非法字符、关键字、同名文件会自动做稳定消歧。
 - `Editor / Tests / FrameworkDoc / AddressableAssetsData / StreamingAssets` 等工程基础设施不会进入业务 AssetsMap。
 - 只有内容发生变化时才重写文件，不会每次 Import 都制造无意义编译。
-- `AssetPostprocessor` 会在资源导入、删除、移动后自动维护；也可以手动执行 `StellarFramework/ResKit/Regenerate AssetsMap`。
+- `AssetPostprocessor` 会在资源导入、删除、移动后自动维护；也可以在 `StellarFramework -> Tools Hub -> ResKit 资源审计` 中手动执行“重建 AssetsMap”。
 
 注意：已有的单数 `AssetMap` 是 **AssetBundle path -> bundle name** 内部映射；新的复数 `AssetsMap` 是业务层资源 key。两者职责不同，不应合并。
 

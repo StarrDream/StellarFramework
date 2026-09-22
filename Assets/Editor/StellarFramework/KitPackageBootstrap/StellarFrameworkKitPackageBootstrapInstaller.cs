@@ -7,6 +7,7 @@ using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
 using UnityEditor;
+using UnityEditor.Callbacks;
 using UnityEditor.PackageManager;
 using UnityEditor.PackageManager.Requests;
 using UnityEngine;
@@ -20,7 +21,7 @@ namespace StellarFramework.Editor.KitBootstrap
     [InitializeOnLoad]
     internal static class StellarFrameworkKitPackageBootstrapInstaller
     {
-        private const string BootstrapRoot = "Assets/StellarFramework/Editor/KitPackageBootstrap";
+        private const string BootstrapRoot = "Assets/Editor/StellarFramework/KitPackageBootstrap";
         private const string RequestSearchPattern = "__StellarFramework-KitBootstrap-*.json";
         private const string ManifestPath = "Packages/manifest.json";
         private const string SourceProjectMarker =
@@ -58,6 +59,31 @@ namespace StellarFramework.Editor.KitBootstrap
         {
             EditorApplication.update -= Tick;
             EditorApplication.update += Tick;
+            TryGenerateSingletonRegistryIfAvailable();
+            ScheduleSingletonRegistryRefresh();
+        }
+
+        [DidReloadScripts]
+        private static void OnScriptsReloaded()
+        {
+            ScheduleSingletonRegistryRefresh();
+        }
+
+        private static void ScheduleSingletonRegistryRefresh()
+        {
+            EditorApplication.delayCall -= RefreshSingletonRegistryAfterDomainReload;
+            EditorApplication.delayCall += RefreshSingletonRegistryAfterDomainReload;
+        }
+
+        private static void RefreshSingletonRegistryAfterDomainReload()
+        {
+            if (EditorApplication.isCompiling || EditorApplication.isUpdating)
+            {
+                ScheduleSingletonRegistryRefresh();
+                return;
+            }
+
+            TryGenerateSingletonRegistryIfAvailable();
         }
 
         private static void Tick()
@@ -229,6 +255,13 @@ namespace StellarFramework.Editor.KitBootstrap
                 return true;
             }
 
+            if (!TryGenerateSingletonRegistryIfAvailable())
+            {
+                LogFailureOnce(requestAssetPath, "singleton-registry-generation",
+                    "[StellarFramework] SingletonKit 静态注册表生成失败，已保留安装器以便修复后重试。");
+                return true;
+            }
+
             string tempPackagePath = SessionState.GetString(PendingPayloadSessionKey, string.Empty);
             AssetDatabase.DeleteAsset(requestAssetPath);
             AssetDatabase.DeleteAsset(request.payloadAssetPath);
@@ -237,6 +270,63 @@ namespace StellarFramework.Editor.KitBootstrap
             ClearPendingPayload();
             Debug.Log($"[StellarFramework] {request.displayName} 已完成安装。");
             return true;
+        }
+
+        /// <summary>
+        /// SingletonKit keeps runtime reflection out of the player by generating a static registry in Editor.
+        /// The Kit bootstrap is the deterministic first-install trigger because, at this point, all payload
+        /// assemblies have already compiled. Packages that do not contain SingletonKit simply skip this step.
+        /// </summary>
+        private static bool TryGenerateSingletonRegistryIfAvailable()
+        {
+            const string generatorTypeName = "StellarFramework.Editor.SingletonGenerator";
+            Type generatorType = AppDomain.CurrentDomain.GetAssemblies()
+                .Select(assembly => assembly.GetType(generatorTypeName, false))
+                .FirstOrDefault(type => type != null);
+            if (generatorType == null)
+            {
+                try
+                {
+                    Assembly generatorAssembly = Assembly.Load("StellarFramework.Singleton.Editor");
+                    generatorType = generatorAssembly.GetType(generatorTypeName, false);
+                }
+                catch
+                {
+                    return true;
+                }
+            }
+
+            if (generatorType == null)
+            {
+                return true;
+            }
+
+            MethodInfo generateMethod = generatorType.GetMethod(
+                "Generate",
+                BindingFlags.Public | BindingFlags.Static);
+            if (generateMethod == null)
+            {
+                Debug.LogError(
+                    "[StellarFramework] 找到 SingletonGenerator，但缺少 public static Generate()。");
+                return false;
+            }
+
+            try
+            {
+                generateMethod.Invoke(null, null);
+                return true;
+            }
+            catch (TargetInvocationException exception)
+            {
+                Exception cause = exception.InnerException ?? exception;
+                Debug.LogError("[StellarFramework] SingletonRegister 生成失败: " + cause);
+                return false;
+            }
+            catch (Exception exception)
+            {
+                Debug.LogError("[StellarFramework] SingletonRegister 生成失败: " + exception);
+                return false;
+            }
         }
 
         private static bool PayloadWasImported(BootstrapRequest request)

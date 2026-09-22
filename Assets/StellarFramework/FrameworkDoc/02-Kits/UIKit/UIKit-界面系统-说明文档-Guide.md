@@ -128,10 +128,69 @@ await UIKit.PreloadAsync<ShopPanel>();
 - 激活面板数
 - 加载中面板数
 
+## 多机型 UI 适配
+
+`UIKit.Adaptation` 是可选 Adapter，`UIKit.Core` 不直接依赖它；`UIKit Complete` 默认组合该能力。
+
+### UIAdaptationProfile
+
+Profile 按屏幕特征而不是手机型号描述适配规则：
+
+- Design Resolution。
+- Default `matchWidthOrHeight`。
+- Safe Area 开关。
+- Aspect / Orientation Breakpoints，例如 PhoneTall、Tablet、Landscape。
+
+Breakpoint 的 Aspect 使用“长边 / 短边”得到 >= 1 的 Shape Aspect，Orientation 单独判断。因此同一台 20:9 设备在横屏与竖屏都使用约 2.22 的比例区间，不需要维护两套倒数配置。Breakpoint 只决定当前适配类别和 CanvasScaler Match，不在 Runtime 猜测设计意图。
+
+### UIAdaptationController
+
+Controller 挂在 UIRoot，仅在 `Screen.width / height / safeArea` 变化时重新应用：
+
+- `CanvasScaler.ScaleWithScreenSize`。
+- reference resolution。
+- breakpoint match。
+- 一个或多个 `SafeAreaRoot` normalized anchors（标准 UIRoot 的 Static/Dynamic Canvas 各有一套）。
+
+每个 Panel 不需要自行逐帧读取 `Screen.safeArea`。
+
+### FullScreen / SafeArea Region
+
+标准 UIRoot 的每个 Canvas Role 都包含 `FullScreenRoot` 与 `SafeAreaRoot`，两者各自拥有 Bottom / Middle / Top / Popup / System 五层。
+
+`UIPanelBase.PanelLayoutRegion` 决定 Panel 被放到哪一组 Layer。默认 `FullScreen` 保持旧项目语义，适合背景、遮罩和转场；顶部按钮、导航、文字等需要避开刘海/圆角的 Panel 可显式选择 `SafeArea`。旧 UIRoot 若没有区域节点，UIKit 会回退到原有 Layer 结构。
+
+### Layout Variant
+
+`UILayoutVariant` 用于真正需要差异布局的 Panel。设计师在 ToolsHub 选择 Breakpoint（例如 `tablet`），调整 RectTransform 后执行 `Capture 当前布局`，保存该 Panel 子树的：
+
+- anchors / pivot。
+- anchoredPosition / sizeDelta。
+- localScale。
+- activeSelf。
+
+Runtime 只监听 `UIAdaptationController.BreakpointChanged`，Breakpoint 真正变化时应用一次对应快照，不进行逐帧布局重写。
+
+### ToolsHub
+
+`Tools Hub -> UIKit UI适配` 提供：
+
+- 16:9 / 20:9 / 4:3 / 19.5:9 Portrait Preview。
+- 自定义 Width / Height / Safe Insets。
+- Breakpoint / Match 预览。
+- Adaptation Controller 一键配置。
+- 推荐 Adaptation Profile 一键创建（Tablet / Phone / PhoneTall）。
+- Layout Variant Capture / Preview。
+- 缺少 SafeAreaRoot、错误 CanvasScaler、中心 Anchor 靠边、Breakpoint 重叠等风险检查。
+
+Validator 只报告风险，不会擅自重排 UI。
+
 ## ToolsHub 关联
 
 - `UIKit 工具`
   UI 工作区、绑定代码生成、样例修复
+- `UIKit UI适配`
+  Safe Area、Breakpoint、Device Preview、Layout Variant Capture 与布局风险检查
 - `文档中心`
   查看 UIKit 说明和源码文档
 
