@@ -1599,3 +1599,135 @@ Current active milestone is **P7 — Feature / POI + PlacementKit**. P7 follows 
 - Temporary clean-project PlayMode validation asmdef/source and temporary mother-project export trigger/test were removed after evidence was collected. Final 8093 cleanup compile: **0 errors / 0 warnings**, Console **0 Error**.
 - The previous UIKit/Singleton distribution handoff is therefore closed. No commit/push/reset/clean was performed; unrelated mother-project dirty worktree state remains preserved.
 - Final Git delivery was subsequently authorized by the user and completed on `main`: implementation commit `462b41c` (`feat: finalize localization and UIKit distribution`) was pushed to `origin/main`. Local-only `Assets/Generated/StellarFramework/SingletonRegister` output and `Assets/TextMesh Pro` Essential Resources were intentionally excluded from version control as generated/validation artifacts.
+
+### 2026-09-22 — UIKit dual SafeArea / precise Cutout adaptation + device demo delivery
+
+- User requested keeping the previously delivered conservative Safe Area solution and adding a second, precise solution that can use the screen around a punch-hole/notch/Dynamic Island. Final architecture keeps both instead of replacing one with the other:
+  1. **SafeAreaRoot** — rectangular conservative avoidance for ordinary pages/forms/settings/navigation.
+  2. **UICutoutAwareLayout** — precise per-target avoidance for HUD/top bars that should keep using the rest of the display edge.
+- Added runtime display geometry transport:
+  `Assets/StellarFramework/Runtime/Kits/UIKit/Adapters/Adaptation/UIDisplayGeometry.cs`.
+  `UIAdaptationController` now samples `Screen.cutouts` together with width/height/safeArea, exposes `CurrentGeometry`, `HasCurrentGeometry`, and `DisplayGeometryChanged`, and only publishes when the geometry actually changes. Existing `SafeAreaRoot` behavior is preserved.
+- Added precise runtime layout:
+  `Assets/StellarFramework/Runtime/Kits/UIKit/Adapters/Adaptation/UICutoutAwareLayout.cs`.
+  It supports:
+  - `System`, `Manual`, `SystemAndManual` exclusion sources;
+  - normalized manual exclusion zones with orientation filtering;
+  - Top / Bottom / Any edge handling;
+  - Auto / Horizontal / Vertical movement constraints;
+  - reference-pixel cutout/edge padding;
+  - cached screen-space solver data; no independent per-frame polling;
+  - only configured RectTransform targets that actually overlap an exclusion zone are moved.
+- `Tools Hub -> UIKit UI适配` now supports Cutout preview in addition to existing Safe Area / breakpoint preview:
+  - None;
+  - Center Punch;
+  - Dynamic Island;
+  - Left Punch;
+  - explicit Cutout X/Y/W/H pixel rectangle.
+  Preview applies LayoutVariant first and then precise Cutout avoidance, matching runtime ordering.
+- `UIKit-界面系统-说明文档-Guide.md` and `KitDistributionCatalog.json` were updated with the two-scheme contract, System Cutouts, PreciseCutoutAvoidance, ManualExclusionZones, CutoutPreview and validation capabilities. `UIKit Complete` continues to include the adaptation package.
+- UIKit adaptation EditMode fixture is now **12/12 PASS**, including new evidence for injected display geometry, center-cutout selective movement, corner-punch selective movement, and manual normalized exclusion conversion.
+- During clean-project runtime validation, the demo scene exposed an existing ResKit generator edge case: a folder and asset with the same sanitized C# name could produce an illegal member matching its enclosing generated type (`CS0542`). `AssetsMapGenerator` was fixed to reserve the enclosing type name and append an extension/hash when needed. Added `GeneratedMemberNeverMatchesItsEnclosingFolderTypeName`; final `AssetsMapGeneratorTests` are **6/6 PASS**.
+- Final mother verification after removing all temporary export helpers:
+  - compile: **0 errors / 0 warnings**;
+  - `UIKitAdaptationTests`: **12/12 PASS**;
+  - `KitArchitectureMetadataPolicyTests`: **16/16 PASS**;
+  - `StandaloneSourceExportPolicyTests`: **32/32 PASS**;
+  - `PackagePublisherPolicyTests`: **23/23 PASS**.
+- Re-exported final `uikit.complete` package containing both Cutout support and the AssetsMap generator fix:
+  `BuildArtifacts/StellarFramework/Kits/StellarFramework-Profile-UIKit-Complete.unitypackage`
+  - timestamp: `2026-09-22T06:41:17.8735080Z`;
+  - size: `167441` bytes.
+- Imported that final package into `C:\CodingToolsWorkerCenter\StellarFramework-test`. Final test-project compile and Console are **0 errors / 0 warnings / 0 Error**.
+- Added the persistent visual/device validation deliverable in the test project:
+  - runtime demo: `Assets/UIKitAdaptationDeviceDemo/UIKitAdaptationDeviceDemo.cs`;
+  - scene builder: `Assets/UIKitAdaptationDeviceDemo/Editor/UIKitAdaptationDeviceDemoSceneBuilder.cs`;
+  - scene: `Assets/UIKitAdaptationDeviceDemo/UIKitAdaptationDeviceDemo.unity`;
+  - scene is enabled in Build Settings;
+  - Android `renderOutsideSafeArea` is enabled (`androidRenderOutsideSafeArea: 1`).
+- Demo runtime provides buttons for:
+  - `A  SafeArea`;
+  - `B  Precise Cutout`;
+  - `System` (real `Screen.safeArea` + `Screen.cutouts` on device);
+  - `Center Punch`;
+  - `Dynamic Island`;
+  - `Left Punch`.
+- Final runtime A/B evidence under simulated Dynamic Island:
+  - **Precise Cutout:** Back stayed `(54, -32)`, Coins stayed `(-54, -32)`, while only center Title moved from baseline `Y=-32` to `Y=-182.87085`; Console remained 0 Error.
+  - **Safe Area:** `SafeAreaRoot.anchorMax` became `(1, 0.8454797)`, proving the whole top safe rectangle moved below the simulated island; Console remained 0 Error.
+  - runtime screenshots were captured under `Assets/Screenshots/` for both final states.
+- A real Android Development build was executed successfully from the test project:
+  `C:\CodingToolsWorkerCenter\StellarFramework-test\Builds\UIKitAdaptationDeviceDemo.apk`
+  - size: `38,966,373` bytes (`37.16 MB`);
+  - timestamp: `2026-09-22T06:49:14.5422282Z`;
+  - BuildReport: **Player build succeeded for Android**.
+- iOS uses the same `Screen.safeArea` / `Screen.cutouts` runtime contract, but no iOS/Xcode build was executed in this Windows validation pass.
+- Temporary mother export helper and temporary clean-project AssetsMap regeneration helper were removed. This Cutout task has **not** been committed or pushed yet; previous intentional local generated/TMP artifacts remain outside the commit scope.
+
+### 2026-09-22 — UIKit selectable avoidance policy + production fallback chain + usage docs
+
+- User clarified the production requirement: UI authors must be able to **choose** between whole-safe-region avoidance and precise hazard-only avoidance, while the framework must automatically degrade for old devices, unusual ROMs and platforms that cannot provide reliable Cutout/SafeArea information. This must not require per-brand/per-model UI logic.
+- `UICutoutAwareLayout` was extended without renaming the serialized component (to avoid breaking existing Prefab/Scene references). It now exposes author intent:
+  - `UIDisplayAvoidanceMode.None` — no hazard avoidance;
+  - `UIDisplayAvoidanceMode.SafeArea` — configured Targets are contained inside the rectangular SafeArea (whole-region avoidance intent);
+  - `UIDisplayAvoidanceMode.PreciseCutout` — only Targets that intersect a relevant exclusion zone move.
+- Added fallback selection:
+  - `UIDisplayFallbackMode.Automatic` — production default;
+  - `SafeArea`;
+  - `EdgePadding`;
+  - `None`.
+- Added `UIDisplayResolvedMode` for diagnostics and tests:
+  - `None`;
+  - `SafeArea`;
+  - `PreciseCutout`;
+  - `EdgePadding`.
+  `UICutoutAwareLayout.EffectiveMode` reports the actual strategy selected for the current device geometry.
+- Final Automatic chain for `Mode=PreciseCutout`:
+  `PreciseCutout -> non-full valid SafeArea -> reference-pixel EdgePadding`.
+  If a precise solve fails for a particular Target, the same fallback rules are applied instead of leaving the control intersecting the hazard.
+- SafeArea validity uses the existing provider-level `UIDisplayGeometry.SafeAreaDataValid` / `HasSafeAreaInsets` state rather than guessing solely from rectangle shape. Invalid provider data is normalized by `UIAdaptationController` to a safe full-screen rectangle while preserving `SafeAreaDataValid=false`, allowing downstream fallback to select `EdgePadding` reliably.
+- Added pure `UICutoutLayoutSolver.CalculateContainmentOffset(...)` for SafeArea / EdgePadding containment. Precise `CalculateOffset(...)` remains the exclusion-zone solver.
+- ToolsHub now surfaces every `UICutoutAwareLayout` under the selected root as:
+  `Mode / Fallback / Effective`.
+  Validator now warns for:
+  - active avoidance with zero Targets;
+  - `Fallback=None` outside controlled-hardware scenarios;
+  - `Source=Manual` with no manual exclusion zones;
+  - the existing SafeAreaRoot / CanvasScaler / anchor / breakpoint risks.
+- UIKit adaptation EditMode fixture expanded to **17/17 PASS**. New tests cover:
+  - SafeArea containment solver;
+  - Precise + Automatic -> SafeArea when Cutout data is unavailable but a non-full SafeArea exists;
+  - Precise + Automatic -> EdgePadding when only full-screen geometry is available;
+  - Precise + Automatic -> EdgePadding when SafeArea provider data is marked invalid;
+  - explicit `Mode=SafeArea` selection.
+- Final mother regression after policy changes:
+  - `UIKitAdaptationTests`: **17/17 PASS**;
+  - `AssetsMapGeneratorTests`: **6/6 PASS**;
+  - `KitArchitectureMetadataPolicyTests`: **16/16 PASS**;
+  - `StandaloneSourceExportPolicyTests`: **32/32 PASS**;
+  - `PackagePublisherPolicyTests`: **23/23 PASS**;
+  - compile / Console: **0 errors / 0 warnings / 0 Error**.
+- Test project demo `Assets/UIKitAdaptationDeviceDemo/UIKitAdaptationDeviceDemo.cs` now explicitly configures `PreciseCutout + Automatic` and adds two old/unsupported-device simulations:
+  - `Legacy SafeArea`: no Cutout data, valid non-full SafeArea;
+  - `Legacy Unknown`: no Cutout data and invalid SafeArea provider input.
+- Real PlayMode verification in `C:\CodingToolsWorkerCenter\StellarFramework-test`:
+  - `B Precise Cutout + Legacy SafeArea` => `Mode=PreciseCutout`, `Fallback=Automatic`, **EffectiveMode=SafeArea**;
+  - `B Precise Cutout + Legacy Unknown` => **EffectiveMode=EdgePadding**;
+  - runtime Console: **0 Error**.
+- Rebuilt Android Development APK successfully after the fallback/demo changes:
+  `C:\CodingToolsWorkerCenter\StellarFramework-test\Builds\UIKitAdaptationDeviceDemo.apk`
+  - size: `39,053,109` bytes (`37.24 MB`);
+  - timestamp: `2026-09-22T07:39:08.9495872Z`;
+  - BuildReport: **Player build succeeded for Android**;
+  - test-project compile: **0 errors / 0 warnings**, Console **0 Error**.
+- Documentation was split into three explicit deliverables under `FrameworkDoc/02-Kits/UIKit`:
+  - `UIKit-界面系统-使用文档-Guide.md` — new step-by-step author workflow, Mode/Fallback selection, Inspector examples, ToolsHub usage, test-scene instructions and cross-platform rules;
+  - `UIKit-界面系统-说明文档-Guide.md` — product/design rules, recommended UI categories and fallback contract;
+  - `UIKit-界面系统-源码文档-Guide.md` — implementation types, solver/fallback pipeline, geometry validity and test expectations.
+- `uikit.core` distribution now explicitly includes all three UIKit docs. Final `UIKit Complete` export:
+  `BuildArtifacts/StellarFramework/Kits/StellarFramework-Profile-UIKit-Complete.unitypackage`
+  - timestamp: `2026-09-22T07:45:07.8910618Z`;
+  - size: `182,490` bytes.
+  The outer package is a Bootstrap wrapper; the embedded payload was inspected directly and contains all three `Assets/StellarFramework/FrameworkDoc/02-Kits/UIKit/...Guide.md` paths.
+- Temporary export helpers were deleted after use. No commit/push/reset/clean was performed for this batch.
+- Before final Git delivery, an explicit orientation regression was added for precise top-cutout avoidance using both `2400x1080` landscape and `1080x2400` portrait geometry. Final `UIKitAdaptationTests` are **18/18 PASS**, and mother-project compile remains **0 errors / 0 warnings**.

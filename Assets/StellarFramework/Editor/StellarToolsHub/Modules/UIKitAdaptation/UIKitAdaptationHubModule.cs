@@ -21,6 +21,8 @@ namespace StellarFramework.Editor.Modules
         private int _previewWidth = 1920;
         private int _previewHeight = 1080;
         private Vector4 _safeInsets;
+        private bool _previewCutoutEnabled;
+        private Rect _previewCutout;
         private RectTransform _variantRoot;
         private string _variantBreakpointId = "default";
         private Vector2 _validationScroll;
@@ -28,7 +30,7 @@ namespace StellarFramework.Editor.Modules
 
         public override string Icon => "d_RectTransformBlueprint";
         public override string Description =>
-            "UIKit 多尺寸适配：Safe Area、Aspect Breakpoint、屏幕预览与布局风险检查。";
+            "UIKit 多尺寸适配：Safe Area、Cutout 精确避让、Aspect Breakpoint、屏幕预览与布局风险检查。";
 
         public override void OnSelectionChange()
         {
@@ -107,6 +109,47 @@ namespace StellarFramework.Editor.Modules
                 new GUIContent("Safe Insets L/B/R/T"),
                 _safeInsets);
 
+            EditorGUILayout.Space(4f);
+            EditorGUILayout.LabelField("Cutout Preview", EditorStyles.boldLabel);
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                if (GUILayout.Button("None"))
+                {
+                    _previewCutoutEnabled = false;
+                }
+                if (GUILayout.Button("Center Punch"))
+                {
+                    SetCutoutPreset(0.50f, 0.94f, 0.08f, 0.06f);
+                }
+                if (GUILayout.Button("Dynamic Island"))
+                {
+                    SetCutoutPreset(0.50f, 0.92f, 0.24f, 0.07f);
+                }
+                if (GUILayout.Button("Left Punch"))
+                {
+                    SetCutoutPreset(0.10f, 0.94f, 0.08f, 0.06f);
+                }
+            }
+
+            _previewCutoutEnabled = EditorGUILayout.Toggle(
+                "Enable Simulated Cutout",
+                _previewCutoutEnabled);
+            if (_previewCutoutEnabled)
+            {
+                Vector4 cutout = EditorGUILayout.Vector4Field(
+                    new GUIContent("Cutout X/Y/W/H (px)"),
+                    new Vector4(
+                        _previewCutout.x,
+                        _previewCutout.y,
+                        _previewCutout.width,
+                        _previewCutout.height));
+                _previewCutout = new Rect(
+                    cutout.x,
+                    cutout.y,
+                    Mathf.Max(0f, cutout.z),
+                    Mathf.Max(0f, cutout.w));
+            }
+
             if (_profile == null)
             {
                 return;
@@ -136,6 +179,9 @@ namespace StellarFramework.Editor.Modules
             EditorGUILayout.LabelField(
                 "SafeArea Anchors",
                 $"{anchorMin.x:0.###},{anchorMin.y:0.###} -> {anchorMax.x:0.###},{anchorMax.y:0.###}");
+            EditorGUILayout.LabelField(
+                "Simulated Cutouts",
+                _previewCutoutEnabled ? _previewCutout.ToString() : "(None)");
         }
 
         private void DrawControllerSection()
@@ -165,6 +211,23 @@ namespace StellarFramework.Editor.Modules
                 safeAreaRoots.Length == 0
                     ? "Missing"
                     : string.Join(", ", safeAreaRoots.Select(root => BuildPath(_targetRoot.transform, root))));
+
+            UICutoutAwareLayout[] avoidanceLayouts =
+                _targetRoot.GetComponentsInChildren<UICutoutAwareLayout>(true);
+            EditorGUILayout.LabelField("Display Avoidance", avoidanceLayouts.Length.ToString());
+            foreach (UICutoutAwareLayout avoidance in avoidanceLayouts)
+            {
+                EditorGUILayout.LabelField(
+                    BuildPath(_targetRoot.transform, avoidance.transform),
+                    $"Mode={avoidance.Mode} / Fallback={avoidance.Fallback} / Effective={avoidance.EffectiveMode}");
+            }
+
+            if (avoidanceLayouts.Length > 0)
+            {
+                EditorGUILayout.HelpBox(
+                    "UI 作者只选择设计意图：SafeArea=整块避让，PreciseCutout=仅避危险区。生产环境推荐 Fallback=Automatic。",
+                    MessageType.Info);
+            }
 
             using (new EditorGUI.DisabledScope(_profile == null || scaler == null))
             {
@@ -196,12 +259,25 @@ namespace StellarFramework.Editor.Modules
                     {
                         Undo.RecordObject(safeAreaRoot, "Preview Safe Area");
                     }
-                    controller.Apply(_previewWidth, _previewHeight, BuildPreviewSafeArea());
+                    controller.Apply(
+                        _previewWidth,
+                        _previewHeight,
+                        BuildPreviewSafeArea(),
+                        BuildPreviewCutouts());
                     foreach (UILayoutVariant variant in
                              _targetRoot.GetComponentsInChildren<UILayoutVariant>(true))
                     {
                         Undo.RecordObject(variant, "Preview Layout Variant");
                         variant.ApplyVariant(controller.CurrentBreakpointId);
+                    }
+                    foreach (UICutoutAwareLayout cutoutLayout in
+                             _targetRoot.GetComponentsInChildren<UICutoutAwareLayout>(true))
+                    {
+                        Undo.RegisterFullObjectHierarchyUndo(
+                            cutoutLayout.gameObject,
+                            "Preview Cutout Aware Layout");
+                        cutoutLayout.CaptureCurrentLayout();
+                        cutoutLayout.ApplyGeometry(controller.CurrentGeometry);
                     }
                     EditorUtility.SetDirty(controller);
                 }
@@ -350,6 +426,31 @@ namespace StellarFramework.Editor.Modules
                     "Profile 启用了 Safe Area，但当前层级没有名为 SafeAreaRoot 的 RectTransform。");
             }
 
+            foreach (UICutoutAwareLayout cutoutLayout in
+                     _targetRoot.GetComponentsInChildren<UICutoutAwareLayout>(true))
+            {
+                if (cutoutLayout.Mode != UIDisplayAvoidanceMode.None && cutoutLayout.Targets.Count == 0)
+                {
+                    _validationIssues.Add(
+                        $"{BuildPath(_targetRoot.transform, cutoutLayout.transform)} 启用了 {cutoutLayout.Mode}，但没有 Target；危险区策略不会移动任何 UI。");
+                }
+
+                if (cutoutLayout.Fallback == UIDisplayFallbackMode.None &&
+                    cutoutLayout.Mode != UIDisplayAvoidanceMode.None)
+                {
+                    _validationIssues.Add(
+                        $"{BuildPath(_targetRoot.transform, cutoutLayout.transform)} 的 Fallback=None。若系统缺少可靠 SafeArea/Cutout 数据，关键 UI 可能无法安全降级；固定硬件项目之外建议使用 Automatic。");
+                }
+
+                if (cutoutLayout.Mode == UIDisplayAvoidanceMode.PreciseCutout &&
+                    cutoutLayout.Source == UICutoutSource.Manual &&
+                    cutoutLayout.ManualExclusions.Count == 0)
+                {
+                    _validationIssues.Add(
+                        $"{BuildPath(_targetRoot.transform, cutoutLayout.transform)} 使用 Manual Cutout Source，但没有配置 Manual Exclusion Zone；运行时会直接进入 fallback。 ");
+                }
+            }
+
             Vector2 design = _profile.DesignResolution;
             foreach (RectTransform rect in _targetRoot.GetComponentsInChildren<RectTransform>(true))
             {
@@ -464,6 +565,25 @@ namespace StellarFramework.Editor.Modules
             _previewWidth = width;
             _previewHeight = height;
             _safeInsets = Vector4.zero;
+            _previewCutoutEnabled = false;
+        }
+
+        private void SetCutoutPreset(
+            float normalizedCenterX,
+            float normalizedCenterY,
+            float normalizedWidth,
+            float normalizedHeight)
+        {
+            float width = _previewWidth * Mathf.Clamp01(normalizedWidth);
+            float height = _previewHeight * Mathf.Clamp01(normalizedHeight);
+            float centerX = _previewWidth * Mathf.Clamp01(normalizedCenterX);
+            float centerY = _previewHeight * Mathf.Clamp01(normalizedCenterY);
+            _previewCutout = new Rect(
+                centerX - width * 0.5f,
+                centerY - height * 0.5f,
+                width,
+                height);
+            _previewCutoutEnabled = true;
         }
 
         private Rect BuildPreviewSafeArea()
@@ -477,6 +597,27 @@ namespace StellarFramework.Editor.Modules
                 bottom,
                 _previewWidth - right,
                 _previewHeight - top);
+        }
+
+        private Rect[] BuildPreviewCutouts()
+        {
+            if (!_previewCutoutEnabled ||
+                _previewCutout.width <= 0f ||
+                _previewCutout.height <= 0f)
+            {
+                return Array.Empty<Rect>();
+            }
+
+            float xMin = Mathf.Clamp(_previewCutout.xMin, 0f, _previewWidth);
+            float yMin = Mathf.Clamp(_previewCutout.yMin, 0f, _previewHeight);
+            float xMax = Mathf.Clamp(_previewCutout.xMax, xMin, _previewWidth);
+            float yMax = Mathf.Clamp(_previewCutout.yMax, yMin, _previewHeight);
+            if (xMax <= xMin || yMax <= yMin)
+            {
+                return Array.Empty<Rect>();
+            }
+
+            return new[] { Rect.MinMaxRect(xMin, yMin, xMax, yMax) };
         }
 
         private static RectTransform[] FindSafeAreaRoots(Transform root)

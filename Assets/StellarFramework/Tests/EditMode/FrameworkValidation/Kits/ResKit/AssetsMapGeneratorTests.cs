@@ -1,4 +1,5 @@
 using System.IO;
+using System.Reflection;
 using NUnit.Framework;
 using StellarFramework.Editor;
 using StellarFramework.Generated;
@@ -64,6 +65,29 @@ namespace StellarFramework.Tests.FrameworkValidation
                 "Assets/StellarFramework/Runtime/Foo.cs"), Is.False);
             Assert.That(AssetsMapGenerator.MayAffectGeneratedMap(
                 "Assets/Game/Prefabs/Hero.prefab"), Is.True);
+        }
+
+        [Test]
+        public void GeneratedMemberNeverMatchesItsEnclosingFolderTypeName()
+        {
+            MethodInfo buildSource = typeof(AssetsMapGenerator).GetMethod(
+                "BuildSource",
+                BindingFlags.Static | BindingFlags.NonPublic);
+            Assert.That(buildSource, Is.Not.Null);
+            string source = (string)buildSource.Invoke(
+                null,
+                new object[]
+                {
+                    new[] { "Assets/UIKitAdaptationDeviceDemo/UIKitAdaptationDeviceDemo.unity" }
+                });
+
+            Assert.That(source, Does.Contain("public static class UIKitAdaptationDeviceDemo"));
+            Assert.That(
+                source,
+                Does.Contain("public const string UIKitAdaptationDeviceDemo_unity = \"Assets/UIKitAdaptationDeviceDemo/UIKitAdaptationDeviceDemo.unity\";"));
+            Assert.That(
+                source,
+                Does.Not.Contain("public const string UIKitAdaptationDeviceDemo ="));
         }
     }
 }

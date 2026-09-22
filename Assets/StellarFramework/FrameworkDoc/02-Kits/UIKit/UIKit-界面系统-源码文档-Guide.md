@@ -20,6 +20,11 @@
 - `Runtime/Kits/UIKit/LoadStrategy/IUILoadStrategy.cs`
 - `Runtime/Kits/UIKit/LoadStrategy/ResKitUILoadStrategy.cs`
 - `Runtime/Kits/UIKit/AutoBind/UIAutoBind.cs`
+- `Runtime/Kits/UIKit/Adapters/Adaptation/UIAdaptationController.cs`
+- `Runtime/Kits/UIKit/Adapters/Adaptation/UIAdaptationProfile.cs`
+- `Runtime/Kits/UIKit/Adapters/Adaptation/UIDisplayGeometry.cs`
+- `Runtime/Kits/UIKit/Adapters/Adaptation/UICutoutAwareLayout.cs`
+- `Runtime/Kits/UIKit/Adapters/Adaptation/UILayoutVariant.cs`
 - `Runtime/Kits/UIKit/Editor/UIKitEditor.cs`
 - `Runtime/Kits/UIKit/Editor/UIAutoBindEditor.cs`
 
@@ -40,6 +45,18 @@ UIPanelBase
 ├─ PanelLayer
 ├─ PanelCanvasRole
 └─ 面板生命周期
+
+UIKit.Adaptation
+├─ UIAdaptationProfile
+├─ UIAdaptationController
+├─ UIDisplayGeometry
+├─ UICutoutAwareLayout
+│  ├─ UIDisplayAvoidanceMode
+│  ├─ UIDisplayFallbackMode
+│  ├─ UIDisplayResolvedMode
+│  ├─ UICutoutTarget
+│  └─ UIManualExclusionZone
+└─ UILayoutVariant
 ```
 
 ## 初始化调用链
@@ -314,6 +331,114 @@ UI 系统核心管理器，继承 `MonoSingleton<UIKit>`。
 
 默认 UIKit 加载策略，使用 `ResKit` 和 `UIKitSettings` 组织资源路径。
 
+## `UIKit.Adaptation`
+
+### `UIDisplayGeometry`
+
+平台无关的显示几何快照，保存：
+
+- `Width / Height`
+- `SafeArea`
+- `Cutouts`
+
+Runtime 默认由 `UIAdaptationController.ApplyCurrentScreen()` 从 Unity `Screen.width / height / safeArea / cutouts` 生成。后续其他平台若需要原生 Window/AvoidArea Adapter，只需转换成同一种 Geometry，不应让业务 UI 感知平台名称。
+
+### `UIAdaptationController`
+
+职责：
+
+- 根据 Profile 配置 `CanvasScaler`。
+- 根据 SafeArea 设置一个或多个 `SafeAreaRoot` anchors。
+- 解析 Aspect / Orientation Breakpoint。
+- 缓存当前 `UIDisplayGeometry`。
+- Geometry 真正变化时触发 `DisplayGeometryChanged`。
+- Breakpoint 真正变化时触发 `BreakpointChanged`。
+
+Controller 不要求每个 Panel 自己轮询屏幕 API。
+
+### `UIDisplayAvoidanceMode`
+
+这是 UI 作者选择的“设计意图”：
+
+- `None`：允许内容占用整个屏幕。
+- `SafeArea`：关键 Target 必须进入系统矩形 SafeArea。
+- `PreciseCutout`：优先只避开 Cutout，不浪费 Cutout 左右仍可用空间。
+
+它不是平台枚举，不应该增加 Android/iOS/HarmonyOS/品牌/机型分支。
+
+### `UIDisplayFallbackMode`
+
+控制主策略不可用时的降级规则：
+
+- `Automatic`：生产默认。`PreciseCutout -> SafeArea -> EdgePadding`。
+- `SafeArea`：只允许降到 SafeArea。
+- `EdgePadding`：直接使用参考像素边距。
+- `None`：不降级，只建议固定硬件或专项验证使用。
+
+### `UIDisplayResolvedMode`
+
+表示当前 Geometry 实际采用的层级：
+
+- `None`
+- `SafeArea`
+- `PreciseCutout`
+- `EdgePadding`
+
+用于诊断、测试和日志，不要求业务根据它编写设备分支。
+
+### `UICutoutAwareLayout`
+
+历史名称保留以避免破坏已有 Prefab/Scene 序列化，但当前职责已经扩展为“可选显示危险区避让组件”。
+
+核心执行顺序：
+
+1. 收集 System / Manual exclusion zones。
+2. 根据 `Mode` 和 Geometry 解析 `EffectiveMode`。
+3. `PreciseCutout` 时只检查 Target 与 exclusion 的相交。
+4. 求最小合法位移，优先保持仍可用屏幕空间。
+5. 求解失败或 Cutout 缺失时按 Fallback 降级。
+6. `SafeArea` / `EdgePadding` 使用 containment solver，把 Target 收进允许矩形。
+7. 把 screen-space delta 转回目标父节点 anchored delta。
+
+组件只作用于 `_targets`，不会修改整个 FullScreenRoot。
+
+### `UICutoutLayoutSolver`
+
+纯屏幕空间算法：
+
+- `CalculateOffset(...)`：处理一个或多个 exclusion zone 的精确避让。
+- `CalculateContainmentOffset(...)`：把目标 Rect 收回 SafeArea 或 EdgePadding bounds。
+
+Solver 与平台 API 解耦，因此可以直接 EditMode 单测。
+
+### 数据有效性与降级
+
+SafeArea 至少满足：
+
+- width/height > 0；
+- 不出现负坐标；
+- 不越出当前屏幕尺寸。
+
+Automatic 的核心规则：
+
+```text
+PreciseCutout requested
+  ├─ relevant cutout exists -> PreciseCutout
+  ├─ no cutout + non-full valid SafeArea -> SafeArea
+  └─ otherwise -> EdgePadding
+```
+
+因此旧设备、异常 ROM、未提供精确 cutout 的平台不会直接把重要 UI 留在危险边缘。
+
+### 与 `SafeAreaRoot` 的关系
+
+两种机制保留：
+
+- `PanelLayoutRegion.SafeArea`：Panel 级整块矩形安全布局，普通页面优先。
+- `UICutoutAwareLayout`：Target 级可选布局，HUD/顶部状态栏优先。
+
+不要为了精确 Cutout 新建第三个全局 CutoutRoot；Cutout 可形成非连续可用区域，本质是 Target 约束问题而不是新的矩形 Root。
+
 ## 设计约束
 
 - UIKit 必须先初始化
@@ -335,3 +460,14 @@ UI 系统核心管理器，继承 `MonoSingleton<UIKit>`。
 - 加载去重
 - 栈顶全屏遮挡逻辑
 - Snapshot 输出
+- SafeArea 整块约束
+- Center / Left Punch / Dynamic Island 精确避让
+- Cutout 缺失时 Precise -> SafeArea 自动降级
+- SafeArea 为 FullScreen 或不可用时 -> EdgePadding 降级
+- Portrait / Landscape / Tablet / UltraTall
+- 老设备/异常 Geometry 模拟
+
+## 相关文档
+
+- [UIKit 使用文档](UIKit-界面系统-使用文档-Guide.md)
+- [UIKit 说明文档](UIKit-界面系统-说明文档-Guide.md)

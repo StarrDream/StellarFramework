@@ -94,7 +94,7 @@ namespace StellarFramework.Editor
             sb.AppendLine("{");
             sb.AppendLine("    public static class AssetsMap");
             sb.AppendLine("    {");
-            EmitNodeContents(sb, root, 2);
+            EmitNodeContents(sb, root, 2, "AssetsMap");
             sb.AppendLine("    }");
             sb.AppendLine("}");
             return sb.ToString();
@@ -155,11 +155,19 @@ namespace StellarFramework.Editor
             node.Assets.Add(new AssetEntry(fileName, assetPath));
         }
 
-        private static void EmitNodeContents(StringBuilder sb, FolderNode node, int indentLevel)
+        private static void EmitNodeContents(
+            StringBuilder sb,
+            FolderNode node,
+            int indentLevel,
+            string enclosingTypeName)
         {
             string indent = new string(' ', indentLevel * 4);
             Dictionary<string, string> childNames = ResolveNames(node.Children.Keys);
-            var reserved = new HashSet<string>(childNames.Values, StringComparer.Ordinal);
+            EnsureChildTypeNamesDoNotMatchEnclosingType(childNames, enclosingTypeName);
+            var reserved = new HashSet<string>(childNames.Values, StringComparer.Ordinal)
+            {
+                enclosingTypeName
+            };
 
             foreach (AssetEntry asset in node.Assets.OrderBy(entry => entry.Path, StringComparer.Ordinal))
             {
@@ -192,8 +200,42 @@ namespace StellarFramework.Editor
                 sb.AppendLine();
                 sb.Append(indent).Append("public static class ").AppendLine(className);
                 sb.Append(indent).AppendLine("{");
-                EmitNodeContents(sb, pair.Value, indentLevel + 1);
+                EmitNodeContents(sb, pair.Value, indentLevel + 1, className);
                 sb.Append(indent).AppendLine("}");
+            }
+        }
+
+        private static void EnsureChildTypeNamesDoNotMatchEnclosingType(
+            Dictionary<string, string> childNames,
+            string enclosingTypeName)
+        {
+            if (childNames == null || string.IsNullOrWhiteSpace(enclosingTypeName))
+            {
+                return;
+            }
+
+            var used = new HashSet<string>(childNames.Values, StringComparer.Ordinal);
+            foreach (string rawName in childNames.Keys.OrderBy(value => value, StringComparer.Ordinal).ToArray())
+            {
+                string candidate = childNames[rawName];
+                if (!string.Equals(candidate, enclosingTypeName, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                used.Remove(candidate);
+                string renamed = candidate + "_Folder";
+                if (string.Equals(renamed, enclosingTypeName, StringComparison.Ordinal) || used.Contains(renamed))
+                {
+                    renamed = candidate + "_" + StableHash(rawName);
+                }
+                while (used.Contains(renamed))
+                {
+                    renamed += "_" + StableHash(rawName + renamed);
+                }
+
+                childNames[rawName] = renamed;
+                used.Add(renamed);
             }
         }
 

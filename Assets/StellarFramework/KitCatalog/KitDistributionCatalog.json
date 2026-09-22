@@ -1134,7 +1134,10 @@
       "output": "StellarFramework-UIKit-Core.unitypackage",
       "sourcePaths": [
         "Assets/StellarFramework/Runtime/Kits/UIKit",
-        "Assets/StellarFramework/Resources/Managers/UIKit.prefab"
+        "Assets/StellarFramework/Resources/Managers/UIKit.prefab",
+        "Assets/StellarFramework/FrameworkDoc/02-Kits/UIKit/UIKit-界面系统-使用文档-Guide.md",
+        "Assets/StellarFramework/FrameworkDoc/02-Kits/UIKit/UIKit-界面系统-说明文档-Guide.md",
+        "Assets/StellarFramework/FrameworkDoc/02-Kits/UIKit/UIKit-界面系统-源码文档-Guide.md"
       ],
       "excludedSourcePaths": [
         "Assets/StellarFramework/Runtime/Kits/UIKit/Adapters/Adaptation",
@@ -1194,7 +1197,7 @@
       "requiredProfileIds": ["uikit.core"],
       "requiredKits": ["UIKit.Core"],
       "requiredUpm": ["com.unity.ugui"],
-      "optionalCapabilities": ["SafeArea", "AspectBreakpoints", "RuntimeScreenAdaptation", "LayoutVariants"],
+      "optionalCapabilities": ["SafeArea", "SystemCutouts", "PreciseCutoutAvoidance", "AutomaticDisplayFallback", "EdgePaddingFallback", "ManualExclusionZones", "AspectBreakpoints", "RuntimeScreenAdaptation", "LayoutVariants"],
       "excludedCapabilities": ["ResKit", "Addressables", "HybridCLR", "CodeHotUpdate"]
     },
     {
@@ -1209,7 +1212,7 @@
       "requiredProfileIds": ["uikit.adaptation", "toolshub.core"],
       "requiredKits": ["UIKit.Adaptation", "ToolsHub.Core"],
       "requiredUpm": ["com.unity.ugui"],
-      "optionalCapabilities": ["AdaptationPreview", "SafeAreaValidation", "AnchorRiskValidation", "LayoutVariantCapture"],
+      "optionalCapabilities": ["AdaptationPreview", "CutoutPreview", "SafeAreaValidation", "CutoutTargetValidation", "AnchorRiskValidation", "LayoutVariantCapture"],
       "excludedCapabilities": ["PlayerRuntime"]
     },
     {
@@ -1281,7 +1284,7 @@
       "displayName": "UIKit Complete",
       "order": 30,
       "deliveryGroup": "complete",
-      "description": "完整 UIKit 开发配置：UIKit Runtime/Tools + ResKit 统一资源管理/审计 + Safe Area/Breakpoint/Layout Variant 多机型适配 + ToolsHub；具体第三方资源后端仍按项目需要扩展。",
+      "description": "完整 UIKit 开发配置：UIKit Runtime/Tools + ResKit 统一资源管理/审计 + Safe Area/Cutout 精确避让/Breakpoint/Layout Variant 多机型适配 + ToolsHub；具体第三方资源后端仍按项目需要扩展。",
       "output": "StellarFramework-Profile-UIKit-Complete.unitypackage",
       "profileIds": ["uikit.reskit", "uikit.tools", "uikit.adaptation.tools", "reskit.tools"]
     },

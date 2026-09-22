@@ -19,13 +19,18 @@ namespace StellarFramework.UI.Adaptation
         private int _lastWidth = -1;
         private int _lastHeight = -1;
         private Rect _lastSafeArea;
+        private bool _lastSafeAreaDataValid = true;
+        private Rect[] _lastCutouts = Array.Empty<Rect>();
         private string _currentBreakpointId = string.Empty;
 
         public UIAdaptationProfile Profile => _profile;
         public RectTransform SafeAreaRoot => _safeAreaRoot;
         public IReadOnlyList<RectTransform> AdditionalSafeAreaRoots => _additionalSafeAreaRoots;
         public string CurrentBreakpointId => _currentBreakpointId;
+        public bool HasCurrentGeometry => _lastWidth > 0 && _lastHeight > 0;
+        public UIDisplayGeometry CurrentGeometry { get; private set; }
         public event Action<string> BreakpointChanged;
+        public event Action<UIDisplayGeometry> DisplayGeometryChanged;
 
         private void Awake()
         {
@@ -55,7 +60,7 @@ namespace StellarFramework.UI.Adaptation
                 return;
             }
 
-            Apply(Screen.width, Screen.height, safeArea);
+            ApplyCurrentScreen();
         }
 
         public void Configure(UIAdaptationProfile profile, RectTransform safeAreaRoot)
@@ -104,10 +109,19 @@ namespace StellarFramework.UI.Adaptation
 
         public void ApplyCurrentScreen()
         {
-            Apply(Screen.width, Screen.height, Screen.safeArea);
+            Apply(Screen.width, Screen.height, Screen.safeArea, Screen.cutouts);
         }
 
         public void Apply(int width, int height, Rect safeArea)
+        {
+            Apply(width, height, safeArea, Array.Empty<Rect>());
+        }
+
+        public void Apply(
+            int width,
+            int height,
+            Rect safeArea,
+            IReadOnlyList<Rect> cutouts)
         {
             if (_profile == null)
             {
@@ -123,6 +137,17 @@ namespace StellarFramework.UI.Adaptation
             UIAdaptationBreakpoint breakpoint =
                 _profile.ResolveBreakpoint(safeWidth, safeHeight, out float match);
             string nextBreakpointId = breakpoint == null ? "default" : breakpoint.Id;
+            bool safeAreaDataValid = IsSafeAreaInputValid(safeArea, safeWidth, safeHeight);
+            Rect clamped = safeAreaDataValid
+                ? ClampSafeArea(safeArea, safeWidth, safeHeight)
+                : new Rect(0f, 0f, safeWidth, safeHeight);
+            Rect[] normalizedCutouts = NormalizeCutouts(cutouts, safeWidth, safeHeight);
+            bool geometryChanged =
+                _lastWidth != safeWidth ||
+                _lastHeight != safeHeight ||
+                _lastSafeArea != clamped ||
+                _lastSafeAreaDataValid != safeAreaDataValid ||
+                !CutoutsEqual(_lastCutouts, normalizedCutouts);
 
             _scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             _scaler.referenceResolution = _profile.DesignResolution;
@@ -131,7 +156,6 @@ namespace StellarFramework.UI.Adaptation
 
             if (_profile.ApplySafeArea)
             {
-                Rect clamped = ClampSafeArea(safeArea, safeWidth, safeHeight);
                 ApplySafeArea(_safeAreaRoot, clamped, safeWidth, safeHeight);
                 foreach (RectTransform additionalRoot in
                          _additionalSafeAreaRoots ?? Array.Empty<RectTransform>())
@@ -142,13 +166,31 @@ namespace StellarFramework.UI.Adaptation
 
             _lastWidth = safeWidth;
             _lastHeight = safeHeight;
-            _lastSafeArea = safeArea;
+            _lastSafeArea = clamped;
+            _lastSafeAreaDataValid = safeAreaDataValid;
+            _lastCutouts = normalizedCutouts;
+            CurrentGeometry = new UIDisplayGeometry(
+                safeWidth,
+                safeHeight,
+                clamped,
+                _lastCutouts,
+                safeAreaDataValid);
 
             if (!string.Equals(_currentBreakpointId, nextBreakpointId, StringComparison.Ordinal))
             {
                 _currentBreakpointId = nextBreakpointId;
                 BreakpointChanged?.Invoke(_currentBreakpointId);
             }
+
+            if (geometryChanged)
+            {
+                DisplayGeometryChanged?.Invoke(CurrentGeometry);
+            }
+        }
+
+        public void RefreshDisplayGeometry()
+        {
+            ApplyCurrentScreen();
         }
 
         private static Rect ClampSafeArea(Rect safeArea, int width, int height)
@@ -158,6 +200,101 @@ namespace StellarFramework.UI.Adaptation
             float xMax = Mathf.Clamp(safeArea.xMax, xMin, width);
             float yMax = Mathf.Clamp(safeArea.yMax, yMin, height);
             return Rect.MinMaxRect(xMin, yMin, xMax, yMax);
+        }
+
+        private static bool IsSafeAreaInputValid(Rect safeArea, int width, int height)
+        {
+            if (!IsFinite(safeArea.xMin) ||
+                !IsFinite(safeArea.yMin) ||
+                !IsFinite(safeArea.xMax) ||
+                !IsFinite(safeArea.yMax) ||
+                safeArea.width <= 0f ||
+                safeArea.height <= 0f)
+            {
+                return false;
+            }
+
+            const float tolerance = 1f;
+            return safeArea.xMin >= -tolerance &&
+                   safeArea.yMin >= -tolerance &&
+                   safeArea.xMax <= width + tolerance &&
+                   safeArea.yMax <= height + tolerance;
+        }
+
+        private static Rect[] NormalizeCutouts(
+            IReadOnlyList<Rect> cutouts,
+            int width,
+            int height)
+        {
+            int count = cutouts?.Count ?? 0;
+            if (count == 0)
+            {
+                return Array.Empty<Rect>();
+            }
+
+            Rect[] normalized = new Rect[count];
+            int write = 0;
+            for (int i = 0; i < count; i++)
+            {
+                Rect raw = cutouts[i];
+                if (!IsFinite(raw.xMin) ||
+                    !IsFinite(raw.yMin) ||
+                    !IsFinite(raw.xMax) ||
+                    !IsFinite(raw.yMax) ||
+                    raw.width <= 0f ||
+                    raw.height <= 0f)
+                {
+                    continue;
+                }
+
+                float xMin = Mathf.Clamp(raw.xMin, 0f, width);
+                float yMin = Mathf.Clamp(raw.yMin, 0f, height);
+                float xMax = Mathf.Clamp(raw.xMax, xMin, width);
+                float yMax = Mathf.Clamp(raw.yMax, yMin, height);
+                if (xMax <= xMin || yMax <= yMin)
+                {
+                    continue;
+                }
+
+                normalized[write++] = Rect.MinMaxRect(xMin, yMin, xMax, yMax);
+            }
+
+            if (write == 0)
+            {
+                return Array.Empty<Rect>();
+            }
+            if (write == normalized.Length)
+            {
+                return normalized;
+            }
+
+            Array.Resize(ref normalized, write);
+            return normalized;
+        }
+
+        private static bool IsFinite(float value)
+        {
+            return !float.IsNaN(value) && !float.IsInfinity(value);
+        }
+
+        private static bool CutoutsEqual(Rect[] left, Rect[] right)
+        {
+            left = left ?? Array.Empty<Rect>();
+            right = right ?? Array.Empty<Rect>();
+            if (left.Length != right.Length)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < left.Length; i++)
+            {
+                if (left[i] != right[i])
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         private static void ApplySafeArea(
