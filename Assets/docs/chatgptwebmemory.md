@@ -1732,3 +1732,52 @@ Current active milestone is **P7 — Feature / POI + PlacementKit**. P7 follows 
 - Temporary export helpers were deleted after use. No commit/push/reset/clean was performed for this batch.
 - Before final Git delivery, an explicit orientation regression was added for precise top-cutout avoidance using both `2400x1080` landscape and `1080x2400` portrait geometry. Final `UIKitAdaptationTests` are **18/18 PASS**, and mother-project compile remains **0 errors / 0 warnings**.
 - User authorized final Git delivery after confirming real-device behavior. Implementation commit `51113cd` (`feat: add robust UIKit display avoidance`) was pushed to `origin/main`. The commit includes the selectable SafeArea/PreciseCutout policy, Automatic fallback pipeline, orientation regression, ToolsHub validation, AssetsMap collision fix, three UIKit docs and distribution metadata. Local-only `Assets/Generated` and `Assets/TextMesh Pro` validation artifacts remain intentionally untracked.
+
+### 2026-09-22 — UIAdaptationKit split from UIKit and standalone delivery
+
+- User clarified the product goal: developers must be able to take only the display/UI adaptation capability without importing UIKit, while end users should receive automatic device adaptation with no model-specific setup.
+- The former `Runtime/Kits/UIKit/Adapters/Adaptation` implementation was physically split into the independent `Runtime/Kits/UIAdaptationKit` Kit.
+- Existing runtime script `.meta` GUIDs and namespace `StellarFramework.UI.Adaptation` were preserved during the move so existing scenes/prefabs/code do not lose MonoScript references merely because the Kit changed ownership.
+- Runtime assembly is now `StellarFramework.UIAdaptationKit` and references only `UnityEngine.UI`; it no longer references `StellarFramework.UIKit`, ResKit, SingletonKit, ToolsHub, or other StellarFramework runtime Kits.
+- ToolsHub integration moved to `Editor/StellarToolsHub/Modules/UIAdaptationKit` with assembly `StellarFramework.ToolsHub.UIAdaptationKit.Editor`. It depends on ToolsHub + UIAdaptationKit, not UIKit.
+- ToolsHub module was renamed to `UIAdaptationKit` and gained a one-click standalone authoring path that creates `Canvas + CanvasScaler + UIAdaptationController + FullScreenRoot + SafeAreaRoot` and a recommended profile when needed.
+- Distribution catalog now exposes:
+  - `uiadaptation.core` -> `StellarFramework-UIAdaptationKit-Core.unitypackage`;
+  - `uiadaptation.tools` -> runtime + ToolsHub preview/validator;
+  - `uiadaptation.complete` -> `StellarFramework-Profile-UIAdaptationKit-Complete.unitypackage`.
+- `UIKit.Core` remains independently usable and does not require UIAdaptationKit. `UIKit Complete` now composes `uiadaptation.tools` rather than owning the adaptation implementation.
+- Legacy catalog IDs `uikit.adaptation` / `uikit.adaptation.tools` remain as compatibility aliases, but their source/dependency closure points to the independent UIAdaptationKit and no longer requires UIKit.Core.
+- UIAdaptationKit documentation now lives under `FrameworkDoc/02-Kits/UIAdaptationKit` with separate usage, design/description, and source documents. UIKit docs now describe UIAdaptationKit only as an optional integration.
+- Distribution/architecture/ToolsHub/validation docs and policy tests were updated to use the new independent Kit semantics.
+- Mother-project validation after the split:
+  - compile: **0 errors / 0 warnings**;
+  - `UIKitAdaptationTests`: **18/18 PASS**;
+  - `KitArchitectureMetadataPolicyTests`: **16/16 PASS**;
+  - `StandaloneSourceExportPolicyTests`: **32/32 PASS**;
+  - `PackagePublisherPolicyTests`: **23/23 PASS**.
+- Clean-project standalone proof in `C:\CodingToolsWorkerCenter\StellarFramework-test`:
+  - imported only `UIAdaptationKit Complete` after deleting `Assets/StellarFramework`;
+  - verified `UIAdaptationKit=true` while `UIKit=false`, `UIKit.prefab=false`, `SingletonKit=false`, `ResKit=false`;
+  - compile **0 errors / 0 warnings**, Console **0 Error**;
+  - PlayMode: Dynamic Island => `EffectiveMode=PreciseCutout`; Legacy SafeArea => `SafeArea`; Legacy Unknown => `EdgePadding`;
+  - Android standalone build succeeded: `Builds/UIAdaptationKitStandalone.apk`.
+- Clean-project `UIKit.Core` proof:
+  - `UIKit=true`, `UIAdaptationKit=false`, `ResKit=false`;
+  - compile **0 errors / 0 warnings**, Console **0 Error**.
+- Clean-project `UIKit Complete` proof:
+  - UIKit + UIAdaptationKit + ResKit closure imported together;
+  - compile **0 errors / 0 warnings**, Console **0 Error**;
+  - Dynamic Island PlayMode still resolved `PreciseCutout + Automatic -> EffectiveMode=PreciseCutout`.
+- Final test-project state was intentionally returned to standalone UIAdaptationKit-only so opening `StellarFramework-test` demonstrates the independent Kit rather than the UIKit combination.
+- Final exported artifacts after the split:
+  - `StellarFramework-UIAdaptationKit-Core.unitypackage` = `24,947` bytes;
+  - `StellarFramework-Profile-UIAdaptationKit-Complete.unitypackage` = `87,783` bytes;
+  - `StellarFramework-UIKit-Core.unitypackage` = `62,935` bytes;
+  - `StellarFramework-Profile-UIKit-Complete.unitypackage` = `186,163` bytes.
+- Temporary export helpers were removed.
+- Final delivery was authorized after re-checking both integration directions:
+  - standalone dependency guide contains only `ToolsHub.Core + UIAdaptationKit.Core + UIAdaptationKit.Tools + com.unity.ugui` and no UIKit/SingletonKit/ResKit;
+  - `UIKit Complete` dependency guide explicitly contains both UIKit and UIAdaptationKit closures;
+  - current standalone test project remained `UIAdaptationKit=true / UIKit=false / SingletonKit=false / ResKit=false` with **0 errors / 0 warnings**;
+  - mother project remained **0 errors / 0 warnings**.
+- Implementation commit `8ce7a13` (`feat: split UIAdaptationKit from UIKit`) was pushed to `origin/main`.
