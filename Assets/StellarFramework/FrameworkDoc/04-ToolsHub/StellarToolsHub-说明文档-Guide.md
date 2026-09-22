@@ -48,14 +48,14 @@ StellarFramework -> Tools Hub
 - `ConfigKit 配置中心`
 - `Localization 本地化`
 - `Localization TMP`（安装 TMP 扩展后）
-- `UIKit UI适配`
+- `UIAdaptationKit`
 - `HybridCLR DLL 导出`
 
 `Localization 本地化` 提供 Workspace、Prefab Scan & Bind、稳定 BindingId、Translation Matrix、JSON/CSV 外部翻译交换、Catalog 校验与示例字体维护；LocalizationKit.Core 本身仍保持零 ToolsHub 依赖。
 
 `Localization TMP` 是 TextMeshPro 扩展入口，使用同一套 BindingId / Registry / SourceHash 规则扫描 TMP Prefab，并自动挂 `LocalizedTMPTextView`。`Localization Complete` 默认包含该能力；单独导出 Core/UGUI 时 TMP 仍保持可选。ToolsHub 只检测 TMP Essential Resources 是否就绪，不把 Unity 官方字体、Shader、PDF 等第三方资源复制进 StellarFramework 分发包。
 
-`UIKit UI适配` 提供 Adaptation Profile、16:9 / 20:9 / 4:3 / 19.5:9 预览、Safe Area 模拟、Controller 配置和 Anchor / Breakpoint 风险检查；实际 Runtime 适配逻辑由独立 `UIKit.Adaptation` 承担。
+`UIAdaptationKit` 提供一键独立 UIRoot、Adaptation Profile、16:9 / 20:9 / 4:3 / 19.5:9 预览、Safe Area/Cutout 模拟、Controller 配置、Automatic Fallback 诊断和 Anchor / Breakpoint 风险检查；Runtime 逻辑由独立 `UIAdaptationKit.Core` 承担，不要求项目安装 UIKit。
 
 `Addressables` 只负责本地 Settings / Group 配置检查与 Player Content 构建；正式内容热更新由项目的 YooAsset 启动层负责。启用 HybridCLR 后，可在 `HybridCLR DLL 导出` 中生成热更 DLL、AOT metadata 与 Manifest。
 

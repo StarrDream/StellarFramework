@@ -1,10 +1,9 @@
 {
-  "name": "StellarFramework.ToolsHub.UIKitAdaptation.Editor",
+  "name": "StellarFramework.ToolsHub.UIAdaptationKit.Editor",
   "rootNamespace": "StellarFramework.Editor.Modules",
   "references": [
     "StellarFramework.ToolsHub.Editor",
-    "StellarFramework.UIKit",
-    "StellarFramework.UIKit.Adaptation",
+    "StellarFramework.UIAdaptationKit",
     "UnityEngine.UI"
   ],
   "includePlatforms": [

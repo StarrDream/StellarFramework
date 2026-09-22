@@ -55,30 +55,35 @@ namespace StellarFramework.Tests.FrameworkValidation
             AssertProfile(catalog, "worldkit.streaming.unity", "adapter", "world");
             AssertProfile(catalog, "audiokit.core", "extension", "presentation");
             AssertProfile(catalog, "uikit.core", "extension", "presentation");
-            AssertProfile(catalog, "uikit.adaptation", "adapter", "presentation");
+            AssertProfile(catalog, "uiadaptation.core", "extension", "presentation");
+            AssertProfile(catalog, "uikit.adaptation", "extension", "presentation");
             AssertProfile(catalog, "hybridclrkit", "extension", "runtime-delivery");
         }
 
         [Test]
-        public void UIKitAdaptationRemainsOptionalAndCompleteUIKitComposesIt()
+        public void UIAdaptationKitIsStandaloneAndCompleteUIKitComposesItOptionally()
         {
             CatalogDocument catalog = ReadCatalog();
             ProfileDocument uiCore = catalog.profiles.Single(profile => profile.id == "uikit.core");
-            ProfileDocument adaptation = catalog.profiles.Single(profile => profile.id == "uikit.adaptation");
+            ProfileDocument adaptation = catalog.profiles.Single(profile => profile.id == "uiadaptation.core");
             ProfileDocument adaptationTools =
-                catalog.profiles.Single(profile => profile.id == "uikit.adaptation.tools");
+                catalog.profiles.Single(profile => profile.id == "uiadaptation.tools");
+            ProfileDocument legacyAlias =
+                catalog.profiles.Single(profile => profile.id == "uikit.adaptation");
             RecommendedProfileDocument complete =
                 catalog.recommendedProfiles.Single(profile => profile.id == "uikit.complete");
 
             Assert.That(uiCore.excludedCapabilities, Does.Not.Contain("SafeArea"));
-            Assert.That(uiCore.excludedSourcePaths,
-                Does.Contain("Assets/StellarFramework/Runtime/Kits/UIKit/Adapters/Adaptation"));
-            Assert.That(adaptation.requiredProfileIds, Is.EqualTo(new[] { "uikit.core" }));
+            Assert.That(adaptation.requiredProfileIds, Is.Empty);
+            Assert.That(adaptation.requiredKits, Is.Empty);
             Assert.That(adaptation.requiredUpm, Is.EqualTo(new[] { "com.unity.ugui" }));
+            Assert.That(adaptation.excludedCapabilities, Does.Contain("UIKit"));
             Assert.That(adaptationTools.kind, Is.EqualTo("tooling"));
             Assert.That(adaptationTools.requiredProfileIds,
-                Is.EqualTo(new[] { "uikit.adaptation", "toolshub.core" }));
-            Assert.That(complete.profileIds, Does.Contain("uikit.adaptation.tools"));
+                Is.EqualTo(new[] { "uiadaptation.core", "toolshub.core" }));
+            Assert.That(legacyAlias.requiredProfileIds, Is.Empty);
+            Assert.That(legacyAlias.excludedCapabilities, Does.Contain("UIKit"));
+            Assert.That(complete.profileIds, Does.Contain("uiadaptation.tools"));
 
             string panelBase = ReadAssetText(
                 "Assets/StellarFramework/Runtime/Kits/UIKit/UIPanelBase.cs");
@@ -87,7 +92,11 @@ namespace StellarFramework.Tests.FrameworkValidation
             string uiKitEditor = ReadAssetText(
                 "Assets/StellarFramework/Runtime/Kits/UIKit/Editor/UIKitEditor.cs");
             string adaptationProfile = ReadAssetText(
-                "Assets/StellarFramework/Runtime/Kits/UIKit/Adapters/Adaptation/UIAdaptationProfile.cs");
+                "Assets/StellarFramework/Runtime/Kits/UIAdaptationKit/Runtime/UIAdaptationProfile.cs");
+            string adaptationAssembly = ReadAssetText(
+                "Assets/StellarFramework/Runtime/Kits/UIAdaptationKit/StellarFramework.UIAdaptationKit.asmdef");
+            string adaptationToolsAssembly = ReadAssetText(
+                "Assets/StellarFramework/Editor/StellarToolsHub/Modules/UIAdaptationKit/StellarFramework.ToolsHub.UIAdaptationKit.Editor.asmdef");
 
             Assert.That(panelBase, Does.Contain("PanelLayoutRegion"));
             Assert.That(panelBase, Does.Contain("FullScreen = 0"));
@@ -98,6 +107,9 @@ namespace StellarFramework.Tests.FrameworkValidation
             Assert.That(uiKitEditor, Does.Contain("SafeAreaRoot"));
             Assert.That(adaptationProfile, Does.Contain("CalculateShapeAspect"));
             Assert.That(adaptationProfile, Does.Contain("ResolveOrientation"));
+            Assert.That(adaptationAssembly, Does.Not.Contain("StellarFramework.UIKit"));
+            Assert.That(adaptationToolsAssembly, Does.Contain("StellarFramework.UIAdaptationKit"));
+            Assert.That(adaptationToolsAssembly, Does.Not.Contain("StellarFramework.UIKit"));
         }
 
         [Test]
@@ -123,13 +135,20 @@ namespace StellarFramework.Tests.FrameworkValidation
             Assert.That(resKit.deliveryGroup, Is.EqualTo("complete"));
             Assert.That(resKit.output, Is.EqualTo("StellarFramework-Profile-ResKit-Complete.unitypackage"));
 
+            RecommendedProfileDocument adaptation =
+                catalog.recommendedProfiles.Single(profile => profile.id == "uiadaptation.complete");
+            Assert.That(adaptation.profileIds, Is.EqualTo(new[] { "uiadaptation.tools" }));
+            Assert.That(adaptation.deliveryGroup, Is.EqualTo("complete"));
+            Assert.That(adaptation.output,
+                Is.EqualTo("StellarFramework-Profile-UIAdaptationKit-Complete.unitypackage"));
+
             RecommendedProfileDocument ui =
                 catalog.recommendedProfiles.Single(profile => profile.id == "uikit.complete");
             Assert.That(ui.profileIds, Is.EqualTo(new[]
             {
                 "uikit.reskit",
                 "uikit.tools",
-                "uikit.adaptation.tools",
+                "uiadaptation.tools",
                 "reskit.tools"
             }));
             Assert.That(ui.deliveryGroup, Is.EqualTo("complete"));

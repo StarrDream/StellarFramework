@@ -20,7 +20,8 @@ Recommended Profile 是“常见项目目标的推荐组合”，不是新的 Ki
 | --- | --- | --- | --- |
 | Localization Complete | `localizationkit.tools + localizationkit.tmp.tools` | 完整本地化：UGUI/TMP Scanner/Binding、Workspace、Translation Matrix、JSON/CSV、Validator、ToolsHub | SettingsKit、UIKit、ResKit、热更 |
 | ResKit Complete | `reskit.tools` | 完整 ResKit Core + AssetsMap + 资源审计/生成工具 | AssetBundle、Addressables、YooAsset、HybridCLR |
-| UIKit Complete | `uikit.reskit + uikit.tools + uikit.adaptation.tools + reskit.tools` | 完整 UIKit Runtime/Tooling + ResKit + 多尺寸 UI Adaptation | Addressables、YooAsset、HybridCLR |
+| UIAdaptationKit Complete | `uiadaptation.tools` | 独立 UGUI 多机型适配 + SafeArea/Cutout/Fallback + Preview/Validator | UIKit、ResKit、SingletonKit |
+| UIKit Complete | `uikit.reskit + uikit.tools + uiadaptation.tools + reskit.tools` | 完整 UIKit Runtime/Tooling + ResKit + 独立 UIAdaptationKit | Addressables、YooAsset、HybridCLR |
 | Hot Update Full | `reskit.yooasset + reskit.tools + hybridclrkit.tools` | 需要资源内容更新 + C# 代码热更的项目 | Addressables |
 
 如果项目已经拥有自己的 UI、Settings、资源系统，只缺某一个能力，不要机械选择完整组合。直接从左侧的 `01 基础功能` 或 `03 扩展功能` 中选择对应原子 Profile 即可。
@@ -68,6 +69,8 @@ Recommended Profile 是“常见项目目标的推荐组合”，不是新的 Ki
 | AudioKit.Core | PoolKit、SingletonKit | UniTask | ToolsHub、ResKit、AA、HybridCLR、代码热更 |
 | AudioKit.Tools | AudioKit.Core + ToolsHub.Core + AudioKit 专属面板 | UniTask | Player Runtime |
 | AudioKit.ResKitAdapter | AudioKit.Core + ResKit.Core + ResKit 音频加载器 | UniTask | Addressables、HybridCLR、代码热更 |
+| UIAdaptationKit.Core | SafeArea、System Cutouts、PreciseCutout、Automatic Fallback、Breakpoint、Layout Variant | UGUI | UIKit、ResKit、SingletonKit、ToolsHub、热更 |
+| UIAdaptationKit.Tools | UIAdaptationKit.Core + ToolsHub.Core + 一键独立 UIRoot + Preview/Validator | UGUI | Player Runtime、UIKit |
 | FlowKit.Core | Graph/Compiler/immutable Plan、Runner、Timer、Signal、State、Blackboard、Polling、Operation 与 Parallel/Race/Join | 无 | UnityEngine、UniTask、Addressables、HybridCLR、UI、资源和业务对象 |
 | FlowKit.UnityIntegration | FlowHost、稳定 FlowBinding、JSON Graph 入口 | 无 | UniTask、Addressables、HybridCLR、ResKit、ToolsHub |
 | FlowKit.ToolsHub | ToolsHub.Core + FlowKit 可视化编辑、项目校验、运行时诊断 | 无 | Editor-only；不进入玩家 Runtime，不提供独立 FlowKit 顶层菜单 |
@@ -84,8 +87,8 @@ Recommended Profile 是“常见项目目标的推荐组合”，不是新的 Ki
 | UIKit.Core | Runtime.Core、SingletonKit | UniTask、UGUI | PoolKit、Newtonsoft Json、ToolsHub、ResKit、AA、HybridCLR、代码热更 |
 | UIKit.Tools | UIKit.Core + ToolsHub.Core + CodeGen/Inspector/UIKit Hub | UniTask、UGUI | Player Runtime |
 | UIKit.ResKitAdapter | UIKit.Core + ResKit.Core + ResKit UI Adapter | UniTask、UGUI | Addressables、HybridCLR、代码热更 |
-| UIKit.Adaptation | UIKit.Core + Safe Area / Aspect Breakpoint / CanvasScaler runtime controller + Layout Variant | UGUI | ResKit、ToolsHub、Addressables、HybridCLR |
-| UIKit.Adaptation.Tools | UIKit.Adaptation + ToolsHub.Core + 多尺寸 Preview / SafeArea / Anchor 风险 Validator + Variant Capture | UGUI | Player Runtime |
+
+旧 `UIKit.Adaptation` / `UIKit.Adaptation.Tools` 导出入口作为兼容别名保留，但源码与依赖均指向独立 UIAdaptationKit，不再要求 UIKit.Core。新项目统一使用 `uiadaptation.core / uiadaptation.tools`。
 
 `UIKit.Core` 的默认加载策略是 Resources；只有导入 `UIKit.ResKitAdapter` 后才会注入 ResKit 加载策略。
 

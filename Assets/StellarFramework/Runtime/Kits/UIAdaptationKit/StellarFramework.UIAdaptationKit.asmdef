@@ -1,8 +1,7 @@
 {
-  "name": "StellarFramework.UIKit.Adaptation",
+  "name": "StellarFramework.UIAdaptationKit",
   "rootNamespace": "StellarFramework.UI.Adaptation",
   "references": [
-    "StellarFramework.UIKit",
     "UnityEngine.UI"
   ],
   "includePlatforms": [],

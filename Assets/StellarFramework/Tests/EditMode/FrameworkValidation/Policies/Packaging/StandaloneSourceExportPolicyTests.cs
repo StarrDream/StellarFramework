@@ -63,8 +63,8 @@ namespace StellarFramework.Tests.FrameworkValidation
                 "runtime.core",
                 "singletonkit",
                 "toolshub.core",
-                "uikit.adaptation",
-                "uikit.adaptation.tools",
+                "uiadaptation.core",
+                "uiadaptation.tools",
                 "uikit.core",
                 "uikit.reskit",
                 "uikit.tools"

@@ -1,8 +1,8 @@
-# UIKit / 界面系统使用文档
+# UIAdaptationKit / UI 适配系统使用文档
 
 ## 适用范围
 
-本文面向实际制作 UI 的程序、美术和 UI 设计人员，重点说明 UIKit 多机型适配时：
+本文面向实际制作 UI 的程序、美术和 UI 设计人员，重点说明 UIAdaptationKit 多机型适配时：
 
 - 普通页面怎么做；
 - 全屏背景怎么做；
@@ -23,7 +23,7 @@
 
 不要因为存在刘海或挖孔就在设计稿阶段手工为某个具体型号空出一块固定区域。
 
-UIKit Runtime 会根据当前设备的：
+UIAdaptationKit Runtime 会根据当前设备的：
 
 ```text
 Screen.width
@@ -48,13 +48,16 @@ Screen.cutouts
 - 重要弹窗；
 - 普通顶部导航。
 
-推荐：
+推荐层级：
 
 ```text
-PanelLayoutRegion = SafeArea
+Canvas
+├─ FullScreenRoot
+└─ SafeAreaRoot   <- UIAdaptationController 管理
+   └─ PageContent
 ```
 
-效果是整个关键 UI 区域进入系统安全矩形。
+效果是整个关键 UI 区域进入系统安全矩形。UIAdaptationKit 不要求项目存在 UIKit。
 
 这就是“整条危险区一起避开”的方案，稳定性最高。
 
@@ -72,7 +75,10 @@ PanelLayoutRegion = SafeArea
 推荐：
 
 ```text
-PanelLayoutRegion = FullScreen
+Canvas
+└─ FullScreenRoot
+   └─ Background / Video / FX
+
 Display Avoidance = None
 ```
 
@@ -89,7 +95,7 @@ Display Avoidance = None
 希望继续使用危险区左右仍然可用的空间时，推荐：
 
 ```text
-PanelLayoutRegion = FullScreen
+HUD 保持在 FullScreenRoot
 UICutoutAwareLayout.Mode = PreciseCutout
 UICutoutAwareLayout.Fallback = Automatic
 ```
@@ -132,7 +138,7 @@ Target 必须收进 SafeArea。
 
 > 整条顶部 / 底部一起避开危险区域。
 
-如果整个 Panel 都要这么做，优先直接使用 `PanelLayoutRegion.SafeArea`；只有需要在 FullScreen Panel 内局部控制 Target 时才用这个 Mode。
+如果整个页面都要这么做，优先把页面放到 `SafeAreaRoot`；只有需要在 FullScreen HUD 内局部控制 Target 时才使用这个 Mode。
 
 ### PreciseCutout
 
@@ -280,19 +286,20 @@ Source = Manual
 ### 普通页面
 
 ```text
-UIPanelBase
-  Panel Layout Region = SafeArea
+Canvas
+└─ SafeAreaRoot
+   └─ PageContent
 ```
 
-不需要 `UICutoutAwareLayout`。
+在 Canvas 根节点挂 `UIAdaptationController`，把 `SafeAreaRoot` 配给它即可；普通页面不需要 `UICutoutAwareLayout`。
 
 ### 游戏 HUD
 
 ```text
-UIPanelBase
-  Panel Layout Region = FullScreen
+FullScreenRoot
+└─ HUD
 
-UICutoutAwareLayout
+HUD / UICutoutAwareLayout
   Mode = PreciseCutout
   Fallback = Automatic
   Source = System
@@ -305,8 +312,8 @@ UICutoutAwareLayout
 ### FullScreen 背景
 
 ```text
-UIPanelBase
-  Panel Layout Region = FullScreen
+FullScreenRoot
+└─ Background
 
 Cutout Avoidance = Disabled / None
 ```
@@ -316,7 +323,7 @@ Cutout Avoidance = Disabled / None
 打开：
 
 ```text
-Tools Hub -> UIKit UI适配
+Tools Hub -> UIAdaptationKit
 ```
 
 可以模拟：
@@ -409,7 +416,9 @@ if (deviceModel == "...") { ... }
 
 UI 只声明设计意图。
 
-平台 Adapter 负责提供 `UIDisplayGeometry`，UIKit 负责选择实际避让策略。
+平台 Adapter 负责提供 `UIDisplayGeometry`，UIAdaptationKit 负责选择实际避让策略。
+
+如果项目同时使用 StellarFramework UIKit，UIKit 只是把自己的 `FullScreenRoot / SafeAreaRoot` 接入 UIAdaptationKit；反过来 UIAdaptationKit 不依赖 UIKit。
 
 目标原则：
 
@@ -417,5 +426,5 @@ UI 只声明设计意图。
 
 ## 相关文档
 
-- [UIKit 说明文档](UIKit-界面系统-说明文档-Guide.md)
-- [UIKit 源码文档](UIKit-界面系统-源码文档-Guide.md)
+- [UIAdaptationKit 说明文档](UIAdaptationKit-说明文档-Guide.md)
+- [UIAdaptationKit 源码文档](UIAdaptationKit-源码文档-Guide.md)

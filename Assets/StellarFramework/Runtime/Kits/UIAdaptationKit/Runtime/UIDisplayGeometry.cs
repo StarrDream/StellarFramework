@@ -5,7 +5,7 @@ using UnityEngine;
 namespace StellarFramework.UI.Adaptation
 {
     /// <summary>
-    /// Runtime display geometry consumed by UIKit adaptation features.
+    /// Runtime display geometry consumed by UI adaptation features.
     /// Coordinates use Unity screen-pixel space with a bottom-left origin.
     /// </summary>
     public readonly struct UIDisplayGeometry

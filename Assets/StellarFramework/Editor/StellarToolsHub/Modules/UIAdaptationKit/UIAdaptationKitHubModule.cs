@@ -8,13 +8,12 @@ using UnityEngine.UI;
 
 namespace StellarFramework.Editor.Modules
 {
-    [StellarTool("UIKit UI适配", "框架核心", 5,
+    [StellarTool("UIAdaptationKit", "框架核心", 5,
         RequiredAssemblyNames = new[]
         {
-            "StellarFramework.UIKit.Adaptation",
-            "StellarFramework.UIKit"
+            "StellarFramework.UIAdaptationKit"
         })]
-    public sealed class UIKitAdaptationHubModule : ToolModule
+    public sealed class UIAdaptationKitHubModule : ToolModule
     {
         private UIAdaptationProfile _profile;
         private GameObject _targetRoot;
@@ -30,7 +29,7 @@ namespace StellarFramework.Editor.Modules
 
         public override string Icon => "d_RectTransformBlueprint";
         public override string Description =>
-            "UIKit 多尺寸适配：Safe Area、Cutout 精确避让、Aspect Breakpoint、屏幕预览与布局风险检查。";
+            "独立 UI 多尺寸适配：Safe Area、Cutout 精确避让、自动降级、Aspect Breakpoint、屏幕预览与布局风险检查。";
 
         public override void OnSelectionChange()
         {
@@ -187,6 +186,11 @@ namespace StellarFramework.Editor.Modules
         private void DrawControllerSection()
         {
             Section("UIRoot");
+            if (PrimaryButton("一键创建独立 UIAdaptation Root", GUILayout.Height(30)))
+            {
+                CreateStandaloneAdaptationRoot();
+            }
+
             _targetRoot = (GameObject)EditorGUILayout.ObjectField(
                 "Target Root",
                 _targetRoot,
@@ -558,6 +562,91 @@ namespace StellarFramework.Editor.Modules
             _profile = profile;
             Selection.activeObject = profile;
             EditorGUIUtility.PingObject(profile);
+        }
+
+        private void CreateStandaloneAdaptationRoot()
+        {
+            UIAdaptationProfile profile = _profile != null
+                ? _profile
+                : GetOrCreateDefaultProfileAsset();
+
+            var root = new GameObject(
+                "UIAdaptationRoot",
+                typeof(RectTransform),
+                typeof(Canvas),
+                typeof(CanvasScaler),
+                typeof(GraphicRaycaster),
+                typeof(UIAdaptationController));
+            Undo.RegisterCreatedObjectUndo(root, "Create UIAdaptation Root");
+
+            Canvas canvas = root.GetComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+
+            CanvasScaler scaler = root.GetComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = profile.DesignResolution;
+            scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
+            scaler.matchWidthOrHeight = profile.DefaultMatchWidthOrHeight;
+
+            RectTransform fullScreenRoot = CreateStretchRoot(root.transform, "FullScreenRoot");
+            RectTransform safeAreaRoot = CreateStretchRoot(root.transform, "SafeAreaRoot");
+            fullScreenRoot.SetSiblingIndex(0);
+            safeAreaRoot.SetSiblingIndex(1);
+
+            UIAdaptationController controller = root.GetComponent<UIAdaptationController>();
+            controller.Configure(profile, safeAreaRoot);
+            controller.ApplyCurrentScreen();
+
+            _profile = profile;
+            _targetRoot = root;
+            Selection.activeGameObject = root;
+            EditorGUIUtility.PingObject(root);
+        }
+
+        private UIAdaptationProfile GetOrCreateDefaultProfileAsset()
+        {
+            const string folder = "Assets/UIAdaptation";
+            const string path = folder + "/UIAdaptationProfile.asset";
+            UIAdaptationProfile existing = AssetDatabase.LoadAssetAtPath<UIAdaptationProfile>(path);
+            if (existing != null)
+            {
+                return existing;
+            }
+
+            if (!AssetDatabase.IsValidFolder(folder))
+            {
+                AssetDatabase.CreateFolder("Assets", "UIAdaptation");
+            }
+
+            var tablet = new UIAdaptationBreakpoint();
+            tablet.Configure("tablet", 1.00f, 1.59f, UIAdaptationOrientation.Any, 0.70f);
+            var phone = new UIAdaptationBreakpoint();
+            phone.Configure("phone", 1.60f, 1.94f, UIAdaptationOrientation.Any, 0.50f);
+            var phoneTall = new UIAdaptationBreakpoint();
+            phoneTall.Configure("phone_tall", 1.95f, 2.60f, UIAdaptationOrientation.Any, 0.35f);
+
+            UIAdaptationProfile profile = ScriptableObject.CreateInstance<UIAdaptationProfile>();
+            profile.Configure(
+                new Vector2(1920f, 1080f),
+                0.5f,
+                true,
+                new[] { tablet, phone, phoneTall });
+            AssetDatabase.CreateAsset(profile, path);
+            AssetDatabase.SaveAssets();
+            return profile;
+        }
+
+        private static RectTransform CreateStretchRoot(Transform parent, string name)
+        {
+            var go = new GameObject(name, typeof(RectTransform));
+            Undo.RegisterCreatedObjectUndo(go, $"Create {name}");
+            RectTransform rect = go.GetComponent<RectTransform>();
+            rect.SetParent(parent, false);
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
+            return rect;
         }
 
         private void SetPreview(int width, int height)

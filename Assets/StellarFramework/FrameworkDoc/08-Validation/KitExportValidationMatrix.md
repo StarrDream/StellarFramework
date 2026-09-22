@@ -77,12 +77,13 @@ Catalog schema v3 以 `tier` / `category` 描述架构职责，并用 `recommend
 | ResKit.YooAsset | ResKit.Core、UniTask、YooAsset 2.3.x Adapter | Addressables、HybridCLR、YooAsset 启动/版本/下载流程 |
 | HybridCLRKit | ResKit.Core、HybridCLR Runtime、AOT Metadata/HotUpdate Assembly 加载 | ToolsHub、Addressables、YooAsset、HttpKit、内容版本/下载流程 |
 | HybridCLRKit.Tools | HybridCLRKit、ToolsHub.Core、DLL/AOT/Manifest 导出与诊断工具 | Player Runtime |
+| UIAdaptationKit.Core | UGUI、SafeArea、System Cutouts、PreciseCutout、Automatic Fallback、Aspect/Orientation Breakpoint、Layout Variant | UIKit、ResKit、SingletonKit、ToolsHub |
+| UIAdaptationKit.Tools | UIAdaptationKit.Core、ToolsHub Preview/Validator、一键独立 UIRoot、Mode/Fallback/Effective 诊断 | Player Runtime、UIKit |
 | UIKit.Core | Runtime.Core、SingletonKit、UniTask、UGUI、Resources/Custom Load Strategy | PoolKit、Newtonsoft、ToolsHub、ResKit |
 | UIKit.Tools | UIKit.Core、ToolsHub.Core、CodeGen、Panel Inspector、UIKit Hub | Player Runtime |
 | Recommended: ResKit Complete | `reskit.tools`，依赖闭包自动补齐 ResKit.Core / PoolKit / LogKit / Generated.AssetMap / ToolsHub.Core | 具体资源后端 |
-| UIKit.Adaptation | UIKit.Core、SafeArea、Aspect Breakpoint、低频屏幕变化应用、BreakpointChanged、Layout Variant | ToolsHub、ResKit、热更后端 |
-| UIKit.Adaptation.Tools | UIKit.Adaptation、ToolsHub Preview、SafeArea/Anchor/Breakpoint Validator、Layout Variant Capture | Player Runtime |
-| Recommended: UIKit Complete | `uikit.reskit + uikit.tools + uikit.adaptation.tools + reskit.tools`，组合 UIKit、ResKit 与多尺寸适配完整开发体验 | 第三方资源后端、HybridCLR |
+| Recommended: UIAdaptationKit Complete | `uiadaptation.tools`，独立适配 Runtime + ToolsHub 开发体验 | UIKit、ResKit、SingletonKit |
+| Recommended: UIKit Complete | `uikit.reskit + uikit.tools + uiadaptation.tools + reskit.tools`，组合 UIKit、ResKit 与独立多尺寸适配完整开发体验 | 第三方资源后端、HybridCLR |
 | Recommended: Hot Update Full | `reskit.yooasset + reskit.tools + hybridclrkit.tools`，依赖闭包自动补齐 ResKit.Core / PoolKit / LogKit / Generated.AssetMap / ToolsHub.Core / HybridCLRKit | Addressables |
 
 完整 Profile、依赖闭包与 UPM 要求以 [KitDistributionCatalog.json](KitDistributionCatalog.json) 为准。

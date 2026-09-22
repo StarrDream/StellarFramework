@@ -54,7 +54,7 @@ namespace StellarFramework.UI.Adaptation
 
     [CreateAssetMenu(
         fileName = "UIAdaptationProfile",
-        menuName = "StellarFramework/UIKit/UI Adaptation Profile")]
+        menuName = "StellarFramework/UIAdaptationKit/UI Adaptation Profile")]
     public sealed class UIAdaptationProfile : ScriptableObject
     {
         [SerializeField] private Vector2 _designResolution = new Vector2(1920f, 1080f);

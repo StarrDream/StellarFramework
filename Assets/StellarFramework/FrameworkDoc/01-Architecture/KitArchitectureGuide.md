@@ -43,7 +43,8 @@ Catalog 中的 `profiles` 与 `recommendedProfiles` 是两层不同概念：
 
 - `localization.complete`：完整本地化生产配置，包含 Core、UnityUGUI + TextMeshPro 运行时绑定、UGUI/TMP Scanner、稳定 Binding Registry、Translation Workspace、JSON/CSV 交换、Validator 与 ToolsHub；不强制引入 SettingsKit、UIKit 或资源系统。
 - `reskit.complete`：完整 ResKit 开发配置，以 `reskit.tools` 为入口，包含 ResKit.Core、PoolKit、LogKit、Generated.AssetMap、ToolsHub 与资源审计/生成工具；具体 AssetBundle/Addressables/YooAsset 后端继续按项目选择。
-- `uikit.complete`：完整 UIKit 生产配置，包含 UIKit Runtime/Tools、UIKit.ResKitAdapter、ResKit Complete、UIKit.Adaptation Runtime/Tools 与 ToolsHub；第三方资源后端仍按项目需要扩展。
+- `uiadaptation.complete`：独立 UI 适配生产配置，包含 UIAdaptationKit Runtime + ToolsHub Preview/Validator；只依赖 UGUI，不依赖 UIKit。
+- `uikit.complete`：完整 UIKit 生产配置，包含 UIKit Runtime/Tools、UIKit.ResKitAdapter、ResKit Complete，并组合独立 UIAdaptationKit；第三方资源后端仍按项目需要扩展。
 - `hotupdate.full`：完整热更新扩展，以 `reskit.yooasset + reskit.tools + hybridclrkit.tools` 为入口，自动得到 ResKit、YooAsset、HybridCLR、PoolKit、LogKit、ToolsHub、AssetsMap 与对应编辑器工具。
 
 Export 的用户导航与架构 tier 是两个独立维度：
@@ -59,8 +60,8 @@ Export 的用户导航与架构 tier 是两个独立维度：
 | 层级 | Kit / Profile |
 | --- | --- |
 | Foundation | LogKit、EventKit、PoolKit、SingletonKit、FSMKit、ActionKit、BindableKit、ConfigKit.Core、HttpKit、ResKit.Core、SettingsKit.Core、TimeKit、SaveKit.Core、GridKit、WorldKit.Core、SpatialKit、SimulationKit、PathKit、FlowKit.Core、PlacementKit.Core |
-| Extension | AudioKit.Core、UIKit.Core、HybridCLRKit、WorldGenKit.Core、WorldGenKit.Builtins、WorldGenKit.Authoring、WorldGenKit.Resources、WorldGenKit.Feature、WorldKit.Streaming |
-| Adapter | ConfigKit.NewtonsoftJson、SettingsKit.UnityAdapters、SettingsKit.AudioKitAdapter、AudioKit.ResKitAdapter、ResKit.AssetBundle、ResKit.Addressables、ResKit.YooAsset、UIKit.ResKitAdapter、UIKit.Adaptation、LocalizationKit.SettingsAdapter、LocalizationKit.UnityUGUIAdapter、LocalizationKit.TMPAdapter、SaveKit.NewtonsoftJson、PathKit.GridKitAdapter、FlowKit.UnityIntegration、Feature.ResourcesAdapter、Feature.PlacementAdapter、Feature.AuthoringAdapter、Feature.WorldKitAdapter、Feature.SaveKitAdapter、WorldGenKit.DebugTextureAdapter、WorldGenKit.MeshAdapter、WorldGenKit.TilemapAdapter、WorldGenKit.UnityTerrainAdapter、WorldGenKit.StreamingAdapter、WorldKit.Streaming.SaveKitAdapter、WorldKit.Streaming.UnityAdapter |
+| Extension | AudioKit.Core、UIKit.Core、UIAdaptationKit.Core、HybridCLRKit、WorldGenKit.Core、WorldGenKit.Builtins、WorldGenKit.Authoring、WorldGenKit.Resources、WorldGenKit.Feature、WorldKit.Streaming |
+| Adapter | ConfigKit.NewtonsoftJson、SettingsKit.UnityAdapters、SettingsKit.AudioKitAdapter、AudioKit.ResKitAdapter、ResKit.AssetBundle、ResKit.Addressables、ResKit.YooAsset、UIKit.ResKitAdapter、LocalizationKit.SettingsAdapter、LocalizationKit.UnityUGUIAdapter、LocalizationKit.TMPAdapter、SaveKit.NewtonsoftJson、PathKit.GridKitAdapter、FlowKit.UnityIntegration、Feature.ResourcesAdapter、Feature.PlacementAdapter、Feature.AuthoringAdapter、Feature.WorldKitAdapter、Feature.SaveKitAdapter、WorldGenKit.DebugTextureAdapter、WorldGenKit.MeshAdapter、WorldGenKit.TilemapAdapter、WorldGenKit.UnityTerrainAdapter、WorldGenKit.StreamingAdapter、WorldKit.Streaming.SaveKitAdapter、WorldKit.Streaming.UnityAdapter |
 
 这只是展示和依赖约束元数据，不会让 Foundation 自动安装。选择某个 Kit 时，导出器仍只按 `requiredProfileIds` 计算实际依赖闭包。
 
@@ -177,13 +178,17 @@ LocalizationKit.Core 是 `foundation / data`：只负责稳定 `LocaleId`、`Loc
 
 `LocalizationKit.Editor` 是 Editor-only 生产与验证边界：除 Catalog coverage / duplicate / missing / fallback validator 外，还拥有稳定 Binding Registry、UGUI Scanner、Translation Workspace 与 JSON/CSV 外部翻译交换；`LocalizationKit.Tools` 仅负责将这些能力接入 ToolsHub。扫描采用 Preview → Apply；机器身份使用持久化 BindingId，Hierarchy/Sibling 顺序只作为当前位置元数据，不参与长期 Key 身份。源文本变化保留 Key/BindingId 并通过 sourceHash 标记译文需复核。
 
-## UIKit.Adaptation 的定位
+## UIAdaptationKit 的定位
 
-`UIKit.Adaptation` 是 `adapter / presentation`：在不增加 UIKit.Core 负担的前提下提供 CanvasScaler 配置、Safe Area、屏幕形状 Breakpoint、横竖屏、Layout Variant 与低频屏幕变化检测。Breakpoint 的 aspect 统一使用“长边 / 短边”得到 >= 1 的 Shape Aspect；Orientation 单独判断，因此同一 20:9 设备横竖屏都使用同一个比例区间。
+`UIAdaptationKit.Core` 是独立 `extension / presentation`：只依赖 Unity UGUI，不依赖 UIKit、ResKit、SingletonKit 或其他 StellarFramework Runtime Kit。它提供 CanvasScaler 配置、Safe Area、Screen Cutouts、精确危险区避让、Automatic Fallback、屏幕形状 Breakpoint、横竖屏与 Layout Variant。
 
-标准 UIRoot 的 Static/Dynamic Canvas 各自包含 `FullScreenRoot` 与 `SafeAreaRoot`。Panel 通过 `UIPanelBase.PanelLayoutRegion` 显式选择区域：背景、遮罩、转场默认 FullScreen；需要避开刘海/圆角的交互内容选择 SafeArea。旧 Panel 默认仍为 FullScreen，旧 UIRoot 缺少区域节点时 UIKit 会回退到既有 Layer 结构，避免破坏既有项目。
+Breakpoint 的 aspect 统一使用“长边 / 短边”得到 >= 1 的 Shape Aspect；Orientation 单独判断，因此同一 20:9 设备横竖屏使用同一个形状区间，同时仍可按 Portrait/Landscape 做显式约束。
 
-`UIKit.Adaptation.Tools` 是 Editor-only ToolsHub 能力：设备比例预览、SafeArea preview、Breakpoint 校验、Anchor 风险提示与 Layout Variant Capture。完整 `uikit.complete` 默认组合 Adaptation Runtime/Tools，但 `UIKit.Core` 本身仍可完全不使用该扩展。
+UI 作者只声明 `None / SafeArea / PreciseCutout`。`PreciseCutout + Automatic` 在系统无法提供可靠 Cutout 时降到 SafeArea，再无法获得有效 SafeArea 时降到 Reference Edge Padding。业务不维护 Android/iOS/HarmonyOS/品牌/型号分支。
+
+`UIAdaptationKit.Tools` 是 Editor-only ToolsHub 能力：一键建立独立 `Canvas + FullScreenRoot + SafeAreaRoot + Controller + 推荐 Profile`，并提供设备比例预览、SafeArea/Cutout preview、Breakpoint 校验、Anchor 风险提示、Mode/Fallback/Effective 诊断与 Layout Variant Capture。
+
+UIKit 只是可选消费者：标准 UIRoot 的 Static/Dynamic Canvas 提供 `FullScreenRoot / SafeAreaRoot`，Panel 继续通过 `UIPanelBase.PanelLayoutRegion` 选择区域。`UIKit.Core` 自身不依赖 UIAdaptationKit；完整 `uikit.complete` 默认组合 `uiadaptation.tools`。旧 `uikit.adaptation*` Catalog ID 仅作为兼容导出别名保留。
 
 ## SimulationKit 的定位
 

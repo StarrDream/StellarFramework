@@ -4,7 +4,7 @@
   "references": [
     "StellarFramework.Runtime",
     "StellarFramework.UIKit",
-    "StellarFramework.UIKit.Adaptation",
+    "StellarFramework.UIAdaptationKit",
     "StellarFramework.GridKit.Core",
     "StellarFramework.GridKit.UnityProjectionAdapter",
     "StellarFramework.LocalizationKit.Core",

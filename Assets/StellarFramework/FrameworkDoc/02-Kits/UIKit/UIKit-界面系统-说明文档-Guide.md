@@ -130,7 +130,7 @@ await UIKit.PreloadAsync<ShopPanel>();
 
 ## 多机型 UI 适配
 
-`UIKit.Adaptation` 是可选 Adapter，`UIKit.Core` 不直接依赖它；`UIKit Complete` 默认组合该能力。
+`UIAdaptationKit` 是独立 Kit，`UIKit.Core` 不直接依赖它；`UIKit Complete` 默认组合该能力。只需要屏幕适配时可以完全不导入 UIKit。
 
 ### UIAdaptationProfile
 
@@ -163,7 +163,7 @@ Controller 挂在 UIRoot，仅在 `Screen.width / height / safeArea` 变化时�
 
 ### 两套危险区避让方案
 
-UIKit.Adaptation 同时提供两套方案，二者不是互斥替代关系：
+UIAdaptationKit 同时提供两套方案，二者不是互斥替代关系：
 
 1. `SafeAreaRoot`：保守矩形安全区。适合登录页、设置页、商城、表单、普通导航等。整个关键 UI 区域避开刘海、圆角、Home Indicator 等系统危险边缘，测试成本最低。
 2. `UICutoutAwareLayout`：精确 Cutout 避让。适合游戏 HUD、顶部状态栏等希望继续利用屏幕边缘空间的界面。Panel 通常保持 `FullScreen`，只把返回按钮、标题、金币等关键 RectTransform 注册为 Target。Runtime 根据 `Screen.cutouts` 判断哪些 Target 真正与危险区相交，仅移动发生碰撞的 Target。
@@ -262,6 +262,8 @@ Automatic → EdgePadding
 
 这套链路用于兼容老 Android、厂商 ROM、iOS 新旧设备、缺少完整 Cutout 信息的平台以及后续 HarmonyOS Adapter。原则是：新设备尽量使用屏幕空间，异常/老设备优先保证关键 UI 可操作。
 
+UIKit 这里只负责把自己的 `FullScreenRoot / SafeAreaRoot` 与 Panel 路由语义接入 UIAdaptationKit。适配算法、Geometry、Cutout/Fallback 本身不依赖 UIKit。
+
 ### 不应该做的适配方式
 
 不要在业务 UI 中维护：
@@ -287,7 +289,7 @@ Runtime 只监听 `UIAdaptationController.BreakpointChanged`，Breakpoint 真正
 
 ### ToolsHub
 
-`Tools Hub -> UIKit UI适配` 提供：
+`Tools Hub -> UIAdaptationKit` 提供：
 
 - 16:9 / 20:9 / 4:3 / 19.5:9 Portrait Preview。
 - 自定义 Width / Height / Safe Insets。
@@ -304,10 +306,10 @@ Validator 只报告风险，不会擅自重排 UI。
 
 - `UIKit 工具`
   UI 工作区、绑定代码生成、样例修复
-- `UIKit UI适配`
+- `UIAdaptationKit`
   Safe Area、Cutout 精确避让、Breakpoint、Device Preview、Layout Variant Capture 与布局风险检查
 - `文档中心`
-  查看 UIKit 说明和源码文档
+  查看 UIKit 与 UIAdaptationKit 的使用、说明和源码文档
 
 ## 使用约束
 
@@ -329,5 +331,6 @@ Validator 只报告风险，不会擅自重排 UI。
 
 ## 相关文档
 
-- [UIKit 使用文档](UIKit-界面系统-使用文档-Guide.md)
+- [UIAdaptationKit 使用文档](../UIAdaptationKit/UIAdaptationKit-使用文档-Guide.md)
+- [UIAdaptationKit 说明文档](../UIAdaptationKit/UIAdaptationKit-说明文档-Guide.md)
 - [UIKit 源码文档](UIKit-界面系统-源码文档-Guide.md)
