@@ -12,6 +12,7 @@ namespace StellarFramework.Tests.FrameworkValidation
     public sealed class ResScopeTests
     {
         private const string LoaderKey = "ResScopeTests";
+        private const int TimeoutMs = 5000;
 
         [TearDown]
         public void TearDown()
@@ -20,12 +21,14 @@ namespace StellarFramework.Tests.FrameworkValidation
         }
 
         [UnityTest]
+        [Timeout(TimeoutMs)]
         public IEnumerator DisposeReleasesOwnedAssetsAndRecyclesLoaderOnce()
         {
             return RunDisposeReleasesOwnedAssetsAndRecyclesLoaderOnce().ToCoroutine();
         }
 
         [UnityTest]
+        [Timeout(TimeoutMs)]
         public IEnumerator DisposeCancelsPendingLoad()
         {
             return RunDisposeCancelsPendingLoad().ToCoroutine();
@@ -75,7 +78,11 @@ namespace StellarFramework.Tests.FrameworkValidation
             UniTask<UnityEngine.Object> pending =
                 scope.LoadAsync<UnityEngine.Object>("Assets/Test/PendingScope.asset");
 
-            await UniTask.Yield();
+            Assert.That(
+                loader.PhysicalLoadStarted,
+                Is.True,
+                "The fake physical load must be active before disposing the scope.");
+
             scope.Dispose();
 
             bool cancelled = false;
@@ -89,6 +96,10 @@ namespace StellarFramework.Tests.FrameworkValidation
             }
 
             Assert.That(cancelled, Is.True);
+            Assert.That(
+                loader.PhysicalCancellationObserved,
+                Is.True,
+                "Disposing the only waiting scope must cancel the shared physical load.");
             Assert.That(loader.RecycleCount, Is.EqualTo(1));
         }
 
@@ -138,6 +149,8 @@ namespace StellarFramework.Tests.FrameworkValidation
         {
             public override string LoaderName => "ResScopeBlockingTest";
             public int RecycleCount { get; private set; }
+            public bool PhysicalLoadStarted { get; private set; }
+            public bool PhysicalCancellationObserved { get; private set; }
 
             protected override ResData LoadRealSync(string path)
             {
@@ -148,9 +161,22 @@ namespace StellarFramework.Tests.FrameworkValidation
                 string path,
                 CancellationToken cancellationToken)
             {
-                await UniTask.WaitUntilCanceled(cancellationToken);
-                cancellationToken.ThrowIfCancellationRequested();
-                return null;
+                PhysicalLoadStarted = true;
+
+                try
+                {
+                    await UniTask.WaitUntilCanceled(
+                        cancellationToken,
+                        PlayerLoopTiming.Update,
+                        completeImmediately: true);
+                    cancellationToken.ThrowIfCancellationRequested();
+                    return null;
+                }
+                catch (OperationCanceledException)
+                {
+                    PhysicalCancellationObserved = true;
+                    throw;
+                }
             }
 
             protected override void UnloadReal(ResData data)

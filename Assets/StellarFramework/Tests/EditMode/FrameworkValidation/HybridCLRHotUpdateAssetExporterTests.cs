@@ -32,7 +32,10 @@ namespace StellarFramework.Tests.FrameworkValidation
                 File.Delete(metaPath);
             }
 
-            AssetDatabase.Refresh();
+            // AssetDatabase.DeleteAsset already updates the database for the normal path.
+            // Do not force a global Refresh from an EditMode test: Test Runner locks assembly
+            // reloads while the suite is active, and a refresh can leave Unity in isCompiling
+            // for the rest of the run and deadlock PlayerLoop-based async tests.
         }
 
         [Test]

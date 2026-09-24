@@ -11,13 +11,17 @@ namespace StellarFramework.Tests.FrameworkValidation
 {
     public sealed class ResLoaderCancellationTests
     {
+        private const int TimeoutMs = 5000;
+
         [UnityTest]
+        [Timeout(TimeoutMs)]
         public IEnumerator SamePathPendingLoadHonorsWaitingCallerCancellation()
         {
             return RunSamePathPendingLoadHonorsWaitingCallerCancellation().ToCoroutine();
         }
 
         [UnityTest]
+        [Timeout(TimeoutMs)]
         public IEnumerator SolePendingLoadPropagatesCallerCancellation()
         {
             return RunSolePendingLoadPropagatesCallerCancellation().ToCoroutine();
@@ -31,7 +35,12 @@ namespace StellarFramework.Tests.FrameworkValidation
             {
                 UniTask<UnityEngine.Object> pending =
                     loader.LoadAsync<UnityEngine.Object>("Assets/Test/SolePending.asset", cancelled.Token);
-                await UniTask.Yield();
+
+                Assert.That(
+                    loader.PhysicalLoadStarted,
+                    Is.True,
+                    "The fake physical load must have started synchronously before cancellation is requested.");
+
                 cancelled.Cancel();
 
                 bool cancellationObserved = false;
@@ -48,6 +57,11 @@ namespace StellarFramework.Tests.FrameworkValidation
                     cancellationObserved,
                     Is.True,
                     "The first/sole caller cancellation must propagate as OperationCanceledException, not null.");
+
+                Assert.That(
+                    loader.PhysicalCancellationObserved,
+                    Is.True,
+                    "When the sole waiter cancels, ResMgr must cancel the shared physical load as well.");
             }
 
             loader.ReleaseAll();
@@ -123,6 +137,9 @@ namespace StellarFramework.Tests.FrameworkValidation
 
         private sealed class CancellationAwareBlockingLoader : ResLoader
         {
+            public bool PhysicalLoadStarted { get; private set; }
+            public bool PhysicalCancellationObserved { get; private set; }
+
             public override string LoaderName => "CancellationAwareBlockingTest";
 
             protected override ResData LoadRealSync(string path)
@@ -134,9 +151,26 @@ namespace StellarFramework.Tests.FrameworkValidation
                 string path,
                 CancellationToken cancellationToken)
             {
-                await UniTask.WaitUntilCanceled(cancellationToken);
-                cancellationToken.ThrowIfCancellationRequested();
-                return null;
+                PhysicalLoadStarted = true;
+
+                try
+                {
+                    // This fake is validating ResMgr's cancellation contract, not UniTask's
+                    // Editor PlayerLoop integration. Complete immediately from the token
+                    // callback so the test cannot deadlock while Unity Test Runner owns the
+                    // EditMode update loop.
+                    await UniTask.WaitUntilCanceled(
+                        cancellationToken,
+                        PlayerLoopTiming.Update,
+                        completeImmediately: true);
+                    cancellationToken.ThrowIfCancellationRequested();
+                    return null;
+                }
+                catch (OperationCanceledException)
+                {
+                    PhysicalCancellationObserved = true;
+                    throw;
+                }
             }
 
             protected override void UnloadReal(ResData data)

@@ -13,6 +13,7 @@ namespace StellarFramework.Tests.FrameworkValidation
     {
         private const string LoaderKey = "Tests.SharedScope";
         private const string TestPath = "Assets/Test/Shared.asset";
+        private const int TimeoutMs = 5000;
 
         [SetUp]
         public void SetUp()
@@ -29,18 +30,21 @@ namespace StellarFramework.Tests.FrameworkValidation
         }
 
         [UnityTest]
+        [Timeout(TimeoutMs)]
         public IEnumerator TwoScopesShareOnePhysicalLoadAndUnloadAfterLastOwner()
         {
             return RunTwoScopesShareOnePhysicalLoadAndUnloadAfterLastOwner().ToCoroutine();
         }
 
         [UnityTest]
+        [Timeout(TimeoutMs)]
         public IEnumerator OneScopeCancellationDoesNotCancelAnotherScopesSharedLoad()
         {
             return RunOneScopeCancellationDoesNotCancelAnotherScopesSharedLoad().ToCoroutine();
         }
 
         [UnityTest]
+        [Timeout(TimeoutMs)]
         public IEnumerator DisposingLastWaitingScopeCancelsSharedPhysicalLoad()
         {
             return RunDisposingLastWaitingScopeCancelsSharedPhysicalLoad().ToCoroutine();
@@ -54,7 +58,6 @@ namespace StellarFramework.Tests.FrameworkValidation
             {
                 UniTask<UnityEngine.Object> loadA = scopeA.LoadAsync<UnityEngine.Object>(TestPath);
                 UniTask<UnityEngine.Object> loadB = scopeB.LoadAsync<UnityEngine.Object>(TestPath);
-                await UniTask.Yield();
 
                 Assert.That(SharedBlockingLoader.PhysicalLoadCount, Is.EqualTo(1));
                 SharedBlockingLoader.Complete();
@@ -90,7 +93,6 @@ namespace StellarFramework.Tests.FrameworkValidation
                         scopeA.LoadAsync<UnityEngine.Object>(TestPath, callerCancellation.Token);
                     UniTask<UnityEngine.Object> survivingLoad =
                         scopeB.LoadAsync<UnityEngine.Object>(TestPath);
-                    await UniTask.Yield();
 
                     callerCancellation.Cancel();
                     bool cancellationObserved = false;
@@ -124,7 +126,8 @@ namespace StellarFramework.Tests.FrameworkValidation
         {
             var scope = StellarFramework.Res.ResKit.CreateCustomScope(LoaderKey, "LastScope");
             UniTask<UnityEngine.Object> load = scope.LoadAsync<UnityEngine.Object>(TestPath);
-            await UniTask.Yield();
+
+            Assert.That(SharedBlockingLoader.PhysicalLoadCount, Is.EqualTo(1));
 
             scope.Dispose();
             bool cancelled = false;
@@ -138,7 +141,6 @@ namespace StellarFramework.Tests.FrameworkValidation
             }
 
             Assert.That(cancelled, Is.True);
-            await UniTask.Yield();
             Assert.That(SharedBlockingLoader.SharedPhysicalCancellationCount, Is.EqualTo(1));
         }
 

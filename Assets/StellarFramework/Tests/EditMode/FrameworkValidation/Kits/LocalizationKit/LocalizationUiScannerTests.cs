@@ -27,7 +27,6 @@ namespace StellarFramework.Tests.FrameworkValidation
             if (AssetDatabase.IsValidFolder(TempRoot))
             {
                 AssetDatabase.DeleteAsset(TempRoot);
-                AssetDatabase.Refresh();
             }
         }
 

@@ -69,6 +69,22 @@ Release（export、clean import、Player、IL2CPP、AA/HotUpdate）
 
 编辑器内使用 Window > General > Test Runner，分别选择 EditMode 或 PlayMode；先运行受影响的定向测试，再运行 Framework Gate。
 
+当通过 UnitySkills / Web Agent 自动运行测试时，StellarFramework 不直接使用原始 `test_run` 作为首选入口，而使用项目侧安全门禁 `stellar_test_run_safe`。该门禁按“AssetDatabase.Refresh → 等待 compilation/update idle → 再确认一段短暂稳定窗口 → 启动 Test Runner”的顺序执行；若 Unity 正在编译、刷新资源或 EditMode 正处于 PlayMode 切换状态，则返回 `retryRequired=true`，调用方应按 `retryAfterSeconds` 延迟后重试同一请求。这样可避免 EditMode Test Runner 已锁定 Assembly Reload 后，又遇到待处理编译，进而让依赖 Editor PlayerLoop 的 UniTask / IEnumerator 测试形成循环等待。
+
+典型自动化流程：
+
+~~~text
+stellar_test_run_safe(testMode="EditMode", filter="StellarFramework.Tests.FrameworkValidation")
+  -> asset_refresh_requested / retryRequired=true
+  -> 等待 retryAfterSeconds 后重试
+  -> editor_idle_observed / retryRequired=true
+  -> 等待 retryAfterSeconds 后重试
+  -> accepted + jobId
+  -> test_get_result(jobId) 轮询到 completed / failed
+~~~
+
+只需查看当前是否适合启动 Test Runner 时，可调用 `stellar_test_gate_status`。安全门禁位于 `Assets/StellarFramework/Editor/Verification/UnitySkillsSafeTestGate`，通过独立 Editor asmdef 依赖 `UnitySkills.Editor`，不会给 Runtime Kit 增加依赖。该适配层属于 StellarFramework 的自动化基础设施；不要直接修改 `Library/PackageCache` 作为长期修复，因为 Package Cache 会在重新解析或升级依赖时被重建。
+
 命令行示例：
 
 ~~~text
