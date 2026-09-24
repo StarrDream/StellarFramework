@@ -1,8 +1,8 @@
 ﻿{
     "version": 1,
-    "buildTarget": "StandaloneWindows64",
+    "buildTarget": "Android",
     "hotUpdateAssemblyKey": "Assets/GameHotUpdate/Code/HotUpdate.dll.bytes",
-    "hotUpdateAssemblySha256": "170f24354ad67cc09b86ce4cc6ddd2fc0feed250195b7362954c1d63370d3fd0",
+    "hotUpdateAssemblySha256": "00b27e04a3de8f6995e9fe316fe86573d33c69eae8309c22e3f3a2148cd41f17",
     "hotUpdateEntryClass": "HotUpdate.HotUpdateMain",
     "hotUpdateEntryMethod": "Main",
     "aotMetadataKeys": [

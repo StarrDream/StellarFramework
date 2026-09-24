@@ -1,6 +1,7 @@
 # Track only Unity project source/config folders.
 /*
 !/.gitignore
+!/README_EN.md
 
 !/Assets/
 !/Assets/**

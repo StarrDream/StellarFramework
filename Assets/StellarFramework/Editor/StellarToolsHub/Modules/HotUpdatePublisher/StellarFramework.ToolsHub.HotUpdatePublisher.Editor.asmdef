@@ -1,0 +1,19 @@
+{
+  "name": "StellarFramework.ToolsHub.HotUpdatePublisher.Editor",
+  "rootNamespace": "StellarFramework.Editor.HotUpdatePublisher",
+  "references": [
+    "StellarFramework.ToolsHub.Editor",
+    "StellarFramework.HybridCLRKit"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

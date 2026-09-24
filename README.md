@@ -1,288 +1,239 @@
-# StellarFramework
+<div align="center">
 
-## 中文
+# ✦ StellarFramework
 
-StellarFramework 是一个 Unity 基础开发框架，包含架构分层、UI、资源加载、配置、事件、设置、热更新和配套编辑器工具。
+### Modular · Exportable · Production-Oriented Unity Framework
 
-## 概览
+面向真实 Unity 项目交付的模块化开发框架。<br>
+按需选择 Kit，隔离第三方依赖，并配套 Editor Tooling、导出流程与多层自动化验证。
 
-本工程包含框架源码、Kit 导出器、Tools Hub、样例和验证内容。业务项目通过导出包按需接入框架能力。
+![Unity](https://img.shields.io/badge/Unity-2022.3%20LTS-222222?logo=unity&logoColor=white)
+![Unity 6](https://img.shields.io/badge/Unity-6000.x-222222?logo=unity&logoColor=white)
+![CSharp](https://img.shields.io/badge/C%23-Unity-512BD4?logo=csharp&logoColor=white)
 
-- `Assets/StellarFramework/Tests` 是自动化 Behavior、Performance 和 Framework Policy 验证。
-- `Assets/StellarFramework/Samples` 是面向使用者的 Kit 教学样例，不是完整业务 Demo。
-- `Assets/StellarFrameworkVerification` 是维护者专用的 Integration、Player、Release 验证区，不会分发给使用者。
-- `GameHotUpdate` 按 Runtime Delivery Example / Verification Fixture 处理，不作为普通 Sample。
-- `StellarFramework Export` 用于导出 Recommended Profile、单 Kit、组合 Kit、样例包和独立 `Architecture.cs` / `Extensions.cs`。
-- `StellarFramework.unitypackage` 用于完整框架的一键安装。
+[快速开始](#快速开始) · [核心能力](#核心能力) · [架构](#架构) · [验证体系](#验证体系) · [完整文档](Assets/StellarFramework/FrameworkDoc/README.md) · [English](README_EN.md)
 
-## 运行环境
+</div>
 
-- Unity `2022.3 LTS`
-- Unity `6000.x`
+---
 
-## 使用方式
+## 为什么是 StellarFramework
 
-### 打开框架工程
+StellarFramework 不是把一组 Manager 打包进同一个工程，而是围绕 **可拆分、可替换、可验证** 设计。
 
-使用 Unity `2022.3.62f3c1`（或兼容的 Unity 2022.3 LTS / Unity 6000.x）打开工程根目录。首次打开会解析 UniTask、Addressables、HybridCLR 等 UPM 依赖。
-
-导出入口：`StellarFramework -> Export`。
-
-### 按需导出
-
-导出器会自动合并所选 Kit 的依赖，并在包旁生成依赖说明。
-
-| 目标 | 导出内容 |
+| 方向 | 设计目标 |
 | --- | --- |
-| 架构或静态扩展 | `Architecture.cs`、`Extensions.cs`，不引入 Kit |
-| UI | `UIKit.Core`；默认使用 Resources，不依赖 ResKit |
-| 本地化 | 只缺领域能力时导出 `LocalizationKit.Core`；`Localization Complete` 默认包含 UGUI + TMP 扫描/绑定、翻译 Workspace 与 JSON/CSV 外部翻译交换 |
-| 资源加载 | `ResKit.Core`、`ResKit.AssetBundle`、`ResKit.Addressables` 或 `ResKit.YooAsset` |
-| 代码热更 | `HybridCLRKit`；内容版本/下载由项目的 YooAsset 启动层负责 |
-| 网格基础能力 | `GridKit`，无必需 Kit 或 UPM 依赖 |
-| 世界组织基础 | `WorldKit.Core`，有限/无限 Chunk、强类型数据层、Dirty/Delta；无必需 Kit 或 UPM 依赖 |
-| 世界数据生成 | `WorldGenKit.Core`，强类型 Channel/Storage、Stage DAG Compiler、确定 Seed、Rule 原语与 GenerationReport；无必需 Kit 或 UPM 依赖 |
-| 世界生成 Builtins | `WorldGenKit.Builtins`，Height/Moisture/Water/Slope/Biome/Surface/Buildable；只依赖 WorldGenKit.Core |
-| 世界导入与编辑 | `WorldGenKit.Authoring`，Typed Import、Sparse Override、Height/Biome/Surface 编辑与 Dirty Region 局部重算；只依赖 Core + Builtins |
-| 世界资源生成 | `WorldGenKit.Resources`，Stable-ID Resource、Density/Coverage、Cluster/Richness、Budget/MinSpacing/Occupancy；**只依赖 WorldGenKit.Core** |
-| 世界 Feature / POI | `WorldGenKit.Feature`，Landmark/Area/Compound、Quota、Reservation、Terrain Adaptation、Compound Layout；只依赖 WorldGenKit.Core |
-| 通用放置验证 | `PlacementKit.Core`，Footprint、Slope/Water/Zone/Conflict/Connection 规则与显式失败原因；零依赖 |
-| Feature 可选组合 | Resources / Placement / Authoring / WorldKit / SaveKit 五个独立 Adapter，按项目需要选装 |
-| WorldGen Unity 表现 | DebugTexture / Mesh / Tilemap / UnityTerrain 四个独立 Adapter；同一 WorldData 可选 2D/3D 输出，Core 不引用 Unity 表现类型 |
-| 无限世界流送 | `WorldKit.Streaming`：Generation Region、Demand Policy、Metadata/Data/Simulation/Presentation 分级；WorldGen / SaveKit / Unity Floating Origin 分别独立适配 |
-| 连续二维空间索引 | `SpatialKit`，动态点索引、矩形/圆形查询和有限半径最近邻；无必需 Kit 或 UPM 依赖 |
-| 批量模拟调度 | `SimulationKit`，索引最小堆、固定预算派发、分散首次派发与过期合并；无必需 Kit 或 UPM 依赖 |
-| 通用路径搜索 | `PathKit`，Graph-first A* / Dijkstra、正 long 成本、边界预算与原子路径输出；V1 Core Semantics 已冻结，GridKit 通过可选适配器接入 |
-| 声明式工作流 | `FlowKit.Core` 纯 C# 工作流运行时；`FlowKit.UnityIntegration` 提供可选 Unity Host/Binding，不依赖 UniTask、Addressables 或 HybridCLR |
+| **Modular Kits** | Kit 尽量保持独立，可按项目需求单独或组合导出 |
+| **Adapter Isolation** | Unity API、资源后端、第三方 SDK 和平台能力通过 Adapter 隔离 |
+| **Export Profiles** | 导出器自动处理已声明依赖，支持基础能力、完整组合和扩展能力 |
+| **Editor Tooling** | Tools Hub 提供入口、构建、诊断、扫描、生成与维护工具 |
+| **Verification Gates** | Behavior / Performance / Policy / PlayMode / Integration / Release 分层验证 |
+| **MSV Architecture** | Model 持状态，Service 承担业务逻辑，View 聚焦表现与输入转发 |
 
-完整组合位于 `StellarFramework -> Export -> 02 完整功能`，当前提供 `Localization Complete`、`ResKit Complete` 与 `UIKit Complete`；其中 UIKit Complete 默认组合 ResKit 与 UIKit.Adaptation。 `Hot Update Full` 位于 `03 扩展功能`。这些都只是经过验证的 Profile 组合，不会创建新的 Runtime 模块。
+项目的目标不是要求所有工程都使用全部能力，而是让团队可以只拿当前项目真正需要的部分。
 
-### 单包安装
+## 核心能力
 
-- 导入 `StellarFramework.unitypackage`。
-- Bootstrap 安装窗口会自动弹出。
-- 点击 `一键安装 StellarFramework`。如果手动关闭，可从 `Window -> StellarFramework Bootstrap Installer` 重新打开。
+### Application
 
-详细说明：
+`UIKit` · `LocalizationKit` · `AudioKit` · `SaveKit` · `FlowKit` · `SettingsKit`
 
-- [StellarFrameworkBootstrap README](Assets/StellarFrameworkBootstrap/README.md)
+- UI 页面与生命周期、屏幕适配
+- 稳定 BindingId 的 UI 本地化扫描与外部翻译工作流
+- 存档、版本迁移、事务写入与恢复
+- 声明式流程图运行时与 Unity Integration
+
+### Resources & Delivery
+
+`ResKit` · `HybridCLRKit` · `Addressables Adapter` · `YooAsset Adapter`
+
+- 统一资源加载入口与生命周期管理
+- Resources / AssetBundle / Addressables / YooAsset 可替换后端
+- HybridCLR 代码热更新扩展
+- AssetMap、热更新产物、发布与验证工具链
+
+### Foundation
+
+`EventKit` · `ConfigKit` · `LogKit` · `PoolKit` · `SingletonKit` · `TimeKit` · `BindableKit` · `FSMKit` · `ActionKit` · `HttpKit`
+
+这些模块主要承担高复用、低业务耦合的基础能力。
+
+### World & Simulation
+
+`GridKit` · `SpatialKit` · `PathKit` · `SimulationKit` · `WorldKit` · `WorldGenKit` · `PlacementKit`
+
+- 网格、空间索引与路径搜索
+- 批量模拟调度
+- World / Region / Chunk 数据组织
+- 确定性世界生成 Pipeline
+- Resource / Feature / POI / Placement 规则
+- DebugTexture / Mesh / Tilemap / Unity Terrain 等表现 Adapter
+
+> 首页只保留能力域概览。详细 Kit、依赖关系与导出边界请查看 [FrameworkDoc](Assets/StellarFramework/FrameworkDoc/README.md) 和 [Kit 架构分层与依赖规则](Assets/StellarFramework/FrameworkDoc/01-Architecture/KitArchitectureGuide.md)。
 
 ## 快速开始
 
-1. 打开 `StellarFramework -> Tools Hub`。
-2. 进入 `Start Here -> Quick Start`。
-3. 执行样例构建。
-4. 运行 `UIKit_Playable.unity` 或 `ResKit_Playable.unity`。
+主开发基线为 Unity `2022.3.62f3c1`，同时维护 Unity `2022.3 LTS` / `6000.x` 兼容目标。
 
-详细说明：
+### 方式一：打开完整框架工程
 
-- [快速开始](Assets/StellarFramework/FrameworkDoc/00-Overview/快速开始.md)
-- [ToolsHub 说明文档](Assets/StellarFramework/FrameworkDoc/04-ToolsHub/StellarToolsHub-说明文档-Guide.md)
+1. Clone 仓库并使用兼容 Unity 版本打开工程。
+2. 等待 UPM 依赖解析完成。
+3. 打开 `StellarFramework -> Tools Hub`。
+4. 进入 `Start Here -> Quick Start`。
 
-## 验证与发布
+### 方式二：按需导出 Kit
 
-验证职责、目录边界、EditMode/PlayMode 选择、Samples 与 Verification 分工，以及 Local/Framework/Release Gate 见：
+打开：
 
-- [验证架构与发布验收规范](Assets/StellarFrameworkVerification/ValidationArchitecture.md)
-- [维护者验证区](Assets/StellarFrameworkVerification/README.md)
-- [导出验证矩阵（Evidence Ledger）](Assets/StellarFramework/FrameworkDoc/08-Validation/KitExportValidationMatrix.md)
+```text
+StellarFramework -> Export
+```
+
+导出器会根据 Profile 计算依赖闭包，并生成配套依赖说明。常见选择：
+
+| 需求 | 推荐入口 |
+| --- | --- |
+| 只要基础架构 | `Architecture.cs` / `Extensions.cs` |
+| UI | `UIKit.Core` 或 `UIKit Complete` |
+| 本地化 | `LocalizationKit.Core` 或 `Localization Complete` |
+| 资源系统 | `ResKit.Core` / 对应 Backend / `ResKit Complete` |
+| 代码热更新 | `HybridCLRKit` / `Hot Update Full` |
+| 网格与寻路 | `GridKit` / `PathKit` / 可选 Adapter |
+| 世界生成 | World / WorldGen / Placement 相关 Profile |
+
+### 方式三：完整 unitypackage
+
+完整分发场景仍可使用 `StellarFramework.unitypackage`，并通过 Bootstrap Installer 完成安装引导。
+
+详细步骤见 [快速开始](Assets/StellarFramework/FrameworkDoc/00-Overview/快速开始.md)。
 
 ## 架构
 
-StellarFramework 以 `Architecture` 作为基础架构层，核心组织方式是：
+```mermaid
+flowchart TB
+    A[Architecture / MSV] --> B[Runtime Kits]
 
-- `Model` 负责状态与数据
-- `Service` 负责业务逻辑与系统能力
-- `View` 负责表现层交互
+    B --> APP[Application]
+    B --> RES[Resources & Delivery]
+    B --> WORLD[World & Simulation]
+    B --> FOUNDATION[Foundation]
 
-在这套基础分层之上，`UIKit`、`ResKit`、`SettingsKit` 等 Kit 可按需接入项目运行时；Addressables / YooAsset 是 ResKit 的可选资源后端，`HybridCLRKit` 是独立的代码热更新扩展。`Tools Hub` 和各类 Editor Modules 负责样例、资源构建、代码热更新产物导出、代码生成和调试辅助。
+    RES --> ADAPTERS[Adapters]
+    WORLD --> ADAPTERS
+    APP --> ADAPTERS
 
-整体上可以理解为三层：
+    ADAPTERS --> UNITY[Unity / Platform APIs]
+    ADAPTERS --> THIRD[Third-party SDKs]
 
-- `Architecture`：项目主架构
-- `Runtime Kits`：功能模块
-- `Editor Modules / Tools Hub`：编辑器工作流与辅助工具
+    B --> TOOLS[Tools Hub / Editor Modules]
+    TOOLS --> EXPORT[Kit Exporter]
 
-Runtime Kit 按架构职责分为 Foundation、Extension 与 Adapter Profile；这只影响依赖约束和导出器展示，不代表默认安装。详细规则见 [Kit 架构分层与依赖规则](Assets/StellarFramework/FrameworkDoc/01-Architecture/KitArchitectureGuide.md)。
-
-## 目录结构
-
-```text
-Assets
-├─ StellarFramework/                 核心运行时、编辑器模块、样例与文档
-├─ StellarFrameworkBootstrap/        单包安装与引导内容
-├─ StellarFrameworkVerification/     框架验证区
-├─ GameHotUpdate/                    热更新示例资源
-├─ AddressableAssetsData/            Addressables 配置
-├─ StreamingAssets/                  示例运行资源
-└─ Scenes/                           示例场景
+    B --> VERIFY[Verification]
+    VERIFY --> EDIT[EditMode]
+    VERIFY --> PLAY[PlayMode]
+    VERIFY --> RELEASE[Integration / Release Gate]
 ```
 
-## 模块
+核心边界：
 
-### Runtime Kits
+- `Model`：状态与数据
+- `Service`：业务规则与状态变更
+- `View`：表现与输入
+- `Adapter`：隔离 Unity、第三方 SDK、网络、存储和平台实现
+- `Editor Modules`：不污染 Runtime 的开发与交付工具
 
-| 模块 | 说明 |
-| --- | --- |
-| `Architecture` | `Model / Service / View` 基础架构分层 |
-| `ActionKit` | 行为与时序动作能力 |
-| `AudioKit` | 音频播放与管理 |
-| `BindableKit` | 数据绑定 |
-| `ConfigKit` | 配置读取与访问 |
-| `EventKit` | 事件注册与派发 |
-| `FSMKit` | 状态机 |
-| `HttpKit` | HTTP 请求封装 |
-| `UIKit` | UI 面板管理与页面栈；可选 Adaptation 提供 Safe Area / Aspect Breakpoint / 多尺寸适配 |
-| `ResKit` | `Resources / AssetBundle / Addressables / YooAsset / 自定义 Loader` 统一加载入口 |
-| `HybridCLRKit` | 独立的启动期代码热更新；通过 ResKit 读取 Manifest、DLL 与 AOT metadata |
-| `SettingsKit` | 设置项注册、扩展页、存储 |
-| `LogKit` | 日志输出与诊断 |
-| `PoolKit` | 对象池 |
-| `SingletonKit` | 单例生命周期与注册 |
-| `TimeKit` | 游戏世界时间、日历换算与高性能定时调度 |
-| `SaveKit` | 可靠游戏存档、Section 分区、版本迁移、事务写入、备份恢复与可扩展 Serializer / Storage |
-| `GridKit` | 负坐标网格、半开矩形、连续 DenseGrid、Footprint 变换与原子 Occupancy |
-| `WorldKit` | 有限/无限平面世界组织、Chunk 生命周期、强类型 World/Region/Chunk 数据层、Dirty 与 Runtime Delta |
-| `WorldGenKit` | 可扩展强类型世界数据生成 Pipeline、六类 Storage、确定性 Seed、Rule 原语与编译诊断；Core 不依赖 WorldKit |
-| `WorldGenKit.Builtins` | Planar Height/Moisture/Water/Slope + Stable-ID Biome/Surface + Buildable 的可选基础生成闭环 |
-| `WorldGenKit.Authoring` | Imported/Generated Base + Sparse Authoring Override、Height 编辑、Stable-ID Semantic Paint 与局部派生重算 |
-| `WorldGenKit.Resources` | 独立 Core-only Resource Scatter：通用 Eligibility/Suitability → Candidate → Budget/Spacing/Occupancy → SpawnRecord |
-| `WorldGenKit.Feature` | Landmark/Area/Compound Feature、确定性 Resolver、Reservation、Quota、Terrain Adaptation 与语义 Compound Layout |
-| `WorldGenKit Presentation Adapters` | Dense Channel → Debug Texture / heightfield Mesh / Tilemap / Unity Terrain；四个可独立导出的 Unity Adapter |
-| `PlacementKit` | 零依赖通用 Placement validation：Footprint、规则、Failure ID、Suitability 与自定义 Context |
-| `SpatialKit` | 连续二维点、均匀空间哈希、矩形/圆形查询与最近邻 |
-| `SimulationKit` | 纯 C# 批量模拟调度、固定预算派发、分散首次派发与过期合并 |
-| `PathKit` | Graph-first 通用最短路径、A* / Dijkstra、确定性 tie-break、成本溢出保护；V1 Core Semantics 已冻结，GridKit 为可选适配器 |
-| `FlowKit` | Graph JSON → Migration/Validation → immutable Plan → Scheduler/Runner；Signal、State、Blackboard、Timer、Operation、Parallel/Race/Join 与快照 |
+## Tools Hub 与工程化工作流
 
-### Editor Modules
+`StellarFramework -> Tools Hub` 是框架的统一编辑器入口，用于承载 Quick Start、资源构建、HybridCLR 产物、诊断、扫描与各 Kit 的维护工具。
 
-| 模块 | 说明 |
-| --- | --- |
-| `Tools Hub` | 快速开始、资源构建、HybridCLR 产物导出、诊断工具 |
-| `ActionKit` | ActionKit 编辑器支持 |
-| `Addressables` | ResKit Addressables 后端的本地配置、Group 检查与 Player Content 构建 |
-| `AudioKit` | AudioKit 工具入口 |
-| `ConfigKit` | 配置工具入口 |
-| `DevTools` | 调试与开发辅助工具 |
-| `EventKit` | EventKit 工具入口 |
-| `Packaging` | 打包与发布辅助 |
-| `ResKit` | 资源构建与资源审计 |
-| `SettingsKit` | 设置中心工具 |
-| `UIKit` | UI 绑定生成与 UIKit 工具 |
-| `UIKit UI适配` | Safe Area / Breakpoint Profile、常见屏幕 Preview 与 Anchor 风险检查 |
-| `Localization 本地化` | UI 扫描绑定、稳定 BindingId、Translation Matrix、JSON/CSV 外部翻译交换与校验 |
-| `Localization TMP` | 可选 TextMeshPro 本地化扫描与稳定 BindingId 绑定 |
-| `FlowKit` | Graph Validator 与独立 FlowKit Graph 窗口（仅框架开发工程） |
-| `World Framework` | Editor-only World/Profile/Pipeline/Biome/Resource/Feature/Placement Authoring、Heatmap、Validator 与 Runtime diagnostics |
+当前仓库暂未放置适合 GitHub 首页展示的正式截图，因此 README 不使用占位图或模拟图。后续建议补充两张真实界面图：
 
-### Samples
+1. `Tools Hub` 首页 / Quick Start
+2. `StellarFramework -> Export` 的 Basic / Complete / Extension Profile 选择界面
 
-| 模块 | 说明 |
-| --- | --- |
-| `KitSamples` | 单模块最小可运行样例 |
-| `ArchitectureDemo` | 完整架构示例 |
+真实截图补齐后，这一节可以直接升级为首页的主要视觉展示区域。
 
-## 文档
+## 验证体系
 
-- [快速开始](Assets/StellarFramework/FrameworkDoc/00-Overview/快速开始.md)
-- [Samples 总览](Assets/StellarFramework/Samples/README.md)
-- [ToolsHub 说明文档](Assets/StellarFramework/FrameworkDoc/04-ToolsHub/StellarToolsHub-说明文档-Guide.md)
-- [ResKit 统一资源说明](Assets/StellarFramework/FrameworkDoc/02-Kits/Reskit/ResKit-统一资源-说明文档-Guide.md)
-- [UIKit 界面系统说明](Assets/StellarFramework/FrameworkDoc/02-Kits/UIKit/UIKit-界面系统-说明文档-Guide.md)
-- [SettingsKit 设置系统说明](Assets/StellarFramework/FrameworkDoc/02-Kits/SettingsKit/SettingsKit-设置系统-说明文档-Guide.md)
-- [HybridCLRKit 代码热更新说明](Assets/StellarFramework/FrameworkDoc/02-Kits/HybridCLRKit/HybridCLRKit-代码热更新-说明文档-Guide.md)
-- [GridKit 网格系统说明](Assets/StellarFramework/FrameworkDoc/02-Kits/GridKit/GridKit-网格系统-说明文档-Guide.md)
-- [GridKit 源码文档](Assets/StellarFramework/FrameworkDoc/02-Kits/GridKit/GridKit-网格系统-源码文档-Guide.md)
-- [WorldKit 世界组织说明](Assets/StellarFramework/FrameworkDoc/02-Kits/WorldKit/WorldKit-世界组织系统-说明文档-Guide.md)
-- [WorldKit 源码文档](Assets/StellarFramework/FrameworkDoc/02-Kits/WorldKit/WorldKit-世界组织系统-源码文档-Guide.md)
-- [WorldGenKit 世界生成说明](Assets/StellarFramework/FrameworkDoc/02-Kits/WorldGenKit/WorldGenKit-世界生成系统-说明文档-Guide.md)
-- [WorldGenKit 源码文档](Assets/StellarFramework/FrameworkDoc/02-Kits/WorldGenKit/WorldGenKit-世界生成系统-源码文档-Guide.md)
-- [WorldGenKit.Builtins 地形/Biome/Surface 指南](Assets/StellarFramework/FrameworkDoc/02-Kits/WorldGenKit/WorldGenKit-Builtins-地形生物群系表面-Guide.md)
-- [WorldGenKit.Authoring 导入与手工编辑指南](Assets/StellarFramework/FrameworkDoc/02-Kits/WorldGenKit/WorldGenKit-Authoring-导入与手工编辑-Guide.md)
-- [WorldGenKit.Resources 资源生成与占用指南](Assets/StellarFramework/FrameworkDoc/02-Kits/WorldGenKit/WorldGenKit-Resources-资源生成与占用-Guide.md)
-- [WorldGenKit.Feature 地标与 POI 生成指南](Assets/StellarFramework/FrameworkDoc/02-Kits/WorldGenKit/WorldGenKit-Feature-地标与POI生成-Guide.md)
-- [WorldGenKit.DebugTextureAdapter 指南](Assets/StellarFramework/FrameworkDoc/02-Kits/WorldGenKit/WorldGenKit-DebugTextureAdapter-Guide.md)
-- [WorldGenKit.MeshAdapter 指南](Assets/StellarFramework/FrameworkDoc/02-Kits/WorldGenKit/WorldGenKit-MeshAdapter-Guide.md)
-- [WorldGenKit.TilemapAdapter 指南](Assets/StellarFramework/FrameworkDoc/02-Kits/WorldGenKit/WorldGenKit-TilemapAdapter-Guide.md)
-- [WorldGenKit.UnityTerrainAdapter 指南](Assets/StellarFramework/FrameworkDoc/02-Kits/WorldGenKit/WorldGenKit-UnityTerrainAdapter-Guide.md)
-- [WorldKit.Streaming 无限世界流送指南](Assets/StellarFramework/FrameworkDoc/02-Kits/WorldKitStreaming/WorldKitStreaming-无限世界流送-Guide.md)
-- [WorldGenKit.StreamingAdapter 指南](Assets/StellarFramework/FrameworkDoc/02-Kits/WorldGenKit/WorldGenKit-StreamingAdapter-Guide.md)
-- [WorldKit.Streaming.SaveKitAdapter 指南](Assets/StellarFramework/FrameworkDoc/02-Kits/WorldKitStreaming/WorldKitStreaming-SaveKitAdapter-Guide.md)
-- [WorldKit.Streaming.UnityAdapter 指南](Assets/StellarFramework/FrameworkDoc/02-Kits/WorldKitStreaming/WorldKitStreaming-UnityAdapter-Guide.md)
-- [WorldFramework.ToolsHub 生产 Authoring 与诊断指南](Assets/StellarFramework/FrameworkDoc/04-ToolsHub/WorldFramework-ToolsHub-生产Authoring-Guide.md)
-- [World Framework 性能 / Release Matrix](Assets/StellarFramework/FrameworkDoc/06-WorldFramework/WorldFramework-Performance-Release-Matrix.md)
-- [LocalizationKit 本地化系统指南](Assets/StellarFramework/FrameworkDoc/02-Kits/LocalizationKit/LocalizationKit-Guide.md)
-- [GridKit.UnityProjectionAdapter 指南](Assets/StellarFramework/FrameworkDoc/02-Kits/GridKitUnityProjection/GridKit-UnityProjectionAdapter-Guide.md)
-- [PlacementKit 通用放置规则指南](Assets/StellarFramework/FrameworkDoc/02-Kits/PlacementKit/PlacementKit-通用放置规则-Guide.md)
-- [SpatialKit 空间索引说明](Assets/StellarFramework/FrameworkDoc/02-Kits/SpatialKit/SpatialKit-空间索引-说明文档-Guide.md)
-- [SpatialKit 源码文档](Assets/StellarFramework/FrameworkDoc/02-Kits/SpatialKit/SpatialKit-空间索引-源码文档-Guide.md)
-- [SimulationKit 批量调度说明](Assets/StellarFramework/FrameworkDoc/02-Kits/SimulationKit/SimulationKit-批量模拟调度-说明文档-Guide.md)
-- [SimulationKit 源码文档](Assets/StellarFramework/FrameworkDoc/02-Kits/SimulationKit/SimulationKit-批量模拟调度-源码文档-Guide.md)
-- [PathKit 路径搜索说明](Assets/StellarFramework/FrameworkDoc/02-Kits/PathKit/PathKit-路径搜索-说明文档-Guide.md)
-- [PathKit 源码文档](Assets/StellarFramework/FrameworkDoc/02-Kits/PathKit/PathKit-路径搜索-源码文档-Guide.md)
-- [FlowKit 工作流系统说明](Assets/StellarFramework/FrameworkDoc/02-Kits/FlowKit/FlowKit-工作流系统-说明文档-Guide.md)
-- [FlowKit 源码文档](Assets/StellarFramework/FrameworkDoc/02-Kits/FlowKit/FlowKit-工作流系统-源码文档-Guide.md)
-- [FlowKit 业务编程规范](Assets/StellarFramework/FrameworkDoc/02-Kits/FlowKit/FlowKit-业务编程规范-Coding-Contract-Guide.md)
-- [FlowKit + MSV Production Pattern](Assets/StellarFramework/Samples/Integration/FlowKitMsvIntegration/README.md)
-- [PathKit.GridKit 适配器说明](Assets/StellarFramework/FrameworkDoc/02-Kits/PathKit/PathKit-GridKit适配器-Guide.md)
+StellarFramework 把验证作为框架能力的一部分，而不是只在发布前临时跑一遍测试。
+
+```text
+Kit Behavior
+    ↓
+Performance
+    ↓
+Framework Policy
+    ↓
+Integration / PlayMode
+    ↓
+Clean Consumer / Player / Release Gate
+```
+
+当前验证范围包括：
+
+- Kit Behavior Tests
+- Performance / Scale Tests
+- Architecture / Catalog / Packaging Policy
+- PlayMode Runtime Tests
+- Clean Consumer Validation
+- Player / Android Release Verification
+- Addressables / YooAsset / HybridCLR 相关发布验证
+
+验证规则与当前状态：
+
 - [验证架构与发布验收规范](Assets/StellarFrameworkVerification/ValidationArchitecture.md)
-- [维护者验证区 README](Assets/StellarFrameworkVerification/README.md)
-- [Kit 分发矩阵与生产验收基线](Assets/StellarFramework/FrameworkDoc/08-Validation/KitExportValidationMatrix.md)
+- [维护者验证区](Assets/StellarFrameworkVerification/README.md)
+- [验证当前状态](Assets/StellarFramework/FrameworkDoc/08-Validation/ValidationCurrentStatus.md)
+- [Kit 导出验证矩阵](Assets/StellarFramework/FrameworkDoc/08-Validation/KitExportValidationMatrix.md)
+
+## 仓库边界
+
+```text
+Assets/
+├─ StellarFramework/              Runtime、Editor Modules、Samples、Tests、Docs
+├─ StellarFrameworkBootstrap/     完整包安装引导
+├─ StellarFrameworkVerification/  Integration / Player / Release 验证
+└─ GameHotUpdate/                 Runtime Delivery Example / Verification Fixture
+```
+
+- `Samples` 面向使用者，负责回答“怎么用”。
+- `Tests` 负责 Kit Behavior、Performance 与 Framework Policy。
+- `StellarFrameworkVerification` 面向维护者，不属于普通 Kit 分发内容。
+- 第三方能力尽量停留在 Adapter / Integration 层，不反向污染 Core。
+
+## 文档入口
+
+不建议从 GitHub 首页逐个翻所有 Kit 文档，优先从以下入口开始：
+
+- [FrameworkDoc 总览](Assets/StellarFramework/FrameworkDoc/README.md)
+- [快速开始](Assets/StellarFramework/FrameworkDoc/00-Overview/快速开始.md)
 - [Kit 架构分层与依赖规则](Assets/StellarFramework/FrameworkDoc/01-Architecture/KitArchitectureGuide.md)
+- [Tools Hub](Assets/StellarFramework/FrameworkDoc/04-ToolsHub/StellarToolsHub-说明文档-Guide.md)
+- [ResKit](Assets/StellarFramework/FrameworkDoc/02-Kits/Reskit/ResKit-统一资源-说明文档-Guide.md)
+- [LocalizationKit](Assets/StellarFramework/FrameworkDoc/02-Kits/LocalizationKit/LocalizationKit-Guide.md)
+- [FlowKit](Assets/StellarFramework/FrameworkDoc/02-Kits/FlowKit/FlowKit-工作流系统-说明文档-Guide.md)
+- [验证体系](Assets/StellarFramework/FrameworkDoc/08-Validation/Tests-说明文档-Guide.md)
 
-## English
+更多 Kit、World Framework、源码文档与发布资料统一收敛在 `Assets/StellarFramework/FrameworkDoc`。
 
-StellarFramework is a modular Unity development framework covering architecture layering, UI, resources, configuration, events, settings, hot update, world systems, workflow, editor tooling, samples, and release validation.
+## 项目定位
 
-### Environment
+StellarFramework 更适合以下类型的项目：
 
-- Unity `2022.3 LTS`
-- Unity `6000.x`
+- 希望长期维护公共 Unity 基础设施，而不是每个项目重新搭一套框架
+- 需要多个项目复用同一批能力，但又不想强绑定整个框架
+- 需要把第三方 SDK / 资源系统 / 平台 API 与业务 Core 隔离
+- 对性能、GC、模块边界、自动化验证和发布闭环有明确要求
 
-The primary development baseline is Unity `2022.3.62f3c1`. First import resolves optional UPM dependencies such as UniTask, Addressables, and HybridCLR.
+如果项目只需要一个极小的单功能脚本，直接使用对应独立 Kit 或 Unity 原生能力通常比引入整套框架更合适。
 
-### Distribution model
+---
 
-Use `StellarFramework -> Export` to export only the Kits a project needs. The exporter resolves dependency closure and generates dependency documentation beside the package.
+<div align="center">
 
-Examples of independently selectable capabilities include `UIKit.Core`, ResKit backends, `GridKit`, `SpatialKit`, `SimulationKit`, `PathKit`, `FlowKit`, `LocalizationKit.Core`, `WorldKit.Core`, `WorldGenKit.Core`, Builtins/Authoring/Resources/Feature, `PlacementKit.Core`, Streaming, and the independent Unity presentation adapters.
+**StellarFramework — Build only what the project actually needs.**
 
-The export window presents delivery-oriented sections: atomic Basic Features, production-ready Complete Features, and optional Extension Features. `Localization Complete` includes both UGUI and TMP scan/bind workflows plus external JSON/CSV translation exchange; `UIKit Complete` composes ResKit and UIKit.Adaptation. `Hot Update Full` remains a composed extension. These are composition presets over atomic profiles, not new runtime modules. If a project only needs localization domain logic, export `LocalizationKit.Core` directly; it has no framework or UPM dependency.
+[中文](README.md) · [English](README_EN.md)
 
-A complete `StellarFramework.unitypackage` remains available for one-package installation.
-
-### Quick start
-
-1. Open `StellarFramework -> Tools Hub`.
-2. Go to `Start Here -> Quick Start`.
-3. Build the samples.
-4. Run a sample such as UIKit, ResKit, TimeKit, GridKit, or one of the productized examples.
-
-### Architecture
-
-The framework follows the MSV boundary: Model owns state, Service owns business rules and mutates Models, and View presents state / forwards intent.
-
-Runtime profiles are classified as Foundation, Extension, or Adapter for dependency discipline and exporter presentation. This classification does not imply default installation. Foundation profiles must not depend on Extension profiles.
-
-`WorldFramework.ToolsHub` is Editor-only and provides production authoring/diagnostics for World/Profile/Pipeline/Biome/Resource/Feature/Placement workflows. `GridKit.UnityProjectionAdapter` and the other Unity adapters keep engine-facing responsibilities outside their pure C# cores.
-
-### Major Runtime Kits
-
-The framework includes `ActionKit`, `AudioKit`, `BindableKit`, `ConfigKit`, `EventKit`, `FSMKit`, `HttpKit`, `UIKit`, `ResKit`, `HybridCLRKit`, `SettingsKit`, `LogKit`, `PoolKit`, `SingletonKit`, `TimeKit`, `SaveKit`, `GridKit`, `SpatialKit`, `SimulationKit`, `PathKit`, `FlowKit`, `LocalizationKit`, `WorldKit`, `WorldGenKit`, `PlacementKit`, and their explicit adapters.
-
-World responsibilities stay separated: WorldKit organizes world/chunk/data ownership, WorldGenKit generates typed deterministic data, PlacementKit evaluates generic placement rules, and Unity adapters project data to textures, meshes, Tilemaps, Terrain, or floating-origin scene coordinates.
-
-### Samples and validation
-
-- `Assets/StellarFramework/Samples` — user-facing runnable examples and explicit integration samples.
-- `Assets/StellarFramework/Tests` — automated Behavior, Performance, and Framework Policy tests.
-- `Assets/StellarFrameworkVerification` — maintainer-only Integration, Player, and Release validation.
-
-Sample rules require real 2D/3D evidence for non-UI Kits, bilingual zh-CN/en-US UI, fixed language selectors labeled `中文` and `English`, deterministic scene Builders, and explicit distribution closure.
-
-### Documentation
-
-Formal documentation lives under `Assets/StellarFramework/FrameworkDoc`. Start with `FrameworkDoc/README.md`, the LocalizationKit guide, KitArchitectureGuide, and KitExportValidationMatrix. Historical milestone plans and handoff records are archived under `FrameworkDoc/09-Development`.
-
-Local Kit/Sample README files remain concise bilingual navigation and operation entry points while long-form formal guides migrate into FrameworkDoc.
+</div>
