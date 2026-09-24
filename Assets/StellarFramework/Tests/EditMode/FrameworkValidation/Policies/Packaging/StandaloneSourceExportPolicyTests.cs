@@ -113,6 +113,7 @@ namespace StellarFramework.Tests.FrameworkValidation
         public void DistributionCatalogKeepsHybridClrOutOfStandaloneProfiles()
         {
             string catalog = ReadAssetText("Assets/StellarFramework/KitCatalog/KitDistributionCatalog.json");
+            string compactCatalog = new string(catalog.Where(character => !char.IsWhiteSpace(character)).ToArray());
 
             Assert.That(catalog, Does.Contain("standalone.architecture"));
             Assert.That(catalog, Does.Contain("standalone.extensions"));
@@ -120,25 +121,29 @@ namespace StellarFramework.Tests.FrameworkValidation
             Assert.That(catalog, Does.Contain("com.code-philosophy.hybridclr"));
             Assert.That(catalog, Does.Contain("Runtime/Kits/HybridCLRKit"));
             Assert.That(catalog, Does.Not.Contain("\"id\": \"hotupdate.addressables\""));
-            Assert.That(catalog, Does.Contain("\"excludedCapabilities\": [\"Addressables\", \"HybridCLR\", \"CodeHotUpdate\"]"));
+            Assert.That(compactCatalog,
+                Does.Contain("\"excludedCapabilities\":[\"Addressables\",\"HybridCLR\",\"CodeHotUpdate\"]"));
         }
 
         [Test]
         public void RuntimeToolsProfileIsIndependentFromRuntimeCoreAndOptionalPackages()
         {
             string catalog = ReadAssetText("Assets/StellarFramework/KitCatalog/KitDistributionCatalog.json");
+            string compactCatalog = new string(catalog.Where(character => !char.IsWhiteSpace(character)).ToArray());
             string runner = ReadAssetText("Assets/StellarFramework/Runtime/Tools/CoroutineRunner.cs");
             string asmdef = ReadAssetText("Assets/StellarFramework/Runtime/Tools/StellarFramework.Runtime.Tools.asmdef");
 
             Assert.That(catalog, Does.Contain("\"id\": \"runtime.tools\""));
+            Assert.That(catalog, Does.Contain("\"id\": \"runtimetools.tools\""));
             Assert.That(catalog, Does.Contain("StellarFramework-Runtime-Tools.unitypackage"));
-            Assert.That(catalog, Does.Contain("\"requiredProfileIds\": [\"runtime.core\", \"singletonkit\"]"));
+            Assert.That(catalog, Does.Contain("StellarFramework-Runtime-Tools-Tools.unitypackage"));
+            Assert.That(compactCatalog, Does.Contain("\"requiredProfileIds\":[\"runtime.core\",\"singletonkit\"]"));
             Assert.That(catalog, Does.Contain("\"id\": \"uikit.tools\""));
             Assert.That(catalog, Does.Contain("\"id\": \"reskit.tools\""));
             Assert.That(catalog, Does.Contain("\"id\": \"hybridclrkit.tools\""));
             Assert.That(catalog, Does.Contain("\"id\": \"reskit.assetbundle\""));
-            Assert.That(catalog,
-                Does.Contain("\"requiredKits\": [\"ResKit.Core\", \"SingletonKit\", \"Generated.AssetMap\"]"));
+            Assert.That(compactCatalog,
+                Does.Contain("\"requiredKits\":[\"ResKit.Core\",\"SingletonKit\",\"Generated.AssetMap\"]"));
             Assert.That(runner, Does.Not.Contain("MonoSingleton<"));
             Assert.That(runner, Does.Not.Contain("LogKit."));
             Assert.That(runner, Does.Not.Contain("[Singleton"));

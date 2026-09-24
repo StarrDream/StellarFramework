@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Text.RegularExpressions;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -28,6 +29,132 @@ namespace StellarFramework.Tests.FrameworkValidation
 
             Assert.That(manifest, Does.Not.Contain("\"file:"));
             Assert.That(packageLock, Does.Not.Contain("\"source\": \"local\""));
+        }
+
+        [Test]
+        public void NewtonsoftDependentToolsHubEditorIsBehindOptionalUpmVersionDefine()
+        {
+            string editorAssembly = ReadAssetText(
+                "Assets/StellarFramework/Editor/StellarToolsHub/StellarFramework.Editor.asmdef");
+            string optionalEditorSource = ReadAssetText(
+                "Assets/StellarFramework/Editor/StellarToolsHub/Modules/ListSerializerWindow.cs");
+            string builtinModules = ReadAssetText(
+                "Assets/StellarFramework/Editor/StellarToolsHub/Modules/BuiltinModules.cs");
+
+            Assert.That(editorAssembly, Does.Contain("com.unity.nuget.newtonsoft-json"));
+            Assert.That(editorAssembly, Does.Contain("STELLARFRAMEWORK_NEWTONSOFT_JSON"));
+            Assert.That(optionalEditorSource, Does.StartWith("#if STELLARFRAMEWORK_NEWTONSOFT_JSON"));
+            Assert.That(optionalEditorSource.TrimEnd(), Does.EndWith("#endif"));
+            string normalizedBuiltinModules = builtinModules.Replace("\r\n", "\n");
+            Assert.That(
+                normalizedBuiltinModules,
+                Does.Contain(
+                    "#if STELLARFRAMEWORK_NEWTONSOFT_JSON\n" +
+                    "    [StellarTool(\"列表序列化 (增强)\", \"框架核心\", 20)]\n" +
+                    "    public class ListSerializerWindowHubModule"),
+                "The ToolsHub registration must stay behind the same optional Newtonsoft define as its implementation.");
+        }
+
+        [Test]
+        public void UguiDependentToolsHubEditorIsBehindOptionalUpmVersionDefine()
+        {
+            string editorAssembly = ReadAssetText(
+                "Assets/StellarFramework/Editor/StellarToolsHub/StellarFramework.Editor.asmdef");
+            string optionalEditorSource = ReadAssetText(
+                "Assets/StellarFramework/Editor/StellarToolsHub/Modules/FindUsedAssetsTool.cs");
+            string builtinModules = ReadAssetText(
+                "Assets/StellarFramework/Editor/StellarToolsHub/Modules/BuiltinModules.cs");
+            string normalizedBuiltinModules = builtinModules.Replace("\r\n", "\n");
+
+            Assert.That(editorAssembly, Does.Contain("com.unity.ugui"));
+            Assert.That(editorAssembly, Does.Contain("STELLARFRAMEWORK_UGUI"));
+            Assert.That(optionalEditorSource, Does.StartWith("#if STELLARFRAMEWORK_UGUI"));
+            Assert.That(optionalEditorSource.TrimEnd(), Does.EndWith("#endif"));
+            Assert.That(
+                normalizedBuiltinModules,
+                Does.Contain(
+                    "#if STELLARFRAMEWORK_UGUI\n" +
+                    "            Section(\"UI Image 材质批量设置\");"));
+            Assert.That(
+                normalizedBuiltinModules,
+                Does.Contain(
+                    "#if STELLARFRAMEWORK_UGUI\n" +
+                    "        private void ApplyImageMaterial()"));
+        }
+
+        [Test]
+        public void PackagePublisherPinsEveryAutomaticallyInstalledGitUpmPackage()
+        {
+            Assert.That(InvokePublisherPaths("GetUnpinnedGitUpmDependencyIds"), Is.Empty);
+
+            string bootstrapSource = ReadAssetText(
+                "Assets/StellarFrameworkBootstrap/Editor/StellarFrameworkBootstrapInstaller.cs");
+            MatchCollection gitUrls = Regex.Matches(
+                bootstrapSource,
+                "GitUrl\\s*=\\s*\"([^\"]+)\"");
+
+            Assert.That(gitUrls.Count, Is.GreaterThan(0));
+            foreach (Match match in gitUrls)
+            {
+                string gitUrl = match.Groups[1].Value;
+                Assert.That(
+                    InvokePublisherBool("IsPinnedGitUpmPackageSource", gitUrl),
+                    Is.True,
+                    $"Bootstrap auto-installs an unpinned Git UPM dependency: {gitUrl}");
+            }
+        }
+
+        [TestCase(
+            "https://github.com/Cysharp/UniTask.git?path=src/UniTask/Assets/Plugins/UniTask",
+            false)]
+        [TestCase(
+            "https://github.com/Cysharp/UniTask.git?path=src/UniTask/Assets/Plugins/UniTask#main",
+            false)]
+        [TestCase(
+            "https://github.com/Cysharp/UniTask.git?path=src/UniTask/Assets/Plugins/UniTask#e5acc106ee196bc5a32fb14cdf2987b0f96d11e0",
+            true)]
+        [TestCase("https://github.com/tuyoogame/YooAsset.git?path=Assets/YooAsset#2.3.19", true)]
+        public void GitUpmPinPolicyRejectsFloatingRefsAndAcceptsTagsOrCommits(
+            string source,
+            bool expectedPinned)
+        {
+            Assert.That(
+                InvokePublisherBool("IsGitUpmPackageSource", source),
+                Is.True);
+            Assert.That(
+                InvokePublisherBool("IsPinnedGitUpmPackageSource", source),
+                Is.EqualTo(expectedPinned));
+        }
+
+        [Test]
+        public void GitUpmPinPolicyDoesNotTreatRegistryPackageVersionsAsGitRefs()
+        {
+            const string registryDependency = "com.unity.addressables@1.22.3";
+
+            Assert.That(
+                InvokePublisherBool("IsGitUpmPackageSource", registryDependency),
+                Is.False);
+            Assert.That(
+                InvokePublisherBool("IsPinnedGitUpmPackageSource", registryDependency),
+                Is.True);
+        }
+
+        [Test]
+        public void UniTaskUsesTheAlreadyResolvedCommitAcrossInstallEntryPoints()
+        {
+            const string pinnedUniTaskSource =
+                "https://github.com/Cysharp/UniTask.git?path=src/UniTask/Assets/Plugins/UniTask#e5acc106ee196bc5a32fb14cdf2987b0f96d11e0";
+            string manifest = ReadAssetText("Packages/manifest.json");
+            string packageLock = ReadAssetText("Packages/packages-lock.json");
+            string publisher = ReadAssetText(
+                "Assets/StellarFramework/Editor/StellarToolsHub/Modules/Packaging/StellarFrameworkPackagePublisher.cs");
+            string bootstrap = ReadAssetText(
+                "Assets/StellarFrameworkBootstrap/Editor/StellarFrameworkBootstrapInstaller.cs");
+
+            Assert.That(manifest, Does.Contain(pinnedUniTaskSource));
+            Assert.That(packageLock, Does.Contain("\"hash\": \"e5acc106ee196bc5a32fb14cdf2987b0f96d11e0\""));
+            Assert.That(publisher, Does.Contain(pinnedUniTaskSource));
+            Assert.That(bootstrap, Does.Contain(pinnedUniTaskSource));
         }
 
         [Test]
@@ -182,6 +309,33 @@ namespace StellarFramework.Tests.FrameworkValidation
         }
 
         [Test]
+        public void RecommendedProfileMaturityUsesWorstDependencyInClosure()
+        {
+            Assert.That(InvokePublisherString("ResolveRecommendedProfileMaturity", "localization.complete"),
+                Is.EqualTo("stable"));
+            Assert.That(InvokePublisherString("ResolveRecommendedProfileMaturity", "reskit.complete"),
+                Is.EqualTo("stable"));
+            Assert.That(InvokePublisherString("ResolveRecommendedProfileMaturity", "uiadaptation.complete"),
+                Is.EqualTo("stable"));
+            Assert.That(InvokePublisherString("ResolveRecommendedProfileMaturity", "uikit.complete"),
+                Is.EqualTo("stable"));
+            Assert.That(InvokePublisherString("ResolveRecommendedProfileMaturity", "hotupdate.full"),
+                Is.EqualTo("stable"));
+        }
+
+        [Test]
+        public void LegacyArtifactCleanupPlannerNeverTargetsCurrentDistributionOutputs()
+        {
+            string[] candidates = InvokePublisherPaths("GetLegacyAndValidationKitArtifactPaths");
+            string[] protectedNames = InvokePublisherPaths("GetCurrentDistributionArtifactFileNames");
+            var protectedSet = protectedNames.ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            Assert.That(candidates.Select(Path.GetFileName).Any(protectedSet.Contains), Is.False);
+            Assert.That(protectedSet, Does.Contain("StellarFramework-Profile-UIKit-Complete.unitypackage"));
+            Assert.That(protectedSet, Does.Contain("StellarFramework-UIAdaptationKit-Core.unitypackage"));
+        }
+
+        [Test]
         public void PackagePublisherExportsFilesWithoutRecursingThroughParentFolders()
         {
             string source = ReadAssetText(
@@ -307,6 +461,20 @@ namespace StellarFramework.Tests.FrameworkValidation
             Assert.That(method.GetParameters().Length, Is.EqualTo(0));
 
             return (string[])method.Invoke(null, null);
+        }
+
+        private static string InvokePublisherString(string methodName, string argument)
+        {
+            MethodInfo method = GetPublisherType().GetMethod(
+                methodName,
+                BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
+
+            Assert.That(method, Is.Not.Null, $"Publisher method '{methodName}' was not found.");
+            Assert.That(method.ReturnType, Is.EqualTo(typeof(string)));
+            Assert.That(method.GetParameters().Length, Is.EqualTo(1));
+            Assert.That(method.GetParameters()[0].ParameterType, Is.EqualTo(typeof(string)));
+
+            return (string)method.Invoke(null, new object[] { argument });
         }
 
         private static bool IsUnderDirectory(string assetPath, string directoryPath)

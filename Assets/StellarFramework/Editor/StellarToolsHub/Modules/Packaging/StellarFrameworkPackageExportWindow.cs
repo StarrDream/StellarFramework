@@ -17,8 +17,7 @@ namespace StellarFramework.Editor.Modules
         private const int BasicSection = 0;
         private const int CompleteSection = 1;
         private const int ExtensionDeliverySection = 2;
-        private const int SampleSection = 3;
-        private const int StandaloneSection = 4;
+        private const int StandaloneSection = 3;
 
         private static readonly Color Accent = new Color(0.35f, 0.68f, 1.00f);
         private static readonly Color AccentDark = new Color(0.16f, 0.42f, 0.80f);
@@ -156,7 +155,46 @@ namespace StellarFramework.Editor.Modules
             refreshButton.style.unityFontStyleAndWeight = FontStyle.Bold;
             topBar.Add(refreshButton);
 
+            Button cleanupButton = new Button(ConfirmAndCleanLegacyArtifacts)
+            {
+                text = "清理旧产物"
+            };
+            cleanupButton.tooltip = "只清理 BuildArtifacts/Kits 中明确标记为 Legacy / Validation 的历史包；当前 Catalog 输出受保护。";
+            cleanupButton.style.width = 96;
+            cleanupButton.style.height = 28;
+            cleanupButton.style.marginLeft = 8;
+            topBar.Add(cleanupButton);
+
             return topBar;
+        }
+
+        private static void ConfirmAndCleanLegacyArtifacts()
+        {
+            string[] candidates = StellarFrameworkPackagePublisher.GetLegacyAndValidationKitArtifactPaths();
+            if (candidates.Length == 0)
+            {
+                EditorUtility.DisplayDialog("BuildArtifacts 清理", "没有发现可清理的 Legacy / Validation 产物。", "确定");
+                return;
+            }
+
+            string preview = string.Join("\n", candidates.Take(12).Select(path => "• " + path));
+            if (candidates.Length > 12)
+            {
+                preview += $"\n… 另有 {candidates.Length - 12} 个文件";
+            }
+
+            bool confirmed = EditorUtility.DisplayDialog(
+                "清理 Legacy / Validation 产物",
+                $"将删除 {candidates.Length} 个历史导出文件。当前 Catalog 与 Recommended Profile 的正式输出已受保护。\n\n{preview}",
+                "删除历史产物",
+                "取消");
+            if (!confirmed)
+            {
+                return;
+            }
+
+            int deleted = StellarFrameworkPackagePublisher.CleanLegacyAndValidationKitArtifacts();
+            EditorUtility.DisplayDialog("BuildArtifacts 清理完成", $"已删除 {deleted} 个 Legacy / Validation 文件。", "确定");
         }
 
         private VisualElement BuildSidebarPane()
@@ -201,7 +239,6 @@ namespace StellarFramework.Editor.Modules
                 (CompleteSection, "02  完整功能"),
                 (ExtensionDeliverySection, "03  扩展功能"));
             AddSidebarGroup(scroll, "其他交付",
-                (SampleSection, "样例"),
                 (StandaloneSection, "源码与完整框架"));
 
             sidebar.Add(scroll);
@@ -399,9 +436,6 @@ namespace StellarFramework.Editor.Modules
                 case ExtensionDeliverySection:
                     DrawExtensionDeliveryPage();
                     break;
-                case SampleSection:
-                    DrawProfileExportPage("样例", _profiles);
-                    break;
                 default:
                     DrawStandalonePage();
                     break;
@@ -418,8 +452,6 @@ namespace StellarFramework.Editor.Modules
                     return ("02 · 完整功能", "面向直接投入项目生产的组合交付，例如 Localization Complete、ResKit Complete、UIKit Complete。");
                 case ExtensionDeliverySection:
                     return ("03 · 扩展功能", "可选 Adapter / Tooling 与组合型扩展；既包含可单独加入现有项目的扩展，也包含 Hot Update Full 这类完整扩展。");
-                case SampleSection:
-                    return ("样例", "按需导出教学样例及其依赖闭包。");
                 default:
                     return ("源码与完整框架", "导出 Architecture / Extensions 单文件，或完整 StellarFramework 单包安装版。");
             }
@@ -446,9 +478,7 @@ namespace StellarFramework.Editor.Modules
         private void ReloadProfiles()
         {
             _recommendedProfiles = StellarFrameworkPackagePublisher.GetRecommendedProfiles();
-            _profiles = _activeSection == SampleSection
-                ? StellarFrameworkPackagePublisher.GetSourceProjectSampleProfiles()
-                : StellarFrameworkPackagePublisher.GetSourceProjectExportProfiles();
+            _profiles = StellarFrameworkPackagePublisher.GetSourceProjectExportProfiles();
             if (_activeSection != CompleteSection && _activeSection != ExtensionDeliverySection)
             {
                 _selectedProfileIds.RemoveWhere(profileId => _profiles.All(profile => profile.id != profileId));
@@ -525,7 +555,10 @@ namespace StellarFramework.Editor.Modules
         {
             using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
             {
-                EditorGUILayout.LabelField(profile.displayName, EditorStyles.boldLabel);
+                string maturity = StellarFrameworkPackagePublisher.ResolveRecommendedProfileMaturity(profile.id);
+                EditorGUILayout.LabelField(
+                    $"{profile.displayName}    [ {GetMaturityLabel(maturity)} ]",
+                    EditorStyles.boldLabel);
                 EditorGUILayout.LabelField(profile.id, EditorStyles.miniLabel);
                 if (!string.IsNullOrWhiteSpace(profile.description))
                 {
@@ -587,9 +620,8 @@ namespace StellarFramework.Editor.Modules
             }
             else
             {
-                string sectionDescription = _activeSection == SampleSection
-                    ? "导出时会自动带入对应 Kit 与必要依赖。"
-                    : "Editor-only / shared support / ToolsHub 能力；不会因为显示在这里就自动进入其他 Kit。";
+                const string sectionDescription =
+                    "Editor-only / shared support / ToolsHub 能力；不会因为显示在这里就自动进入其他 Kit。";
                 DrawProfileSection(
                     profileLabel,
                     sectionDescription,
@@ -700,7 +732,8 @@ namespace StellarFramework.Editor.Modules
             }
 
             return ContainsIgnoreCase(profile.displayName, _search) || ContainsIgnoreCase(profile.id, _search) ||
-                   ContainsIgnoreCase(profile.tier, _search) || ContainsIgnoreCase(profile.category, _search);
+                   ContainsIgnoreCase(profile.tier, _search) || ContainsIgnoreCase(profile.category, _search) ||
+                   ContainsIgnoreCase(profile.maturity, _search);
         }
 
         private bool MatchesRecommendedSearch(StellarFrameworkPackagePublisher.RecommendedProfile profile)
@@ -726,13 +759,29 @@ namespace StellarFramework.Editor.Modules
         private static string GetProfileBadge(StellarFrameworkPackagePublisher.DistributionProfile profile)
         {
             string dependencyBadge = HasProfileDependencies(profile) ? "自动带依赖" : "独立";
+            string maturityBadge = GetMaturityLabel(profile.maturity);
             if (string.IsNullOrWhiteSpace(profile.tier))
             {
-                return "[ " + dependencyBadge + " ]";
+                return "[ " + maturityBadge + " · " + dependencyBadge + " ]";
             }
 
-            return "[ " + GetTierLabel(profile.tier) + " · " + GetCategoryLabel(profile.category) + " · " +
+            return "[ " + maturityBadge + " · " + GetTierLabel(profile.tier) + " · " + GetCategoryLabel(profile.category) + " · " +
                    dependencyBadge + " ]";
+        }
+
+        private static string GetMaturityLabel(string maturity)
+        {
+            switch (maturity)
+            {
+                case "stable":
+                    return "Stable";
+                case "rc":
+                    return "RC";
+                case "experimental":
+                    return "Experimental";
+                default:
+                    return "Unknown";
+            }
         }
 
         private static string GetTierLabel(string tier)

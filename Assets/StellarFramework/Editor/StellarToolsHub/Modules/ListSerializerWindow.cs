@@ -1,4 +1,5 @@
-﻿using System;
+﻿#if STELLARFRAMEWORK_NEWTONSOFT_JSON
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
@@ -725,3 +726,5 @@ namespace StellarFramework.Editor
         }
     }
 }
+
+#endif

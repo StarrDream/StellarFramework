@@ -1,6 +1,8 @@
 # Kit 导出验证矩阵
 
-本文件记录框架原始工程的导出验证基线，是 Evidence Ledger（验证结果台账）。业务项目只需使用导出的 `.unitypackage` 与其同名依赖说明，无需导入本目录。验证职责和目录分类见 [ValidationArchitecture.md](../../StellarFrameworkVerification/ValidationArchitecture.md)。
+本文件保留框架各阶段的 Evidence Ledger（历史验证结果台账）。它不是“当前状态摘要”，因此历史阶段中的 Profile 数量、测试总数和 Benchmark 数值不会随框架演进被回写覆盖。
+
+当前统一基线请先看 [ValidationCurrentStatus.md](ValidationCurrentStatus.md)。业务项目只需使用导出的 `.unitypackage` 与其同名依赖说明，无需导入本目录。验证职责和目录分类见 [ValidationArchitecture.md](../../StellarFrameworkVerification/ValidationArchitecture.md)。
 
 状态只允许记录真实证据：
 
@@ -10,11 +12,11 @@ PASS / FAIL / BLOCKED / SKIPPED / NOT RUN
 
 NOT RUN 和 BLOCKED 不得写成 PASS；未运行的 Benchmark 不得填写推测数值；空白工程、Player、IL2CPP 或远端热更的环境阻塞要保留原因。
 
-## 当前可选目标
+## 当前结构入口
 
-当前 Catalog schema v3 包含 **81 个原子分发 Profile + 4 个 Recommended Profile**：2 single-file、2 shared-runtime、1 generated-support、19 kit、39 kit-with-dependencies、18 tooling；架构 tier 为 **21 Foundation / 9 Extension / 28 Adapter / 23 non-tier**。Recommended Profile 为 Localization Complete、ResKit Complete、UIKit Complete 与 Hot Update Full。Catalog 当前不再包含 sample Profile。
+Catalog 当前结构、Profile 数量、成熟度分布与最新统一测试结果统一维护在 [ValidationCurrentStatus.md](ValidationCurrentStatus.md)。
 
-Catalog schema v3 以 `tier` / `category` 描述架构职责，并用 `recommendedProfiles` 表示高层推荐导出配置；Recommended Profile 只组合原子 Profile，不创建新的 Runtime 模块。Runtime Profile 当前 **0 个依赖 ToolsHub.Core、0 个直接打包 ToolsHub 模块**。完整规则见 [KitArchitectureGuide.md](../01-Architecture/KitArchitectureGuide.md)。
+Catalog 使用 `tier` / `category` 描述架构职责，并用 `recommendedProfiles` 表示高层推荐导出配置；Recommended Profile 只组合原子 Profile，不创建新的 Runtime 模块。完整规则见 [KitArchitectureGuide.md](../01-Architecture/KitArchitectureGuide.md)。
 
 关键组合如下：
 
@@ -95,7 +97,9 @@ Demo / Verification 边界：
 - `StellarFrameworkVerification` 只用于维护者发布验证，不注册为 Kit、Demo 或 Adapter Profile。
 - 自动回归由 `Assets/StellarFramework/Tests` 负责，不再通过逐 Kit Playable Sample 证明正确性。
 
-## 已执行验证
+## 历史与阶段性验证证据
+
+> 本节按时间累积保留。里面出现的 `81 / 85 / 93 / 97 profiles`、`270/270` 等数字是对应阶段的真实证据，不代表当前总数。当前状态只看 `ValidationCurrentStatus.md`。
 
 - Unity 编译：无非预期 Console error。
 - 分发边界测试：覆盖单文件导出、Adapter 排除、ToolsHub 程序集识别、依赖闭包与 Catalog 架构元数据。
@@ -162,3 +166,37 @@ SpatialKit 当前只保留 Core 分发 Profile；旧 Sample / With-Sample 导出
 > 本机曾尝试对 `ToolsHub.Core` 执行空白工程导入烟测，但 Unity LicensingClient 的 IPC 通道在启动阶段超时（返回码 199），因此该项未计为通过；需在许可服务可用的 Unity 环境重跑。
 
 > 生产放行还必须在目标平台 IL2CPP Player 上执行 `HybridClrAaRunnerCanEnterHotUpdate` 等价的真实远端发布烟测：下载 catalog、bundle、Manifest、DLL 与 AOT metadata，完成 SHA256 校验并进入热更入口。该步骤不能由编辑器测试或离线构建替代。
+
+### 2026-09-22 — RuntimeTools.Core 第一阶段产品化证据
+
+- 原 `runtime.tools` 保留历史 ID 与 `StellarFramework-Runtime-Tools.unitypackage` 输出名，但从仅含 `CoroutineRunner` 的 shared runtime 正式升级为 `RuntimeTools.Core`（`extension / infrastructure`）。新增独立 Editor Profile `runtimetools.tools` / `RuntimeTools.Tools`。
+- RuntimeTools.Core 第一阶段包含：`WeightedRandom`、`TransformSnapshot`、`TransformUtil`、`RandomPointUtil`、`FollowTarget`、`Rotator`、`UniversalBillboard`、`PhysicsProbe`、`GroundChecker`、`BoundsUtility`、`TriggerRelay`、`CollisionRelay`；已有 PoolKit / TimeKit / UIKit / ResKit / SingletonKit 能力没有复制进入工具层。
+- Runtime assembly `StellarFramework.Runtime.Tools` 继续 **0 StellarFramework assembly references**。UGUI / URP 不进入 Core；未来若确需技术栈专属工具必须通过独立 Adapter/Profile。
+- RuntimeTools EditMode：**11/11 PASS**。覆盖 deterministic WeightedRandom、非法权重、Transform Snapshot/axis util、RandomPoint 区域、Follow/Rotator/Billboard、真实 PhysicsProbe/Bounds、GroundChecker stableFrames、Relay filter。
+- RuntimeTools PlayMode：**2/2 PASS**。实际 Unity Physics 验证 Trigger Enter/Exit 与 Collision Enter 回调。
+- ToolsHub `Runtime Tools` 已接入：Transform Snapshot/Restore、Reset Local、常用组件 Quick Add、Renderer/Collider Bounds Diagnostics、FollowTarget / TriggerRelay / CollisionRelay 基础配置风险提示。Runtime 不反向依赖 ToolsHub。
+- 正式导出：
+  - `StellarFramework-Runtime-Tools.unitypackage` = **24,187 bytes**；依赖说明只有 `RuntimeTools.Core`，无额外 UPM。
+  - `StellarFramework-Runtime-Tools-Tools.unitypackage` = **92,196 bytes**；闭包为 `RuntimeTools.Core + ToolsHub.Core + RuntimeTools.Tools`，无额外 UPM。
+- 实际 payload 审计：Core 包共 18 个路径，包含 RuntimeTools 与正式 Guide；`TimeKit=false / PoolKit=false / UIKit=false / ResKit=false / SingletonKit=false / ToolsHub=false`。Tools 包共 42 个路径，包含 RuntimeTools + ToolsHub.Core + RuntimeTools Tools 模块；仍不包含 TimeKit / PoolKit / UIKit / ResKit。
+- 完整母工程回归：Unity compile **0 errors / 0 warnings**；FrameworkValidation **594/594 PASS**；全 PlayMode **15/15 PASS**。完整 PlayMode 首轮暴露 ArchitectureDemo 旧测试“固定等待两帧”对 UIKit 异步面板加载过于脆弱，已只修改测试为最多等待 60 帧直到面板出现，单测与全套均通过；UIKit/Demo Runtime 逻辑未修改。
+- Clean-project RuntimeTools.Core 导入本轮 **NOT RUN**：`StellarFramework-test` 当前是混合 UIKit/AngryBirds 验证工程，且其 UnitySkills 8093 服务没有恢复。没有通过禁用/删除无关验证脚本来伪造 clean-project PASS。当前已有正式包 payload 证据与母工程边界测试，真正 clean import 应在独立最小验证工程或恢复的隔离测试实例中执行。
+
+### 2026-09-22 — RuntimeTools.Core 第二批收敛证据
+
+- 第二批继续按“高价值 / 可长期维护 / 不复制现有 Kit”筛选 Utils 候选，最终只新增 4 组能力：
+  - `FrameRateSampler / FrameRateMonitor`：去掉原 FPSCounter 的 OnGUI、Texture 和显示职责，只保留固定窗口数值采样；
+  - `PhysicsOverlap`：统一 Sphere/Box/Capsule `Overlap*NonAlloc`，结果写 caller-owned Collider 数组；
+  - `TransformShake`：将 CameraShake 泛化为 Transform Shake，固定 seed、不消耗 Unity Random 全局状态，支持外部 Tick 和基线恢复；
+  - `RendererPropertyBlockController`：复用 MaterialPropertyBlock 修改单 Renderer 属性，避免 `renderer.material` 实例化。
+- 明确拒绝继续迁入：CameraFreeLook、CameraScreenshot、GizmoDrawer、SimpleDragTrigger3D、RaycastTool、MouseFollower、ColliderEventObj、ParallaxEffect、TextTypewriter、CollapsibleItem、UIDragger、UIInputTrigger、UGUIFollowTarget/Manager、MathUtil。主要原因分别是旧 Input/业务策略耦合、Editor/调试职责、与 PhysicsProbe/Relay 重复、事件对象 GC、具体视觉/UI Widget 职责、或只是 Unity API 薄别名。
+- RuntimeTools focused EditMode 从第一批 **11/11** 提升到 **17/17 PASS**。新增行为验证覆盖 FrameRate 环形窗口、PhysicsOverlap LayerMask/caller buffer、PropertyBlock 保留既有属性/清理、TransformShake 基线恢复。
+- 新增 exact allocation gate：预热后连续 1000 次 `FrameRateSampler.PushFrame` 与 `PhysicsOverlap.QueryNonAlloc` 均通过 `GC.GetAllocatedBytesForCurrentThread()` **0 managed bytes** 断言。
+- ToolsHub Runtime Tools 第二批增加：TransformShake / FrameRateMonitor / RendererPropertyBlockController Quick Add；PlayMode Current/Avg/Min/Max FPS；PropertyBlock 材质槽越界检查。
+- 第二批最终正式导出（随包 Guide 同批刷新）：
+  - `StellarFramework-Runtime-Tools.unitypackage` = **32,681 bytes**；
+  - `StellarFramework-Runtime-Tools-Tools.unitypackage` = **103,243 bytes**。
+- 第二批 payload 审计：Core = **22 paths**，包含新增 Rendering 工具但 `TimeKit=false / PoolKit=false / UIKit=false / ResKit=false / SingletonKit=false / ToolsHub=false`；Tools = **46 paths**，只额外包含 ToolsHub.Core + RuntimeTools Tools，仍不包含上述 Runtime Kits。
+- 第二批 targeted policies：Catalog Audit **7/7**、Architecture Metadata **16/16**、Package Publisher **25/25**、Standalone Source Export **32/32**，全部 PASS。
+- 第二批最终母工程回归：Unity compile **0 errors / 0 warnings**；FrameworkValidation **600/600 PASS**；PlayMode **15/15 PASS**；Console Error **0**。
+- Clean-project gate 状态不变：仍为 **NOT RUN**，原因同第一批记录；没有用混合验证工程伪造空白导入证据。

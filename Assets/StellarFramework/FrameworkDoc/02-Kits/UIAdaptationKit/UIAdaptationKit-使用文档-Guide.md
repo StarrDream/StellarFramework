@@ -34,6 +34,8 @@ Screen.cutouts
 
 生成统一的 `UIDisplayGeometry`。
 
+Controller 会在每帧轻量比较屏幕宽高和原始 `safeArea`，这些变化会立即刷新。系统 `Screen.cutouts` 使用 **0.5 秒间隔**低频探测；只有归一化后的危险区变化才重新应用布局，探测到变化时复用同一份快照。这样不会在每帧读取可能分配数组的 `Screen.cutouts`。需要立即重新读取系统几何时，可调用 `RefreshDisplayGeometry()`。
+
 ## 二、先决定这个 UI 属于哪一类
 
 ### 1. 普通页面：优先 SafeArea

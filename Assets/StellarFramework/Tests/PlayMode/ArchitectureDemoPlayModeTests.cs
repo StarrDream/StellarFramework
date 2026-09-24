@@ -145,10 +145,14 @@ namespace StellarFramework.Tests.PlayMode
             launcherButton.onClick.AddListener(entry.OpenMainPanel);
             entryObject.SetActive(true);
 
-            yield return null;
-            yield return null;
+            Panel_Main panel = null;
+            const int maxPanelOpenFrames = 60;
+            for (int frame = 0; frame < maxPanelOpenFrames && panel == null; frame++)
+            {
+                yield return null;
+                panel = UIKit.GetPanel<Panel_Main>();
+            }
 
-            Panel_Main panel = UIKit.GetPanel<Panel_Main>();
             Assert.That(panel, Is.Not.Null);
             Assert.That(panel.gameObject.activeSelf, Is.True);
             Assert.That(entry.IsPanelLauncherVisible, Is.False);

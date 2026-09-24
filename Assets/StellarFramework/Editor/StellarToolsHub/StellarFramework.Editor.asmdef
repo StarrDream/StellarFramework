@@ -11,6 +11,17 @@
   "precompiledReferences": [],
   "autoReferenced": true,
   "defineConstraints": [],
-  "versionDefines": [],
+  "versionDefines": [
+    {
+      "name": "com.unity.nuget.newtonsoft-json",
+      "expression": "3.0.0",
+      "define": "STELLARFRAMEWORK_NEWTONSOFT_JSON"
+    },
+    {
+      "name": "com.unity.ugui",
+      "expression": "1.0.0",
+      "define": "STELLARFRAMEWORK_UGUI"
+    }
+  ],
   "noEngineReferences": false
 }

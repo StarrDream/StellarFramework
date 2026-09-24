@@ -32,12 +32,37 @@ Adapter Profile：可选的 Kit 间、Unity 或第三方技术栈连接层
 
 支持的 category：`diagnostics`、`infrastructure`、`flow`、`data`、`network`、`resource`、`simulation`、`presentation`、`world`、`gameplay`、`runtime-delivery`。
 
-`sample`、`tooling`、`shared-runtime`、`single-file` 和 `generated-support` 不填写 tier/category。Catalog 的 schema v3 会在导出时校验 Runtime Kit Profile 的元数据、拒绝 Foundation 直接依赖 Extension，并校验 Recommended Profile 引用的原子 Profile 是否真实存在且可用。
+`sample`、`tooling`、`shared-runtime`、`single-file` 和 `generated-support` 不填写 tier/category。Catalog 的 schema v4 会在导出时校验 Runtime Kit Profile 的架构元数据、成熟度、Foundation 依赖方向，并校验 Recommended Profile 引用的原子 Profile 是否真实存在且可用。
 
 Catalog 中的 `profiles` 与 `recommendedProfiles` 是两层不同概念：
 
 - `profiles`：原子分发单元，描述 Kit、Adapter、Tooling、Generated Support 等真实源码与依赖闭包。
 - `recommendedProfiles`：面向常见项目目标的推荐导出配置，只组合已有原子 Profile，不生成新的 Runtime assembly，也不能隐藏或改写底层依赖。
+
+## Profile 成熟度
+
+Catalog schema v4 将“能不能安装”和“推荐在什么阶段使用”拆成两个维度：
+
+```text
+availability = available / unavailable
+maturity     = stable / rc / experimental
+```
+
+`availability=available` 只说明 Package Publisher 可以解析并导出该 Profile，不代表它已经完成所有生产发布 Gate。
+
+- `stable`：公开契约已稳定，自动回归与分发边界证据充分；涉及 Unity Runtime 的能力应具备相应 PlayMode、clean import 或真实项目证据。
+- `rc`：功能与 API 已基本可用，但仍缺部分目标平台、第三方插件、远端服务或发布环境证据。可以用于项目验证，生产采用前必须补齐对应 Gate。
+- `experimental`：能力方向可用，但关键发布链、平台集成或契约仍允许调整。默认不应作为无人复核的生产基础设施。
+
+Recommended Profile 不单独手写成熟度；Publisher 根据完整依赖闭包取“最低成熟度”：
+
+```text
+Stable + Stable       -> Stable
+Stable + RC           -> RC
+Stable + Experimental -> Experimental
+```
+
+因此组合包不能通过自己的描述把底层尚未完成发布验证的 Profile“包装成 Stable”。成熟度允许根据全 Catalog Audit 的新证据升降级，但必须有可追溯原因。
 
 当前推荐交付配置：
 
@@ -60,7 +85,7 @@ Export 的用户导航与架构 tier 是两个独立维度：
 | 层级 | Kit / Profile |
 | --- | --- |
 | Foundation | LogKit、EventKit、PoolKit、SingletonKit、FSMKit、ActionKit、BindableKit、ConfigKit.Core、HttpKit、ResKit.Core、SettingsKit.Core、TimeKit、SaveKit.Core、GridKit、WorldKit.Core、SpatialKit、SimulationKit、PathKit、FlowKit.Core、PlacementKit.Core |
-| Extension | AudioKit.Core、UIKit.Core、UIAdaptationKit.Core、HybridCLRKit、WorldGenKit.Core、WorldGenKit.Builtins、WorldGenKit.Authoring、WorldGenKit.Resources、WorldGenKit.Feature、WorldKit.Streaming |
+| Extension | AudioKit.Core、RuntimeTools.Core、UIKit.Core、UIAdaptationKit.Core、HybridCLRKit、WorldGenKit.Core、WorldGenKit.Builtins、WorldGenKit.Authoring、WorldGenKit.Resources、WorldGenKit.Feature、WorldKit.Streaming |
 | Adapter | ConfigKit.NewtonsoftJson、SettingsKit.UnityAdapters、SettingsKit.AudioKitAdapter、AudioKit.ResKitAdapter、ResKit.AssetBundle、ResKit.Addressables、ResKit.YooAsset、UIKit.ResKitAdapter、LocalizationKit.SettingsAdapter、LocalizationKit.UnityUGUIAdapter、LocalizationKit.TMPAdapter、SaveKit.NewtonsoftJson、PathKit.GridKitAdapter、FlowKit.UnityIntegration、Feature.ResourcesAdapter、Feature.PlacementAdapter、Feature.AuthoringAdapter、Feature.WorldKitAdapter、Feature.SaveKitAdapter、WorldGenKit.DebugTextureAdapter、WorldGenKit.MeshAdapter、WorldGenKit.TilemapAdapter、WorldGenKit.UnityTerrainAdapter、WorldGenKit.StreamingAdapter、WorldKit.Streaming.SaveKitAdapter、WorldKit.Streaming.UnityAdapter |
 
 这只是展示和依赖约束元数据，不会让 Foundation 自动安装。选择某个 Kit 时，导出器仍只按 `requiredProfileIds` 计算实际依赖闭包。
@@ -81,6 +106,16 @@ Adapter 横向连接可选能力
 - Extension 可以依赖 Foundation；Extension 间是否依赖必须由真实稳定的领域边界决定。
 - Adapter 用于可选集成，避免把 Addressables、HybridCLR、ResKit 等选择变成 Core Kit 的硬依赖。
 - 不因“方便”把业务系统写入 Foundation。Crop、NPC、Quest、Farm 等先留在业务项目，经过真实项目验证后再决定是否升格为 Extension。
+
+## RuntimeTools 的定位
+
+RuntimeTools.Core 是 `extension / infrastructure`，用于承载**小而完整、跨项目高复用、低依赖**的运行时工具。它不是第二套 Kit 系统，也不是通用杂物箱。
+
+工具进入 RuntimeTools 至少满足一项：高频重复、容易手写出错、可以统一性能/GC 行为，或能形成稳定而独立的 MonoBehaviour / 静态 API。仅仅“能少写两行代码”不足以成为框架工具。
+
+RuntimeTools.Core 当前保持零 StellarFramework Kit 依赖；Pool、时间调度、UI 页面、资源生命周期、流程编排等完整能力域继续由 PoolKit、TimeKit、UIKit、ResKit、FlowKit 负责，不在 RuntimeTools 中复制实现。UGUI、URP 等技术栈专属能力后续若引入，必须通过独立 Adapter/Profile 隔离。
+
+`RuntimeTools.Tools` 是独立 Editor-only Profile，只负责 ToolsHub 快速挂载、Transform Snapshot、Bounds Diagnostics 和配置风险检查；Runtime assembly 禁止反向引用 ToolsHub/UnityEditor。
 
 ## TimeKit 的定位
 
@@ -204,7 +239,7 @@ SimulationKit 不依赖 UnityEngine、TimeKit、GridKit、SpatialKit、ResKit、
 - Editor 代码是否独立拆分取决于职责，而不是目录名：构建正确性所必需的生成器可以随 Core 交付，例如 SingletonKit 的 `SingletonGenerator`；ToolsHub 面板、审计器、CodeGen UX 等可选开发体验则独立为 tooling Profile。
 - Recommended Profile 只是推荐组合，不是新的 Kit。它必须复用原子 Profile 的真实依赖闭包，不能为了“一键导入”重新制造大一统模块。
 - Exporter 面向用户只显示“基础功能 / 完整功能 / 扩展功能”交付模型；Foundation / Extension / Adapter 继续只承担内部依赖约束，不改变多选、搜索、依赖去重、UPM 安装或导出闭包。
-- 新 Kit 最低交付应包含 Runtime 源码、asmdef、使用/源码文档、测试、Catalog Profile、验收矩阵、README 登记和干净工程导入验证。
+- 新 Kit 最低交付应包含 Runtime 源码、asmdef、使用/源码文档、测试、Catalog Profile、验收矩阵、README 登记和干净工程导入验证。Demo / Sample 不属于强制项；只有无法通过 Guide、自动测试或现有 ArchitectureDemo 清晰表达的交互/跨 Kit 行为才新增。
 
 ## 新 Kit 的 Validation Contract
 
@@ -224,7 +259,7 @@ SimulationKit 不依赖 UnityEngine、TimeKit、GridKit、SpatialKit、ResKit、
 
 StellarFramework 的源码与文档首先必须让人类开发者独立读懂，而不是只保证 AI 能解析或自动测试能通过。公开 API、复杂内部实现、Sample 与 Guide 的具体要求统一见 [CodeReadabilityAndDocumentationStandard.md](CodeReadabilityAndDocumentationStandard.md)。
 
-新 Kit 的最低交付除了 Runtime、asmdef、测试、Catalog、Sample/Guide 外，还必须通过 Human Readability Review：公开契约有语义化 XML 文档，复杂算法/生命周期/性能取舍解释 why，Sample 能作为真实教学入口，且不得通过批量生成无意义注释来满足形式指标。
+新 Kit 的最低交付除了 Runtime、asmdef、测试、Catalog 与 Guide 外，还必须通过 Human Readability Review：公开契约有语义化 XML 文档，复杂算法/生命周期/性能取舍解释 why，Guide 能作为真实教学入口；若确有必要提供 Sample，则 Sample 必须可运行并承担明确教学目标。不得通过批量生成无意义注释来满足形式指标。
 
 ## SpatialKit V1 冻结状态
 

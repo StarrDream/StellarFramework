@@ -242,8 +242,10 @@ namespace StellarFramework.Editor.Modules
         private readonly string[] _normalKeys = { "_normal", "_bump", "_n" };
         private readonly string[] _maskKeys = { "_mask", "_metallic", "_ao", "_roughness" };
 
-        // UI
+#if STELLARFRAMEWORK_UGUI
+        // UGUI is optional for ToolsHub.Core; standalone consumers without it retain the PBR/TMP tools.
         private Material _targetImageMat;
+#endif
         private UnityEngine.Object _targetFont; // TMP_FontAsset
 
         public override void OnGUI()
@@ -252,9 +254,11 @@ namespace StellarFramework.Editor.Modules
             EditorGUILayout.HelpBox("选中包含贴图的文件夹或多张贴图，根据命名规则自动生成材质。", MessageType.Info);
             if (PrimaryButton("✨ 识别并生成材质")) CreateMaterialsFromSelection();
 
+#if STELLARFRAMEWORK_UGUI
             Section("UI Image 材质批量设置");
             _targetImageMat = (Material)EditorGUILayout.ObjectField("目标材质", _targetImageMat, typeof(Material), false);
             if (GUILayout.Button("应用到选中物体 (含子物体)")) ApplyImageMaterial();
+#endif
 
             Section("TMP 字体批量设置");
             _targetFont = EditorGUILayout.ObjectField("目标字体 (SDF)", _targetFont, typeof(Object), false); // 弱引用避免依赖
@@ -321,6 +325,7 @@ namespace StellarFramework.Editor.Modules
                    Shader.Find("Standard");
         }
 
+#if STELLARFRAMEWORK_UGUI
         private void ApplyImageMaterial()
         {
             if (_targetImageMat == null) return;
@@ -331,6 +336,7 @@ namespace StellarFramework.Editor.Modules
                 foreach (var img in imgs) img.material = _targetImageMat;
             }
         }
+#endif
 
         private void ApplyTMPFont()
         {
@@ -594,6 +600,7 @@ namespace StellarFramework.Editor.Modules
         public override void OnSelectionChange() => _panel.HandleSelectionChange();
     }
 
+#if STELLARFRAMEWORK_NEWTONSOFT_JSON
     [StellarTool("列表序列化 (增强)", "框架核心", 20)]
     public class ListSerializerWindowHubModule : ToolModule
     {
@@ -612,6 +619,7 @@ namespace StellarFramework.Editor.Modules
         public override void OnDisable() => _panel.Deactivate();
         public override void OnSelectionChange() => _panel.HandleSelectionChange();
     }
+#endif
 
     [StellarTool("脚本内容复制", "框架核心", 1)]
     public class FolderCopyHubModule : ToolModule

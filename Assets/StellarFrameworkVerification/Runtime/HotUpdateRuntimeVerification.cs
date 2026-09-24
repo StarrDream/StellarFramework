@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -22,17 +23,48 @@ namespace StellarFrameworkVerification.Runtime
     {
         public string packageDirectory;
         public string cacheRoot;
-        public string packageName = "StellarHotUpdateVerification";
-        public string expectedPackageVersion = "verification-v1";
+        public string packageName = HotUpdateVerificationPaths.PackageName;
+        public string expectedPackageVersion = HotUpdateVerificationPaths.PackageVersion;
         public int interruptAfterBytes = 262144;
+    }
+
+    [Serializable]
+    public sealed class AndroidHotUpdateVerificationConfig
+    {
+        public string host;
+        public int port;
+        public string packageName = HotUpdateVerificationPaths.PackageName;
+        public string expectedPackageVersion = HotUpdateVerificationPaths.PackageVersion;
+        public bool expectCache;
     }
 
     [Serializable]
     public sealed class HotUpdateVerificationResult
     {
         public bool success;
+        public string status;
         public string error;
+        public string platform;
+        public string runMode;
         public string packageVersion;
+        public bool contentUpdateSucceeded;
+        public int downloadedFileCount;
+        public long downloadedBytes;
+        public string cacheRoot;
+        public int cacheFileCountBeforeUpdate;
+        public int cacheFileCountAfterUpdate;
+        public bool resKitManifestLoaded;
+        public bool resKitAssemblyLoaded;
+        public string manifestBuildTarget;
+        public string expectedAssemblySha256;
+        public string actualAssemblySha256;
+        public bool assemblySha256Verified;
+        public string[] aotMetadataKeys;
+        public string[] aotMetadataKeysLoaded;
+        public bool aotMetadataLoadSucceeded;
+        public bool assemblyLoadSucceeded;
+        public bool entryPointInvoked;
+        public bool entryMarkerObserved;
         public string largeBundleFileName;
         public long largeBundleSize;
         public long interruptedBytes;
@@ -46,6 +78,19 @@ namespace StellarFrameworkVerification.Runtime
     /// </summary>
     public static class HotUpdateRuntimeVerification
     {
+        private const string AndroidVerificationStageLogPrefix =
+            "[StellarHotUpdateVerificationStage] ";
+
+        private const string AndroidHotUpdateEntryLogMarker =
+            "Hello HybridCLR , 热更成功 ;";
+
+        internal static void LogAndroidStage(string stage)
+        {
+#if UNITY_ANDROID
+            Debug.Log(AndroidVerificationStageLogPrefix + stage);
+#endif
+        }
+
         public static async UniTask<HotUpdateVerificationResult> RunAsync(
             HotUpdateVerificationConfig config,
             CancellationToken cancellationToken = default)
@@ -213,6 +258,269 @@ namespace StellarFrameworkVerification.Runtime
             }
         }
 
+        /// <summary>
+        /// Runs the Android Release gate against the CDN forwarded by adb reverse.
+        /// Unlike the Editor Range gate, this path deliberately preserves YooAsset's device cache
+        /// so a cold launch and process restart can prove separate download/cache behavior.
+        /// </summary>
+        public static async UniTask<HotUpdateVerificationResult> RunAndroidRemoteAsync(
+            AndroidHotUpdateVerificationConfig config,
+            CancellationToken cancellationToken = default)
+        {
+            LogAndroidStage("AndroidGateEntered");
+            string cacheRoot = Path.Combine(
+                Application.persistentDataPath,
+                "StellarFramework",
+                "HotUpdateVerification",
+                "YooAssetCache");
+            var result = new HotUpdateVerificationResult
+            {
+                status = "RUNNING",
+                platform = Application.platform.ToString(),
+                runMode = config != null && config.expectCache ? "restart-cache" : "cold-download",
+                cacheRoot = cacheRoot
+            };
+
+            bool entryMarkerObserved = false;
+            Application.LogCallback entryLogObserver = (condition, stackTrace, type) =>
+            {
+                if (!string.IsNullOrEmpty(condition) &&
+                    condition.IndexOf(AndroidHotUpdateEntryLogMarker, StringComparison.Ordinal) >= 0)
+                {
+                    entryMarkerObserved = true;
+                }
+            };
+
+            try
+            {
+                LogAndroidStage("ConfigValidationStarted");
+                ValidateAndroidConfig(config);
+                LogAndroidStage("ConfigValidated");
+                if (Application.platform != RuntimePlatform.Android)
+                {
+                    throw new InvalidOperationException(
+                        "Android HotUpdate verification must run in an Android Player.");
+                }
+
+                result.packageVersion = config.expectedPackageVersion;
+                result.cacheFileCountBeforeUpdate = CountFilesIfDirectoryExists(cacheRoot);
+                LogAndroidStage("CacheCounted");
+                if (config.expectCache && result.cacheFileCountBeforeUpdate == 0)
+                {
+                    throw new InvalidOperationException(
+                        "Restart verification expected a populated YooAsset cache, but none was found.");
+                }
+                if (!config.expectCache && result.cacheFileCountBeforeUpdate != 0)
+                {
+                    throw new InvalidOperationException(
+                        "Cold-start verification expected an empty app cache. Clear app data before the first launch.");
+                }
+
+                LogAndroidStage("PackageCleanupStarted");
+                await CleanupPackageAsync(config.packageName);
+                LogAndroidStage("PackageCleanupCompleted");
+                LogAndroidStage("ResKitUninstallStarted");
+                YooAssetResKitInstaller.Uninstall();
+                LogAndroidStage("ResKitUninstalled");
+
+                string host = $"http://{config.host}:{config.port.ToString(CultureInfo.InvariantCulture)}";
+                LogAndroidStage("ContentUpdateStarted");
+                var update = await YooAssetContentUpdater.UpdateHostPackageAsync(
+                    new YooAssetContentUpdateOptions
+                    {
+                        PackageName = config.packageName,
+                        MainHostServer = host,
+                        FallbackHostServer = host,
+                        CachePackageRoot = cacheRoot,
+                        AppendTimeTicks = false,
+                        OperationTimeoutSeconds = 45,
+                        DownloadWatchDogSeconds = 30,
+                        DownloadingMaxNumber = 2,
+                        FailedTryAgain = 2,
+                        ResumeDownloadMinimumSize = 1024L * 1024L,
+                        InstallResKitOnSuccess = true
+                    },
+                    cancellationToken: cancellationToken);
+                LogAndroidStage("ContentUpdateCompleted:" + update.Success);
+
+                result.packageVersion = update.PackageVersion;
+                result.downloadedFileCount = update.DownloadedFileCount;
+                result.downloadedBytes = update.DownloadedBytes;
+                result.contentUpdateSucceeded = update.Success;
+                if (!update.Success)
+                {
+                    throw new InvalidOperationException(
+                        $"YooAsset content update failed at {update.FailureStage} ({update.ErrorCode}): {update.Error}");
+                }
+                if (!string.Equals(
+                        update.PackageVersion,
+                        config.expectedPackageVersion,
+                        StringComparison.Ordinal))
+                {
+                    throw new InvalidOperationException(
+                        $"Unexpected Android package version. Expected={config.expectedPackageVersion}, Actual={update.PackageVersion}");
+                }
+
+                result.cacheFileCountAfterUpdate = CountFilesIfDirectoryExists(cacheRoot);
+                if (result.cacheFileCountAfterUpdate == 0)
+                {
+                    throw new InvalidOperationException(
+                        "YooAsset update succeeded but no files were found in the configured persistent cache root.");
+                }
+                if (config.expectCache && update.DownloadedFileCount != 0)
+                {
+                    throw new InvalidOperationException(
+                        $"Restart cache verification expected zero downloaded files, but YooAsset downloaded {update.DownloadedFileCount}.");
+                }
+                if (!config.expectCache && update.DownloadedFileCount == 0)
+                {
+                    throw new InvalidOperationException(
+                        "Cold-start verification expected remote package files to download, but YooAsset reported zero.");
+                }
+
+                HotUpdateManifest manifest;
+                LogAndroidStage("ResKitManifestLoadStarted");
+                using (ResScope scope = ResKit.CreateCustomScope(
+                           YooAssetResKitInstaller.LoaderKey,
+                           "AndroidHotUpdateRuntimeVerification"))
+                {
+                    TextAsset manifestAsset = await scope.Loader.LoadAsync<TextAsset>(
+                        HotUpdateSettings.LoadOrCreateDefault().HotUpdateManifestKey,
+                        cancellationToken);
+                    if (manifestAsset == null || string.IsNullOrWhiteSpace(manifestAsset.text))
+                    {
+                        throw new InvalidOperationException(
+                            "ResKit failed to load HotUpdateManifest from the updated YooAsset package.");
+                    }
+
+                    manifest = HotUpdateManifest.FromJson(manifestAsset.text);
+                    if (manifest == null)
+                    {
+                        throw new InvalidOperationException("Downloaded Android HotUpdateManifest JSON is invalid.");
+                    }
+
+                    HotUpdateManifestValidationReport manifestValidation = manifest.Validate(true);
+                    if (!manifestValidation.IsValid)
+                    {
+                        throw new InvalidOperationException(
+                            "Downloaded Android HotUpdateManifest is invalid: " +
+                            string.Join(" | ", manifestValidation.Errors));
+                    }
+                    if (!string.Equals(manifest.buildTarget, "Android", StringComparison.Ordinal))
+                    {
+                        throw new InvalidOperationException(
+                            $"Manifest target mismatch. Expected=Android, Actual={manifest.buildTarget}");
+                    }
+
+                    result.resKitManifestLoaded = true;
+                    result.manifestBuildTarget = manifest.buildTarget;
+                    result.aotMetadataKeys = manifest.aotMetadataKeys.ToArray();
+
+                    TextAsset hotUpdateAsset = await scope.Loader.LoadAsync<TextAsset>(
+                        manifest.hotUpdateAssemblyKey,
+                        cancellationToken);
+                    if (hotUpdateAsset == null || hotUpdateAsset.bytes == null || hotUpdateAsset.bytes.Length == 0)
+                    {
+                        throw new InvalidOperationException(
+                            "ResKit failed to load the HotUpdate.dll bytes from the updated YooAsset package.");
+                    }
+
+                    result.resKitAssemblyLoaded = true;
+                    result.expectedAssemblySha256 = HotUpdateManifest.NormalizeSha256(
+                        manifest.hotUpdateAssemblySha256);
+                    result.actualAssemblySha256 = ComputeSha256(hotUpdateAsset.bytes);
+                    result.assemblySha256Verified = string.Equals(
+                        result.actualAssemblySha256,
+                        result.expectedAssemblySha256,
+                        StringComparison.OrdinalIgnoreCase);
+                    if (!result.assemblySha256Verified)
+                    {
+                        throw new InvalidOperationException(
+                            $"Downloaded HotUpdate.dll SHA256 mismatch. Expected={result.expectedAssemblySha256}, Actual={result.actualAssemblySha256}");
+                    }
+                }
+                LogAndroidStage("ResKitManifestAndAssemblyLoaded");
+
+                Application.logMessageReceived += entryLogObserver;
+                HybridCLRUpdateResult codeUpdate;
+                try
+                {
+                    LogAndroidStage("HybridCLRRunStarted");
+                    codeUpdate = await HybridCLRKit.RunAsync(
+                        HotUpdateSettings.LoadOrCreateDefault(),
+                        cancellationToken: cancellationToken);
+                    LogAndroidStage("HybridCLRRunCompleted:" + codeUpdate.Success);
+                }
+                finally
+                {
+                    Application.logMessageReceived -= entryLogObserver;
+                }
+
+                result.entryMarkerObserved = entryMarkerObserved;
+                result.loadedAssemblyFullName = codeUpdate.LoadedAssemblyFullName;
+                result.manifestSource = codeUpdate.ManifestSource;
+                result.aotMetadataKeysLoaded = HybridCLRHook.AOTMetaAssemblyFiles == null
+                    ? Array.Empty<string>()
+                    : HybridCLRHook.AOTMetaAssemblyFiles.ToArray();
+
+                bool enteredHotUpdate = codeUpdate.Success &&
+                                        codeUpdate.State == HybridCLRUpdateState.EnteredHotUpdate &&
+                                        HybridCLRHook.State == HybridCLRHook.HotUpdateState.EnteredHotUpdate;
+                result.aotMetadataLoadSucceeded = enteredHotUpdate &&
+                                                  ContainsSameKeys(
+                                                      result.aotMetadataKeys,
+                                                      result.aotMetadataKeysLoaded);
+                result.assemblyLoadSucceeded = enteredHotUpdate &&
+                                              !string.IsNullOrWhiteSpace(result.loadedAssemblyFullName) &&
+                                              result.loadedAssemblyFullName.IndexOf(
+                                                  "HotUpdate",
+                                                  StringComparison.OrdinalIgnoreCase) >= 0;
+                result.entryPointInvoked = enteredHotUpdate && result.entryMarkerObserved;
+
+                if (!codeUpdate.Success || codeUpdate.State != HybridCLRUpdateState.EnteredHotUpdate)
+                {
+                    throw new InvalidOperationException(
+                        "Android HybridCLR startup failed: " + codeUpdate.Error);
+                }
+                if (string.IsNullOrWhiteSpace(codeUpdate.ManifestSource) ||
+                    !codeUpdate.ManifestSource.StartsWith("ResKit:YooAsset:", StringComparison.Ordinal))
+                {
+                    throw new InvalidOperationException(
+                        "Android HybridCLR did not load its manifest through the YooAsset ResKit backend.");
+                }
+                if (!result.aotMetadataLoadSucceeded)
+                {
+                    throw new InvalidOperationException(
+                        "Android HybridCLR did not report successful loading of every manifest AOT metadata key.");
+                }
+                if (!result.assemblyLoadSucceeded)
+                {
+                    throw new InvalidOperationException(
+                        "Android HybridCLR did not report loading the HotUpdate assembly.");
+                }
+                if (!result.entryPointInvoked)
+                {
+                    throw new InvalidOperationException(
+                        "HotUpdate.HotUpdateMain.Main did not emit its expected entry marker.");
+                }
+
+                result.success = true;
+                result.status = "PASS";
+                return result;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception exception)
+            {
+                result.success = false;
+                result.status = "FAIL";
+                result.error = exception.ToString();
+                return result;
+            }
+        }
+
         private static YooAssetContentUpdateOptions CreateOptions(
             HotUpdateVerificationConfig config,
             string host)
@@ -231,6 +539,52 @@ namespace StellarFrameworkVerification.Runtime
                 ResumeDownloadMinimumSize = 1,
                 InstallResKitOnSuccess = true
             };
+        }
+
+        private static void ValidateAndroidConfig(AndroidHotUpdateVerificationConfig config)
+        {
+            if (config == null) throw new ArgumentNullException(nameof(config));
+            if (!string.Equals(config.host, "127.0.0.1", StringComparison.Ordinal))
+            {
+                throw new ArgumentException(
+                    "Android verification CDN host must be 127.0.0.1 through adb reverse.",
+                    nameof(config));
+            }
+            if (config.port < 1 || config.port > 65535)
+            {
+                throw new ArgumentOutOfRangeException(nameof(config), "Android CDN port must be in 1..65535.");
+            }
+            if (string.IsNullOrWhiteSpace(config.packageName))
+            {
+                throw new ArgumentException("Android packageName is empty.", nameof(config));
+            }
+            if (string.IsNullOrWhiteSpace(config.expectedPackageVersion))
+            {
+                throw new ArgumentException("Android expectedPackageVersion is empty.", nameof(config));
+            }
+        }
+
+        private static int CountFilesIfDirectoryExists(string directory)
+        {
+            if (!Directory.Exists(directory)) return 0;
+            return Directory.GetFiles(directory, "*", SearchOption.AllDirectories).Length;
+        }
+
+        private static bool ContainsSameKeys(string[] expected, string[] actual)
+        {
+            if (expected == null || actual == null || expected.Length == 0 || expected.Length != actual.Length)
+            {
+                return false;
+            }
+
+            var actualKeys = new HashSet<string>(actual, StringComparer.Ordinal);
+            if (actualKeys.Count != actual.Length) return false;
+            for (int i = 0; i < expected.Length; i++)
+            {
+                if (!actualKeys.Contains(expected[i])) return false;
+            }
+
+            return true;
         }
 
         private static async UniTask CleanupPackageAsync(string packageName)
@@ -472,17 +826,154 @@ namespace StellarFrameworkVerification.Runtime
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void TryRun()
         {
-            string projectRoot = Directory.GetParent(Application.dataPath)?.FullName ?? Application.dataPath;
-            string root = Path.Combine(projectRoot, "Temp", "StellarHotUpdateVerification");
-            string configPath = Path.Combine(root, "runtime-config.json");
+            // The Editor PlayMode Test Runner invokes the release gate directly. It must not
+            // consume the same prepared config through this standalone Player bootstrap.
+            if (Application.isEditor) return;
+
+#if UNITY_ANDROID
+            HotUpdateRuntimeVerification.LogAndroidStage("BootstrapEntered");
+            try
+            {
+                HotUpdateRuntimeVerification.LogAndroidStage("IntentReadStarted");
+                AndroidHotUpdateVerificationConfig androidConfig = ReadAndroidIntentConfig();
+                if (androidConfig == null)
+                {
+                    HotUpdateRuntimeVerification.LogAndroidStage("IntentDisabled");
+                    return;
+                }
+
+                HotUpdateRuntimeVerification.LogAndroidStage("IntentEnabled");
+                RunAndLogAndroidAsync(androidConfig).Forget();
+                HotUpdateRuntimeVerification.LogAndroidStage("VerificationTaskScheduled");
+            }
+            catch (Exception exception)
+            {
+                EmitAndroidResult(new HotUpdateVerificationResult
+                {
+                    success = false,
+                    status = "FAIL",
+                    platform = Application.platform.ToString(),
+                    error = "Unable to read Android verification Intent: " + exception
+                });
+            }
+            return;
+#endif
+
+            string configPath = HotUpdateVerificationPaths.RuntimeConfigFilePath;
             if (!File.Exists(configPath)) return;
 
-            string resultPath = Path.Combine(root, "runtime-result.json");
+            string resultPath = HotUpdateVerificationPaths.RuntimeResultFilePath;
             string json = File.ReadAllText(configPath, Encoding.UTF8);
             File.Delete(configPath);
             HotUpdateVerificationConfig config = JsonUtility.FromJson<HotUpdateVerificationConfig>(json);
             RunAndWriteAsync(config, resultPath).Forget();
         }
+
+#if UNITY_ANDROID
+        private static AndroidHotUpdateVerificationConfig ReadAndroidIntentConfig()
+        {
+            using (var unityPlayer = new AndroidJavaClass("com.unity3d.player.UnityPlayer"))
+            using (AndroidJavaObject activity = unityPlayer.GetStatic<AndroidJavaObject>("currentActivity"))
+            {
+                if (activity == null)
+                {
+                    throw new InvalidOperationException("UnityPlayer.currentActivity is null.");
+                }
+
+                using (AndroidJavaObject intent = activity.Call<AndroidJavaObject>("getIntent"))
+                {
+                    if (intent == null)
+                    {
+                        throw new InvalidOperationException("Android launch Intent is null.");
+                    }
+
+                    bool enabled = intent.Call<bool>(
+                        "getBooleanExtra",
+                        HotUpdateVerificationPaths.AndroidVerifyIntentExtra,
+                        false);
+                    if (!enabled) return null;
+
+                    return new AndroidHotUpdateVerificationConfig
+                    {
+                        host = intent.Call<string>(
+                            "getStringExtra",
+                            HotUpdateVerificationPaths.AndroidHostIntentExtra),
+                        port = intent.Call<int>(
+                            "getIntExtra",
+                            HotUpdateVerificationPaths.AndroidPortIntentExtra,
+                            0),
+                        packageName = intent.Call<string>(
+                                          "getStringExtra",
+                                          HotUpdateVerificationPaths.AndroidPackageIntentExtra)
+                                      ?? HotUpdateVerificationPaths.PackageName,
+                        expectedPackageVersion = intent.Call<string>(
+                                                     "getStringExtra",
+                                                     HotUpdateVerificationPaths.AndroidVersionIntentExtra)
+                                                 ?? HotUpdateVerificationPaths.PackageVersion,
+                        expectCache = intent.Call<bool>(
+                            "getBooleanExtra",
+                            HotUpdateVerificationPaths.AndroidExpectCacheIntentExtra,
+                            false)
+                    };
+                }
+            }
+        }
+
+        private static async UniTaskVoid RunAndLogAndroidAsync(
+            AndroidHotUpdateVerificationConfig config)
+        {
+            HotUpdateRuntimeVerification.LogAndroidStage("VerificationTaskStarted");
+            HotUpdateVerificationResult result;
+            try
+            {
+                result = await HotUpdateRuntimeVerification.RunAndroidRemoteAsync(config);
+            }
+            catch (Exception exception)
+            {
+                result = new HotUpdateVerificationResult
+                {
+                    success = false,
+                    status = "FAIL",
+                    platform = Application.platform.ToString(),
+                    error = "Android HotUpdate verification task failed: " + exception
+                };
+            }
+
+            HotUpdateRuntimeVerification.LogAndroidStage("VerificationTaskCompleted:" + result.status);
+            EmitAndroidResult(result);
+        }
+
+        private static void EmitAndroidResult(HotUpdateVerificationResult result)
+        {
+            string json = JsonUtility.ToJson(result);
+            // Unity's Android logger truncates long managed log messages. Preserve the
+            // complete machine-readable payload by sending bounded Base64 chunks.
+            const int chunkSize = 512;
+            string encodedJson = Convert.ToBase64String(Encoding.UTF8.GetBytes(json));
+            int chunkCount = (encodedJson.Length + chunkSize - 1) / chunkSize;
+            bool passed = result != null && result.success &&
+                          string.Equals(result.status, "PASS", StringComparison.Ordinal);
+
+            for (int chunkIndex = 0; chunkIndex < chunkCount; chunkIndex++)
+            {
+                int offset = chunkIndex * chunkSize;
+                int length = Math.Min(chunkSize, encodedJson.Length - offset);
+                string chunk = encodedJson.Substring(offset, length);
+                string marker = "[StellarHotUpdateVerificationChunk] " +
+                                (chunkIndex + 1).ToString(CultureInfo.InvariantCulture) + "/" +
+                                chunkCount.ToString(CultureInfo.InvariantCulture) + " " + chunk;
+
+                if (passed)
+                {
+                    Debug.Log(marker);
+                }
+                else
+                {
+                    Debug.LogError(marker);
+                }
+            }
+        }
+#endif
 
         private static async UniTaskVoid RunAndWriteAsync(
             HotUpdateVerificationConfig config,

@@ -5,12 +5,20 @@
 ## 导出规则
 
 - 每个可导出 Profile 都声明自己的源路径、依赖 Profile、UPM 依赖和明确排除的能力。
+- Runtime Profile 通过 `documentationPaths` 显式声明随独立包交付的正式 Guide；文档不再依赖开发者回到母仓库自行寻找。
 - Runtime Kit Profile 额外声明 `tier` 和 `category`，用于 Foundation / Extension / Adapter 的架构约束；不会改变实际依赖闭包。Export 的用户导航使用独立的“基础功能 / 完整功能 / 扩展功能”交付视角，不直接暴露 tier。
+- 每个原子 Profile 还声明 `maturity=stable / rc / experimental`。`availability` 只表示能否安装/导出，`maturity` 才表示生产成熟度。
 - 导出时会自动计算依赖闭包；开发者只选择目标 Kit，不必手动猜测依赖顺序。
 - 每个 Kit 包均采用 Bootstrap + Payload 两段式导入：先导入无第三方依赖的安装器，再安装该包依赖闭包中缺失的 UPM 包，最后导入 Kit 源码 Payload。没有 UPM 依赖的 Kit 会直接进入 Payload 导入阶段。
 - 当依赖闭包包含 `Runtime.Core` 时，安装完成后会自动整理为 `Runtime/StellarArchitecture.cs` 和 `Runtime/StellarExtensions.cs` 两个文件。框架原始工程继续保持 `Core`、`Extensions` 的职责拆分；Kit 本身、Editor 工具、资源和 asmdef 不会被错误地合并。
 - 可选能力必须作为独立 Adapter/Profile 交付，绝不因为导入基础 Kit 而被隐式带入。
 - 每个导出包旁会生成同名 `*-Dependencies.md`，这是对最终包内容的可读回执。
+
+### UPM 依赖固定
+
+Package Publisher 自动安装的 Git UPM 依赖必须固定到语义版本 Tag 或 commit；未指定 revision 或使用 `main` 等移动分支的 Git URL 会被拒绝。Unity Registry 依赖继续使用 `packageId@version`，不按 Git URL 规则判断。UniTask 当前固定到已验证的 commit `e5acc106ee196bc5a32fb14cdf2987b0f96d11e0`，对应版本为 **2.5.11**。Bootstrap 单包安装器与母工程 manifest 使用相同 pin，避免消费者项目从不同入口导入时解析漂移。
+
+Recommended Profile 不单独维护成熟度；Package Publisher 会解析完整依赖闭包，并取其中最低成熟度作为组合结果。只要闭包里存在 RC 或 Experimental，完整组合就不能显示为 Stable。
 
 ## Recommended Profile
 
@@ -40,6 +48,8 @@ Recommended Profile 是“常见项目目标的推荐组合”，不是新的 Ki
 | 目标包 | 自动包含 | 外部 UPM | 不带入 |
 | --- | --- | --- | --- |
 | ToolsHub.Core | 通用编辑器工具和已导入 Kit 检测 | 无 | Kit、AA、HybridCLR、代码热更 |
+| RuntimeTools.Core | WeightedRandom、Transform/随机点、FrameRate、Follow/Rotator/Billboard/Shake、Physics Cast/Overlap/Ground/Bounds/Relay、Renderer PropertyBlock、CoroutineRunner | 无 | UGUI、URP、PoolKit、TimeKit、ResKit、SingletonKit、ToolsHub |
+| RuntimeTools.Tools | RuntimeTools.Core + ToolsHub.Core + 快速挂载、Transform Snapshot、Bounds/FPS Diagnostics、PropertyBlock/Selection Validation | 无 | Player Runtime |
 | SaveKit.Tools | SaveKit 存档中心：Slots、Inspector、Raw/Hex、Migration Type Chain、Dry Run、Profiler、Diagnostics | UniTask（随 Core） | 不增加 Newtonsoft、TimeKit、AA、HybridCLR |
 | LogKit | LogKit | 无 | AA、HybridCLR、代码热更 |
 | EventKit | EventKit Runtime | 无 | ToolsHub、HybridCLR、代码热更 |
@@ -100,22 +110,15 @@ Recommended Profile 是“常见项目目标的推荐组合”，不是新的 Ki
 
 `SaveKit.Core` 只交付存档容器、Section、事务、Migration 和 Storage/Serializer 抽象；它不保存 Unity Object，不依赖 TimeKit，也不自动保存业务对象。`SaveKit.NewtonsoftJson` 仅在需要 JSON 时导入，ToolsHub 存档诊断属于独立的 `SaveKit.Tools` Profile。
 
-## 可选样例包
+## Sample / Demo 策略
 
-核心 Kit 包不携带 `Samples`。需要示例时，在 `StellarFramework -> Export -> 样例包` 中选择一个或多个样例；导出器会把示例代码、对应可运行场景、必需的预制体/资源和它所需的 Kit 闭包一起写入同一个 `.unitypackage`。
+Catalog 当前不提供 `sample` Profile，Export 也不再提供“样例包”页。用户入门统一从：
 
-| 样例 | 自动包含的能力 | 不会带入 |
-| --- | --- | --- |
-| ActionKit、BindableKit、EventKit、FSMKit、HttpKit、LogKit、PoolKit、SingletonKit | 对应的单 Kit 及各自必需依赖 | AA、HybridCLR、代码热更 |
-| AudioKit | AudioKit.Core + ResKit.Core，用自定义 ResKit Loader 演示音频加载 | AA、HybridCLR、代码热更 |
-| ConfigKit | ConfigKit.NewtonsoftJson | AA、HybridCLR、代码热更 |
-| ResKit | ResKit.AssetBundle，附 Resources、AB 和可选 AA 场景资源 | HybridCLR、代码热更 |
-| SettingsKit | SettingsKit.UnityAdapters + SettingsKit.AudioKitAdapter + Resources 音频样例资源 | ResKit、AA、HybridCLR、代码热更 |
-| UIKit | UIKit.Core + Resources UIRoot/面板预制体 | ResKit、AA、HybridCLR、代码热更 |
-| Architecture | ActionKit + BindableKit + UIKit.Core 的完整架构演示 | ResKit、AA、HybridCLR、代码热更 |
-| FlowKit | FlowKit.UnityIntegration + FlowKit.Core 的 JSON Graph/Delay/Complete 场景 | UniTask、Addressables、HybridCLR、代码热更 |
+`Assets/StellarFramework/Samples/ArchitectureDemo`
 
-样例运行时代码按目录各自拥有独立 asmdef；不再存在一个引用全部 Kit 的样例运行时程序集。原始框架工程保留的“构建全部样例”编辑器只用于维护和生成场景，不会随单 Kit 或单样例包导出。
+进入；单个 Kit 的最小用法、代码片段、依赖边界和排错统一由随包导出的 `FrameworkDoc` Guide 承担。
+
+只有当某个跨 Kit 行为确实无法通过 Guide、自动测试或现有 ArchitectureDemo 表达时，才重新评估新增 Demo。Demo 是教学入口，不承担 Kit 分发或 Release Gate 职责。
 
 ## 资源后端与代码热更新可选层
 
@@ -142,7 +145,7 @@ Recommended Profile 是“常见项目目标的推荐组合”，不是新的 Ki
 
 原始框架工程只在顶层 `StellarFramework` 菜单保留两个入口：`Tools Hub` 与 `Export`。其中 `StellarFramework/Export` 是源码工程专用导出窗口，可多选 Kit、使用 Recommended Profile、预览并去重依赖闭包、导出为一个 `.unitypackage` 和同名依赖说明。Kit 专属维护、诊断、代码生成与验证能力优先进入 ToolsHub，不再各自创建 `StellarFramework/...` 子菜单。窗口与组合导出器位于 `Modules/Packaging`，该目录已被所有消费者分发路径排除，因此业务项目不会携带它。
 
-窗口会将 Runtime Kit Profile 分为 Foundation Kits、Extension Kits 与 Adapter Profiles，并按 category 继续分组；Runtime Core、ToolsHub 等基础支持项保持单独显示。每张卡仍明确显示“独立”或“自动带依赖”，依赖闭包算法不因分组发生变化。Addressables、HybridCLR 与代码热更均只在明确选择相关 Adapter/Profile 后进入导出包。
+窗口面向用户按 `01 基础功能 / 02 完整功能 / 03 扩展功能` 组织交付；架构层的 Foundation / Extension / Adapter 继续作为卡片元数据和依赖约束显示。每张卡同时显示成熟度与“独立 / 自动带依赖”，依赖闭包算法不因 UI 分组发生变化。Addressables、YooAsset、HybridCLR 与代码热更均只在明确选择相关 Adapter/Profile 后进入导出包。
 
 新增或拆分 Kit 时，同步更新：
 
@@ -150,6 +153,6 @@ Recommended Profile 是“常见项目目标的推荐组合”，不是新的 Ki
 2. Kit 专属 Tools Hub 子程序集（如有编辑器工具）；
 3. `StandaloneSourceExportPolicyTests` 的边界测试；
 4. 本文档的分发矩阵。
-5. [KitArchitectureGuide.md](KitArchitectureGuide.md) 的架构规则与分类登记。
+5. [KitArchitectureGuide.md](../01-Architecture/KitArchitectureGuide.md) 的架构规则与分类登记。
 
-具体的导出与测试基线见 [KitExportValidationMatrix.md](KitExportValidationMatrix.md)，分层规则见 [KitArchitectureGuide.md](KitArchitectureGuide.md)。
+当前验证摘要见 [ValidationCurrentStatus.md](../08-Validation/ValidationCurrentStatus.md)，历史 Evidence Ledger 见 [KitExportValidationMatrix.md](../08-Validation/KitExportValidationMatrix.md)，分层规则见 [KitArchitectureGuide.md](../01-Architecture/KitArchitectureGuide.md)，BuildArtifacts 规则见 [BuildArtifactsGuide.md](BuildArtifactsGuide.md)。

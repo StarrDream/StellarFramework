@@ -46,7 +46,7 @@ namespace StellarFrameworkBootstrap
             new PackageSpec
             {
                 PackageId = "com.cysharp.unitask",
-                GitUrl = "https://github.com/Cysharp/UniTask.git?path=src/UniTask/Assets/Plugins/UniTask"
+                GitUrl = "https://github.com/Cysharp/UniTask.git?path=src/UniTask/Assets/Plugins/UniTask#e5acc106ee196bc5a32fb14cdf2987b0f96d11e0"
             },
             new PackageSpec
             {

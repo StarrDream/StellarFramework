@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+#if STELLARFRAMEWORK_UGUI
+using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
 using UnityEngine;
@@ -149,3 +150,4 @@ namespace StellarFramework.Editor
         }
     }
 }
+#endif

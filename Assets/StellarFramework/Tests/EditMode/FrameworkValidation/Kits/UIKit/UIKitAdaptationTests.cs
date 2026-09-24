@@ -544,6 +544,122 @@ namespace StellarFramework.Tests.FrameworkValidation
         }
 
         [Test]
+        public void CutoutSnapshotDetectorFindsCutoutOnlyChangesAndIgnoresMatchingSnapshots()
+        {
+            Rect[] current =
+            {
+                Rect.MinMaxRect(450f, 1880f, 550f, 2000f)
+            };
+            Rect[] unchanged =
+            {
+                Rect.MinMaxRect(450f, 1880f, 550f, 2000f)
+            };
+            Rect[] changed =
+            {
+                Rect.MinMaxRect(400f, 1880f, 600f, 2000f)
+            };
+
+            Assert.That(
+                UIAdaptationController.HasCutoutSnapshotChanged(
+                    changed,
+                    current,
+                    1000,
+                    2000),
+                Is.True);
+            Assert.That(
+                UIAdaptationController.HasCutoutSnapshotChanged(
+                    unchanged,
+                    current,
+                    1000,
+                    2000),
+                Is.False);
+        }
+
+        [Test]
+        public void CutoutSnapshotDetectorComparesNormalizedRectanglesWithoutFalseChanges()
+        {
+            Rect[] snapshot =
+            {
+                new Rect(float.NaN, 10f, 20f, 20f),
+                Rect.MinMaxRect(1100f, 10f, 1200f, 30f),
+                Rect.MinMaxRect(-10f, 10f, 10f, 30f)
+            };
+            Rect[] normalized =
+            {
+                Rect.MinMaxRect(0f, 10f, 10f, 30f)
+            };
+
+            Assert.That(
+                UIAdaptationController.HasCutoutSnapshotChanged(
+                    snapshot,
+                    normalized,
+                    1000,
+                    2000),
+                Is.False);
+            Assert.That(
+                UIAdaptationController.HasCutoutSnapshotChanged(
+                    new[]
+                    {
+                        new Rect(float.NaN, 10f, 20f, 20f),
+                        Rect.MinMaxRect(1100f, 10f, 1200f, 30f)
+                    },
+                    Array.Empty<Rect>(),
+                    1000,
+                    2000),
+                Is.False);
+        }
+
+        [Test]
+        public void InvalidAndClippedCutoutsDoNotRepeatGeometryChangeNotifications()
+        {
+            GameObject root = null;
+            UIAdaptationProfile profile = null;
+            try
+            {
+                root = new GameObject(
+                    "UIRoot",
+                    typeof(RectTransform),
+                    typeof(Canvas),
+                    typeof(CanvasScaler),
+                    typeof(UIAdaptationController));
+                profile = ScriptableObject.CreateInstance<UIAdaptationProfile>();
+                profile.Configure(new Vector2(1920f, 1080f), 0.5f, true, null);
+
+                UIAdaptationController controller = root.GetComponent<UIAdaptationController>();
+                controller.Configure(profile, null);
+                int eventCount = 0;
+                controller.DisplayGeometryChanged += _ => eventCount++;
+
+                Rect fullScreen = Rect.MinMaxRect(0f, 0f, 1000f, 2000f);
+                controller.Apply(1000, 2000, fullScreen, Array.Empty<Rect>());
+                Assert.That(eventCount, Is.EqualTo(1));
+
+                Rect[] cutouts =
+                {
+                    new Rect(float.NaN, 10f, 20f, 20f),
+                    Rect.MinMaxRect(1100f, 10f, 1200f, 30f),
+                    Rect.MinMaxRect(-10f, 10f, 10f, 30f)
+                };
+                controller.Apply(1000, 2000, fullScreen, cutouts);
+                Assert.That(eventCount, Is.EqualTo(2));
+
+                controller.Apply(1000, 2000, fullScreen, cutouts);
+                Assert.That(eventCount, Is.EqualTo(2));
+            }
+            finally
+            {
+                if (root != null)
+                {
+                    Object.DestroyImmediate(root);
+                }
+                if (profile != null)
+                {
+                    Object.DestroyImmediate(profile);
+                }
+            }
+        }
+
+        [Test]
         public void PreciseCutoutSolverMovesOnlyOverlappingCenterControl()
         {
             Rect allowed = Rect.MinMaxRect(0f, 0f, 1000f, 2000f);

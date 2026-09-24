@@ -22,7 +22,7 @@ namespace StellarFramework.Editor.Modules
         private const string StandaloneExportRoot = "BuildArtifacts/StellarFramework/Standalone";
         private const string KitExportRoot = "BuildArtifacts/StellarFramework/Kits";
         private const string DistributionCatalogPath = "Assets/StellarFramework/KitCatalog/KitDistributionCatalog.json";
-        private const int CurrentDistributionCatalogSchemaVersion = 3;
+        private const int CurrentDistributionCatalogSchemaVersion = 4;
         private const string ArchitectureStandaloneOutputFileName = "StellarArchitecture.cs";
         private const string ExtensionsStandaloneOutputFileName = "StellarExtensions.cs";
         private const string ArchitectureSourcePath = "Assets/StellarFramework/Runtime/Core/Architecture/StellarFramework.cs";
@@ -37,12 +37,16 @@ namespace StellarFramework.Editor.Modules
             {
                 {
                     "com.cysharp.unitask",
-                    "https://github.com/Cysharp/UniTask.git?path=src/UniTask/Assets/Plugins/UniTask"
+                    "https://github.com/Cysharp/UniTask.git?path=src/UniTask/Assets/Plugins/UniTask#e5acc106ee196bc5a32fb14cdf2987b0f96d11e0"
                 },
                 { "com.unity.nuget.newtonsoft-json", "com.unity.nuget.newtonsoft-json@3.2.2" },
                 { "com.unity.addressables", "com.unity.addressables@1.22.3" },
                 { "com.unity.ugui", "com.unity.ugui@1.0.0" },
                 { "com.unity.textmeshpro", "com.unity.textmeshpro@3.0.7" },
+                {
+                    "com.tuyoogame.yooasset",
+                    "https://github.com/tuyoogame/YooAsset.git?path=Assets/YooAsset#2.3.19"
+                },
                 {
                     "com.code-philosophy.hybridclr",
                     "https://github.com/focus-creative-games/hybridclr_unity.git#4feac30cb2e105992986c737f7f54992b8300e1a"
@@ -59,6 +63,18 @@ namespace StellarFramework.Editor.Modules
             "diagnostics", "infrastructure", "flow", "data", "network", "resource", "simulation",
             "presentation", "world", "gameplay", "runtime-delivery"
         };
+
+        private static readonly HashSet<string> MaturityLevels = new HashSet<string>(StringComparer.Ordinal)
+        {
+            "stable", "rc", "experimental"
+        };
+
+        private static readonly Regex GitCommitRevisionPattern = new Regex(
+            "^[a-fA-F0-9]{7,40}$",
+            RegexOptions.CultureInvariant | RegexOptions.Compiled);
+        private static readonly Regex GitVersionTagPattern = new Regex(
+            "^[vV]?\\d+\\.\\d+(?:\\.\\d+)?(?:[-+][0-9A-Za-z.-]+)?$",
+            RegexOptions.CultureInvariant | RegexOptions.Compiled);
 
         private static readonly string[] ExtensionSourcePaths =
         {
@@ -441,17 +457,158 @@ namespace StellarFramework.Editor.Modules
                 .Where(profile => profile.kind != "single-file" && profile.kind != "sample")
                 // Generated support is selected transitively with its owning Kit. It is not a useful standalone choice.
                 .Where(profile => profile.kind != "generated-support")
+                // Compatibility aliases remain resolvable by id but should not clutter the normal user-facing picker.
+                .Where(profile => profile.optionalCapabilities == null ||
+                                  !profile.optionalCapabilities.Contains("LegacyDistributionAlias"))
                 .OrderBy(profile => profile.displayName, StringComparer.Ordinal)
                 .ToArray();
         }
 
-        internal static DistributionProfile[] GetSourceProjectSampleProfiles()
+        internal static bool HasUpmPackageSource(string packageId)
         {
-            return LoadDistributionCatalog().profiles
-                .Where(profile => profile.availability == "available")
-                .Where(profile => profile.kind == "sample")
-                .OrderBy(profile => profile.displayName, StringComparer.Ordinal)
+            return !string.IsNullOrWhiteSpace(packageId) && UpmPackageSources.ContainsKey(packageId);
+        }
+
+        internal static bool IsGitUpmPackageSource(string source)
+        {
+            if (!Uri.TryCreate(source, UriKind.Absolute, out Uri uri))
+            {
+                return false;
+            }
+
+            return string.Equals(uri.Scheme, Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(uri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(uri.Scheme, "ssh", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(uri.Scheme, "git", StringComparison.OrdinalIgnoreCase);
+        }
+
+        internal static bool IsPinnedGitUpmPackageSource(string source)
+        {
+            if (!IsGitUpmPackageSource(source))
+            {
+                // Unity Registry dependencies use packageId@version and are not Git refs.
+                return true;
+            }
+
+            int revisionSeparator = source.LastIndexOf('#');
+            if (revisionSeparator < 0 || revisionSeparator == source.Length - 1)
+            {
+                return false;
+            }
+
+            string revision = source.Substring(revisionSeparator + 1).Trim();
+            return GitCommitRevisionPattern.IsMatch(revision) ||
+                   GitVersionTagPattern.IsMatch(revision);
+        }
+
+        internal static string[] GetUnpinnedGitUpmDependencyIds()
+        {
+            return UpmPackageSources
+                .Where(entry => IsGitUpmPackageSource(entry.Value) &&
+                                !IsPinnedGitUpmPackageSource(entry.Value))
+                .Select(entry => entry.Key)
+                .OrderBy(packageId => packageId, StringComparer.Ordinal)
                 .ToArray();
+        }
+
+        private static void ValidateGitUpmPackageSourcePins()
+        {
+            string[] unpinnedPackageIds = GetUnpinnedGitUpmDependencyIds();
+            if (unpinnedPackageIds.Length == 0)
+            {
+                return;
+            }
+
+            string details = string.Join(", ", unpinnedPackageIds.Select(packageId =>
+                $"{packageId} ({UpmPackageSources[packageId]})"));
+            throw new InvalidOperationException(
+                "Package Publisher Git UPM dependencies must pin a tag or commit: " + details);
+        }
+
+        internal static string[] GetLegacyAndValidationKitArtifactPaths()
+        {
+            string exportDirectory = ToProjectPath(KitExportRoot);
+            if (!Directory.Exists(exportDirectory))
+            {
+                return Array.Empty<string>();
+            }
+
+            var protectedFileNames = new HashSet<string>(
+                GetCurrentDistributionArtifactFileNames(),
+                StringComparer.OrdinalIgnoreCase);
+
+            return Directory.GetFiles(exportDirectory)
+                .Where(path => !protectedFileNames.Contains(Path.GetFileName(path)))
+                .Where(IsLegacyOrValidationArtifactFileName)
+                .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+                .Select(ToProjectRelativeDisplayPath)
+                .ToArray();
+        }
+
+        internal static string[] GetCurrentDistributionArtifactFileNames()
+        {
+            DistributionCatalog catalog = LoadDistributionCatalog();
+            var protectedFileNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (DistributionProfile profile in catalog.profiles)
+            {
+                AddProtectedArtifactNames(protectedFileNames, profile.output);
+            }
+
+            foreach (RecommendedProfile profile in catalog.recommendedProfiles ?? Array.Empty<RecommendedProfile>())
+            {
+                AddProtectedArtifactNames(protectedFileNames, profile.output);
+            }
+
+            AddProtectedArtifactNames(protectedFileNames, "StellarFramework-CombinedKits.unitypackage");
+            return protectedFileNames.OrderBy(name => name, StringComparer.OrdinalIgnoreCase).ToArray();
+        }
+
+        internal static int CleanLegacyAndValidationKitArtifacts()
+        {
+            string[] candidates = GetLegacyAndValidationKitArtifactPaths();
+            foreach (string projectRelativePath in candidates)
+            {
+                string fullPath = ToProjectPath(projectRelativePath);
+                if (File.Exists(fullPath))
+                {
+                    File.Delete(fullPath);
+                }
+            }
+
+            return candidates.Length;
+        }
+
+        private static void AddProtectedArtifactNames(ISet<string> target, string outputFileName)
+        {
+            if (string.IsNullOrWhiteSpace(outputFileName))
+            {
+                return;
+            }
+
+            target.Add(outputFileName);
+            target.Add(Path.GetFileNameWithoutExtension(outputFileName) + "-Dependencies.md");
+        }
+
+        private static bool IsLegacyOrValidationArtifactFileName(string path)
+        {
+            string fileName = Path.GetFileName(path);
+            return fileName.StartsWith("Validation-", StringComparison.OrdinalIgnoreCase) ||
+                   fileName.StartsWith("StellarFramework-Validation-", StringComparison.OrdinalIgnoreCase) ||
+                   fileName.StartsWith("StellarFramework-Sample-", StringComparison.OrdinalIgnoreCase) ||
+                   fileName.IndexOf("-With-Sample", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                   fileName.StartsWith("StellarFramework-HotUpdate-Core", StringComparison.OrdinalIgnoreCase) ||
+                   fileName.StartsWith("StellarFramework-HotUpdate-Addressables", StringComparison.OrdinalIgnoreCase) ||
+                   fileName.StartsWith("StellarFramework-HotUpdate-HybridCLR", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string ToProjectRelativeDisplayPath(string fullPath)
+        {
+            string projectRoot = Directory.GetParent(Application.dataPath)?.FullName ?? Application.dataPath;
+            string normalizedRoot = NormalizePath(projectRoot).TrimEnd('/');
+            string normalizedPath = NormalizePath(fullPath);
+            return normalizedPath.StartsWith(normalizedRoot + "/", StringComparison.OrdinalIgnoreCase)
+                ? normalizedPath.Substring(normalizedRoot.Length + 1)
+                : normalizedPath;
         }
 
         internal static RecommendedProfile[] GetRecommendedProfiles()
@@ -479,6 +636,43 @@ namespace StellarFramework.Editor.Modules
             }
 
             return closureById.Keys.OrderBy(profileId => profileId, StringComparer.Ordinal).ToArray();
+        }
+
+        internal static string ResolveRecommendedProfileMaturity(string recommendedProfileId)
+        {
+            DistributionCatalog catalog = LoadDistributionCatalog();
+            RecommendedProfile recommendedProfile = FindRecommendedProfile(catalog, recommendedProfileId);
+            var profilesById = catalog.profiles.ToDictionary(profile => profile.id, StringComparer.Ordinal);
+            string maturity = "stable";
+
+            foreach (string profileId in recommendedProfile.profileIds)
+            {
+                DistributionProfile rootProfile = profilesById[profileId];
+                foreach (DistributionProfile dependency in ResolveProfileClosure(catalog, rootProfile))
+                {
+                    if (GetMaturityRank(dependency.maturity) > GetMaturityRank(maturity))
+                    {
+                        maturity = dependency.maturity;
+                    }
+                }
+            }
+
+            return maturity;
+        }
+
+        private static int GetMaturityRank(string maturity)
+        {
+            switch (maturity)
+            {
+                case "stable":
+                    return 0;
+                case "rc":
+                    return 1;
+                case "experimental":
+                    return 2;
+                default:
+                    return int.MaxValue;
+            }
         }
 
         internal static string ExportRecommendedProfileInternal(string recommendedProfileId)
@@ -659,6 +853,8 @@ namespace StellarFramework.Editor.Modules
 
         private static DistributionCatalog LoadDistributionCatalog()
         {
+            ValidateGitUpmPackageSourcePins();
+
             string json = ReadProjectAssetText(DistributionCatalogPath);
             DistributionCatalog catalog = JsonUtility.FromJson<DistributionCatalog>(json);
             if (catalog == null || catalog.profiles == null)
@@ -689,6 +885,12 @@ namespace StellarFramework.Editor.Modules
                 }
 
                 profilesById.Add(profile.id, profile);
+
+                if (string.IsNullOrWhiteSpace(profile.maturity) || !MaturityLevels.Contains(profile.maturity))
+                {
+                    throw new InvalidOperationException(
+                        $"Kit distribution profile '{profile.id}' must declare maturity as stable, rc, or experimental.");
+                }
 
                 bool isRuntimeKit = profile.kind == "kit" || profile.kind == "kit-with-dependencies";
                 bool hasTier = !string.IsNullOrWhiteSpace(profile.tier);
@@ -721,6 +923,33 @@ namespace StellarFramework.Editor.Modules
                     {
                         throw new InvalidOperationException(
                             $"Foundation Kit profile '{profile.id}' must not depend on Extension profile '{dependency.id}'.");
+                    }
+                }
+            }
+
+            foreach (DistributionProfile profile in catalog.profiles)
+            {
+                foreach (string dependencyId in profile.requiredProfileIds ?? Array.Empty<string>())
+                {
+                    if (!profilesById.TryGetValue(dependencyId, out DistributionProfile dependency))
+                    {
+                        throw new InvalidOperationException(
+                            $"Kit distribution profile '{profile.id}' references unknown dependency '{dependencyId}'.");
+                    }
+
+                    if (GetMaturityRank(profile.maturity) < GetMaturityRank(dependency.maturity))
+                    {
+                        throw new InvalidOperationException(
+                            $"Profile '{profile.id}' cannot be more mature than dependency '{dependency.id}'.");
+                    }
+                }
+
+                foreach (string packageId in profile.requiredUpm ?? Array.Empty<string>())
+                {
+                    if (!UpmPackageSources.ContainsKey(packageId))
+                    {
+                        throw new InvalidOperationException(
+                            $"Profile '{profile.id}' requires UPM package '{packageId}' but no install source is configured.");
                     }
                 }
             }
@@ -953,9 +1182,12 @@ namespace StellarFramework.Editor.Modules
         private static bool IsIncludedInProfile(string assetPath, DistributionProfile profile)
         {
             bool insideSource = profile.sourcePaths.Any(sourcePath => IsPathInside(assetPath, sourcePath));
+            bool insideDocumentation = profile.documentationPaths != null &&
+                                       profile.documentationPaths.Any(documentationPath =>
+                                           IsPathInside(assetPath, documentationPath));
             bool excluded = profile.excludedSourcePaths != null &&
                             profile.excludedSourcePaths.Any(excludedPath => IsPathInside(assetPath, excludedPath));
-            return insideSource && !excluded;
+            return (insideSource || insideDocumentation) && !excluded;
         }
 
         private static bool IsPathInside(string assetPath, string sourcePath)
@@ -975,6 +1207,7 @@ namespace StellarFramework.Editor.Modules
             builder.AppendLine($"# {profile.displayName} 导入说明");
             builder.AppendLine();
             builder.AppendLine($"导入 `{profile.output}` 即可获得此 Kit 的源代码。");
+            builder.AppendLine($"成熟度：`{profile.maturity}`。");
             builder.AppendLine();
             AppendGuideList(builder, "本包已包含的 Kit", closure.Select(candidate => candidate.displayName).ToArray(), "无");
             string[] requiredUpm = GetRequiredUpm(closure);
@@ -1115,12 +1348,15 @@ namespace StellarFramework.Editor.Modules
             public string tier;
             public string category;
             public string availability;
+            public string maturity;
             public string output;
             public string[] sourcePaths;
+            public string[] documentationPaths;
             public string[] excludedSourcePaths;
             public string[] requiredProfileIds;
             public string[] requiredKits;
             public string[] requiredUpm;
+            public string[] optionalCapabilities;
             public string[] excludedCapabilities;
         }
 

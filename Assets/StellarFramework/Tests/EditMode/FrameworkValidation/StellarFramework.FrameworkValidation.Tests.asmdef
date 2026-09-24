@@ -3,6 +3,7 @@
   "rootNamespace": "StellarFramework.Tests",
   "references": [
     "StellarFramework.Runtime",
+    "StellarFramework.Runtime.Tools",
     "StellarFramework.UIKit",
     "StellarFramework.UIAdaptationKit",
     "StellarFramework.GridKit.Core",

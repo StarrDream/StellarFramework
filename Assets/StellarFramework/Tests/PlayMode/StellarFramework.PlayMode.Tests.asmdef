@@ -4,6 +4,7 @@
     "references": [
         "StellarFramework.EventKit",
         "StellarFramework.Runtime",
+        "StellarFramework.Runtime.Tools",
         "StellarFramework.BindableKit",
         "StellarFramework.UIKit",
         "StellarFramework.ResKit",

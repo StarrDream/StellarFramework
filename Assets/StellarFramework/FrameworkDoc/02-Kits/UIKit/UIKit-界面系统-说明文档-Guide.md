@@ -145,7 +145,7 @@ Breakpoint 的 Aspect 使用“长边 / 短边”得到 >= 1 的 Shape Aspect，
 
 ### UIAdaptationController
 
-Controller 挂在 UIRoot，仅在 `Screen.width / height / safeArea` 变化时重新应用；刷新时同时采集 `Screen.cutouts`：
+Controller 挂在 UIRoot。`Screen.width / height / safeArea` 变化时立即重新应用；在它们保持不变时，每 0.5 秒低频探测一次 `Screen.cutouts`，cutout 变化时复用同一快照重新应用：
 
 - `CanvasScaler.ScaleWithScreenSize`。
 - reference resolution。

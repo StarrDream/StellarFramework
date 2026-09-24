@@ -100,6 +100,8 @@ Cutouts
 - Breakpoint；
 - 屏幕方向 / safeArea / cutout 变化后的重新应用。
 
+宽高与原始 `safeArea` 每帧做值比较，变化后立即刷新；系统 `Screen.cutouts` 默认每 **0.5 秒**探测一次，不会每帧访问。Cutout 探测只在归一化几何变化时触发布局更新。调用 `RefreshDisplayGeometry()` 会立即采集并应用当前系统快照。
+
 ### UICutoutAwareLayout
 
 用于关键 Target 的危险区避让。

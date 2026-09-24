@@ -22,7 +22,7 @@
 - `SingletonAttribute`
 - `SingletonLifeCycle`
 - `SingletonMetadata`
-- `Generated/SingletonRegister`
+- `Assets/Generated/StellarFramework/SingletonRegister`
 
 ## 选择单例类型
 
@@ -127,13 +127,26 @@ public sealed class LevelDirector : MonoSingleton<LevelDirector>
 3. 按需要配置 `lifeCycle`、`resourcePath`、`useContainer`。
 4. 初始化逻辑优先写在 `OnSingletonInit()` 中。
 5. `MonoSingleton` 子类重写 `Awake()` 或 `OnDestroy()` 时必须调用基类方法。
-6. 新增或修改单例后，通过 Tools Hub 生成 `SingletonRegister`。
-7. 构建 Player 前也会自动生成一次注册表。
-8. 如果单例在新的 asmdef 中，确保生成注册表所在 asmdef 能引用该程序集。
+6. 新增或修改单例后，编辑器会在脚本重载完成后自动刷新 `SingletonRegister`。
+7. 首次通过 Kit 包导入 `SingletonKit` 时，Bootstrap 会在 payload 编译完成后自动生成一次注册表。
+8. 构建 Player 前会再次强制生成，作为最终门禁。
+9. Tools Hub 保留手动生成入口，主要用于诊断或主动刷新。
+10. 如果单例位于自定义 asmdef 中，确保该程序集可被 Unity 预定义程序集引用；不要把单例放进 `Auto Referenced = false` 且业务侧不可见的孤立程序集。
 
 ## 生成注册表
 
-运行时不通过反射读取 `[Singleton]`，也不通过反射创建纯 C# 单例。编辑器生成器会把有效 `[Singleton]` 类型写入 `Assets/StellarFramework/Generated/SingletonRegister/SingletonRegister.cs`。
+运行时不通过反射读取 `[Singleton]`，也不通过反射创建纯 C# 单例。编辑器生成器会把有效 `[Singleton]` 类型写入：
+
+`Assets/Generated/StellarFramework/SingletonRegister/SingletonRegister.cs`
+
+该文件故意位于 `Assets/StellarFramework` asmdef 之外，不再使用固定的 `StellarFramework.Generated.SingletonRegister.asmdef`。这样目标项目中的 `Assembly-CSharp` 业务单例与当前实际导入的 Kit 单例都可以进入同一份静态注册表，避免母工程专用 asmdef 引用泄漏到独立分发包。
+
+自动刷新链路：
+
+1. Kit 首次导入：`KitPackageBootstrapInstaller` 在 payload 编译完成后生成。
+2. 业务脚本重载：`DidReloadScripts` 后延迟一帧刷新。
+3. Player 构建前：`IPreprocessBuildWithReport` 再生成一次。
+4. 生成内容未变化时不写盘，避免无意义脚本重编译。
 
 手动生成入口：`StellarFramework -> Tools Hub -> SingletonKit 注册表 -> 立即生成 SingletonRegister`。
 
@@ -160,11 +173,11 @@ public sealed class LevelDirector : MonoSingleton<LevelDirector>
 
 ### `Instance` 返回 `null`
 
-检查类上是否添加 `[Singleton]`，是否重新生成 `Generated/SingletonRegister`，目标类型所在 asmdef 是否被 `StellarFramework.Generated.SingletonRegister.asmdef` 引用。如果是 `Scene` 单例，还要检查场景中是否存在启用对象，且是否已经执行 `Awake()`。
+检查类上是否添加 `[Singleton]`，以及 `Assets/Generated/StellarFramework/SingletonRegister/SingletonRegister.cs` 是否包含目标类型。若目标类型位于自定义 asmdef，确认该程序集对 Unity 预定义程序集可见；如果是 `Scene` 单例，还要检查场景中是否存在启用对象，且是否已经执行 `Awake()`。
 
 ### 构建后找不到单例
 
-检查 `Generated/SingletonRegister/SingletonRegister.cs` 是否参与编译，生成表是否包含目标类型，目标类型是否在可被生成表引用的程序集里。
+检查 `Assets/Generated/StellarFramework/SingletonRegister/SingletonRegister.cs` 是否参与编译，生成表是否包含目标类型；构建前生成器会再次刷新一次。若仍失败，检查目标类型所在程序集是否可由预定义程序集引用。
 
 ### Resources prefab 加载失败
 

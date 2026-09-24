@@ -9,6 +9,8 @@ namespace StellarFramework.UI.Adaptation
     [RequireComponent(typeof(CanvasScaler))]
     public sealed class UIAdaptationController : MonoBehaviour
     {
+        private const double CutoutProbeIntervalSeconds = 0.5d;
+
         [SerializeField] private UIAdaptationProfile _profile;
         [SerializeField] private RectTransform _safeAreaRoot;
         [SerializeField] private RectTransform[] _additionalSafeAreaRoots =
@@ -21,6 +23,12 @@ namespace StellarFramework.UI.Adaptation
         private Rect _lastSafeArea;
         private bool _lastSafeAreaDataValid = true;
         private Rect[] _lastCutouts = Array.Empty<Rect>();
+        private int _lastObservedScreenWidth = -1;
+        private int _lastObservedScreenHeight = -1;
+        private Rect _lastObservedScreenSafeArea;
+        private double _nextCutoutProbeTime;
+        private bool _hasScreenSnapshot;
+        private bool _probeSystemCutouts;
         private string _currentBreakpointId = string.Empty;
 
         public UIAdaptationProfile Profile => _profile;
@@ -52,15 +60,44 @@ namespace StellarFramework.UI.Adaptation
                 return;
             }
 
+            if (!_hasScreenSnapshot)
+            {
+                ApplyCurrentScreen();
+                return;
+            }
+
+            int width = Screen.width;
+            int height = Screen.height;
             Rect safeArea = Screen.safeArea;
-            if (_lastWidth == Screen.width &&
-                _lastHeight == Screen.height &&
-                _lastSafeArea == safeArea)
+            if (_lastObservedScreenWidth != width ||
+                _lastObservedScreenHeight != height ||
+                _lastObservedScreenSafeArea != safeArea)
+            {
+                ApplyCurrentScreen();
+                return;
+            }
+
+            if (!_probeSystemCutouts)
             {
                 return;
             }
 
-            ApplyCurrentScreen();
+            double currentTime = Time.realtimeSinceStartupAsDouble;
+            if (currentTime < _nextCutoutProbeTime)
+            {
+                return;
+            }
+
+            // Screen.cutouts can allocate a managed array. Probe it at a low fixed rate,
+            // and pass this same snapshot to Apply if its normalized geometry changed.
+            _nextCutoutProbeTime = currentTime + CutoutProbeIntervalSeconds;
+            Rect[] cutouts = Screen.cutouts;
+            int safeWidth = Mathf.Max(1, width);
+            int safeHeight = Mathf.Max(1, height);
+            if (HasCutoutSnapshotChanged(cutouts, _lastCutouts, safeWidth, safeHeight))
+            {
+                ApplySystemSnapshot(width, height, safeArea, cutouts);
+            }
         }
 
         public void Configure(UIAdaptationProfile profile, RectTransform safeAreaRoot)
@@ -109,7 +146,16 @@ namespace StellarFramework.UI.Adaptation
 
         public void ApplyCurrentScreen()
         {
-            Apply(Screen.width, Screen.height, Screen.safeArea, Screen.cutouts);
+            if (_profile == null)
+            {
+                return;
+            }
+
+            int width = Screen.width;
+            int height = Screen.height;
+            Rect safeArea = Screen.safeArea;
+            Rect[] cutouts = Screen.cutouts;
+            ApplySystemSnapshot(width, height, safeArea, cutouts);
         }
 
         public void Apply(int width, int height, Rect safeArea)
@@ -118,6 +164,39 @@ namespace StellarFramework.UI.Adaptation
         }
 
         public void Apply(
+            int width,
+            int height,
+            Rect safeArea,
+            IReadOnlyList<Rect> cutouts)
+        {
+            // Apply is also the explicit input path for platform adapters and tests.
+            // System cutout polling resumes when ApplyCurrentScreen/RefreshDisplayGeometry
+            // is requested or when the observed screen dimensions/safe area change.
+            _probeSystemCutouts = false;
+            _lastObservedScreenWidth = width;
+            _lastObservedScreenHeight = height;
+            _lastObservedScreenSafeArea = safeArea;
+            _hasScreenSnapshot = true;
+            ApplyGeometry(width, height, safeArea, cutouts);
+        }
+
+        private void ApplySystemSnapshot(
+            int width,
+            int height,
+            Rect safeArea,
+            IReadOnlyList<Rect> cutouts)
+        {
+            _probeSystemCutouts = true;
+            _lastObservedScreenWidth = width;
+            _lastObservedScreenHeight = height;
+            _lastObservedScreenSafeArea = safeArea;
+            _hasScreenSnapshot = true;
+            _nextCutoutProbeTime = Time.realtimeSinceStartupAsDouble +
+                                   CutoutProbeIntervalSeconds;
+            ApplyGeometry(width, height, safeArea, cutouts);
+        }
+
+        private void ApplyGeometry(
             int width,
             int height,
             Rect safeArea,
@@ -236,27 +315,12 @@ namespace StellarFramework.UI.Adaptation
             int write = 0;
             for (int i = 0; i < count; i++)
             {
-                Rect raw = cutouts[i];
-                if (!IsFinite(raw.xMin) ||
-                    !IsFinite(raw.yMin) ||
-                    !IsFinite(raw.xMax) ||
-                    !IsFinite(raw.yMax) ||
-                    raw.width <= 0f ||
-                    raw.height <= 0f)
+                if (!TryNormalizeCutout(cutouts[i], width, height, out Rect normalizedCutout))
                 {
                     continue;
                 }
 
-                float xMin = Mathf.Clamp(raw.xMin, 0f, width);
-                float yMin = Mathf.Clamp(raw.yMin, 0f, height);
-                float xMax = Mathf.Clamp(raw.xMax, xMin, width);
-                float yMax = Mathf.Clamp(raw.yMax, yMin, height);
-                if (xMax <= xMin || yMax <= yMin)
-                {
-                    continue;
-                }
-
-                normalized[write++] = Rect.MinMaxRect(xMin, yMin, xMax, yMax);
+                normalized[write++] = normalizedCutout;
             }
 
             if (write == 0)
@@ -270,6 +334,68 @@ namespace StellarFramework.UI.Adaptation
 
             Array.Resize(ref normalized, write);
             return normalized;
+        }
+
+        internal static bool HasCutoutSnapshotChanged(
+            IReadOnlyList<Rect> snapshot,
+            Rect[] normalizedCutouts,
+            int width,
+            int height)
+        {
+            normalizedCutouts = normalizedCutouts ?? Array.Empty<Rect>();
+            int count = snapshot?.Count ?? 0;
+            int normalizedIndex = 0;
+
+            // Compare normalized rectangles in place. Invalid and fully clipped entries
+            // are skipped exactly as they are by NormalizeCutouts, without allocating a
+            // second array on the periodic probe path.
+            for (int i = 0; i < count; i++)
+            {
+                if (!TryNormalizeCutout(snapshot[i], width, height, out Rect normalized))
+                {
+                    continue;
+                }
+
+                if (normalizedIndex >= normalizedCutouts.Length ||
+                    normalizedCutouts[normalizedIndex] != normalized)
+                {
+                    return true;
+                }
+
+                normalizedIndex++;
+            }
+
+            return normalizedIndex != normalizedCutouts.Length;
+        }
+
+        private static bool TryNormalizeCutout(
+            Rect raw,
+            int width,
+            int height,
+            out Rect normalized)
+        {
+            normalized = default;
+            if (!IsFinite(raw.xMin) ||
+                !IsFinite(raw.yMin) ||
+                !IsFinite(raw.xMax) ||
+                !IsFinite(raw.yMax) ||
+                raw.width <= 0f ||
+                raw.height <= 0f)
+            {
+                return false;
+            }
+
+            float xMin = Mathf.Clamp(raw.xMin, 0f, width);
+            float yMin = Mathf.Clamp(raw.yMin, 0f, height);
+            float xMax = Mathf.Clamp(raw.xMax, xMin, width);
+            float yMax = Mathf.Clamp(raw.yMax, yMin, height);
+            if (xMax <= xMin || yMax <= yMin)
+            {
+                return false;
+            }
+
+            normalized = Rect.MinMaxRect(xMin, yMin, xMax, yMax);
+            return true;
         }
 
         private static bool IsFinite(float value)

@@ -1,0 +1,19 @@
+{
+  "name": "StellarFramework.ToolsHub.RuntimeTools.Editor",
+  "rootNamespace": "",
+  "references": [
+    "StellarFramework.ToolsHub.Editor",
+    "StellarFramework.Runtime.Tools"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

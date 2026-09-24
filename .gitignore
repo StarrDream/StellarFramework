@@ -15,3 +15,9 @@
 
 !/.github/
 !/.github/**
+
+# Project-local verification automation is source-controlled; generated run artifacts are not.
+!/Tools/
+!/Tools/AndroidVerification/
+!/Tools/AndroidVerification/**
+/Tools/AndroidVerification/Results/

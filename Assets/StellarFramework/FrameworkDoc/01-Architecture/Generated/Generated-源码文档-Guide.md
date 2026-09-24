@@ -12,18 +12,18 @@
 
 ## 源码文件
 
-当前主要分为两块：
+当前主要分为两类生成代码：
 
-- `Generated/AssetMap`
-- `Generated/SingletonRegister`
+- `Assets/StellarFramework/Generated/AssetMap`
+- `Assets/Generated/StellarFramework/SingletonRegister`
 
 ## 总体结构
 
 ```text
-Generated
-├─ AssetMap
+Assets
+├─ StellarFramework/Generated/AssetMap
 │  └─ 资源路径 -> BundleName 映射
-└─ SingletonRegister
+└─ Generated/StellarFramework/SingletonRegister
    └─ 单例元数据和创建器注册代码
 ```
 
@@ -112,6 +112,7 @@ internal static class SingletonRegister
 ### 生成来源
 
 - `SingletonGenerator`
+- `KitPackageBootstrapInstaller` 在独立 Kit 首次导入完成后触发首次生成
 
 ### 运行时依赖
 
@@ -130,10 +131,13 @@ internal static class SingletonRegister
 
 ### SingletonRegister
 
-1. 构建前或生成流程扫描带 `SingletonAttribute` 的类型
-2. 提取生命周期、资源路径、容器挂载策略
-3. 生成 `SingletonRegister.cs`
-4. 运行时在 `SubsystemRegistration` 阶段自动注册
+1. 独立 Kit 首次导入完成后生成一次静态注册表。
+2. 编辑器脚本重载完成后重新扫描当前已加载程序集中的 `SingletonAttribute`。
+3. 提取生命周期、资源路径、容器挂载策略。
+4. 生成 `Assets/Generated/StellarFramework/SingletonRegister/SingletonRegister.cs`。
+5. 内容未变化时不重写文件。
+6. Player 构建前再强制刷新一次。
+7. 运行时在 `SubsystemRegistration` 阶段自动注册。
 
 ## 设计约束
 
@@ -141,6 +145,7 @@ internal static class SingletonRegister
 - 真正的逻辑修改应该在生成器中完成
 - 生成代码必须幂等
 - 生成代码必须参与编译，否则运行时行为会直接失效
+- `SingletonRegister` 不使用固定 generated asmdef；它故意位于 `Assets/StellarFramework` asmdef 之外，以适配独立 Kit 与业务 `Assembly-CSharp` 类型
 
 ## 常见误用
 
@@ -152,6 +157,6 @@ internal static class SingletonRegister
 ## 测试与验证
 
 - AssetBundle 构建后验证 `AssetMap` 是否生成且编译通过
-- Singleton 相关构建或生成流程后验证 `SingletonRegister` 是否生成且参与编译
+- Singleton 首次导入、脚本重载或构建流程后验证 `Assets/Generated/StellarFramework/SingletonRegister/SingletonRegister.cs` 是否生成且参与编译
 - 若修改生成器逻辑，应同时更新对应源码文档和测试
 

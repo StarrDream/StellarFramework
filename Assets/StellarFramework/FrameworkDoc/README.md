@@ -9,8 +9,8 @@
 ### 目录
 
 - `00-Overview/`：快速开始与总体索引。
-- `01-Architecture/`：MSV、Kit 分层、代码可读性/注释规范、Runtime Extensions、Runtime Tools。
-- `02-Kits/`：Foundation / Extension Kit 以及对应 Adapter 正式指南。
+- `01-Architecture/`：MSV、Kit 分层、代码可读性/注释规范、Runtime Extensions。
+- `02-Kits/`：Foundation / Extension Kit、RuntimeTools 以及对应 Adapter 正式指南。
 - `03-Samples/`：Example / Integration / Showcase、Visual Contract 与 Sample Index。
 - `04-ToolsHub/`：ToolsHub、Packaging、Authoring。
 - `05-Resources/`：Resources 目录与资源约定。
@@ -37,8 +37,8 @@ Code directories keep only short local README entry points, licenses, font prove
 ### Layout
 
 - `00-Overview/` — quick start and the global index.
-- `01-Architecture/` — MSV, Kit layering, code readability/documentation standards, Runtime Extensions, and Runtime Tools.
-- `02-Kits/` — formal Foundation / Extension Kit guides together with their Adapter guides.
+- `01-Architecture/` — MSV, Kit layering, code readability/documentation standards, and Runtime Extensions.
+- `02-Kits/` — formal Foundation / Extension Kit guides, RuntimeTools, and their Adapter guides.
 - `03-Samples/` — Example / Integration / Showcase docs, the visual contract, and sample index.
 - `04-ToolsHub/` — ToolsHub, packaging, and authoring documentation.
 - `05-Resources/` — Resources layout and resource conventions.

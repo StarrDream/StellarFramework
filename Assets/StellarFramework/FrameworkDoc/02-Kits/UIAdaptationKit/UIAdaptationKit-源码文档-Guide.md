@@ -103,6 +103,8 @@ controller.Apply(width, height, safeArea, cutouts);
 
 普通 Panel 不需要自己轮询 `Screen.safeArea`。
 
+系统快照路径在每帧比较宽高和原始 safeArea；这两类变化会立即重新读取并应用屏幕快照。若二者未变化，则每 0.5 秒最多读取一次 `Screen.cutouts`。探测器直接把该数组与已缓存的归一化矩形逐项比较，跳过非法或裁剪后为空的输入，不创建中间集合；确认有效变化后，将同一份数组传给 `ApplyGeometry`，不二次读取系统属性。公开 `Apply(...)` 仍用于外部显式提供几何快照；`RefreshDisplayGeometry()` 会切回系统快照和 cutout 自动探测。
+
 ## UIAdaptationProfile
 
 Profile 负责数据，不负责 Scene 行为。

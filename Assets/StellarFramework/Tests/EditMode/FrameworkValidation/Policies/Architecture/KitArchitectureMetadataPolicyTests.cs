@@ -20,12 +20,23 @@ namespace StellarFramework.Tests.FrameworkValidation
             "presentation", "world", "gameplay", "runtime-delivery"
         };
 
+        private static readonly HashSet<string> ValidMaturity = new HashSet<string>(StringComparer.Ordinal)
+        {
+            "stable", "rc", "experimental"
+        };
+
         [Test]
-        public void RuntimeKitProfilesUseSchemaV3ArchitectureMetadata()
+        public void RuntimeKitProfilesUseSchemaV4ArchitectureAndMaturityMetadata()
         {
             CatalogDocument catalog = ReadCatalog();
-            Assert.That(catalog.schemaVersion, Is.EqualTo(3));
+            Assert.That(catalog.schemaVersion, Is.EqualTo(4));
             Assert.That(catalog.profiles, Is.Not.Empty);
+
+            foreach (ProfileDocument profile in catalog.profiles)
+            {
+                Assert.That(profile.maturity, Is.Not.Null.And.Not.Empty, profile.id);
+                Assert.That(ValidMaturity.Contains(profile.maturity), Is.True, profile.id);
+            }
 
             foreach (ProfileDocument profile in catalog.profiles.Where(IsRuntimeKit))
             {
@@ -54,10 +65,20 @@ namespace StellarFramework.Tests.FrameworkValidation
             AssertProfile(catalog, "worldkit.streaming.savekit", "adapter", "world");
             AssertProfile(catalog, "worldkit.streaming.unity", "adapter", "world");
             AssertProfile(catalog, "audiokit.core", "extension", "presentation");
+            AssertProfile(catalog, "runtime.tools", "extension", "infrastructure");
             AssertProfile(catalog, "uikit.core", "extension", "presentation");
             AssertProfile(catalog, "uiadaptation.core", "extension", "presentation");
             AssertProfile(catalog, "uikit.adaptation", "extension", "presentation");
             AssertProfile(catalog, "hybridclrkit", "extension", "runtime-delivery");
+
+            AssertMaturity(catalog, "gridkit", "stable");
+            AssertMaturity(catalog, "runtime.tools", "stable");
+            AssertMaturity(catalog, "uiadaptation.core", "stable");
+            AssertMaturity(catalog, "uikit.core", "stable");
+            AssertMaturity(catalog, "reskit.addressables", "rc");
+            AssertMaturity(catalog, "reskit.yooasset", "stable");
+            AssertMaturity(catalog, "hybridclrkit", "stable");
+            AssertMaturity(catalog, "hybridclrkit.tools", "stable");
         }
 
         [Test]
@@ -385,8 +406,11 @@ namespace StellarFramework.Tests.FrameworkValidation
             Assert.That(localization.requiredUpm, Is.Empty);
             Assert.That(localization.sourcePaths, Is.EqualTo(new[]
             {
-                "Assets/StellarFramework/Runtime/Kits/LocalizationKit/Core",
-                "Assets/StellarFramework/FrameworkDoc/02-Kits/LocalizationKit/LocalizationKit-Guide.md"
+                "Assets/StellarFramework/Runtime/Kits/LocalizationKit/Core"
+            }));
+            Assert.That(localization.documentationPaths, Is.EqualTo(new[]
+            {
+                "Assets/StellarFramework/FrameworkDoc/02-Kits/LocalizationKit"
             }));
             Assert.That(localization.excludedCapabilities, Does.Contain("UnityEngine"));
             Assert.That(localization.excludedCapabilities, Does.Contain("SettingsKit"));
@@ -505,7 +529,9 @@ namespace StellarFramework.Tests.FrameworkValidation
             Assert.That(exporter, Does.Contain("GetProfileBadge"));
             Assert.That(exporter, Does.Contain("MatchesSearch"));
             Assert.That(exporter, Does.Contain("ExportKitPackageGroupInternal"));
-            Assert.That(publisher, Does.Contain("CurrentDistributionCatalogSchemaVersion = 3"));
+            Assert.That(publisher, Does.Contain("CurrentDistributionCatalogSchemaVersion = 4"));
+            Assert.That(exporter, Does.Contain("GetMaturityLabel"));
+            Assert.That(publisher, Does.Contain("ResolveRecommendedProfileMaturity"));
             Assert.That(exporter, Does.Contain("推荐组合"));
             Assert.That(exporter, Does.Contain("ResolveRecommendedProfileClosureIds"));
             Assert.That(publisher, Does.Contain("ExportRecommendedProfileInternal"));
@@ -583,6 +609,13 @@ namespace StellarFramework.Tests.FrameworkValidation
             Assert.That(profile.category, Is.EqualTo(category), id);
         }
 
+        private static void AssertMaturity(CatalogDocument catalog, string id, string maturity)
+        {
+            ProfileDocument profile = catalog.profiles.FirstOrDefault(candidate => candidate.id == id);
+            Assert.That(profile, Is.Not.Null, id);
+            Assert.That(profile.maturity, Is.EqualTo(maturity), id);
+        }
+
         private static string ReadAssetText(string assetPath)
         {
             string projectRoot = Directory.GetParent(Application.dataPath)?.FullName ?? Application.dataPath;
@@ -604,7 +637,9 @@ namespace StellarFramework.Tests.FrameworkValidation
             public string kind;
             public string tier;
             public string category;
+            public string maturity;
             public string[] sourcePaths;
+            public string[] documentationPaths;
             public string[] excludedSourcePaths;
             public string[] requiredProfileIds;
             public string[] requiredKits;
