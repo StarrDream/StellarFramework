@@ -1,0 +1,170 @@
+{
+  "schemaVersion": 1,
+  "catalogId": "stellarframework.repository-release",
+  "sourceRepository": "StarrDream/StellarFramework.Dev",
+  "releaseVersion": "1.0.0",
+  "general": {
+    "repository": "StarrDream/StellarFramework",
+    "profileIds": [
+      "actionkit",
+      "actionkit.tools",
+      "bindablekit",
+      "httpkit",
+      "timekit",
+      "standalone.architecture",
+      "standalone.extensions",
+      "runtime.core",
+      "runtime.tools",
+      "runtimetools.tools",
+      "toolshub.core",
+      "eventkit",
+      "eventkit.tools",
+      "configkit.core",
+      "configkit.json",
+      "configkit.tools",
+      "localizationkit.core",
+      "localizationkit.settings",
+      "localizationkit.ugui",
+      "localizationkit.editor",
+      "localizationkit.tools",
+      "localizationkit.tmp",
+      "localizationkit.tmp.editor",
+      "localizationkit.tmp.tools",
+      "settingskit.core",
+      "settingskit.unity",
+      "settingskit.audiokit",
+      "fsmkit",
+      "poolkit",
+      "singletonkit",
+      "singletonkit.tools",
+      "logkit",
+      "generated.assetmap",
+      "reskit.core",
+      "reskit.tools",
+      "audiokit.core",
+      "audiokit.tools",
+      "audiokit.reskit",
+      "reskit.assetbundle",
+      "reskit.assetbundle.tools",
+      "reskit.addressables",
+      "reskit.yooasset",
+      "uikit.core",
+      "uikit.tools",
+      "uikit.reskit",
+      "uiadaptation.core",
+      "uiadaptation.tools",
+      "uikit.adaptation",
+      "uikit.adaptation.tools",
+      "savekit.core",
+      "savekit.newtonsoft-json",
+      "savekit.tools"
+    ],
+    "extraIncludePaths": [
+      "Assets/Editor/StellarFramework/KitPackageBootstrap",
+      "Assets/StellarFramework/Editor/StellarToolsHub/Modules/Packaging",
+      "Assets/StellarFramework/KitCatalog/KitDistributionCatalog.json",
+      "Assets/StellarFramework/KitCatalog/RepositoryReleaseCatalog.json",
+      "Assets/StellarFramework/Samples/ArchitectureDemo",
+      "Assets/StellarFramework/Samples/README.md",
+      "Assets/StellarFrameworkBootstrap",
+      "ProjectSettings"
+    ],
+    "excludePaths": [
+      "Assets/StellarFramework/Editor/StellarToolsHub/Modules/DevTools",
+      "Assets/StellarFramework/Editor/Verification",
+      "Assets/StellarFramework/FrameworkDoc/04-ToolsHub/WorldFramework",
+      "Assets/StellarFramework/FrameworkDoc/09-Development",
+      "ProjectSettings/HybridCLRSettings.asset",
+      "ProjectSettings/Packages"
+    ]
+  },
+  "extensions": {
+    "repository": "StarrDream/StellarFramework.Extensions",
+    "domains": [
+      {
+        "id": "algorithms",
+        "displayName": "Algorithms",
+        "profileIds": [
+          "gridkit",
+          "gridkit.unityprojection",
+          "spatialkit",
+          "simulationkit",
+          "pathkit",
+          "pathkit.gridkit"
+        ],
+        "extraIncludePaths": []
+      },
+      {
+        "id": "world",
+        "displayName": "World",
+        "profileIds": [
+          "worldkit.core",
+          "worldgenkit.core",
+          "worldgenkit.builtins",
+          "worldgenkit.authoring",
+          "worldgenkit.resources",
+          "placementkit.core",
+          "worldgenkit.feature",
+          "worldgenkit.feature.resources",
+          "worldgenkit.feature.placement",
+          "worldgenkit.feature.authoring",
+          "worldgenkit.feature.worldkit",
+          "worldgenkit.feature.savekit",
+          "worldgenkit.debugtexture",
+          "worldgenkit.mesh",
+          "worldgenkit.tilemap",
+          "worldgenkit.unityterrain",
+          "worldkit.streaming",
+          "worldgenkit.streaming",
+          "worldkit.streaming.savekit",
+          "worldkit.streaming.unity",
+          "worldframework.tools"
+        ],
+        "extraIncludePaths": [
+          "Assets/StellarFramework/FrameworkDoc/04-ToolsHub/WorldFramework",
+          "Assets/StellarFramework/FrameworkDoc/06-WorldFramework"
+        ]
+      },
+      {
+        "id": "flow",
+        "displayName": "Flow",
+        "profileIds": [
+          "flowkit.core",
+          "flowkit.unity",
+          "flowkit.tools"
+        ],
+        "extraIncludePaths": []
+      },
+      {
+        "id": "hotupdate",
+        "displayName": "HotUpdate",
+        "profileIds": [
+          "hybridclrkit",
+          "hybridclrkit.tools"
+        ],
+        "extraIncludePaths": [
+          "Assets/StellarFramework/Editor/StellarToolsHub/Modules/HotUpdatePublisher"
+        ]
+      }
+    ],
+    "extraIncludePaths": [
+      "Assets/StellarFramework/KitCatalog/RepositoryReleaseCatalog.json"
+    ],
+    "excludePaths": [
+      "Assets/StellarFramework/Tests",
+      "Assets/StellarFrameworkVerification",
+      "Assets/GameHotUpdate",
+      "Assets/HotUpdatePublisherConsumerE2E"
+    ]
+  },
+  "devOnlyPaths": [
+    "Assets/docs",
+    "Assets/StellarFramework/Tests",
+    "Assets/StellarFrameworkVerification",
+    "Assets/StellarFramework/Editor/Verification",
+    "Assets/StellarFramework/FrameworkDoc/09-Development",
+    "Assets/GameHotUpdate",
+    "Assets/HotUpdatePublisherConsumerE2E",
+    "Tools/AndroidVerification"
+  ]
+}

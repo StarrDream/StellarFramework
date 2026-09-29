@@ -66,6 +66,15 @@ namespace StellarFramework.Generated
             }
         }
 
+        public static class HotUpdatePublisherConsumerE2E
+        {
+
+            public static class Content
+            {
+                public const string HotUpdateBehavior = "Assets/HotUpdatePublisherConsumerE2E/Content/HotUpdateBehavior.txt";
+            }
+        }
+
         public static class Resources
         {
             public const string HotUpdateSettings = "Assets/Resources/HotUpdateSettings.asset";

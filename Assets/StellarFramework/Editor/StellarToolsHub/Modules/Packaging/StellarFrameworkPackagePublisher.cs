@@ -338,6 +338,8 @@ namespace StellarFramework.Editor.Modules
                 throw new InvalidOperationException($"Kit distribution profile is incomplete: {profile.displayName}");
             }
 
+            ValidateProfileSourceAvailability(closure);
+
             string[] payloadAssetPaths = GetAssetsForProfiles(closure);
             if (payloadAssetPaths.Length == 0)
             {
@@ -416,6 +418,8 @@ namespace StellarFramework.Editor.Modules
             {
                 throw new InvalidOperationException("Selected Kit profiles contain an incomplete export profile.");
             }
+
+            ValidateProfileSourceAvailability(closure);
 
             string[] payloadAssetPaths = GetAssetsForProfiles(closure);
             if (payloadAssetPaths.Length == 0)
@@ -1077,6 +1081,32 @@ namespace StellarFramework.Editor.Modules
                 .Where(path => profiles.Any(profile => IsIncludedInProfile(path, profile)))
                 .OrderBy(path => path)
                 .ToArray();
+        }
+
+        private static void ValidateProfileSourceAvailability(IEnumerable<DistributionProfile> profiles)
+        {
+            var missing = new List<string>();
+            foreach (DistributionProfile profile in profiles)
+            {
+                foreach (string sourcePath in profile.sourcePaths ?? Array.Empty<string>())
+                {
+                    string projectPath = ToProjectPath(sourcePath);
+                    if (!File.Exists(projectPath) && !Directory.Exists(projectPath))
+                    {
+                        missing.Add($"{profile.id}: {sourcePath}");
+                    }
+                }
+            }
+
+            if (missing.Count == 0)
+            {
+                return;
+            }
+
+            throw new InvalidOperationException(
+                "Selected Kit sources are not installed in this project. " +
+                "If these are advanced profiles, install StarrDream/StellarFramework.Extensions first. Missing: " +
+                string.Join(", ", missing));
         }
 
         private static string[] CreateKitBootstrapAssets(IEnumerable<DistributionProfile> profiles,
