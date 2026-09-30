@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "repository": "StarrDream/StellarFramework",
   "sourceRepository": "StarrDream/StellarFramework.Dev",
-  "sourceCommit": "96acd25ca265c274b14c19971887b650435f21eb",
+  "sourceCommit": "3999c2d4366da655096766fb294f52898076a70b",
   "profile": "General",
   "domains": [],
   "profileIds": [
@@ -72,5 +72,5 @@
     "com.unity.ugui": "1.0.0"
   },
   "validation": "PASS",
-  "fileCount": 830
+  "fileCount": 832
 }

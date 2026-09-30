@@ -79,6 +79,8 @@ namespace StellarFramework.Demo
                 return;
             }
 
+            DemoDisplayAdaptation.ConfigureAllCanvases();
+
             LogKit.Log("[DemoEntry] 首屏加载完毕，控制权移交玩家。");
         }
 

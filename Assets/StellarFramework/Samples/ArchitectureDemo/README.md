@@ -4,7 +4,7 @@
 
 `ArchitectureDemo` 是 StellarFramework 唯一保留的用户入门 Demo。
 
-它的目标不是展示所有 Kit，而是让第一次接触框架的人在一个小场景里理解“业务状态如何从 Model 经过 Service 到 View/UI”。
+它的目标不是展示所有 Kit，而是让第一次接触框架的人在一个小场景里理解“业务状态如何从 Model 经过 Service 到 View/UI”，并看到本地化与屏幕安全区适配如何接入真实 UI。
 
 ### 场景入口
 
@@ -17,6 +17,7 @@
 - `ActionKit`：动作/命令式调用
 - `UIKit`：真实 Panel 打开与关闭
 - `LocalizationKit`：`中文 / English` 运行时切换
+- `UIAdaptationKit`：按方向选择 CanvasScaler 匹配策略，并把 UI 内容限制在设备 Safe Area
 - `LogKit`：基础日志入口
 
 真实业务闭环是一个可以无限重复的小任务：
@@ -44,11 +45,13 @@ UI 生命周期也形成闭环：
 
 不要从这个 Demo 推断所有 Kit 的完整能力；它只负责建立整体框架认知。
 
+屏幕适配由 `Runtime/DemoDisplayAdaptation.cs` 在首屏加载后为 Screen Space Canvas 创建 `SafeAreaRoot` 和运行时 `UIAdaptationProfile`。手机挖孔或屏幕比例变化时，Kit 会重新计算 CanvasScaler 与 Safe Area，并记录设备几何和根节点锚点是否吻合；完整的 Cutout 精确避让策略请继续阅读 UIAdaptationKit 使用指南。
+
 ## English
 
 `ArchitectureDemo` is the single user-facing onboarding demo kept in StellarFramework.
 
-Its purpose is not to cover every Kit. It gives new users one small repeatable gameplay loop for understanding how Model, Service, View, state binding, UI, localization, and logging work together.
+Its purpose is not to cover every Kit. It gives new users one small repeatable gameplay loop for understanding how Model, Service, View, state binding, UI, localization, logging, and screen safe-area adaptation work together.
 
 ### Entry scene
 
@@ -61,6 +64,7 @@ Its purpose is not to cover every Kit. It gives new users one small repeatable g
 - ActionKit command/action flow
 - UIKit panel lifecycle
 - LocalizationKit runtime `中文 / English` switching
+- UIAdaptationKit safe-area roots and orientation-aware CanvasScaler profiles
 - LogKit basic logging
 
 Functional loop:

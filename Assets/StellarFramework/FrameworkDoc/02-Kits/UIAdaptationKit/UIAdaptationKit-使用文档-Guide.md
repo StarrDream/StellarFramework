@@ -36,6 +36,12 @@ Screen.cutouts
 
 Controller 会在每帧轻量比较屏幕宽高和原始 `safeArea`，这些变化会立即刷新。系统 `Screen.cutouts` 使用 **0.5 秒间隔**低频探测；只有归一化后的危险区变化才重新应用布局，探测到变化时复用同一份快照。这样不会在每帧读取可能分配数组的 `Screen.cutouts`。需要立即重新读取系统几何时，可调用 `RefreshDisplayGeometry()`。
 
+### Android Player 设置
+
+Unity 的 `Screen.safeArea` 是相对于 Unity Player 窗口返回的。Android 项目关闭 `PlayerSettings.Android.renderOutsideSafeArea` 时，Unity 会先把 Player 窗口缩到系统安全区；此时 `Screen.safeArea` 通常是完整窗口矩形，Controller 会正确保持全窗口锚点，因为窗口外的危险区已由系统排除。若希望背景延伸到挖孔区域、同时让重要 UI 由 `SafeAreaRoot` 避让，请在项目的 Player Settings 中开启 **Render outside safe area**。此设置属于消费项目，不包含在 Kit 的 Assets 导出中。
+
+部分设备或 ROM 会提供非零 `Screen.safeArea`，但 `Screen.cutouts` 为空。整页 SafeArea 仍可正常工作；`UICutoutAwareLayout` 使用 `Fallback=Automatic` 时会退回 SafeArea。UIAdaptationKit 只使用 Unity 提供的屏幕几何，不会修改 Android Player 设置。参考 Unity 文档：[Screen.safeArea](https://docs.unity3d.com/2022.3/Documentation/ScriptReference/Screen-safeArea.html)、[PlayerSettings.Android.renderOutsideSafeArea](https://docs.unity3d.com/2022.3/Documentation/ScriptReference/PlayerSettings.Android-renderOutsideSafeArea.html)。
+
 ## 二、先决定这个 UI 属于哪一类
 
 ### 1. 普通页面：优先 SafeArea
