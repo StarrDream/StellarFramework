@@ -3,7 +3,7 @@
 给 Unity 项目使用的模块化开发框架。这里是 **General 通用能力的用户发布仓**，适合直接打开体验，也可作为挑选和导出 Kit 的工作台。
 
 发布版本：1.0.0
-源码：StellarFramework.Dev@2f237063bd590c5b2b765fcc6a76b1509ea103f0
+源码：StellarFramework.Dev@591d8c9b9ffb99b138ef583bee13e25f067bb5eb
 
 ## 先从这里开始
 

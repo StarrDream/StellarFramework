@@ -3,7 +3,7 @@
 A modular Unity framework that you can use kit by kit. This is the **General user release** and a complete Unity project for trying the framework or exporting selected Kits.
 
 Release: 1.0.0
-Source: StellarFramework.Dev@2f237063bd590c5b2b765fcc6a76b1509ea103f0
+Source: StellarFramework.Dev@591d8c9b9ffb99b138ef583bee13e25f067bb5eb
 
 ## Start here
 
