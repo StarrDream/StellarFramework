@@ -1,83 +1,54 @@
 # StellarFramework
 
-A modular Unity framework that you can use kit by kit. This is the **General user release** and a complete Unity project for trying the framework or exporting selected Kits.
+A modular framework for Unity projects. This repository is a complete Unity project with the general-purpose Kits, Tools Hub, and onboarding samples. To use selected capabilities in a game project, export the Kits from this project.
 
 Release: 1.0.0
-Source: StellarFramework.Dev@3999c2d4366da655096766fb294f52898076a70b
 
-## Start here
+Source commit: [96e6b093e081b5a5c844341b58be3561583f5e6f](https://github.com/StarrDream/StellarFramework.Dev/commit/96e6b093e081b5a5c844341b58be3561583f5e6f)
 
-1. Clone this repository, or choose **Code → Download ZIP** on GitHub and extract it. Install Unity Hub, then open the cloned or extracted repository root with **Unity 2022.3.62f3c1**. This is a complete Unity project.
-2. Wait for asset import and Package Manager dependency resolution. If Unity asks to import TMP Essentials, follow the prompt once.
-3. Open **StellarFramework → Tools Hub**.
-4. Go to **Start Here → Quick Start**, then open the onboarding scene:
+## Requirements
 
-   `Assets/StellarFramework/Samples/ArchitectureDemo/Scene/FrameworkArchitecture_Playable.unity`
+- Unity Editor **2022.3.62f3c1**
+- Unity Package Manager dependencies declared in this repository's <code>Packages/manifest.json</code>
+- Package Manager must finish resolving dependencies on first open
 
-5. Press Play. The demo has a repeatable gameplay loop, a panel you can close and reopen, and a runtime Chinese / English switch.
+## Run the sample
 
-That is enough for a first look. You do not need to read every architecture document before trying the framework.
+1. Clone this repository, or download and extract its ZIP from GitHub.
+2. Add the repository directory in Unity Hub and open it.
+3. Wait for asset import and Package Manager resolution.
+4. Open **StellarFramework → Tools Hub** and read the Start Here page.
+5. Open <code>Assets/StellarFramework/Samples/ArchitectureDemo/Scene/FrameworkArchitecture_Playable.unity</code> and press Play.
 
-## Use it in your own project
+ArchitectureDemo is a small interactive Model–Service–View (MSV) loop with UI, localization, and safe-area adaptation. Focused samples are under <code>Assets/StellarFramework/Samples</code>.
 
-Choose Kits here and import only the resulting package into your game project:
+## Export Kits to a game project
 
-1. Open **StellarFramework → Export** from the Tools Hub.
-2. Select one Kit Profile for a minimal setup, or choose a Recommended Profile for a ready-made group.
-3. The exporter includes the declared StellarFramework dependency closure so you do not need to guess which framework Kits are required.
-4. In your game project, use **Assets → Import Package → Custom Package…** and import the generated `.unitypackage`. Keep its `.meta` files.
-5. Install required UPM packages from the exporter summary and the selected Kit guide. Do not add optional backends your project does not use.
+1. Open the Kit exporter from **StellarFramework → Export**.
+2. Select one Kit Profile or a Recommended Profile.
+3. Review the export summary for framework dependencies and UPM packages.
+4. Export a <code>unitypackage</code>, then import it in the target project through **Assets → Import Package → Custom Package…**.
+5. Keep the package's <code>.meta</code> files and configure the target project's UPM dependencies from the summary.
 
-**An export contains the selected capabilities and required framework dependencies. Your Unity project still manages Unity Package Manager dependencies.** See the [Kit usage guides](Assets/StellarFramework/FrameworkDoc/02-Kits) for behavior, dependencies, and starter examples.
+Profiles represent selectable Kits, adapters, Editor tools, or supporting files. The exporter includes the framework dependencies declared in the catalog. The target project still needs to resolve the listed UPM packages. See <code>Assets/StellarFramework/FrameworkDoc/02-Kits</code> for Kit requirements and setup.
 
-### Common first choices
+## Find a Kit by task
 
-| Goal | Start with |
+| Task | Start with |
 | --- | --- |
-| State-driven UI and service boundaries | ArchitectureDemo, then Architecture, BindableKit, and UIKit |
-| Load prefabs, images, and other assets | ResKit.Core; add an Addressables, AssetBundle, or YooAsset adapter only when needed |
-| Switch languages at runtime | LocalizationKit.Core; add the UGUI / TMP adapters and editor tools you need |
-| Handle notches, safe areas, and changing screen ratios | UIAdaptationKit.Core; UIKit is not required |
-| Update C# code at runtime | Read the HotUpdate and ResKit guides first; a typical setup uses YooAsset, HybridCLR, UniTask, and target-platform build tools |
-| Start with a related set of capabilities | Use a Recommended Profile such as ResKit Complete, Localization Complete, or UIAdaptationKit Complete |
+| Load game assets | ResKit.Core; add an AssetBundle, Addressables, or YooAsset adapter when needed |
+| Localize UI | LocalizationKit.Core and the UGUI or TMP adapter for your UI system |
+| Adapt layouts to screens and safe areas | UIAdaptationKit.Core; UIKit is an optional integration |
+| Build UI panels | UIKit |
+| Configuration, saves, events, pooling, and other foundation services | The guide for the corresponding Kit |
 
-Recommended Profiles include their declared framework dependencies. Use the exporter and Kit guide for exact adapters and UPM versions.
+Algorithms, World, Flow, and HybridCLR HotUpdate are published in [StellarFramework.Extensions](https://github.com/StarrDream/StellarFramework.Extensions). Extensions requires the matching General release.
 
-## What is included
+## Documentation and release contents
 
-- **Foundation and flow**: Architecture, BindableKit, EventKit, PoolKit, SingletonKit, TimeKit, FSMKit, ActionKit.
-- **Data and services**: ConfigKit, SettingsKit, SaveKit, LogKit, HttpKit.
-- **Presentation and content**: UIKit, UIAdaptationKit, LocalizationKit, AudioKit, ResKit.
-- **Resource backends**: built-in Resources support, with optional AssetBundle, Addressables, and YooAsset adapters.
-- **Editor tooling**: one Tools Hub, with optional per-Kit tools. Editor-only features can be kept out of a player Runtime export.
+- Kit guides: <code>Assets/StellarFramework/FrameworkDoc/02-Kits</code>
+- Tools Hub: <code>Assets/StellarFramework/FrameworkDoc/04-ToolsHub</code>
+- Samples: <code>Assets/StellarFramework/Samples</code>
+- Exact release contents and external dependencies: [RELEASE-MANIFEST.json](RELEASE-MANIFEST.json)
 
-**Algorithms, World, Flow, and HybridCLR HotUpdate** are optional extensions released separately in [StellarFramework.Extensions](https://github.com/StarrDream/StellarFramework.Extensions). Follow its README to combine extension sources and export a selected Kit.
-
-## Find guides and examples
-
-- First session: Tools Hub Quick Start and ArchitectureDemo.
-- Individual Kits: open the relevant guide under `Assets/StellarFramework/FrameworkDoc/02-Kits`.
-- Editor tools: `Assets/StellarFramework/FrameworkDoc/04-ToolsHub`.
-- Demo overview: `Assets/StellarFramework/Samples/README.md`.
-- To change framework source, use [StellarFramework.Dev](https://github.com/StarrDream/StellarFramework.Dev). Do not maintain a feature fork in this release repository.
-
-## Troubleshooting
-
-**Unity is still importing or downloading packages**
-Wait for asset import and Package Manager to finish. The first import takes longer than later launches.
-
-**A namespace or external type is missing**
-Make sure Package Manager resolved the project dependencies. For a single-Kit export, add UPM packages listed by the exporter and Kit guide.
-
-**I want to add another Kit later**
-Export the additional Kit here, or select a Recommended Profile that contains the capabilities you need. Preserve `.meta` files.
-
-**TMP text is not being localized**
-TMP integration is optional. Import TMP Essentials and select the TMP adapter / tooling profiles you use.
-
-**How does UIAdaptationKit relate to UIKit?**
-UIAdaptationKit can be used on its own. Add the UIKit adapter only if your UI flow needs it.
-
-## Release information
-
-Dev generates this repository. `RELEASE-MANIFEST.json` records the release version, source commit, included profiles, required UPM packages, and validation status. File issues or make changes in Dev, then publish a validated release.
+This repository is generated from [StellarFramework.Dev](https://github.com/StarrDream/StellarFramework.Dev). Report framework issues and make source changes there.
