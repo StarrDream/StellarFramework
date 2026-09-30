@@ -41,6 +41,7 @@ namespace StellarFramework.Editor.Modules
                 },
                 { "com.unity.nuget.newtonsoft-json", "com.unity.nuget.newtonsoft-json@3.2.2" },
                 { "com.unity.addressables", "com.unity.addressables@1.22.3" },
+                { "com.unity.test-framework", "com.unity.test-framework@1.1.33" },
                 { "com.unity.ugui", "com.unity.ugui@1.0.0" },
                 { "com.unity.textmeshpro", "com.unity.textmeshpro@3.0.7" },
                 {

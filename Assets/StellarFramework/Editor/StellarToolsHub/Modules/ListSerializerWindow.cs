@@ -27,6 +27,7 @@ namespace StellarFramework.Editor
         private string _searchText = "";
         private List<int> _filteredIndices = new List<int>();
         private bool _hasPerformedSearch = false;
+        private static readonly HashSet<string> _reportedPropertyGetterFailures = new HashSet<string>();
 
         // 展开状态缓存
         private Dictionary<int, bool> _foldoutCache = new Dictionary<int, bool>();
@@ -683,8 +684,36 @@ namespace StellarFramework.Editor
                         else if (IsObjectMatchRecursive(val, searchLower, depth + 1)) return true;
                     }
                 }
-                catch
+                catch (TargetInvocationException exception)
                 {
+                    string propertyId = type.FullName + "." + p.Name;
+                    if (_reportedPropertyGetterFailures.Add(propertyId))
+                    {
+                        Exception cause = exception.InnerException ?? exception;
+                        Debug.LogWarning(
+                            $"[ListSerializer] Search skipped property getter {propertyId}: {cause.GetType().Name}: {cause.Message}",
+                            obj as UnityEngine.Object);
+                    }
+                }
+                catch (MemberAccessException exception)
+                {
+                    string propertyId = type.FullName + "." + p.Name;
+                    if (_reportedPropertyGetterFailures.Add(propertyId))
+                    {
+                        Debug.LogWarning(
+                            $"[ListSerializer] Search skipped inaccessible property getter {propertyId}: {exception.Message}",
+                            obj as UnityEngine.Object);
+                    }
+                }
+                catch (ArgumentException exception)
+                {
+                    string propertyId = type.FullName + "." + p.Name;
+                    if (_reportedPropertyGetterFailures.Add(propertyId))
+                    {
+                        Debug.LogWarning(
+                            $"[ListSerializer] Search skipped invalid property getter {propertyId}: {exception.Message}",
+                            obj as UnityEngine.Object);
+                    }
                 }
             }
 

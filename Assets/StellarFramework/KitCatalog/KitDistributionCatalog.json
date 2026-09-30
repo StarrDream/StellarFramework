@@ -2474,7 +2474,8 @@
       ],
       "requiredUpm": [
         "com.cysharp.unitask",
-        "com.unity.addressables"
+        "com.unity.addressables",
+        "com.unity.test-framework"
       ],
       "optionalCapabilities": [
         "AddressablesResourceLoading"
@@ -2507,7 +2508,8 @@
       ],
       "requiredUpm": [
         "com.cysharp.unitask",
-        "com.tuyoogame.yooasset"
+        "com.tuyoogame.yooasset",
+        "com.unity.test-framework"
       ],
       "optionalCapabilities": [
         "YooAssetResourceLoading"

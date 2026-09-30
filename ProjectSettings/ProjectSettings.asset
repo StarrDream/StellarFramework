@@ -744,7 +744,7 @@ PlayerSettings:
   webGLMemoryGeometricGrowthCap: 96
   webGLPowerPreference: 2
   scriptingDefineSymbols:
-    Standalone: ENABLE_LOG;HYBRIDCLR_ENABLE
+    Standalone: ENABLE_LOG
   additionalCompilerArguments: {}
   platformArchitecture: {}
   scriptingBackend:

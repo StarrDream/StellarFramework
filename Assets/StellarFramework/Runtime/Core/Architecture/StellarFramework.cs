@@ -148,6 +148,7 @@ namespace StellarFramework
         private readonly Dictionary<Type, IModel> _models = new Dictionary<Type, IModel>();
         private readonly Dictionary<Type, object> _readOnlyModels = new Dictionary<Type, object>();
         private readonly Dictionary<Type, IService> _services = new Dictionary<Type, IService>();
+        private readonly List<IModule> _initializedModules = new List<IModule>();
 
         private ArchitectureState _state = ArchitectureState.Uninitialized;
 
@@ -211,60 +212,52 @@ namespace StellarFramework
             try
             {
                 InitModules();
-            }
-            catch
-            {
-                // InitModules 只允许做注册。若注册阶段抛错，回滚尚未初始化的容器，
-                // 保持实例可诊断且允许修复后重新 Init；异常继续向上传播，禁止吞错。
+
+                // 先全量校验 Model/Service 再逐个 Init，避免启动了部分模块后才
+                // 发现容器状态非法。注册 API 当前会挡住 null，这里保留防御检查。
                 foreach (IModel model in _models.Values)
                 {
-                    if (model != null) model.Architecture = null;
+                    if (model == null)
+                        throw new InvalidOperationException($"Architecture {typeof(T).Name} contains a null Model.");
                 }
 
                 foreach (IService service in _services.Values)
                 {
-                    if (service != null) service.Architecture = null;
+                    if (service == null)
+                        throw new InvalidOperationException($"Architecture {typeof(T).Name} contains a null Service.");
                 }
 
-                _models.Clear();
-                _readOnlyModels.Clear();
-                _services.Clear();
+                foreach (IModel model in _models.Values)
+                {
+                    InitializeModule(model);
+                }
+
+                foreach (IService service in _services.Values)
+                {
+                    InitializeModule(service);
+                }
+            }
+            catch (Exception initializationException)
+            {
+                // Include the module whose Init threw: it may have performed side
+                // effects before failing. Roll back in reverse initialization order.
+                List<Exception> rollbackErrors = RollbackInitializedModules();
+                ClearRegisteredModules(rollbackErrors);
+                if (ReferenceEquals(_instance, this))
+                {
+                    _instance = null;
+                }
+
                 _state = ArchitectureState.Uninitialized;
+                if (rollbackErrors.Count > 0)
+                {
+                    rollbackErrors.Insert(0, initializationException);
+                    throw new AggregateException(
+                        $"Architecture {typeof(T).Name} failed to initialize and one or more modules also failed to roll back.",
+                        rollbackErrors);
+                }
+
                 throw;
-            }
-
-            // 先全量校验 Model/Service 再逐个 Init，
-            // 避免"部分初始化后才发现空对象回滚状态"导致下次 Init 重复初始化。
-            foreach (IModel model in _models.Values)
-            {
-                if (model == null)
-                {
-                    LogKit.LogError(
-                        $"[StellarFramework] 架构 Init 失败: 检测到空 Model, Architecture={typeof(T).Name}, State={_state}");
-                    _state = ArchitectureState.Uninitialized;
-                    return;
-                }
-            }
-
-            foreach (IService service in _services.Values)
-            {
-                if (service == null)
-                {
-                    LogKit.LogError(
-                        $"[StellarFramework] 架构 Init 失败: 检测到空 Service, Architecture={typeof(T).Name}, State={_state}");
-                    _state = ArchitectureState.Uninitialized;
-                    return;
-                }
-            }
-
-            foreach (IModel model in _models.Values)
-            {
-                model.Init();
-            }
-
-            foreach (IService service in _services.Values)
-            {
-                service.Init();
             }
 
             _state = ArchitectureState.Initialized;
@@ -283,26 +276,16 @@ namespace StellarFramework
                 return;
             }
 
-            if (_state == ArchitectureState.Disposing)
+            if (_state == ArchitectureState.Initializing || _state == ArchitectureState.Disposing)
             {
+                LogKit.LogWarning(
+                    $"[StellarFramework] 架构 Dispose 已忽略: 生命周期正在执行, Architecture={typeof(T).Name}, State={_state}");
                 return;
             }
 
             _state = ArchitectureState.Disposing;
-
-            foreach (IService service in _services.Values)
-            {
-                service?.Deinit();
-            }
-
-            foreach (IModel model in _models.Values)
-            {
-                model?.Deinit();
-            }
-
-            _models.Clear();
-            _readOnlyModels.Clear();
-            _services.Clear();
+            List<Exception> deinitErrors = RollbackInitializedModules();
+            ClearRegisteredModules(deinitErrors);
 
             if (ReferenceEquals(_instance, this))
             {
@@ -311,9 +294,75 @@ namespace StellarFramework
 
             _state = ArchitectureState.Disposed;
             LogKit.Log($"[StellarFramework] 架构已销毁: {typeof(T).Name}");
+            if (deinitErrors.Count > 0)
+            {
+                throw new AggregateException(
+                    $"Architecture {typeof(T).Name} was disposed, but one or more modules failed to deinitialize.",
+                    deinitErrors);
+            }
         }
 
         protected abstract void InitModules();
+
+        private void InitializeModule(IModule module)
+        {
+            // Track before entering user code so a partially completed Init can be
+            // compensated if the callback throws.
+            _initializedModules.Add(module);
+            module.Init();
+        }
+
+        private List<Exception> RollbackInitializedModules()
+        {
+            List<Exception> errors = new List<Exception>();
+            for (int i = _initializedModules.Count - 1; i >= 0; i--)
+            {
+                try
+                {
+                    _initializedModules[i]?.Deinit();
+                }
+                catch (Exception exception)
+                {
+                    errors.Add(exception);
+                }
+            }
+
+            _initializedModules.Clear();
+            return errors;
+        }
+
+        private void ClearRegisteredModules(List<Exception> errors)
+        {
+            foreach (IModel model in _models.Values)
+            {
+                if (model == null) continue;
+                try
+                {
+                    model.Architecture = null;
+                }
+                catch (Exception exception)
+                {
+                    errors.Add(exception);
+                }
+            }
+
+            foreach (IService service in _services.Values)
+            {
+                if (service == null) continue;
+                try
+                {
+                    service.Architecture = null;
+                }
+                catch (Exception exception)
+                {
+                    errors.Add(exception);
+                }
+            }
+
+            _models.Clear();
+            _readOnlyModels.Clear();
+            _services.Clear();
+        }
 
         #region 模块注册 API
 

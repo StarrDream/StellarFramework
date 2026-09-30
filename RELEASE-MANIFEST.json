@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "repository": "StarrDream/StellarFramework",
   "sourceRepository": "StarrDream/StellarFramework.Dev",
-  "sourceCommit": "b5b63c1379152c402beaefcf19ce6df10074b9fb",
+  "sourceCommit": "48491db8044172dce4eb8dd41d8b6fa2b09cf648",
   "profile": "General",
   "domains": [],
   "profileIds": [
@@ -62,6 +62,15 @@
     "uikit.tools"
   ],
   "requiredGeneralProfileIds": [],
-  "validation": "STATIC_PASS_UNITY_PENDING",
+  "requiredUpm": {
+    "com.cysharp.unitask": "https://github.com/Cysharp/UniTask.git?path=src/UniTask/Assets/Plugins/UniTask#e5acc106ee196bc5a32fb14cdf2987b0f96d11e0",
+    "com.tuyoogame.yooasset": "https://github.com/tuyoogame/YooAsset.git?path=Assets/YooAsset#2.3.19",
+    "com.unity.addressables": "1.22.3",
+    "com.unity.nuget.newtonsoft-json": "3.2.2",
+    "com.unity.test-framework": "1.1.33",
+    "com.unity.textmeshpro": "3.0.7",
+    "com.unity.ugui": "1.0.0"
+  },
+  "validation": "PASS",
   "fileCount": 830
 }

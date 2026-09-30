@@ -712,7 +712,10 @@ namespace StellarFramework.Editor.Modules
 
             using (new EditorGUI.DisabledScope(selectedIds.Length == 0))
             {
-                if (GUILayout.Button("导出已选组合（自动合并依赖）", GUILayout.Height(34f)))
+                string exportLabel = selectedIds.Length == 1
+                    ? "导出单一 Kit（自动包含依赖）"
+                    : "导出已选组合（自动合并依赖）";
+                if (GUILayout.Button(exportLabel, GUILayout.Height(34f)))
                 {
                     ExportSelectedProfiles(selectedIds);
                 }

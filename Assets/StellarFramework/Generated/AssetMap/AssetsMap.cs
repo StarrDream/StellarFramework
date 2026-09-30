@@ -102,6 +102,7 @@ namespace StellarFramework.Generated
             public static class KitCatalog
             {
                 public const string KitDistributionCatalog = "Assets/StellarFramework/KitCatalog/KitDistributionCatalog.json";
+                public const string RepositoryReleaseCatalog = "Assets/StellarFramework/KitCatalog/RepositoryReleaseCatalog.json";
             }
 
             public static class Resources

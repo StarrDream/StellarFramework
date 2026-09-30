@@ -2,6 +2,36 @@
 
 ## 中文
 
+### 使用案例：当前语言缺词时显式回退
+
+```csharp
+using StellarFramework.Localization;
+
+LocaleId zhCN = LocaleId.From("zh-CN");
+LocaleId enUS = LocaleId.From("en-US");
+var chinese = new LocalizationTable(zhCN, new[]
+{
+    new LocalizationEntry(LocalizationKey.From("ui.gather.complete"), "采集完成")
+});
+var english = new LocalizationTable(enUS, new[]
+{
+    new LocalizationEntry(LocalizationKey.From("ui.gather.complete"), "Gathering complete"),
+    new LocalizationEntry(LocalizationKey.From("ui.gather.remaining"), "Remaining {count}")
+});
+var catalog = new LocalizationCatalog(new[] { chinese, english });
+var fallback = new LocalizationFallbackPolicy(new[] { enUS });
+var localization = new LocalizationService(catalog, zhCN, fallback);
+
+LocalizationLookupResult result = localization.Lookup(LocalizationKey.From("ui.gather.remaining"));
+if (result.Success && result.UsedFallback)
+{
+    string displayedText = result.Value;
+    // A UI adapter presents displayedText and may report result.ResolvedLocale to diagnostics.
+}
+```
+
+这段代码不依赖 Unity。Unity 项目可把 `LocalizationService` 注入 `LocalizationContext`，让 UGUI/TMP View 订阅语言变化；内容校验则可用 `Lookup(locale, key)` 检查某个语言自身是否缺词。
+
 ### 定位
 
 LocalizationKit.Core 是 `foundation / data`，负责稳定 Locale/Key、不可变 Table/Catalog、显式 fallback、lookup、语言切换事件和命名参数格式化。
@@ -101,6 +131,36 @@ Editor-only Validator 默认按项目 Sample 规范检查 `zh-CN` / `en-US`，�
 字体不属于 Core。Samples 默认使用项目内 SHA256 校验的 Adobe Source Han Sans CN Regular，并随 SIL OFL 1.1 LICENSE 一起分发。
 
 ## English
+
+### Use case: Explicit fallback for a missing translation
+
+```csharp
+using StellarFramework.Localization;
+
+LocaleId zhCN = LocaleId.From("zh-CN");
+LocaleId enUS = LocaleId.From("en-US");
+var chinese = new LocalizationTable(zhCN, new[]
+{
+    new LocalizationEntry(LocalizationKey.From("ui.gather.complete"), "采集完成")
+});
+var english = new LocalizationTable(enUS, new[]
+{
+    new LocalizationEntry(LocalizationKey.From("ui.gather.complete"), "Gathering complete"),
+    new LocalizationEntry(LocalizationKey.From("ui.gather.remaining"), "Remaining {count}")
+});
+var catalog = new LocalizationCatalog(new[] { chinese, english });
+var fallback = new LocalizationFallbackPolicy(new[] { enUS });
+var localization = new LocalizationService(catalog, zhCN, fallback);
+
+LocalizationLookupResult result = localization.Lookup(LocalizationKey.From("ui.gather.remaining"));
+if (result.Success && result.UsedFallback)
+{
+    string displayedText = result.Value;
+    // A UI adapter presents displayedText and may report result.ResolvedLocale to diagnostics.
+}
+```
+
+This example uses the Unity-free Core API. Unity projects can inject the service into a `LocalizationContext` for UGUI/TMP views; content validators can call `Lookup(locale, key)` to check a specific locale without applying fallback.
 
 ### Positioning
 
