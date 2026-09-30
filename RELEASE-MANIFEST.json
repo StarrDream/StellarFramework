@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "repository": "StarrDream/StellarFramework",
   "sourceRepository": "StarrDream/StellarFramework.Dev",
-  "sourceCommit": "48491db8044172dce4eb8dd41d8b6fa2b09cf648",
+  "sourceCommit": "2f237063bd590c5b2b765fcc6a76b1509ea103f0",
   "profile": "General",
   "domains": [],
   "profileIds": [
@@ -71,6 +71,6 @@
     "com.unity.textmeshpro": "3.0.7",
     "com.unity.ugui": "1.0.0"
   },
-  "validation": "PASS",
+  "validation": "UNITY_TESTS_PASS@48491db; PUBLISHER_TESTS_PASS@2f23706; ANDROID_HOTUPDATE_CANCELLED_UNSAVED_SCENE_DIALOG; AVD_BLOCKED_WHPX_DISABLED",
   "fileCount": 830
 }
