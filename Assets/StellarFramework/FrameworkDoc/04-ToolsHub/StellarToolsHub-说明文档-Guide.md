@@ -32,9 +32,9 @@ StellarFramework -> Tools Hub
 ## 新手路线
 
 1. 进入 `Start Here -> Quick Start`
-2. 打开并运行唯一 `ArchitectureDemo`
-3. 阅读快速开始与对应 Kit Guide
-4. 再按需进入 `Addressables`、`HybridCLR DLL 导出` 或其他资源工具
+2. 打开并运行 Tank Arena 框架 Demo
+3. 在游戏中查看状态、事件和 Kit 连接；需要逐 Kit 学习时打开对应 Kit Guide
+4. 本地预览不验证热更新。需要验证发布链路时运行 Android / Windows HotUpdate Release Gate
 
 ## 常用模块
 
@@ -57,7 +57,7 @@ StellarFramework -> Tools Hub
 
 `UIAdaptationKit` 提供一键独立 UIRoot、Adaptation Profile、16:9 / 20:9 / 4:3 / 19.5:9 预览、Safe Area/Cutout 模拟、Controller 配置、Automatic Fallback 诊断和 Anchor / Breakpoint 风险检查；Runtime 逻辑由独立 `UIAdaptationKit.Core` 承担，不要求项目安装 UIKit。
 
-`Addressables` 只负责本地 Settings / Group 配置检查与 Player Content 构建；正式内容热更新由项目的 YooAsset 启动层负责。启用 HybridCLR 后，可在 `HybridCLR DLL 导出` 中生成热更 DLL、AOT metadata 与 Manifest。
+`Addressables` 只负责本地 Settings / Group 配置检查与 Player Content 构建；正式内容热更新由项目的 YooAsset 启动层负责。启用 HybridCLR 后，可在 `HybridCLR DLL 导出` 中生成热更 DLL、AOT metadata 与 Manifest。Tank Arena 的编辑器预览从本地程序集启动，不替代发布门禁。
 
 ## 使用建议
 

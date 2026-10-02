@@ -64,8 +64,9 @@
       "Assets/StellarFramework/Editor/StellarToolsHub/Modules/Packaging",
       "Assets/StellarFramework/KitCatalog/KitDistributionCatalog.json",
       "Assets/StellarFramework/KitCatalog/RepositoryReleaseCatalog.json",
-      "Assets/StellarFramework/Samples/ArchitectureDemo",
+      "Assets/StellarFramework/Samples/TankArena",
       "Assets/StellarFramework/Samples/README.md",
+      "Assets/StreamingAssets/TankArena",
       "Assets/StellarFrameworkBootstrap",
       "ProjectSettings"
     ],

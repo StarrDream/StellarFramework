@@ -10,9 +10,9 @@ namespace StellarFramework.Localization.Editor
     public static class SourceHanSansExampleFontInstaller
     {
         public const string FontAssetPath =
-            "Assets/StellarFramework/Samples/ArchitectureDemo/Fonts/SourceHanSans/SourceHanSansCN-Regular.otf";
+            "Assets/StellarFramework/Samples/TankArena/Resources/Fonts/SourceHanSansCN-Regular.otf";
         public const string LicenseAssetPath =
-            "Assets/StellarFramework/Samples/ArchitectureDemo/Fonts/SourceHanSans/LICENSE.txt";
+            "Assets/StellarFramework/Samples/TankArena/Resources/Fonts/LICENSE.txt";
         public const string FontUrl =
             "https://raw.githubusercontent.com/adobe-fonts/source-han-sans/release/SubsetOTF/CN/SourceHanSansCN-Regular.otf";
         public const string LicenseUrl =

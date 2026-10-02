@@ -1,0 +1,28 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7808edbaae3c5ca4baa5cefeb388d6ba, type: 3}
+  m_Name: UIAdaptationProfile
+  m_EditorClassIdentifier:
+  _designResolution: {x: 1080, y: 1920}
+  _defaultMatchWidthOrHeight: 0.5
+  _applySafeArea: 1
+  _breakpoints:
+  - _id: Portrait
+    _minAspect: 1
+    _maxAspect: 4
+    _orientation: 1
+    _matchWidthOrHeight: 1
+  - _id: Landscape
+    _minAspect: 1
+    _maxAspect: 4
+    _orientation: 2
+    _matchWidthOrHeight: 0

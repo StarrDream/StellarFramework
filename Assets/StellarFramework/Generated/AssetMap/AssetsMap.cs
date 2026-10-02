@@ -153,54 +153,80 @@ namespace StellarFramework.Generated
             public static class Samples
             {
 
-                public static class ArchitectureDemo
+                public static class TankArena
                 {
-
-                    public static class Art
-                    {
-
-                        public static class Materials
-                        {
-                            public const string Active = "Assets/StellarFramework/Samples/ArchitectureDemo/Art/Materials/Active.mat";
-                            public const string Path = "Assets/StellarFramework/Samples/ArchitectureDemo/Art/Materials/Path.mat";
-                            public const string Resource = "Assets/StellarFramework/Samples/ArchitectureDemo/Art/Materials/Resource.mat";
-                            public const string Success = "Assets/StellarFramework/Samples/ArchitectureDemo/Art/Materials/Success.mat";
-                        }
-                    }
-
-                    public static class Fonts
-                    {
-
-                        public static class SourceHanSans
-                        {
-                            public const string LICENSE = "Assets/StellarFramework/Samples/ArchitectureDemo/Fonts/SourceHanSans/LICENSE.txt";
-                            public const string SourceHanSansCN_Regular = "Assets/StellarFramework/Samples/ArchitectureDemo/Fonts/SourceHanSans/SourceHanSansCN-Regular.otf";
-                        }
-                    }
-
-                    public static class Localization
-                    {
-
-                        public static class Generated
-                        {
-                            public const string LocalizationCatalog = "Assets/StellarFramework/Samples/ArchitectureDemo/Localization/Generated/LocalizationCatalog.asset";
-                            public const string Localization_en_US = "Assets/StellarFramework/Samples/ArchitectureDemo/Localization/Generated/Localization_en-US.asset";
-                            public const string Localization_zh_CN = "Assets/StellarFramework/Samples/ArchitectureDemo/Localization/Generated/Localization_zh-CN.asset";
-                        }
-                    }
 
                     public static class Resources
                     {
 
-                        public static class UIPanel
+                        public static class Fonts
                         {
-                            public const string Panel_Main = "Assets/StellarFramework/Samples/ArchitectureDemo/Resources/UIPanel/Panel_Main.prefab";
+                            public const string LICENSE = "Assets/StellarFramework/Samples/TankArena/Resources/Fonts/LICENSE.txt";
+                            public const string SourceHanSansCN_Regular = "Assets/StellarFramework/Samples/TankArena/Resources/Fonts/SourceHanSansCN-Regular.otf";
+                        }
+
+                        public static class TankArena
+                        {
+
+                            public static class Generated
+                            {
+
+                                public static class Materials
+                                {
+                                    public const string Material_00 = "Assets/StellarFramework/Samples/TankArena/Resources/TankArena/Generated/Materials/Material_00.mat";
+                                    public const string Material_01 = "Assets/StellarFramework/Samples/TankArena/Resources/TankArena/Generated/Materials/Material_01.mat";
+                                    public const string Material_02 = "Assets/StellarFramework/Samples/TankArena/Resources/TankArena/Generated/Materials/Material_02.mat";
+                                    public const string Material_03 = "Assets/StellarFramework/Samples/TankArena/Resources/TankArena/Generated/Materials/Material_03.mat";
+                                    public const string Material_04 = "Assets/StellarFramework/Samples/TankArena/Resources/TankArena/Generated/Materials/Material_04.mat";
+                                    public const string Material_05 = "Assets/StellarFramework/Samples/TankArena/Resources/TankArena/Generated/Materials/Material_05.mat";
+                                    public const string Material_06 = "Assets/StellarFramework/Samples/TankArena/Resources/TankArena/Generated/Materials/Material_06.mat";
+                                    public const string Material_07 = "Assets/StellarFramework/Samples/TankArena/Resources/TankArena/Generated/Materials/Material_07.mat";
+                                    public const string Material_08 = "Assets/StellarFramework/Samples/TankArena/Resources/TankArena/Generated/Materials/Material_08.mat";
+                                    public const string Material_09 = "Assets/StellarFramework/Samples/TankArena/Resources/TankArena/Generated/Materials/Material_09.mat";
+                                    public const string Material_10 = "Assets/StellarFramework/Samples/TankArena/Resources/TankArena/Generated/Materials/Material_10.mat";
+                                    public const string Material_11 = "Assets/StellarFramework/Samples/TankArena/Resources/TankArena/Generated/Materials/Material_11.mat";
+                                    public const string Material_12 = "Assets/StellarFramework/Samples/TankArena/Resources/TankArena/Generated/Materials/Material_12.mat";
+                                    public const string Material_13 = "Assets/StellarFramework/Samples/TankArena/Resources/TankArena/Generated/Materials/Material_13.mat";
+                                    public const string Material_14 = "Assets/StellarFramework/Samples/TankArena/Resources/TankArena/Generated/Materials/Material_14.mat";
+                                    public const string Material_15 = "Assets/StellarFramework/Samples/TankArena/Resources/TankArena/Generated/Materials/Material_15.mat";
+                                    public const string Material_16 = "Assets/StellarFramework/Samples/TankArena/Resources/TankArena/Generated/Materials/Material_16.mat";
+                                    public const string Material_17 = "Assets/StellarFramework/Samples/TankArena/Resources/TankArena/Generated/Materials/Material_17.mat";
+                                    public const string Material_18 = "Assets/StellarFramework/Samples/TankArena/Resources/TankArena/Generated/Materials/Material_18.mat";
+                                    public const string Material_19 = "Assets/StellarFramework/Samples/TankArena/Resources/TankArena/Generated/Materials/Material_19.mat";
+                                }
+
+                                public static class Profiles
+                                {
+                                    public const string UIAdaptationProfile = "Assets/StellarFramework/Samples/TankArena/Resources/TankArena/Generated/Profiles/UIAdaptationProfile.asset";
+                                }
+
+                                public static class Sprites
+                                {
+                                    public const string Circle = "Assets/StellarFramework/Samples/TankArena/Resources/TankArena/Generated/Sprites/Circle.asset";
+                                    public const string CircleTexture = "Assets/StellarFramework/Samples/TankArena/Resources/TankArena/Generated/Sprites/CircleTexture.asset";
+                                    public const string RoundedPanel = "Assets/StellarFramework/Samples/TankArena/Resources/TankArena/Generated/Sprites/RoundedPanel.asset";
+                                    public const string RoundedPanelTexture = "Assets/StellarFramework/Samples/TankArena/Resources/TankArena/Generated/Sprites/RoundedPanelTexture.asset";
+                                }
+                            }
+
+                            public static class Prefabs
+                            {
+                                public const string Arena = "Assets/StellarFramework/Samples/TankArena/Resources/TankArena/Prefabs/Arena.prefab";
+                                public const string EnemyHeavy = "Assets/StellarFramework/Samples/TankArena/Resources/TankArena/Prefabs/EnemyHeavy.prefab";
+                                public const string EnemyLight = "Assets/StellarFramework/Samples/TankArena/Resources/TankArena/Prefabs/EnemyLight.prefab";
+                                public const string GameHost = "Assets/StellarFramework/Samples/TankArena/Resources/TankArena/Prefabs/GameHost.prefab";
+                                public const string HUD = "Assets/StellarFramework/Samples/TankArena/Resources/TankArena/Prefabs/HUD.prefab";
+                                public const string PlayerTank = "Assets/StellarFramework/Samples/TankArena/Resources/TankArena/Prefabs/PlayerTank.prefab";
+                                public const string Projectile = "Assets/StellarFramework/Samples/TankArena/Resources/TankArena/Prefabs/Projectile.prefab";
+                                public const string RepairCore = "Assets/StellarFramework/Samples/TankArena/Resources/TankArena/Prefabs/RepairCore.prefab";
+                                public const string ShockRing = "Assets/StellarFramework/Samples/TankArena/Resources/TankArena/Prefabs/ShockRing.prefab";
+                            }
                         }
                     }
 
                     public static class Scene
                     {
-                        public const string FrameworkArchitecture_Playable = "Assets/StellarFramework/Samples/ArchitectureDemo/Scene/FrameworkArchitecture_Playable.unity";
+                        public const string FrameworkDemo = "Assets/StellarFramework/Samples/TankArena/Scene/FrameworkDemo.unity";
                     }
                 }
             }

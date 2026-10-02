@@ -29,8 +29,8 @@ namespace StellarFramework.Editor.Modules
 
     public static class FrameworkQuickStartCatalog
     {
-        public const string ArchitectureDemoScenePath =
-            "Assets/StellarFramework/Samples/ArchitectureDemo/Scene/FrameworkArchitecture_Playable.unity";
+        public const string FrameworkDemoScenePath =
+            "Assets/StellarFramework/Samples/TankArena/Scene/FrameworkDemo.unity";
 
         public const string QuickStartDocPath = "Assets/StellarFramework/FrameworkDoc/00-Overview/快速开始.md";
         public const string FrameworkDocIndexPath = "Assets/StellarFramework/FrameworkDoc/README.md";
@@ -47,10 +47,10 @@ namespace StellarFramework.Editor.Modules
             {
                 new QuickStartEntry
                 {
-                    Title = "1. 打开 ArchitectureDemo",
-                    Description = "运行唯一入门 Demo，观察 MSV、BindableKit、ActionKit、UIKit、LocalizationKit 与 LogKit 如何协作。",
+                    Title = "1. 运行坦克大战 Framework Demo",
+                    Description = "体验战斗闭环，并在 SYSTEMS 面板查看配置、存档、状态机、事件、对象池、本地化、热更与屏幕适配。",
                     ActionKind = QuickStartActionKind.OpenScene,
-                    TargetPath = ArchitectureDemoScenePath,
+                    TargetPath = FrameworkDemoScenePath,
                     Group = "30 分钟上手",
                     Order = 0
                 },
@@ -223,7 +223,7 @@ namespace StellarFramework.Editor.Modules
                     GUILayout.Label(WelcomeTitle, titleStyle);
                     GUILayout.Space(10f);
                     GUILayout.Label(
-                        "这里是 StellarFramework 的统一上手门户。先运行唯一 ArchitectureDemo 理解框架协作方式，再按 Kit Guide 接入真实项目；不需要维护或生成一组独立 Sample 场景。",
+                        "先运行坦克大战 Framework Demo，体验一局完整战斗和 Kits 面板；再按需阅读 Kit Guide，并把适合的 Kit 接入自己的项目。",
                         bodyStyle);
                     GUILayout.Space(18f);
 
@@ -241,7 +241,7 @@ namespace StellarFramework.Editor.Modules
 
                     GUILayout.Space(12f);
                     EditorGUILayout.HelpBox(
-                        "建议顺序：打开 ArchitectureDemo -> 阅读快速开始 -> 按需查看 Kit / Adapter Guide。",
+                        "建议顺序：运行 Framework Demo -> 阅读快速开始 -> 按需查看 Kit / Adapter Guide。",
                         MessageType.Info);
                     GUILayout.Space(8f);
                 }
@@ -363,9 +363,9 @@ namespace StellarFramework.Editor.Modules
             AddPathCheck("UIRoot.prefab 已存在",
                 "Assets/StellarFramework/Resources/UIPanel/UIRoot.prefab",
                 "UIKit 默认入口依赖这个 UIRoot。");
-            AddPathCheck("ArchitectureDemo 已存在",
-                FrameworkQuickStartCatalog.ArchitectureDemoScenePath,
-                "仓库唯一入门 Demo，用于观察基础 Kit 的组合方式。");
+            AddPathCheck("Framework Demo 已存在",
+                FrameworkQuickStartCatalog.FrameworkDemoScenePath,
+                "坦克大战 Demo 展示基础 Kits 的协作方式；热更交付另由发布验证门禁检查。");
 
             string resKitSettingsAssetPath = FindResourcesAssetPath("ResKitRuntimeSettings");
             bool hasRuntimeSettingsAsset = !string.IsNullOrEmpty(resKitSettingsAssetPath);

@@ -1,0 +1,9 @@
+{
+  "playerMoveSpeed": 4.25,
+  "projectileInterval": 0.28,
+  "enemySpawnInterval": 2.3,
+  "minimumEnemySpawnInterval": 0.8,
+  "maximumEnemies": 8,
+  "eliminationsPerWave": 5,
+  "scorePerElimination": 150
+}

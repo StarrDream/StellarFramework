@@ -4,7 +4,7 @@ A modular framework for Unity projects. This repository is a complete Unity proj
 
 Release: 1.0.0
 
-Source commit: [96e6b093e081b5a5c844341b58be3561583f5e6f](https://github.com/StarrDream/StellarFramework.Dev/commit/96e6b093e081b5a5c844341b58be3561583f5e6f)
+Source commit: [03c9b93eb569b439a24206513784b29496dd62c2](https://github.com/StarrDream/StellarFramework.Dev/commit/03c9b93eb569b439a24206513784b29496dd62c2)
 
 ## Requirements
 
@@ -18,9 +18,9 @@ Source commit: [96e6b093e081b5a5c844341b58be3561583f5e6f](https://github.com/Sta
 2. Add the repository directory in Unity Hub and open it.
 3. Wait for asset import and Package Manager resolution.
 4. Open **StellarFramework → Tools Hub** and read the Start Here page.
-5. Open <code>Assets/StellarFramework/Samples/ArchitectureDemo/Scene/FrameworkArchitecture_Playable.unity</code> and press Play.
+5. Open <code>Assets/StellarFramework/Samples/TankArena/Scene/FrameworkDemo.unity</code>, wait for compilation, then press Play.
 
-ArchitectureDemo is a small interactive Model–Service–View (MSV) loop with UI, localization, and safe-area adaptation. Focused samples are under <code>Assets/StellarFramework/Samples</code>.
+Tank Arena is the framework's playable end-to-end sample. Its match, results, and local profile use Architecture, BindableKit, FSMKit, ActionKit, EventKit, PoolKit, ConfigKit, SaveKit, SettingsKit, LocalizationKit, and UIAdaptationKit together. Hot-update delivery must be checked separately with the Android or Windows Release Gate; the Editor preview does not download a remote package. Per-Kit API and setup guides are under <code>Assets/StellarFramework/FrameworkDoc/02-Kits</code>.
 
 ## Export Kits to a game project
 

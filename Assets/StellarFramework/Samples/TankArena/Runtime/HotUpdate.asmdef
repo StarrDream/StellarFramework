@@ -1,0 +1,29 @@
+{
+    "name": "HotUpdate",
+    "rootNamespace": "",
+    "references": [
+        "StellarFramework.Runtime",
+        "StellarFramework.ActionKit",
+        "StellarFramework.BindableKit",
+        "StellarFramework.ConfigKit.Core",
+        "StellarFramework.EventKit",
+        "StellarFramework.FSMKit",
+        "StellarFramework.LocalizationKit.Core",
+        "StellarFramework.LogKit",
+        "StellarFramework.PoolKit",
+        "StellarFramework.ResKit",
+        "StellarFramework.SaveKit.Core",
+        "StellarFramework.SettingsKit",
+        "StellarFramework.UIAdaptationKit",
+        "GUID:f51ebe6a0ceec4240a699833d6309b23"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
