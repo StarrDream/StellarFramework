@@ -2,23 +2,31 @@
 
 StellarFramework 是面向 Unity 项目的模块化 C# 框架。本仓库提供可在 Unity Hub 中打开的完整工程：可以运行 Tank Arena 案例，也可以从导出器中选择需要的 Kit、适配器和工具，再将生成的 `.unitypackage` 导入自己的项目。
 
-发布版本：**1.0.1**
+发布版本：**1.0.2**
 
-源码提交：[7fbf5dc8991bca08eb38dea738b1415f8d0adcfc](https://github.com/StarrDream/StellarFramework.Dev/commit/7fbf5dc8991bca08eb38dea738b1415f8d0adcfc)
+源码提交：[f58b3ade29b37c0c3dbdc0b375f281296b2558d0](https://github.com/StarrDream/StellarFramework.Dev/commit/f58b3ade29b37c0c3dbdc0b375f281296b2558d0)
 
 ## 环境要求
 
 - Unity Editor **2022.3.62f3c1**
 - 首次打开时可访问 Unity Package Manager，以解析 `Packages/manifest.json` 中的依赖
 
-## 运行 Tank Arena
+## 框架概览
+
+StellarFramework 将常用游戏基础能力拆成可独立导出和组合的 Kit。Runtime Kit 提供项目代码调用的接口；适配器负责接入具体实现；Tools Hub 提供安装、配置、诊断和导出入口。项目可以只带需要的 Kit，不必把整套框架源码放进游戏工程。
+
+资源能力由 ResKit 统一管理。Resources、AssetBundle、Addressables（AA）和 YooAsset 是可选的加载后端；YooAsset 内容更新与 HybridCLR 代码更新分别作为 ResKit 扩展接入，可以按项目需要单独组合。LocalizationKit、UIAdaptationKit、UIKit 等能力也可以分别选择。
+
+本仓库同时包含完整 Unity 示例工程，适合先运行案例了解框架，再通过导出器获取项目需要的部分。
+
+## 快速开始
 
 1. 克隆本仓库，或下载并解压 GitHub 提供的 ZIP。
 2. 在 Unity Hub 中添加仓库目录并打开工程，等待资源导入和依赖解析完成。
 3. 打开 `Assets/StellarFramework/Samples/TankArena/Scene/FrameworkDemo.unity`，等待脚本编译后点击 Play。
 4. 手机上用左侧摇杆移动坦克、右侧摇杆控制炮塔；桌面可用 WASD、鼠标和空格操作。
 
-Tank Arena 是带完整回合流程的框架案例，包含敌人波次、维修、暂停、结算、本地化、本地存档和屏幕适配。暂停面板的 SYSTEMS 页面会显示案例当前调用的 Kit。案例玩法、资源位置和 Kit 协作说明见 `Assets/StellarFramework/Samples/TankArena/CaseStudy.md`。
+Tank Arena 是带完整回合流程的框架案例，包含敌人波次、维修、暂停、结算、本地化、本地存档和屏幕适配。暂停面板的 SYSTEMS 页面会显示案例当前调用的 Kit。案例玩法、资源位置和 Kit 协作说明见 `Assets/StellarFramework/Samples/TankArena/CaseStudy.md`。要在自己的项目中使用单个 Kit，继续查看下方“将 Kit 导入自己的项目”。
 
 编辑器预览使用本地编译的案例程序集，不会下载远端热更内容，也不代表已执行热更发布流程。
 

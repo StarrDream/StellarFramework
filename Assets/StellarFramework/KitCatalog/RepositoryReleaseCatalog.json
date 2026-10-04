@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "catalogId": "stellarframework.repository-release",
   "sourceRepository": "StarrDream/StellarFramework.Dev",
-  "releaseVersion": "1.0.1",
+  "releaseVersion": "1.0.2",
   "general": {
     "repository": "StarrDream/StellarFramework",
     "profileIds": [
