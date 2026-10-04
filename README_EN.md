@@ -1,10 +1,10 @@
 # StellarFramework
 
-A modular framework for Unity projects. This repository is a complete Unity project with the general-purpose Kits, Tools Hub, and onboarding samples. To use selected capabilities in a game project, export the Kits from this project.
+A modular framework for Unity projects. This repository is a complete Unity project with general-purpose Kits, optional HybridCLR code hot-update support, the Tools Hub, and onboarding samples. Export selected capabilities from this project for use in a game.
 
-Release: 1.0.0
+Release: 1.0.1
 
-Source commit: [03c9b93eb569b439a24206513784b29496dd62c2](https://github.com/StarrDream/StellarFramework.Dev/commit/03c9b93eb569b439a24206513784b29496dd62c2)
+Source commit: [a6c6a25ffb658740ec01659e109af19439fb4fb1](https://github.com/StarrDream/StellarFramework.Dev/commit/a6c6a25ffb658740ec01659e109af19439fb4fb1)
 
 ## Requirements
 
@@ -20,7 +20,7 @@ Source commit: [03c9b93eb569b439a24206513784b29496dd62c2](https://github.com/Sta
 4. Open **StellarFramework → Tools Hub** and read the Start Here page.
 5. Open <code>Assets/StellarFramework/Samples/TankArena/Scene/FrameworkDemo.unity</code>, wait for compilation, then press Play.
 
-Tank Arena is the framework's playable end-to-end sample. Its match, results, and local profile use Architecture, BindableKit, FSMKit, ActionKit, EventKit, PoolKit, ConfigKit, SaveKit, SettingsKit, LocalizationKit, and UIAdaptationKit together. Hot-update delivery must be checked separately with the Android or Windows Release Gate; the Editor preview does not download a remote package. Per-Kit API and setup guides are under <code>Assets/StellarFramework/FrameworkDoc/02-Kits</code>.
+Tank Arena is the framework's playable end-to-end sample. Its match, results, and local profile use Architecture, BindableKit, FSMKit, ActionKit, EventKit, PoolKit, ConfigKit, SaveKit, SettingsKit, LocalizationKit, and UIAdaptationKit together. General also includes the optional HybridCLRKit and HotUpdate Publisher. The Editor preview runs the locally compiled sample assembly; it does not download a remote hot-update package. The code-update and content-update responsibilities and setup steps are documented under <code>Assets/StellarFramework/FrameworkDoc/02-Kits/HybridCLRKit</code>.
 
 ## Export Kits to a game project
 
@@ -40,9 +40,10 @@ Profiles represent selectable Kits, adapters, Editor tools, or supporting files.
 | Localize UI | LocalizationKit.Core and the UGUI or TMP adapter for your UI system |
 | Adapt layouts to screens and safe areas | UIAdaptationKit.Core; UIKit is an optional integration |
 | Build UI panels | UIKit |
+| Update C# code | HybridCLRKit; ResKit.YooAsset handles content versions, manifests, and bundles |
 | Configuration, saves, events, pooling, and other foundation services | The guide for the corresponding Kit |
 
-Algorithms, World, Flow, and HybridCLR HotUpdate are published in [StellarFramework.Extensions](https://github.com/StarrDream/StellarFramework.Extensions). Extensions requires the matching General release.
+Algorithms, World, and Flow are published in [StellarFramework.Extensions](https://github.com/StarrDream/StellarFramework.Extensions). Extensions requires the matching General release.
 
 ## Documentation and release contents
 

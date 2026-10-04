@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
   "product": "StellarFramework",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "repository": "StarrDream/StellarFramework",
   "sourceRepository": "StarrDream/StellarFramework.Dev",
-  "sourceCommit": "03c9b93eb569b439a24206513784b29496dd62c2",
+  "sourceCommit": "a6c6a25ffb658740ec01659e109af19439fb4fb1",
   "profile": "General",
   "domains": [],
   "profileIds": [
@@ -22,6 +22,8 @@
     "fsmkit",
     "generated.assetmap",
     "httpkit",
+    "hybridclrkit",
+    "hybridclrkit.tools",
     "localizationkit.core",
     "localizationkit.editor",
     "localizationkit.settings",
@@ -63,6 +65,7 @@
   ],
   "requiredGeneralProfileIds": [],
   "requiredUpm": {
+    "com.code-philosophy.hybridclr": "https://github.com/focus-creative-games/hybridclr_unity.git#4feac30cb2e105992986c737f7f54992b8300e1a",
     "com.cysharp.unitask": "https://github.com/Cysharp/UniTask.git?path=src/UniTask/Assets/Plugins/UniTask#e5acc106ee196bc5a32fb14cdf2987b0f96d11e0",
     "com.tuyoogame.yooasset": "https://github.com/tuyoogame/YooAsset.git?path=Assets/YooAsset#2.3.19",
     "com.unity.addressables": "1.22.3",
@@ -71,6 +74,6 @@
     "com.unity.textmeshpro": "3.0.7",
     "com.unity.ugui": "1.0.0"
   },
-  "validation": "PASS",
-  "fileCount": 883
+  "validation": "UNVERIFIED",
+  "fileCount": 1005
 }

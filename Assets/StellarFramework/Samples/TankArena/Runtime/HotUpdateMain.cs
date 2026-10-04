@@ -2,12 +2,12 @@ namespace HotUpdate
 {
     public static class HotUpdateMain
     {
-        public const string PackageVersion = "1.0.0";
+        public const string PackageVersion = "1.0.1";
 
         public static void Main()
         {
             TankArenaGame.Launch();
-            UnityEngine.Debug.Log("<color=red>Hello HybridCLR , 热更成功 ;</color>");
+            UnityEngine.Debug.Log("[TankArena] Gameplay entry started.");
         }
 
         /// <summary>
@@ -30,7 +30,7 @@ namespace HotUpdate
                 UnityEngine.Debug.Log("[HotUpdatePublisherConsumerE2E] behavior=" + behaviorValue);
             }
 
-            UnityEngine.Debug.Log("<color=red>Hello HybridCLR , 热更成功 ;</color>");
+            UnityEngine.Debug.Log("[HotUpdatePublisherConsumerE2E] Hot-update consumer entry completed.");
         }
     }
 }

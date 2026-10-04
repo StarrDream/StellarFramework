@@ -12,7 +12,7 @@ Tank Arena 是 StellarFramework 的可运行框架案例。玩家需要操控坦
 4. 击毁敌人可提升分数与波次；修理核心恢复装甲。暂停后可继续、进入 **SYSTEMS** 面板或重新开始；装甲归零时结算本局并保存记录。
 5. 桌面可用 WASD 移动车体，鼠标拖动右侧瞄准区，按住 Space 开火。
 
-编辑器预览会从本地编译的 `HotUpdate` 程序集调用 `HotUpdateMain.Main()`。它用于快速开发，不会下载远端包，也不构成热更发布验证。
+编辑器预览会从本地编译的 `HotUpdate` 程序集调用 `HotUpdateMain.Main()`。它用于快速开发，不会下载远端包，也不构成热更发布验证。示例入口只记录游戏启动，不会把本地程序集调用标记为“热更成功”。
 
 ## 游戏中的 Kit 协作
 
@@ -29,7 +29,7 @@ Tank Arena 是 StellarFramework 的可运行框架案例。玩家需要操控坦
 | LocalizationKit | 战斗中即时切换简体中文与英文。 |
 | UIAdaptationKit | 为运行时 UGUI HUD 配置安全区根节点和方向适配。 |
 | LogKit | 记录配置加载、战局结算与存档结果。 |
-| ResKit / YooAsset / HybridCLR | 仅在 Android / Windows 发布门禁中验证包下载、Manifest/程序集读取、AOT metadata 加载与热更入口调用。 |
+| ResKit.YooAsset / HybridCLRKit | 配置完整的 Player 启动链先更新内容，再由 HybridCLRKit 读取 Manifest、程序集和 AOT metadata 并调用入口；Editor 本地预览不执行这条远端链。 |
 
 Systems 面板展示的是这局中正在调用的 Kits。HUD 使用 Sample 内的 UGUI Prefab，UIAdaptationKit 读取 Sample 内的适配 Profile；Demo 不把 UIKit 或其他未实际调用的 Kit 算作覆盖。各 Kit 的完整 API、边界和项目接入方式见 `Assets/StellarFramework/FrameworkDoc/02-Kits`。
 
@@ -44,7 +44,7 @@ Systems 面板展示的是这局中正在调用的 Kits。HUD 使用 Sample 内�
 
 ## 热更验证
 
-使用 `Tools > StellarFramework > Verification` 下的 Android 或 Windows HotUpdate Release Gate。门禁会构建匹配的平台 Player 与 YooAsset 热更包，检查下载、ResKit 读取、HybridCLR metadata 加载及 `HotUpdateMain.Main()` 调用。请以 `Assets/StellarFramework/FrameworkDoc/02-Kits/HybridCLRKit` 和 `Assets/StellarFrameworkVerification` 的门禁说明为准。
+在游戏项目中使用 General 主仓提供的 HybridCLRKit 和 HotUpdate Publisher，按 `Assets/StellarFramework/FrameworkDoc/02-Kits/HybridCLRKit` 配置内容更新、代码加载与发布。框架自己的 Android / Windows Release Gate 位于 Dev 的 `Assets/StellarFrameworkVerification`，用于维护者验证，不随 General 发布包交付。
 
 ## 目录
 

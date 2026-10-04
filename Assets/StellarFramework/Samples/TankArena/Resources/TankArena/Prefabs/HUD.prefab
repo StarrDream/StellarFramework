@@ -6081,7 +6081,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 1
     m_VerticalOverflow: 1
     m_LineSpacing: 1
-  m_Text: PACKAGE  1.0.0
+  m_Text: PACKAGE  1.0.1
 --- !u!1 &8678976388405455857
 GameObject:
   m_ObjectHideFlags: 0

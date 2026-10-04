@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "catalogId": "stellarframework.repository-release",
   "sourceRepository": "StarrDream/StellarFramework.Dev",
-  "releaseVersion": "1.0.0",
+  "releaseVersion": "1.0.1",
   "general": {
     "repository": "StarrDream/StellarFramework",
     "profileIds": [
@@ -10,6 +10,8 @@
       "actionkit.tools",
       "bindablekit",
       "httpkit",
+      "hybridclrkit",
+      "hybridclrkit.tools",
       "timekit",
       "standalone.architecture",
       "standalone.extensions",
@@ -62,6 +64,7 @@
     "extraIncludePaths": [
       "Assets/Editor/StellarFramework/KitPackageBootstrap",
       "Assets/StellarFramework/Editor/StellarToolsHub/Modules/Packaging",
+      "Assets/StellarFramework/Editor/StellarToolsHub/Modules/HotUpdatePublisher",
       "Assets/StellarFramework/KitCatalog/KitDistributionCatalog.json",
       "Assets/StellarFramework/KitCatalog/RepositoryReleaseCatalog.json",
       "Assets/StellarFramework/Samples/TankArena",
@@ -75,7 +78,6 @@
       "Assets/StellarFramework/Editor/Verification",
       "Assets/StellarFramework/FrameworkDoc/04-ToolsHub/WorldFramework",
       "Assets/StellarFramework/FrameworkDoc/09-Development",
-      "ProjectSettings/HybridCLRSettings.asset",
       "ProjectSettings/Packages"
     ]
   },
@@ -135,17 +137,6 @@
           "flowkit.tools"
         ],
         "extraIncludePaths": []
-      },
-      {
-        "id": "hotupdate",
-        "displayName": "HotUpdate",
-        "profileIds": [
-          "hybridclrkit",
-          "hybridclrkit.tools"
-        ],
-        "extraIncludePaths": [
-          "Assets/StellarFramework/Editor/StellarToolsHub/Modules/HotUpdatePublisher"
-        ]
       }
     ],
     "extraIncludePaths": [

@@ -1,10 +1,10 @@
 # StellarFramework
 
-面向 Unity 项目的模块化框架。这个仓库是可直接打开的完整 Unity 工程，包含通用 Kit、Tools Hub 和入门样例。要把选定能力带入游戏项目，请在本工程中导出 Kit。
+面向 Unity 项目的模块化框架。这个仓库是可直接打开的完整 Unity 工程，包含通用 Kit、可选 HybridCLR 代码热更 Kit、Tools Hub 和入门样例。要把选定能力带入游戏项目，请在本工程中导出 Kit。
 
-发布版本：1.0.0
+发布版本：1.0.1
 
-源码提交：[03c9b93eb569b439a24206513784b29496dd62c2](https://github.com/StarrDream/StellarFramework.Dev/commit/03c9b93eb569b439a24206513784b29496dd62c2)
+源码提交：[a6c6a25ffb658740ec01659e109af19439fb4fb1](https://github.com/StarrDream/StellarFramework.Dev/commit/a6c6a25ffb658740ec01659e109af19439fb4fb1)
 
 ## 环境要求
 
@@ -20,7 +20,7 @@
 4. 从菜单 **StellarFramework → Tools Hub** 打开工具中心，在 Start Here 查看入门说明。
 5. 打开 <code>Assets/StellarFramework/Samples/TankArena/Scene/FrameworkDemo.unity</code>，等待编译完成后点击 Play。
 
-Tank Arena 是框架的可玩整体示例，覆盖坦克战斗、战局结算和本地存档，并展示 Architecture、BindableKit、FSMKit、ActionKit、EventKit、PoolKit、ConfigKit、SaveKit、SettingsKit、LocalizationKit 与 UIAdaptationKit 的实际协作。热更新发布需单独运行 Android / Windows Release Gate；Editor 预览不会下载远端包。逐 Kit 的 API 与完整接入步骤见 <code>Assets/StellarFramework/FrameworkDoc/02-Kits</code>。
+Tank Arena 是框架的可玩整体示例，覆盖坦克战斗、战局结算和本地存档，并展示 Architecture、BindableKit、FSMKit、ActionKit、EventKit、PoolKit、ConfigKit、SaveKit、SettingsKit、LocalizationKit 与 UIAdaptationKit 的协作。General 主仓还提供可选的 HybridCLRKit 与 HotUpdate Publisher。Editor 预览运行本地编译的示例程序集，不会下载远端热更包。代码热更与内容更新的职责及接入步骤见 <code>Assets/StellarFramework/FrameworkDoc/02-Kits/HybridCLRKit</code>。
 
 ## 导出 Kit 到游戏项目
 
@@ -40,9 +40,10 @@ Profile 描述可单独选择的 Kit、Adapter、Editor 工具或支持文件。
 | 本地化 | LocalizationKit.Core；按 UI 系统选择 UGUI 或 TMP Adapter |
 | 屏幕与安全区适配 | UIAdaptationKit.Core；UIKit 为可选组合 |
 | UI 界面 | UIKit |
+| 代码热更新 | HybridCLRKit；内容版本、Manifest 与资源包更新由 ResKit.YooAsset 处理 |
 | 配置、存档、事件、对象池等基础能力 | 对应 Kit 使用文档 |
 
-Algorithms、World、Flow 和 HybridCLR 热更新属于扩展仓能力，见 [StellarFramework.Extensions](https://github.com/StarrDream/StellarFramework.Extensions)。Extensions 需要与本仓匹配的 General 版本。
+Algorithms、World 和 Flow 属于扩展仓能力，见 [StellarFramework.Extensions](https://github.com/StarrDream/StellarFramework.Extensions)。Extensions 需要与本仓匹配的 General 版本。
 
 ## 文档与发布信息
 

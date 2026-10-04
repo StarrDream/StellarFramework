@@ -12,7 +12,7 @@ Tank Arena 是一场短局制生存战：玩家移动坦克、瞄准并击退来
 4. 桌面使用 WASD 移动，鼠标拖动右侧瞄准区域；空格开火。
 5. 顶部可切换中英文、自动/手动模式或打开系统面板。右上角显示当前热更包版本。
 
-编辑器预览从本地编译的 `HotUpdate` 程序集启动；发布门禁走 YooAsset 和 HybridCLR 的平台交付流程。编辑器预览不能替代 Android 或 Windows 发布验证。
+编辑器预览从本地编译的 `HotUpdate` 程序集启动；它不下载远端 DLL，也不证明发生了代码热更。正式启动链先由 YooAsset 准备内容，再由 HybridCLRKit 读取热更 DLL 与 AOT metadata 并调用入口。框架自身的 Android / Windows 门禁保留在 Dev 维护工具中。
 
 ## 一局游戏中发生什么
 
@@ -40,7 +40,7 @@ Tank Arena 是一场短局制生存战：玩家移动坦克、瞄准并击退来
 | UIAdaptationKit | 读取安全区、分辨率与方向断点，调整 HUD 根节点和缩放。 | `Resources/TankArena/Generated/Profiles/UIAdaptationProfile.asset` |
 | PoolKit | 管理弹体和特效关联的数据对象生命周期。 | `Runtime/TankArenaGame.cs` 中 `Projectile` 与 `ArenaEffect` |
 | LogKit | 记录配置、存档、战斗结果和适配状态。 | `Runtime/TankArenaGame.cs` |
-| ResKit / YooAsset / HybridCLR | 由 Android 与 Windows 发布门禁验证资源包、程序集和热更入口。 | `Tools > StellarFramework > Verification`、`Assets/StellarFrameworkVerification` |
+| ResKit.YooAsset / HybridCLRKit | 资源包准备完成后，HybridCLRKit 通过 ResKit 读取并校验程序集、AOT metadata，再调用热更入口。 | `FrameworkDoc/02-Kits/HybridCLRKit` |
 
 Systems 面板只列出这个案例实际调用的 Kit。项目内其他可用 Kit 并未因此自动被视为本案例覆盖。
 
@@ -67,6 +67,6 @@ Systems 面板只列出这个案例实际调用的 Kit。项目内其他可用 K
 - 本机覆盖：`Application.persistentDataPath/TankArena/demo-config.json`
 - 存档槽：`tank-arena-profile`
 - 存档内容：最高分、累计击毁数、出击次数
-- 热更构建与验证：使用 `Tools > StellarFramework > Verification` 中对应平台的 HotUpdate Release Gate。
+- 热更运行时与发布：General 主仓包含 HybridCLRKit、HybridCLRKit.Tools 和 HotUpdate Publisher；按 HybridCLRKit Guide 配置项目。
 
-热更门禁覆盖 YooAsset/ResKit 下载与读取、HybridCLR metadata 加载和入口调用。实际发布前仍应以目标 Unity 版本、设备和服务端配置完成对应平台的发布验证。
+Dev 中的 Android / Windows Release Gate 用于框架维护验证，不随 General 发布。实际发布前仍应以目标 Unity 版本、设备和服务端配置完成项目自己的平台验证。
