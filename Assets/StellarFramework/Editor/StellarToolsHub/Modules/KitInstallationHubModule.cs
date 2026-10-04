@@ -29,7 +29,7 @@ namespace StellarFramework.Editor.Modules
             new KitAssemblyInfo("ResKit.AssetBundle", "StellarFramework.ResKit.AssetBundle", true),
             new KitAssemblyInfo("ResKit.Addressables", "StellarFramework.ResKit.Addressables", true),
             new KitAssemblyInfo("ResKit.YooAsset", "StellarFramework.ResKit.YooAsset", true),
-            new KitAssemblyInfo("HybridCLRKit", "StellarFramework.HybridCLRKit"),
+            new KitAssemblyInfo("ResKit.CodeUpdate.HybridCLR", "StellarFramework.ResKit.CodeUpdate.HybridCLR"),
             new KitAssemblyInfo("SettingsKit.Core", "StellarFramework.SettingsKit"),
             new KitAssemblyInfo("SettingsKit.UnityAdapters", "StellarFramework.SettingsKit.UnityAdapters", true),
             new KitAssemblyInfo("SettingsKit.AudioKitAdapter", "StellarFramework.SettingsKit.AudioKit", true),

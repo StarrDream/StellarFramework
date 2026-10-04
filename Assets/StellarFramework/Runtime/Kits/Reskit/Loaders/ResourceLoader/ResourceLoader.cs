@@ -9,6 +9,9 @@ namespace StellarFramework.Res
 {
     public class ResourceLoader : ResLoader
     {
+        private const int UnloadUnusedAssetsThreshold = 10;
+        private static int _pendingUnusedAssetUnloadCount;
+
         public override string LoaderName => "Resources";
 
         protected override ResData LoadRealSync(string path)
@@ -42,7 +45,12 @@ namespace StellarFramework.Res
             }
             else
             {
-                ResMgr.TriggerResourcesUnload();
+                _pendingUnusedAssetUnloadCount++;
+                if (_pendingUnusedAssetUnloadCount >= UnloadUnusedAssetsThreshold)
+                {
+                    _pendingUnusedAssetUnloadCount = 0;
+                    Resources.UnloadUnusedAssets();
+                }
             }
         }
 

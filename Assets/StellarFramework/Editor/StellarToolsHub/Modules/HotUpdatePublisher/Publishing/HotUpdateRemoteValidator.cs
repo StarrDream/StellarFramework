@@ -124,7 +124,7 @@ namespace StellarFramework.Editor.HotUpdatePublisher
         }
     }
 
-    /// <summary>验证当前版本指针、候选 Manifest/Bundle、HTTP GET、长度、Range 与配置的回退 Host。</summary>
+    /// <summary>验证当前版本指针、候选 Manifest/Bundle、文件长度、HTTP Range 与配置的回退 Host。</summary>
     public sealed class HotUpdateRemoteValidator : IHotUpdatePrePublishRemoteVerifier, IHotUpdateHistoricalReleaseRemoteVerifier
     {
         public const long RequiredRangeStart = 262144;
@@ -162,14 +162,6 @@ namespace StellarFramework.Editor.HotUpdatePublisher
             if (immutableFiles.Count == 0) throw new InvalidOperationException("Remote verification requires immutable package files.");
 
             HotUpdatePublishFile manifestFile = FindManifestFile(context, immutableFiles);
-            List<HotUpdatePublishFile> bundles = FindLargeBundleFiles(immutableFiles);
-            if (bundles.Count == 0)
-                throw new InvalidOperationException($"Remote Range verification requires a bundle larger than {RequiredRangeStart} bytes.");
-            int selectedIndex = _selectBundleIndex(bundles.Count);
-            if (selectedIndex < 0 || selectedIndex >= bundles.Count)
-                throw new InvalidOperationException("Bundle selector returned an out-of-range index.");
-            HotUpdatePublishFile bundleFile = bundles[selectedIndex];
-
             var hosts = new List<Uri>(2) { NormalizeHost(_profile.MainHostServer) };
             if (!string.IsNullOrWhiteSpace(_profile.FallbackHostServer))
             {
@@ -177,6 +169,22 @@ namespace StellarFramework.Editor.HotUpdatePublisher
                 if (!string.Equals(hosts[0].AbsoluteUri, fallback.AbsoluteUri, StringComparison.OrdinalIgnoreCase))
                     hosts.Add(fallback);
             }
+
+            bool requiresHttpRange = hosts.Exists(host => !host.IsFile);
+            List<HotUpdatePublishFile> bundles = requiresHttpRange
+                ? FindLargeBundleFiles(immutableFiles)
+                : FindBundleFiles(immutableFiles);
+            if (bundles.Count == 0)
+            {
+                string requirement = requiresHttpRange
+                    ? $"Remote Range verification requires a bundle larger than {RequiredRangeStart} bytes."
+                    : "Local package verification requires at least one YooAsset bundle file.";
+                throw new InvalidOperationException(requirement);
+            }
+            int selectedIndex = _selectBundleIndex(bundles.Count);
+            if (selectedIndex < 0 || selectedIndex >= bundles.Count)
+                throw new InvalidOperationException("Bundle selector returned an out-of-range index.");
+            HotUpdatePublishFile bundleFile = bundles[selectedIndex];
 
             for (int index = 0; index < hosts.Count; index++)
             {
@@ -201,7 +209,6 @@ namespace StellarFramework.Editor.HotUpdatePublisher
 
             string manifestPath = release.ManifestFiles[1];
             IHotUpdateRemoteFile manifest = FindHistoricalFile(release.Files, manifestPath);
-            IHotUpdateRemoteFile bundle = FindHistoricalRangeBundle(release.Files);
             var hosts = new List<Uri>(2) { NormalizeHost(_profile.MainHostServer) };
             if (!string.IsNullOrWhiteSpace(_profile.FallbackHostServer))
             {
@@ -209,6 +216,9 @@ namespace StellarFramework.Editor.HotUpdatePublisher
                 if (!string.Equals(hosts[0].AbsoluteUri, fallback.AbsoluteUri, StringComparison.OrdinalIgnoreCase))
                     hosts.Add(fallback);
             }
+
+            bool requiresHttpRange = hosts.Exists(host => !host.IsFile);
+            IHotUpdateRemoteFile bundle = FindHistoricalBundle(release.Files, requiresHttpRange);
 
             for (int index = 0; index < hosts.Count; index++)
             {
@@ -228,6 +238,24 @@ namespace StellarFramework.Editor.HotUpdatePublisher
             CancellationToken cancellationToken)
         {
             Uri uri = Combine(host, pointerRelativePath);
+            if (uri.IsFile)
+            {
+                string path = uri.LocalPath;
+                if (!File.Exists(path))
+                {
+                    if (string.IsNullOrEmpty(expectedCurrentVersion)) return;
+                    throw new FileNotFoundException($"Local version pointer '{pointerRelativePath}' was not found.", path);
+                }
+
+                var info = new FileInfo(path);
+                if (info.Length > MaxVersionBytes)
+                    throw new IOException($"Local version pointer '{pointerRelativePath}' exceeds {MaxVersionBytes} bytes.");
+                string localVersion = File.ReadAllText(path).Trim();
+                if (!string.Equals(localVersion, expectedCurrentVersion ?? string.Empty, StringComparison.Ordinal))
+                    throw new IOException($"Local version pointer changed before publish. Expected='{expectedCurrentVersion}', actual='{localVersion}'.");
+                return;
+            }
+
             HotUpdateRemoteHttpResponse response = await _httpClient.GetAsync(uri, null, MaxVersionBytes, cancellationToken);
             if (response == null) throw new IOException($"Remote version pointer '{pointerRelativePath}' returned no HTTP response from '{host}'.");
             if (response.StatusCode == 404 && string.IsNullOrEmpty(expectedCurrentVersion)) return;
@@ -245,8 +273,31 @@ namespace StellarFramework.Editor.HotUpdatePublisher
             int captureBodyBytes,
             CancellationToken cancellationToken)
         {
-            HotUpdateRemoteHttpResponse response = await _httpClient.GetAsync(
-                Combine(host, file.RelativePath), null, captureBodyBytes, cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
+            Uri uri = Combine(host, file.RelativePath);
+            if (uri.IsFile)
+            {
+                string path = uri.LocalPath;
+                if (!File.Exists(path))
+                    throw new FileNotFoundException($"Local package file '{file.RelativePath}' was not found.", path);
+
+                var info = new FileInfo(path);
+                if (info.Length != file.Length)
+                    throw new IOException($"Local package file '{file.RelativePath}' length mismatch. Expected={file.Length}, actual={info.Length}.");
+                if (captureBodyBytes > 0 && info.Length > captureBodyBytes)
+                    throw new IOException($"Local package file '{file.RelativePath}' exceeds the {captureBodyBytes}-byte verification limit.");
+
+                string expectedHash = GetExpectedSha256(file);
+                if (!string.IsNullOrWhiteSpace(expectedHash))
+                {
+                    string actualHash = HotUpdatePublishFile.ComputeSha256(path);
+                    if (!string.Equals(actualHash, expectedHash, StringComparison.OrdinalIgnoreCase))
+                        throw new IOException($"Local package file '{file.RelativePath}' SHA256 mismatch. Expected={expectedHash}, actual={actualHash}.");
+                }
+                return;
+            }
+
+            HotUpdateRemoteHttpResponse response = await _httpClient.GetAsync(uri, null, captureBodyBytes, cancellationToken);
             EnsureStatus(response, 200, file.RelativePath, host);
             if (response.ContentLength != file.Length || response.BytesRead != file.Length)
                 throw new IOException($"Remote file '{file.RelativePath}' length mismatch at '{host}'. Expected={file.Length}, header={response.ContentLength}, read={response.BytesRead}.");
@@ -254,6 +305,10 @@ namespace StellarFramework.Editor.HotUpdatePublisher
 
         private async Task VerifyRangeAsync(Uri host, IHotUpdateRemoteFile file, CancellationToken cancellationToken)
         {
+            // A local file URI is the direct-disk development path. It validates bytes and hashes
+            // above; HTTP Range behavior remains covered by the local Range-server verification gate.
+            if (host.IsFile) return;
+
             HotUpdateRemoteHttpResponse response = await _httpClient.GetAsync(
                 Combine(host, file.RelativePath), RequiredRangeStart, 0, cancellationToken);
             EnsureStatus(response, 206, file.RelativePath + " (Range)", host);
@@ -288,6 +343,18 @@ namespace StellarFramework.Editor.HotUpdatePublisher
             return bundles;
         }
 
+        private static List<HotUpdatePublishFile> FindBundleFiles(IReadOnlyList<HotUpdatePublishFile> files)
+        {
+            var bundles = new List<HotUpdatePublishFile>();
+            for (int index = 0; index < files.Count; index++)
+            {
+                HotUpdatePublishFile file = files[index];
+                if (file.RelativePath.EndsWith(".bundle", StringComparison.OrdinalIgnoreCase))
+                    bundles.Add(file);
+            }
+            return bundles;
+        }
+
         private static IHotUpdateRemoteFile FindHistoricalFile(HotUpdateReleaseFileRecord[] files, string relativePath)
         {
             for (int index = 0; index < files.Length; index++)
@@ -295,12 +362,15 @@ namespace StellarFramework.Editor.HotUpdatePublisher
             throw new FileNotFoundException($"Historical JSON Manifest '{relativePath}' is missing from the release record.");
         }
 
-        private static IHotUpdateRemoteFile FindHistoricalRangeBundle(HotUpdateReleaseFileRecord[] files)
+        private static IHotUpdateRemoteFile FindHistoricalBundle(HotUpdateReleaseFileRecord[] files, bool requireRange)
         {
             for (int index = 0; index < files.Length; index++)
-                if (files[index].Length > RequiredRangeStart && files[index].RelativePath.EndsWith(".bundle", StringComparison.OrdinalIgnoreCase))
+                if (files[index].RelativePath.EndsWith(".bundle", StringComparison.OrdinalIgnoreCase) &&
+                    (!requireRange || files[index].Length > RequiredRangeStart))
                     return files[index];
-            throw new InvalidOperationException($"Historical release has no bundle larger than {RequiredRangeStart} bytes for Range verification.");
+            throw new InvalidOperationException(requireRange
+                ? $"Historical release has no bundle larger than {RequiredRangeStart} bytes for Range verification."
+                : "Historical release has no YooAsset bundle file for local verification.");
         }
 
         private static void EnsureStatus(HotUpdateRemoteHttpResponse response, int expectedStatus, string filePath, Uri host)
@@ -310,14 +380,39 @@ namespace StellarFramework.Editor.HotUpdatePublisher
                 throw new IOException($"Remote request for '{filePath}' at '{host}' returned HTTP {response.StatusCode}; expected {expectedStatus}.");
         }
 
-        private static Uri NormalizeHost(string host)
+        private Uri NormalizeHost(string host)
         {
+            bool allowLocalFileHost =
+                string.Equals(_profile.EnvironmentId, nameof(HotUpdateEnvironmentKind.Development), StringComparison.Ordinal) &&
+                string.Equals(_profile.PublishTarget, "LocalFolder", StringComparison.Ordinal);
             if (!Uri.TryCreate(host, UriKind.Absolute, out Uri uri) ||
-                (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps) ||
-                !string.IsNullOrEmpty(uri.UserInfo) || !string.IsNullOrEmpty(uri.Query) || !string.IsNullOrEmpty(uri.Fragment))
-                throw new ArgumentException("Remote host must be an absolute HTTP(S) directory URL without credentials, query or fragment.", nameof(host));
+                !IsSafeHostUri(uri, allowLocalFileHost))
+                throw new ArgumentException(
+                    allowLocalFileHost
+                        ? "Host must be an HTTP(S) directory URL or a local file:/// directory URI without credentials, query or fragment."
+                        : "Remote host must be an absolute HTTP(S) directory URL without credentials, query or fragment.",
+                    nameof(host));
             string normalized = uri.AbsoluteUri.TrimEnd('/') + "/";
             return new Uri(normalized, UriKind.Absolute);
+        }
+
+        private static bool IsSafeHostUri(Uri uri, bool allowLocalFileHost)
+        {
+            if (uri == null || !string.IsNullOrEmpty(uri.UserInfo) ||
+                !string.IsNullOrEmpty(uri.Query) || !string.IsNullOrEmpty(uri.Fragment))
+                return false;
+
+            if (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps)
+                return !string.IsNullOrWhiteSpace(uri.Host);
+
+            return allowLocalFileHost && uri.IsFile && !uri.IsUnc && string.IsNullOrEmpty(uri.Host);
+        }
+
+        private static string GetExpectedSha256(IHotUpdateRemoteFile file)
+        {
+            if (file is HotUpdatePublishFile publishFile) return publishFile.Sha256;
+            if (file is HotUpdateReleaseFileRecord releaseFile) return releaseFile.Sha256;
+            return string.Empty;
         }
 
         private static Uri Combine(Uri host, string relativePath)

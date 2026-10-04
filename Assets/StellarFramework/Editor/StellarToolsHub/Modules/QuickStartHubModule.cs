@@ -39,7 +39,7 @@ namespace StellarFramework.Editor.Modules
         public const string ResKitGuidePath =
             "Assets/StellarFramework/FrameworkDoc/02-Kits/Reskit/ResKit-统一资源-说明文档-Guide.md";
         public const string HybridCLRGuidePath =
-            "Assets/StellarFramework/FrameworkDoc/02-Kits/HybridCLRKit/HybridCLRKit-代码热更新-说明文档-Guide.md";
+            "Assets/StellarFramework/FrameworkDoc/02-Kits/Reskit/CodeUpdate/HybridCLR/ResKit-CodeUpdate-HybridCLR-说明文档-Guide.md";
 
         public static IReadOnlyList<QuickStartEntry> BuildDefaultEntries()
         {
@@ -109,7 +109,7 @@ namespace StellarFramework.Editor.Modules
                 },
                 new QuickStartEntry
                 {
-                    Title = "HybridCLRKit Guide",
+                    Title = "ResKit Code Update Guide",
                     Description = "可选代码热更扩展：通过 ResKit 读取 Manifest、DLL 与 AOT metadata，再进入 HybridCLR 热更程序集。",
                     ActionKind = QuickStartActionKind.OpenDoc,
                     TargetPath = HybridCLRGuidePath,
@@ -188,7 +188,7 @@ namespace StellarFramework.Editor.Modules
                 "显式包资源 / 既有打包管线：AssetBundle\n" +
                 "第三方资源系统：Custom Loader\n" +
                 "UI 唯一入口：UIKit\n" +
-                "代码热更：HybridCLRKit（startup-only，可选扩展）",
+                "代码热更：ResKit.CodeUpdate.HybridCLR（可选 Provider 扩展）",
                 MessageType.Info);
 
             Section("环境检查");
@@ -386,7 +386,7 @@ namespace StellarFramework.Editor.Modules
                 Passed = true,
                 Details = hasHotUpdateSettingsAsset
                     ? $"已找到 {hotUpdateSettingsAssetPath}，用于指定 HybridCLR 的 ResKit 后端、Manifest key 与导出入口配置。"
-                    : "当前未找到 HotUpdateSettings 资产。仅影响 HybridCLRKit；不影响基础 ResKit / UIKit 上手。"
+                    : "当前未找到 HotUpdateSettings 资产。仅影响 ResKit.CodeUpdate.HybridCLR；不影响基础 ResKit / UIKit 上手。"
             });
 
             bool addressablesAvailable = Type.GetType("UnityEngine.AddressableAssets.Addressables, Unity.Addressables") != null;
@@ -415,8 +415,8 @@ namespace StellarFramework.Editor.Modules
                 Name = "HybridCLR 开关状态",
                 Passed = true,
                 Details = hybridClrEnabled
-                    ? "HYBRIDCLR_ENABLE 已开启。HybridCLRKit 可进入启动期代码热更链路。"
-                    : "HYBRIDCLR_ENABLE 未开启。HybridCLRKit 仍可编译，但运行代码热更会返回明确不可用结果。"
+                    ? "HYBRIDCLR_ENABLE 已开启。ResKit.CodeUpdate.HybridCLR 可进入启动期代码热更链路。"
+                    : "HYBRIDCLR_ENABLE 未开启。ResKit.CodeUpdate.HybridCLR 仍可编译，但运行代码热更会返回明确不可用结果。"
             });
         }
 

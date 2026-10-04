@@ -14,11 +14,12 @@ namespace StellarFramework.Res
         public const string DefaultPackageName = "DefaultPackage";
 
         /// <summary>
-        /// 注册 YooAsset Loader。
+        /// 注册 YooAsset 资源加载器。
         /// Package 必须在真正 Load 之前由项目启动流程创建并初始化成功。
+        /// 资源内容更新由独立的 ResKit.ContentUpdate.YooAsset 扩展负责。
         /// </summary>
         /// <param name="packageName">要绑定的 YooAsset ResourcePackage 名称。</param>
-        public static void Install(string packageName = DefaultPackageName)
+        public static void InstallLoader(string packageName = DefaultPackageName)
         {
             string normalizedPackageName = string.IsNullOrWhiteSpace(packageName)
                 ? DefaultPackageName
@@ -36,7 +37,7 @@ namespace StellarFramework.Res
         /// 注销 YooAsset Loader factory。
         /// 已经分配出去的 Loader 不受影响，仍应由各自 Scope/Owner 正常释放。
         /// </summary>
-        public static void Uninstall()
+        public static void UninstallLoader()
         {
             ResKit.RegisterLoader(LoaderKey, null);
         }

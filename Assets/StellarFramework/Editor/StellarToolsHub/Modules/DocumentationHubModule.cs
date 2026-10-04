@@ -743,7 +743,7 @@ namespace StellarFramework.Editor.Modules
                 return 4;
             }
 
-            if (fileName.Contains("HybridCLRKit-代码热更新"))
+            if (fileName.Contains("ResKit-CodeUpdate-HybridCLR-"))
             {
                 return 5;
             }

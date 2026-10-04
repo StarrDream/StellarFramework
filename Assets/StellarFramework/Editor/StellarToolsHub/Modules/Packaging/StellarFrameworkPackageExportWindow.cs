@@ -584,7 +584,7 @@ namespace StellarFramework.Editor.Modules
                 }
 
                 EditorGUILayout.LabelField("输出：" + profile.output, EditorStyles.miniLabel);
-                if (GUILayout.Button("导出此 Recommended Profile", GUILayout.Height(30f)))
+                if (GUILayout.Button("导出此推荐组合", GUILayout.Height(30f)))
                 {
                     ExportRecommendedProfile(profile.id);
                 }
@@ -923,7 +923,7 @@ namespace StellarFramework.Editor.Modules
                 string outputPath =
                     StellarFrameworkPackagePublisher.ExportRecommendedProfileInternal(recommendedProfileId);
                 EditorUtility.RevealInFinder(outputPath);
-                ShowNotification(new GUIContent("Recommended Profile 导出完成"));
+                ShowNotification(new GUIContent("推荐组合导出完成"));
             }
             catch (Exception exception)
             {

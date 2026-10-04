@@ -19,19 +19,19 @@ namespace StellarFramework.Editor.HotUpdatePublisher
             if (string.IsNullOrWhiteSpace(packageName))
             {
                 return new HotUpdatePublisherCollectorStatus(false,
-                    "缺少 YooAsset 业务 Package 名称。请先在 Overview 填写 Package；Verification package 不能用于发布。");
+                    "请先在“概览”填写 YooAsset 业务资源包名。验证专用资源包不能用于发布。");
             }
 
             if (packageName.IndexOf("verification", StringComparison.OrdinalIgnoreCase) >= 0)
             {
                 return new HotUpdatePublisherCollectorStatus(false,
-                    $"Package '{packageName}' 是 Verification 用途，不能作为 Production Collector。");
+                    $"资源包“{packageName}”是验证用途，不能用于正式发布。");
             }
 
             if (Provider == null)
             {
                 return new HotUpdatePublisherCollectorStatus(false,
-                    "无法检查 YooAsset Collector：YooAsset Editor Adapter 尚未加载。请确认 YooAsset Editor assembly 已完成编译。");
+                    "无法检查 YooAsset 资源收集配置：YooAsset 编辑器扩展尚未加载。请等待 Unity 完成脚本编译。");
             }
 
             return Provider(packageName);

@@ -3,7 +3,7 @@
   "rootNamespace": "StellarFramework.Editor.HotUpdatePublisher",
   "references": [
     "StellarFramework.ToolsHub.Editor",
-    "StellarFramework.HybridCLRKit"
+    "StellarFramework.ResKit.CodeUpdate.HybridCLR"
   ],
   "includePlatforms": [
     "Editor"

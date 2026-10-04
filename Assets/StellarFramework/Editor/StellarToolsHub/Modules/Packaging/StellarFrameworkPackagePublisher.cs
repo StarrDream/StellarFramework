@@ -281,9 +281,9 @@ namespace StellarFramework.Editor.Modules
             ExportKitPackageAndReveal("uikit.reskit");
         }
 
-        public static void ExportHybridCLRKitPackage()
+        public static void ExportResKitHybridCLRCodeUpdatePackage()
         {
-            ExportKitPackageAndReveal("hybridclrkit");
+            ExportKitPackageAndReveal("reskit.codeupdate.hybridclr");
         }
 
         internal static string ExportStandaloneArchitectureInternal()
@@ -1454,7 +1454,7 @@ namespace StellarFramework.Editor.Modules
 
         private static readonly string[] BasePackageExcludedPrefixes =
         {
-            "Assets/StellarFramework/Runtime/Kits/HybridCLRKit",
+            "Assets/StellarFramework/Runtime/Kits/Reskit/CodeUpdate/HybridCLR",
             "Assets/StellarFramework/Runtime/Kits/Reskit/Loaders/AddressableLoader",
             "Assets/StellarFramework/Editor/StellarToolsHub/Modules/Addressables",
             "Assets/StellarFramework/Samples",

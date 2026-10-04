@@ -16,7 +16,7 @@ namespace StellarFramework.Editor
     public static class AssetsMapGenerator
     {
         public const string OutputAssetPath = "Assets/StellarFramework/Generated/AssetMap/AssetsMap.cs";
-        private const string HotUpdatePublisherPayloadRoot = "Assets/HotUpdatePublisherConsumerE2E/Generated";
+        private const string HotUpdatePublisherPayloadRoot = "Assets/HotUpdate/Generated";
 
         private static readonly HashSet<string> ExcludedExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
@@ -119,6 +119,8 @@ namespace StellarFramework.Editor
             if (string.Equals(path, OutputAssetPath, StringComparison.Ordinal)) return false;
             if (string.Equals(path, HotUpdatePublisherPayloadRoot, StringComparison.Ordinal) ||
                 path.StartsWith(HotUpdatePublisherPayloadRoot + "/", StringComparison.Ordinal)) return false;
+            if (string.Equals(path, "Assets/HotUpdatePublisherConsumerE2E/Generated", StringComparison.Ordinal) ||
+                path.StartsWith("Assets/HotUpdatePublisherConsumerE2E/Generated/", StringComparison.Ordinal)) return false;
             if (path.StartsWith("Assets/AddressableAssetsData/", StringComparison.Ordinal)) return false;
             if (path.StartsWith("Assets/HybridCLRGenerate/", StringComparison.Ordinal)) return false;
             if (path.StartsWith("Assets/StellarFrameworkVerification/", StringComparison.Ordinal)) return false;

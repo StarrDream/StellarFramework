@@ -2230,7 +2230,10 @@
       "excludedSourcePaths": [
         "Assets/StellarFramework/Runtime/Kits/Reskit/Loaders/AddressableLoader",
         "Assets/StellarFramework/Runtime/Kits/Reskit/Loaders/AssetBundleLoader",
-        "Assets/StellarFramework/Runtime/Kits/Reskit/Loaders/YooAssetLoader"
+        "Assets/StellarFramework/Runtime/Kits/Reskit/Loaders/YooAssetLoader",
+        "Assets/StellarFramework/Runtime/Kits/Reskit/Loaders/ResourceLoader",
+        "Assets/StellarFramework/Runtime/Kits/Reskit/ContentUpdate/YooAsset",
+        "Assets/StellarFramework/Runtime/Kits/Reskit/CodeUpdate/HybridCLR"
       ],
       "requiredProfileIds": [
         "logkit",
@@ -2244,8 +2247,43 @@
         "com.cysharp.unitask"
       ],
       "optionalCapabilities": [
-        "ResourcesResourceLoading",
-        "CustomResourceLoading"
+        "CustomResourceLoading",
+        "ContentUpdateProviderRegistry",
+        "CodeUpdateProviderRegistry"
+      ],
+      "excludedCapabilities": [
+        "Addressables",
+        "HybridCLR",
+        "CodeHotUpdate"
+      ],
+      "maturity": "stable",
+      "documentationPaths": [
+        "Assets/StellarFramework/FrameworkDoc/02-Kits/Reskit",
+        "Assets/StellarFramework/FrameworkDoc/01-Architecture/ResourceAndCodeUpdatePlugins.md"
+      ]
+    },
+    {
+      "id": "reskit.resources",
+      "displayName": "ResKit.Resources",
+      "kind": "kit-with-dependencies",
+      "tier": "adapter",
+      "category": "resource",
+      "availability": "available",
+      "output": "StellarFramework-ResKit-Resources.unitypackage",
+      "sourcePaths": [
+        "Assets/StellarFramework/Runtime/Kits/Reskit/Loaders/ResourceLoader"
+      ],
+      "requiredProfileIds": [
+        "reskit.core"
+      ],
+      "requiredKits": [
+        "ResKit.Core"
+      ],
+      "requiredUpm": [
+        "com.cysharp.unitask"
+      ],
+      "optionalCapabilities": [
+        "ResourcesResourceLoading"
       ],
       "excludedCapabilities": [
         "Addressables",
@@ -2265,6 +2303,9 @@
       "output": "StellarFramework-ResKit-Tools.unitypackage",
       "sourcePaths": [
         "Assets/StellarFramework/Editor/StellarToolsHub/Modules/ResKit"
+      ],
+      "excludedSourcePaths": [
+        "Assets/StellarFramework/Editor/StellarToolsHub/Modules/ResKit/CodeUpdate/HybridCLR"
       ],
       "requiredProfileIds": [
         "reskit.core",
@@ -2474,8 +2515,7 @@
       ],
       "requiredUpm": [
         "com.cysharp.unitask",
-        "com.unity.addressables",
-        "com.unity.test-framework"
+        "com.unity.addressables"
       ],
       "optionalCapabilities": [
         "AddressablesResourceLoading"
@@ -2487,6 +2527,41 @@
       "maturity": "rc",
       "documentationPaths": [
         "Assets/StellarFramework/FrameworkDoc/02-Kits/Reskit"
+      ]
+    },
+    {
+      "id": "reskit.contentupdate.yooasset",
+      "displayName": "ResKit.ContentUpdate.YooAsset",
+      "kind": "kit-with-dependencies",
+      "tier": "adapter",
+      "category": "resource",
+      "availability": "available",
+      "output": "StellarFramework-ResKit-ContentUpdate-YooAsset.unitypackage",
+      "sourcePaths": [
+        "Assets/StellarFramework/Runtime/Kits/Reskit/ContentUpdate/YooAsset"
+      ],
+      "requiredProfileIds": [
+        "reskit.core"
+      ],
+      "requiredKits": [
+        "ResKit.Core"
+      ],
+      "requiredUpm": [
+        "com.cysharp.unitask",
+        "com.tuyoogame.yooasset"
+      ],
+      "optionalCapabilities": [
+        "YooAssetContentUpdateProvider"
+      ],
+      "excludedCapabilities": [
+        "Addressables",
+        "HybridCLR",
+        "CodeHotUpdate"
+      ],
+      "maturity": "stable",
+      "documentationPaths": [
+        "Assets/StellarFramework/FrameworkDoc/02-Kits/Reskit",
+        "Assets/StellarFramework/FrameworkDoc/01-Architecture/ResourceAndCodeUpdatePlugins.md"
       ]
     },
     {
@@ -2508,8 +2583,7 @@
       ],
       "requiredUpm": [
         "com.cysharp.unitask",
-        "com.tuyoogame.yooasset",
-        "com.unity.test-framework"
+        "com.tuyoogame.yooasset"
       ],
       "optionalCapabilities": [
         "YooAssetResourceLoading"
@@ -2521,19 +2595,20 @@
       ],
       "maturity": "stable",
       "documentationPaths": [
-        "Assets/StellarFramework/FrameworkDoc/02-Kits/Reskit"
+        "Assets/StellarFramework/FrameworkDoc/02-Kits/Reskit",
+        "Assets/StellarFramework/FrameworkDoc/01-Architecture/ResourceAndCodeUpdatePlugins.md"
       ]
     },
     {
-      "id": "hybridclrkit",
-      "displayName": "HybridCLRKit",
+      "id": "reskit.codeupdate.hybridclr",
+      "displayName": "ResKit.CodeUpdate.HybridCLR",
       "kind": "kit-with-dependencies",
       "tier": "extension",
       "category": "runtime-delivery",
       "availability": "available",
-      "output": "StellarFramework-HybridCLRKit.unitypackage",
+      "output": "StellarFramework-ResKit-CodeUpdate-HybridCLR.unitypackage",
       "sourcePaths": [
-        "Assets/StellarFramework/Runtime/Kits/HybridCLRKit"
+        "Assets/StellarFramework/Runtime/Kits/Reskit/CodeUpdate/HybridCLR"
       ],
       "excludedSourcePaths": [],
       "requiredProfileIds": [
@@ -2549,31 +2624,33 @@
       "optionalCapabilities": [
         "HybridCLR",
         "CodeHotUpdate",
-        "ResKitBackendAgnostic"
+        "ResKitBackendAgnostic",
+        "ResKitCodeUpdateProvider"
       ],
       "excludedCapabilities": [
         "AddressablesResourceHotUpdate"
       ],
       "maturity": "stable",
       "documentationPaths": [
-        "Assets/StellarFramework/FrameworkDoc/02-Kits/HybridCLRKit"
+        "Assets/StellarFramework/FrameworkDoc/02-Kits/Reskit/CodeUpdate/HybridCLR",
+        "Assets/StellarFramework/FrameworkDoc/01-Architecture/ResourceAndCodeUpdatePlugins.md"
       ]
     },
     {
-      "id": "hybridclrkit.tools",
-      "displayName": "HybridCLRKit.Tools",
+      "id": "reskit.codeupdate.hybridclr.tools",
+      "displayName": "ResKit.CodeUpdate.HybridCLR.Tools",
       "kind": "tooling",
       "availability": "available",
-      "output": "StellarFramework-HybridCLRKit-Tools.unitypackage",
+      "output": "StellarFramework-ResKit-CodeUpdate-HybridCLR-Tools.unitypackage",
       "sourcePaths": [
-        "Assets/StellarFramework/Editor/StellarToolsHub/Modules/HybridCLRKit"
+        "Assets/StellarFramework/Editor/StellarToolsHub/Modules/ResKit/CodeUpdate/HybridCLR"
       ],
       "requiredProfileIds": [
-        "hybridclrkit",
+        "reskit.codeupdate.hybridclr",
         "toolshub.core"
       ],
       "requiredKits": [
-        "HybridCLRKit",
+        "ResKit.CodeUpdate.HybridCLR",
         "ToolsHub.Core"
       ],
       "requiredUpm": [
@@ -2967,13 +3044,59 @@
     },
     {
       "id": "reskit.complete",
-      "displayName": "ResKit Complete",
+      "displayName": "ResKit 完整开发套件",
       "order": 20,
       "deliveryGroup": "complete",
-      "description": "完整 ResKit 开发配置：ResKit.Core + AssetsMap + ToolsHub 资源审计/生成工具；资源后端仍按项目需要单独选择。",
+      "description": "包含 ResKit.Core、Resources 默认后端、AssetsMap 与 ToolsHub 资源工具。AssetBundle、Addressables（AA）和 YooAsset 后端按项目需要另行选择。",
       "output": "StellarFramework-Profile-ResKit-Complete.unitypackage",
       "profileIds": [
+        "reskit.resources",
         "reskit.tools"
+      ]
+    },
+    {
+      "id": "reskit.resources.only",
+      "displayName": "ResKit（Resources）",
+      "order": 21,
+      "deliveryGroup": "complete",
+      "description": "适合直接使用 Unity Resources 加载资源。自动包含 ResKit.Core；不含 AssetBundle、Addressables（AA）或 YooAsset。",
+      "output": "StellarFramework-Profile-ResKit-Resources.unitypackage",
+      "profileIds": [
+        "reskit.resources"
+      ]
+    },
+    {
+      "id": "reskit.assetbundle.only",
+      "displayName": "ResKit（AssetBundle）",
+      "order": 22,
+      "deliveryGroup": "complete",
+      "description": "只加入 ResKit 的 AssetBundle 加载后端及其必需依赖。需要把 ResKit 默认后端设为 AssetBundle，或按需指定该后端。",
+      "output": "StellarFramework-Profile-ResKit-AssetBundle.unitypackage",
+      "profileIds": [
+        "reskit.assetbundle"
+      ]
+    },
+    {
+      "id": "reskit.addressables.only",
+      "displayName": "ResKit（Addressables / AA）",
+      "order": 23,
+      "deliveryGroup": "complete",
+      "description": "只加入 ResKit 的 Addressables（AA）加载后端及其必需依赖。单独使用时，把默认后端配置为 Addressables。",
+      "output": "StellarFramework-Profile-ResKit-Addressables.unitypackage",
+      "profileIds": [
+        "reskit.addressables"
+      ]
+    },
+    {
+      "id": "reskit.resources.assetbundle",
+      "displayName": "ResKit（Resources + AssetBundle）",
+      "order": 24,
+      "deliveryGroup": "complete",
+      "description": "同时加入 Resources 与 AssetBundle 两个加载后端，业务可以按资源选择后端；共享的 ResKit.Core 与公共依赖会自动去重。",
+      "output": "StellarFramework-Profile-ResKit-Resources-AssetBundle.unitypackage",
+      "profileIds": [
+        "reskit.resources",
+        "reskit.assetbundle"
       ]
     },
     {
@@ -2992,13 +3115,14 @@
       "displayName": "UIKit Complete",
       "order": 30,
       "deliveryGroup": "complete",
-      "description": "完整 UIKit 开发配置：UIKit Runtime/Tools + ResKit 统一资源管理/审计 + Safe Area/Cutout 精确避让/Breakpoint/Layout Variant 多机型适配 + ToolsHub；具体第三方资源后端仍按项目需要扩展。",
+      "description": "完整 UIKit 开发配置：UIKit Runtime/Tools + ResKit 统一资源管理/审计 + Resources 默认加载后端 + Safe Area/Cutout 多机型适配 + ToolsHub；其他资源后端按项目需要选择。",
       "output": "StellarFramework-Profile-UIKit-Complete.unitypackage",
       "profileIds": [
         "uikit.reskit",
         "uikit.tools",
         "uiadaptation.tools",
-        "reskit.tools"
+        "reskit.tools",
+        "reskit.resources"
       ]
     },
     {
@@ -3006,12 +3130,13 @@
       "displayName": "Hot Update Full",
       "order": 40,
       "deliveryGroup": "extension",
-      "description": "完整资源与代码热更开发配置：ResKit + YooAsset + HybridCLR，并包含资源审计、AssetsMap 与 HybridCLR 编辑器工具。",
+      "description": "框架默认热更新组合：ResKit + YooAsset 资源内容更新 Provider + HybridCLR 代码更新 Provider，并包含资源审计、AssetsMap 与对应编辑器工具。两个 Provider 可单独选择或替换。",
       "output": "StellarFramework-Profile-HotUpdate-Full.unitypackage",
       "profileIds": [
         "reskit.yooasset",
+        "reskit.contentupdate.yooasset",
         "reskit.tools",
-        "hybridclrkit.tools"
+        "reskit.codeupdate.hybridclr.tools"
       ]
     }
   ]

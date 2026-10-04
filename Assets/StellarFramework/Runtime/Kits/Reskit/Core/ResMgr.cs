@@ -30,9 +30,6 @@ namespace StellarFramework.Res
         private static readonly Dictionary<string, OngoingLoadEntry> _loadingTasks =
             new Dictionary<string, OngoingLoadEntry>();
 
-        private static int _pendingResourcesUnloadCount = 0;
-        private const int RESOURCES_UNLOAD_THRESHOLD = 10;
-
         public static string GetCacheKey(string path, string loaderName)
         {
             return $"{loaderName}:{path}";
@@ -210,20 +207,8 @@ namespace StellarFramework.Res
         public static void GarbageCollect()
         {
             LogKit.LogWarning("[ResMgr] 触发强力 GC (GC.Collect + UnloadUnusedAssets)...");
-            _pendingResourcesUnloadCount = 0;
             GC.Collect();
             Resources.UnloadUnusedAssets();
-        }
-
-        public static void TriggerResourcesUnload()
-        {
-            _pendingResourcesUnloadCount++;
-            if (_pendingResourcesUnloadCount >= RESOURCES_UNLOAD_THRESHOLD)
-            {
-                _pendingResourcesUnloadCount = 0;
-                Resources.UnloadUnusedAssets();
-                LogKit.Log("[ResMgr] 达到 Resources 卸载阈值，已触发后台 UnloadUnusedAssets");
-            }
         }
 
         private static void RealUnload(ResData data)

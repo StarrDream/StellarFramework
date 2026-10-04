@@ -4,7 +4,7 @@
   "version": "1.0.1",
   "repository": "StarrDream/StellarFramework",
   "sourceRepository": "StarrDream/StellarFramework.Dev",
-  "sourceCommit": "a6c6a25ffb658740ec01659e109af19439fb4fb1",
+  "sourceCommit": "7fbf5dc8991bca08eb38dea738b1415f8d0adcfc",
   "profile": "General",
   "domains": [],
   "profileIds": [
@@ -22,8 +22,6 @@
     "fsmkit",
     "generated.assetmap",
     "httpkit",
-    "hybridclrkit",
-    "hybridclrkit.tools",
     "localizationkit.core",
     "localizationkit.editor",
     "localizationkit.settings",
@@ -37,7 +35,11 @@
     "reskit.addressables",
     "reskit.assetbundle",
     "reskit.assetbundle.tools",
+    "reskit.codeupdate.hybridclr",
+    "reskit.codeupdate.hybridclr.tools",
+    "reskit.contentupdate.yooasset",
     "reskit.core",
+    "reskit.resources",
     "reskit.tools",
     "reskit.yooasset",
     "runtime.core",
@@ -70,10 +72,9 @@
     "com.tuyoogame.yooasset": "https://github.com/tuyoogame/YooAsset.git?path=Assets/YooAsset#2.3.19",
     "com.unity.addressables": "1.22.3",
     "com.unity.nuget.newtonsoft-json": "3.2.2",
-    "com.unity.test-framework": "1.1.33",
     "com.unity.textmeshpro": "3.0.7",
     "com.unity.ugui": "1.0.0"
   },
-  "validation": "UNVERIFIED",
-  "fileCount": 1005
+  "validation": "PASS",
+  "fileCount": 1023
 }

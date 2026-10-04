@@ -13,10 +13,10 @@ using UPMInfo = UnityEditor.PackageManager.PackageInfo;
 namespace StellarFramework.Editor.Modules
 {
     /// <summary>
-    /// ToolsHub surface for the staged HotUpdate Publisher workflow. Execution buttons remain gated
-    /// until the required SDK adapters, BaseRelease, Collector and publish target are ready.
+    /// ToolsHub UI for the hot-update publishing workflow. Actions stay disabled until project
+    /// adapters, a compatible client base, the YooAsset collector and a publish target are ready.
     /// </summary>
-    [StellarTool("HotUpdate Publisher", "热更新", 0,
+    [StellarTool("热更发布器", "热更新", 0,
         RequiredAssemblyNames = new[] { "StellarFramework.ToolsHub.HotUpdatePublisher.Editor" })]
     public sealed class HotUpdatePublisherHubModule : ToolModule
     {
@@ -33,16 +33,16 @@ namespace StellarFramework.Editor.Modules
         private const string PrefsPrefix = "StellarFramework.HotUpdatePublisher.";
         private const string ProfilesPrefsSuffix = ".environmentProfiles";
         private const string PendingPublishSessionKey = "StellarFramework.HotUpdatePublisher.PendingPublish";
-        private const string CreateCollectorMenuPath = "Tools/StellarFramework/HotUpdate Publisher/Configure Recommended YooAsset Collector";
-        private const string CreateAndroidBaseReleaseMenuPath = "Tools/StellarFramework/HotUpdate Publisher/Create Android Base Release";
-        private static readonly string[] TabNames = { "Overview", "Changes", "Build", "Server", "History", "Advanced" };
+        private const string CreateCollectorMenuPath = "Tools/StellarFramework/热更发布器/创建 YooAsset 资源收集配置";
+        private const string CreateAndroidBaseReleaseMenuPath = "Tools/StellarFramework/热更发布器/创建 Android 客户端基包";
+        private static readonly string[] TabNames = { "概览", "变更检查", "构建与发布", "发布目标", "发布记录", "高级设置" };
 
         private SectionTab _selectedTab;
         private string _baseAppVersion = "1.0.0";
-        private string _packageName = "HotUpdatePublisherConsumerE2E";
+        private string _packageName = "DefaultPackage";
         private string _packageVersion = "1.0.1";
         private string _releaseNotes = "";
-        private string _hotUpdateAssetOutputRoot = "Assets/HotUpdatePublisherConsumerE2E/Generated";
+        private string _hotUpdateAssetOutputRoot = "Assets/HotUpdate/Generated";
         private string _architecture = "x86_64";
         private string _unitySkillsUrl = "http://localhost:8090";
         private string _scanError = "";
@@ -57,13 +57,14 @@ namespace StellarFramework.Editor.Modules
         private string _historyDiagnostic = string.Empty;
         private readonly Dictionary<string, int> _rollbackSelections = new Dictionary<string, int>(StringComparer.Ordinal);
         private bool _isMajorHotPatch;
+        private bool _showAdvancedBuildOptions;
         private bool _operationBusy;
         private bool _pendingResumeScheduled;
         private string _operationStatus = string.Empty;
         private string _operationError = string.Empty;
         private CancellationTokenSource _operationCancellation;
 
-        public override string Description => "查看热更变更风险、目标环境和发布产物状态。";
+        public override string Description => "按步骤配置版本和发布位置，检查变更，构建并发布热更内容。";
 
         public override void OnEnable()
         {
@@ -71,10 +72,14 @@ namespace StellarFramework.Editor.Modules
             _baseAppVersion = EditorPrefs.GetString(PrefsPrefix + suffix + ".baseAppVersion", _baseAppVersion);
             _packageName = EditorPrefs.GetString(PrefsPrefix + suffix + ".packageName", _packageName);
             if (string.IsNullOrWhiteSpace(_packageName))
-                _packageName = "HotUpdatePublisherConsumerE2E";
+                _packageName = "DefaultPackage";
+            if (string.Equals(_packageName, "HotUpdatePublisherConsumerE2E", StringComparison.Ordinal))
+                _packageName = "DefaultPackage";
             _packageVersion = EditorPrefs.GetString(PrefsPrefix + suffix + ".packageVersion", _packageVersion);
             _releaseNotes = EditorPrefs.GetString(PrefsPrefix + suffix + ".releaseNotes", _releaseNotes);
             _hotUpdateAssetOutputRoot = EditorPrefs.GetString(PrefsPrefix + suffix + ".assetOutputRoot", _hotUpdateAssetOutputRoot);
+            if (string.Equals(_hotUpdateAssetOutputRoot, "Assets/HotUpdatePublisherConsumerE2E/Generated", StringComparison.Ordinal))
+                _hotUpdateAssetOutputRoot = "Assets/HotUpdate/Generated";
             _architecture = EditorPrefs.GetString(PrefsPrefix + suffix + ".architecture", _architecture);
             _unitySkillsUrl = EditorPrefs.GetString(PrefsPrefix + suffix + ".unitySkillsUrl", _unitySkillsUrl);
             LoadEnvironmentProfiles(PrefsPrefix + suffix + ProfilesPrefsSuffix);
@@ -112,53 +117,53 @@ namespace StellarFramework.Editor.Modules
 
         private void DrawHeader()
         {
-            EditorGUILayout.LabelField("HotUpdate Publisher", EditorStyles.largeLabel);
+            EditorGUILayout.LabelField("热更发布器", EditorStyles.largeLabel);
             EditorGUILayout.HelpBox(
-                "Editor-only 发布工作台。正式发布必须经过完整构建、产物校验、Release Gate 和远端校验。",
+                "按“填写版本 → 检查变更 → 构建验证 → 发布”完成热更。开发环境默认发布到本机目录；远端正式发布需配置 HTTPS 地址。",
                 MessageType.Info);
         }
 
         private void DrawOverview()
         {
-            Section("Release Inputs");
-            DrawReadOnlyRow("Platform", EditorUserBuildSettings.activeBuildTarget.ToString());
-            DrawReadOnlyRow("Environment", _selectedEnvironment.ToString());
-            _baseAppVersion = EditorGUILayout.TextField("Base App", _baseAppVersion);
-            _packageName = EditorGUILayout.TextField("YooAsset Package", _packageName);
+            Section("第一步：填写发布信息");
+            DrawReadOnlyRow("当前平台", EditorUserBuildSettings.activeBuildTarget.ToString());
+            DrawReadOnlyRow("发布环境", GetEnvironmentLabel(_selectedEnvironment));
+            _baseAppVersion = EditorGUILayout.TextField("客户端基包版本", _baseAppVersion);
+            _packageName = EditorGUILayout.TextField("YooAsset 资源包名", _packageName);
             EditorGUILayout.BeginHorizontal();
-            EditorGUILayout.LabelField("Next Package Version", _packageVersion);
-            if (GUILayout.Button("Generate Next", GUILayout.Width(112))) GenerateNextPackageVersion();
+            EditorGUILayout.LabelField("热更资源版本", _packageVersion);
+            if (GUILayout.Button("生成下一个版本", GUILayout.Width(130))) GenerateNextPackageVersion();
             EditorGUILayout.EndHorizontal();
-            EditorGUILayout.LabelField("Release Notes");
+            EditorGUILayout.LabelField("更新说明");
             _releaseNotes = EditorGUILayout.TextArea(_releaseNotes, GUILayout.MinHeight(52));
 
-            Section("Readiness");
+            Section("发布前检查");
             DrawGitReadiness();
-            DrawReadOnlyRow("Remote Release", "尚未运行 · Dry Run 会检查远端清单与资源完整性，不修改远端");
-            DrawReadOnlyRow("HybridCLR", PlayerSettings.GetScriptingBackend(EditorUserBuildSettings.selectedBuildTargetGroup).ToString());
-            DrawReadOnlyRow("AOT", "需选择兼容的 BaseRelease 后校验");
-            DrawReadOnlyRow("YooAsset", string.IsNullOrWhiteSpace(_packageName)
-                ? "未配置生产 Package"
-                : $"Package: {_packageName} · 输出尚未构建");
+            DrawReadOnlyRow("远端检查", "尚未检查；模拟发布会检查地址和远端文件，不会上传或修改版本指针");
+            DrawReadOnlyRow("代码热更", PlayerSettings.GetScriptingBackend(EditorUserBuildSettings.selectedBuildTargetGroup).ToString());
+            DrawReadOnlyRow("AOT 元数据", "选择匹配的客户端基包后检查");
+            DrawReadOnlyRow("YooAsset 资源包", string.IsNullOrWhiteSpace(_packageName)
+                ? "尚未填写资源包名"
+                : $"资源包：{_packageName} · 尚未构建");
             HotUpdateEnvironmentProfile selectedProfile = GetSelectedProfile();
-            DrawReadOnlyRow("Server", string.IsNullOrWhiteSpace(selectedProfile.MainHostServer)
-                ? "当前环境尚未配置 Host"
-                : selectedProfile.MainHostServer + " · " + selectedProfile.PublishTarget);
+            DrawReadOnlyRow("发布地址", string.IsNullOrWhiteSpace(selectedProfile.MainHostServer)
+                ? "还没有设置下载地址，请到“发布目标”中配置"
+                : selectedProfile.MainHostServer + " · " + GetPublishTargetLabel(selectedProfile.PublishTarget));
 
             GUILayout.Space(8);
-            if (GUILayout.Button("保存本地输入")) SaveLocalInputs();
+            if (GUILayout.Button("保存发布信息")) SaveLocalInputs();
             GUILayout.Space(8);
             DrawMainActions();
         }
 
         private void DrawChanges()
         {
-            Section("Change Safety");
+            Section("第二步：检查改动是否适合热更");
             EditorGUILayout.BeginHorizontal();
-            if (GUILayout.Button("刷新 Git 变更", GUILayout.Width(120))) RefreshChangeClassification();
+            if (GUILayout.Button("扫描项目改动", GUILayout.Width(120))) RefreshChangeClassification();
             if (_classification != null)
             {
-                GUILayout.Label($"Green {_classification.GreenCount}   Yellow {_classification.YellowCount}   Red {_classification.RedCount}");
+                GUILayout.Label($"可直接热更 {_classification.GreenCount} 项   需完整验证 {_classification.YellowCount} 项   阻止热更 {_classification.RedCount} 项");
             }
             EditorGUILayout.EndHorizontal();
 
@@ -168,27 +173,27 @@ namespace StellarFramework.Editor.Modules
             }
             else if (_gitSnapshot?.IsDirty == true && _selectedEnvironment == HotUpdateEnvironmentKind.Production)
             {
-                EditorGUILayout.HelpBox("Production 发布被禁止：当前 Git 工作区有 staged、unstaged 或 untracked 改动。", MessageType.Error);
+                EditorGUILayout.HelpBox("正式环境发布已阻止：Git 工作区有未提交改动。请提交或清理改动后再发布。", MessageType.Error);
             }
             else if (_gitSnapshot?.IsDirty == true)
             {
-                EditorGUILayout.HelpBox("当前 Git 工作区有改动；Development/Staging 可继续，但发布历史会记录 Dirty 状态。", MessageType.Warning);
+                EditorGUILayout.HelpBox("Git 工作区有未提交改动；开发或预发布仍可继续，发布记录会标明这一状态。", MessageType.Warning);
             }
             else if (_classification == null)
             {
-                EditorGUILayout.HelpBox("点击刷新读取 Git 状态并执行 P0 变更分类。扫描不会修改工作区。", MessageType.Info);
+                EditorGUILayout.HelpBox("点击“扫描项目改动”读取 Git 状态并分类。扫描只读，不会修改项目文件。", MessageType.Info);
             }
             else if (!_classification.CanHotPatch)
             {
-                EditorGUILayout.HelpBox("发现阻止普通 Hot Patch 的 Red 变更或 Base → HotUpdate 依赖违规。", MessageType.Error);
+                EditorGUILayout.HelpBox("发现不适合制作普通热更包的改动，或客户端与热更代码的依赖边界异常。请先处理红色项目。", MessageType.Error);
             }
             else if (_classification.RequiresFullGate)
             {
-                EditorGUILayout.HelpBox("存在 Yellow 变更，发布前需要 Full Gate。", MessageType.Warning);
+                EditorGUILayout.HelpBox("存在需要完整验证的改动。发布前会运行完整验证流程。", MessageType.Warning);
             }
             else
             {
-                EditorGUILayout.HelpBox("当前分类允许进入 Fast Gate；这不是构建或发布通过证明。", MessageType.Info);
+                EditorGUILayout.HelpBox("改动分类允许继续；仍需完成构建和发布前验证。", MessageType.Info);
             }
 
             if (_classification == null) return;
@@ -200,7 +205,7 @@ namespace StellarFramework.Editor.Modules
             {
                 HotUpdateClassifiedChange item = changes[index];
                 EditorGUILayout.BeginVertical(EditorStyles.helpBox);
-                EditorGUILayout.LabelField($"[{item.Safety}] {item.Facts.Path}", EditorStyles.boldLabel);
+                EditorGUILayout.LabelField($"[{GetChangeSafetyLabel(item.Safety)}] {item.Facts.Path}", EditorStyles.boldLabel);
                 EditorGUILayout.LabelField(item.Reason, EditorStyles.wordWrappedMiniLabel);
                 EditorGUILayout.EndVertical();
             }
@@ -215,36 +220,33 @@ namespace StellarFramework.Editor.Modules
 
         private void DrawBuild()
         {
-            Section("Build and Publish");
+            Section("第三步：构建、验证并发布");
             EditorGUILayout.HelpBox(
-                "Build 执行 HybridCLR 编译/导出、YooAsset 构建和产物校验；Dry Run 继续运行 Release Gate 与只读远端校验。按钮会根据 SDK、BaseRelease、Collector 和目标配置显示具体阻塞原因。",
+                "先完成首次配置，再选择下方操作。仅构建会在本地生成并检查热更文件；模拟发布会额外检查目标地址但不上传；构建并发布会上传文件并更新版本指针。",
                 MessageType.Info);
             DrawBaseReleasePicker();
             DrawFirstUseSetup();
-            _architecture = EditorGUILayout.TextField("Player Architecture", _architecture);
-            _hotUpdateAssetOutputRoot = EditorGUILayout.TextField("HotUpdate Assets Root", _hotUpdateAssetOutputRoot);
-            _isMajorHotPatch = EditorGUILayout.Toggle("Major Hot Patch", _isMajorHotPatch);
             DrawMainActions();
             GUILayout.Space(12);
-            DrawReadOnlyRow("Compile / Export / YooAsset", "Build、Dry Run 与 Build & Publish 的本地阶段");
-            DrawReadOnlyRow("Artifact Validation", "Manifest · DLL SHA256 · Entry · BaseRelease AOT · YooAsset 输出");
-            DrawReadOnlyRow("Release Gate / Dry Run", "Dry Run 执行 Gate 与远端只读完整性验证；Android 会执行完整 Player Gate");
+            DrawReadOnlyRow("本机构建", "编译热更代码、导出 DLL 和 AOT 元数据、构建 YooAsset 资源包");
+            DrawReadOnlyRow("文件检查", "检查版本清单、DLL 校验值、入口信息、客户端 AOT 元数据和资源包");
+            DrawReadOnlyRow("发布前验证", "模拟发布会执行完整验证并只读检查远端文件；Android 会构建并验证客户端");
         }
 
         private void DrawFirstUseSetup()
         {
-            Section("First Use Setup");
+            Section("首次使用：准备资源包和客户端基包");
 
             if (string.IsNullOrWhiteSpace(_packageName))
             {
                 EditorGUILayout.HelpBox(
-                    "缺少 YooAsset 业务 Package 名称。请先在 Overview 填写 Package，再创建独立的业务 Collector；StellarHotUpdateVerification 仅用于测试，不能用于发布。",
+                    "请先在“概览”填写业务资源包名，然后创建对应的 YooAsset 收集配置。验证专用资源包不能用于正式发布。",
                     MessageType.Error);
             }
             else if (_packageName.IndexOf("verification", StringComparison.OrdinalIgnoreCase) >= 0)
             {
                 EditorGUILayout.HelpBox(
-                    $"Package '{_packageName}' 被识别为 Verification 用途，Publisher 会拒绝使用它。请填写独立业务 Package 名称。",
+                    $"资源包“{_packageName}”名称包含 Verification（验证）字样，不能用于发布。请填写业务项目自己的资源包名。",
                     MessageType.Error);
             }
             else
@@ -258,18 +260,24 @@ namespace StellarFramework.Editor.Modules
                        string.IsNullOrWhiteSpace(_packageName) ||
                        _packageName.IndexOf("verification", StringComparison.OrdinalIgnoreCase) >= 0))
             {
-                if (GUILayout.Button("配置 / 创建推荐 YooAsset Collector"))
+                if (GUILayout.Button("创建或打开 YooAsset 资源收集配置"))
                 {
                     SaveLocalInputs();
                     if (!EditorApplication.ExecuteMenuItem(CreateCollectorMenuPath))
                     {
                         EditorUtility.DisplayDialog(
-                            "YooAsset Collector",
-                            "Publisher 的 YooAsset Adapter 菜单不可用。请确认 YooAsset Editor Adapter 已编译，然后从 YooAsset 菜单打开 AssetBundle Collector。",
+                            "YooAsset 资源收集配置",
+                            "框架的 YooAsset 编辑器工具尚不可用。请确认已导入 YooAsset 编辑器扩展，然后从 YooAsset 菜单打开资源收集器。",
                             "OK");
                         EditorApplication.ExecuteMenuItem("YooAsset/AssetBundle Collector");
                     }
                 }
+            }
+
+            if (EditorUserBuildSettings.activeBuildTarget != BuildTarget.Android)
+            {
+                EditorGUILayout.HelpBox("当前平台不是 Android。需要发布 Android 热更时，先在 Unity Build Settings 切换到 Android。", MessageType.Info);
+                return;
             }
 
             IReadOnlyList<HotUpdateBaseRelease> androidReleases;
@@ -281,7 +289,7 @@ namespace StellarFramework.Editor.Modules
             {
                 androidReleases = Array.Empty<HotUpdateBaseRelease>();
                 EditorGUILayout.HelpBox(
-                    $"Android BaseRelease 仓库读取失败：{exception.GetType().Name}: {exception.Message}",
+                    $"读取 Android 客户端基包记录失败：{exception.GetType().Name}: {exception.Message}",
                     MessageType.Error);
             }
 
@@ -289,41 +297,46 @@ namespace StellarFramework.Editor.Modules
             {
                 ScriptingImplementation androidBackend = PlayerSettings.GetScriptingBackend(BuildTargetGroup.Android);
                 EditorGUILayout.HelpBox(
-                    $"缺少 Android BaseRelease。正式创建流程要求 Android BuildTarget + IL2CPP，并调用 HybridCLR Generate/All 后保存真实 AOT metadata。当前 Android Backend：{androidBackend}。",
+                    $"尚无 Android 客户端基包。需要切换到 Android + IL2CPP，生成 HybridCLR 文件并保存 AOT 元数据。当前 Android 脚本后端：{androidBackend}。",
                     MessageType.Error);
-                if (GUILayout.Button("创建首个 Android Base Release"))
+                if (GUILayout.Button("创建 Android 客户端基包"))
                 {
                     SaveLocalInputs();
                     if (!EditorApplication.ExecuteMenuItem(CreateAndroidBaseReleaseMenuPath))
                     {
                         EditorUtility.DisplayDialog(
-                            "Android Base Release",
-                            "HybridCLR Publisher Adapter 菜单不可用。请确认 HybridCLR Editor Adapter 已编译。",
+                            "Android 客户端基包",
+                            "HybridCLR 编辑器工具尚不可用。请确认已导入 ResKit.CodeUpdate.HybridCLR.Tools。",
                             "OK");
                     }
                 }
             }
             else
             {
-                DrawReadOnlyRow("Android BaseRelease", $"已找到 {androidReleases.Count} 条正式记录");
+                DrawReadOnlyRow("Android 客户端基包", $"已找到 {androidReleases.Count} 条正式记录");
             }
         }
 
         private void DrawServer()
         {
-            Section("Server Profiles");
-            _selectedEnvironment = (HotUpdateEnvironmentKind)EditorGUILayout.EnumPopup("Environment", _selectedEnvironment);
+            Section("第四步：设置发布位置");
+            _selectedEnvironment = (HotUpdateEnvironmentKind)EditorGUILayout.Popup("发布环境", (int)_selectedEnvironment, new[] { "开发（本机）", "预发布", "正式环境" });
             HotUpdateEnvironmentProfile profile = GetSelectedProfile();
             profile.EnvironmentId = _selectedEnvironment.ToString();
-            profile.MainHostServer = EditorGUILayout.TextField("Main Host Server", profile.MainHostServer ?? string.Empty);
-            profile.FallbackHostServer = EditorGUILayout.TextField("Fallback Host Server", profile.FallbackHostServer ?? string.Empty);
-            profile.RemoteRoot = EditorGUILayout.TextField("Remote Root", profile.RemoteRoot ?? string.Empty);
-            profile.PublishTarget = EditorGUILayout.TextField("Publish Target", profile.PublishTarget ?? string.Empty);
+            profile.MainHostServer = EditorGUILayout.TextField("主下载地址", profile.MainHostServer ?? string.Empty);
+            profile.FallbackHostServer = EditorGUILayout.TextField("备用下载地址", profile.FallbackHostServer ?? string.Empty);
+            profile.RemoteRoot = EditorGUILayout.TextField("服务器上的目录", profile.RemoteRoot ?? string.Empty);
+            int publishTargetIndex = string.Equals(profile.PublishTarget, "S3Compatible", StringComparison.Ordinal)
+                ? 1
+                : 0;
+            publishTargetIndex = EditorGUILayout.Popup("发布方式", publishTargetIndex,
+                new[] { "本地文件夹", "S3 兼容存储" });
+            profile.PublishTarget = publishTargetIndex == 1 ? "S3Compatible" : "LocalFolder";
             if (string.Equals(profile.PublishTarget, "S3Compatible", StringComparison.Ordinal))
             {
-                profile.S3ServiceEndpoint = EditorGUILayout.TextField("S3 Service Endpoint", profile.S3ServiceEndpoint ?? string.Empty);
-                profile.S3Bucket = EditorGUILayout.TextField("S3 Bucket", profile.S3Bucket ?? string.Empty);
-                profile.S3Region = EditorGUILayout.TextField("S3 Region", string.IsNullOrWhiteSpace(profile.S3Region) ? "us-east-1" : profile.S3Region);
+                profile.S3ServiceEndpoint = EditorGUILayout.TextField("S3 服务地址", profile.S3ServiceEndpoint ?? string.Empty);
+                profile.S3Bucket = EditorGUILayout.TextField("S3 存储桶", profile.S3Bucket ?? string.Empty);
+                profile.S3Region = EditorGUILayout.TextField("S3 区域", string.IsNullOrWhiteSpace(profile.S3Region) ? "us-east-1" : profile.S3Region);
                 string[] s3Errors = ValidateS3Profile(profile);
                 for (int index = 0; index < s3Errors.Length; index++)
                     EditorGUILayout.HelpBox(s3Errors[index], MessageType.Error);
@@ -331,17 +344,43 @@ namespace StellarFramework.Editor.Modules
             if (string.Equals(profile.PublishTarget, "LocalFolder", StringComparison.Ordinal))
             {
                 EditorGUILayout.BeginHorizontal();
-                profile.LocalFolderRoot = EditorGUILayout.TextField("Local Folder Root", profile.LocalFolderRoot ?? string.Empty);
-                if (GUILayout.Button("Browse...", GUILayout.Width(88)))
+                profile.LocalFolderRoot = EditorGUILayout.TextField("本机或已挂载目录", profile.LocalFolderRoot ?? string.Empty);
+                if (GUILayout.Button("浏览…", GUILayout.Width(88)))
                 {
-                    string selectedFolder = EditorUtility.OpenFolderPanel("Select mounted LocalFolder publish root", profile.LocalFolderRoot ?? string.Empty, string.Empty);
+                    string selectedFolder = EditorUtility.OpenFolderPanel("选择本地或已挂载的发布目录", profile.LocalFolderRoot ?? string.Empty, string.Empty);
                     if (!string.IsNullOrWhiteSpace(selectedFolder)) profile.LocalFolderRoot = selectedFolder;
+                }
+                if (_selectedEnvironment == HotUpdateEnvironmentKind.Development &&
+                    GUILayout.Button("使用默认本机目录", GUILayout.Width(140)))
+                {
+                    if (string.IsNullOrWhiteSpace(profile.LocalFolderRoot))
+                        profile.LocalFolderRoot = HotUpdateEnvironmentProfile.GetDefaultLocalFolderRoot();
+                    if (string.IsNullOrWhiteSpace(profile.RemoteRoot))
+                        profile.RemoteRoot = "hotupdate/Development";
+                    profile.MainHostServer = HotUpdateEnvironmentProfile.CreateLocalFileHost(
+                        profile.LocalFolderRoot,
+                        profile.RemoteRoot);
                 }
                 EditorGUILayout.EndHorizontal();
                 if (string.IsNullOrWhiteSpace(profile.LocalFolderRoot))
-                    EditorGUILayout.HelpBox("Select the mounted folder root. The profile Remote Root is appended below this directory.", MessageType.Warning);
+                    EditorGUILayout.HelpBox(_selectedEnvironment == HotUpdateEnvironmentKind.Development
+                        ? "选择一个本机文件夹，或点击“使用默认本机目录”。服务器目录会附加在此目录后。"
+                        : "选择已挂载的服务器目录；服务器目录会附加在此路径后。", MessageType.Warning);
+
+                if (_selectedEnvironment == HotUpdateEnvironmentKind.Development &&
+                    !string.IsNullOrWhiteSpace(profile.LocalFolderRoot) &&
+                    !string.IsNullOrWhiteSpace(profile.RemoteRoot) &&
+                    Uri.TryCreate(profile.MainHostServer, UriKind.Absolute, out Uri localHost) && localHost.IsFile)
+                {
+                    string derivedHost = HotUpdateEnvironmentProfile.CreateLocalFileHost(
+                        profile.LocalFolderRoot,
+                        profile.RemoteRoot);
+                    if (!string.Equals(profile.MainHostServer, derivedHost, StringComparison.Ordinal))
+                        EditorGUILayout.HelpBox("本机发布地址由本地目录和服务器目录组成；修改路径后重新点击“使用默认本机目录”以更新地址。", MessageType.Info);
+                    EditorGUILayout.HelpBox("开发环境默认输出到项目的 BuildArtifacts/HotUpdate/Local 文件夹，电脑可直接读取。Android 设备不能读取 Windows 本机路径；测试 Android 时请改用手机可访问的 HTTP 地址。", MessageType.Info);
+                }
             }
-            profile.CredentialProfileName = EditorGUILayout.TextField("Credential Profile Name", profile.CredentialProfileName ?? string.Empty);
+            profile.CredentialProfileName = EditorGUILayout.TextField("凭证配置名称", profile.CredentialProfileName ?? string.Empty);
 
             if (!string.IsNullOrWhiteSpace(_profileLoadDiagnostic))
                 EditorGUILayout.HelpBox(_profileLoadDiagnostic, MessageType.Warning);
@@ -350,7 +389,7 @@ namespace StellarFramework.Editor.Modules
             for (int index = 0; index < validation.Errors.Count; index++)
                 EditorGUILayout.HelpBox(validation.Errors[index], MessageType.Error);
             if (validation.IsValid)
-                EditorGUILayout.HelpBox("Profile fields are valid. This does not verify server reachability or publish permissions.", MessageType.Info);
+                EditorGUILayout.HelpBox("配置格式有效；尚未检查服务器是否可访问，也未检查上传权限。", MessageType.Info);
 
             string environmentVariableName = string.Empty;
             bool hasCredential = false;
@@ -358,27 +397,27 @@ namespace StellarFramework.Editor.Modules
             if (EnvironmentVariableCredentialProvider.TryGetEnvironmentVariableName(profile.CredentialProfileName, out environmentVariableName))
                 hasCredential = new EnvironmentVariableCredentialProvider().TryGetSecret(profile.CredentialProfileName, out secret);
             secret = null;
-            EditorGUILayout.LabelField("Credential", string.IsNullOrEmpty(environmentVariableName)
-                ? "Anonymous / no credential profile"
-                : hasCredential ? environmentVariableName + " is set" : environmentVariableName + " is missing");
-            EditorGUILayout.HelpBox("Profile settings are stored in project-scoped EditorPrefs. S3 credentials are read from the named environment variable as JSON with accessKeyId and secretAccessKey fields; secret values are never saved or displayed.", MessageType.None);
-            EditorGUILayout.HelpBox("LocalFolderRoot stores only a local mount path. Publisher still requires the project-specific build stages, BaseRelease and release-gate configuration before execution.", MessageType.None);
+            EditorGUILayout.LabelField("上传凭证", string.IsNullOrEmpty(environmentVariableName)
+                ? "未配置（适用于公开下载目录）"
+                : hasCredential ? "系统环境变量已设置：" + environmentVariableName : "缺少系统环境变量：" + environmentVariableName);
+            EditorGUILayout.HelpBox("发布配置仅保存在当前 Unity 项目的本机设置中。S3 密钥从指定的系统环境变量读取，不会写入项目文件，也不会显示密钥内容。", MessageType.None);
+            EditorGUILayout.HelpBox("开发环境默认发布到本机目录。预发布和正式环境需要填写 HTTP(S) 下载地址；正式环境必须使用 HTTPS。开始发布前还需准备匹配的客户端基包。", MessageType.None);
 
-            if (GUILayout.Button("Save Environment Profiles")) SaveEnvironmentProfiles();
+            if (GUILayout.Button("保存发布位置设置")) SaveEnvironmentProfiles();
         }
 
         private void DrawHistory()
         {
-            Section("Release History");
+            Section("已发布记录");
             EditorGUILayout.BeginHorizontal();
             EditorGUILayout.HelpBox("已发布版本的机器记录保存在 BuildArtifacts/HotUpdate/ReleaseHistory。", MessageType.Info);
-            if (GUILayout.Button("Refresh", GUILayout.Width(90))) RefreshHistory();
+            if (GUILayout.Button("刷新", GUILayout.Width(90))) RefreshHistory();
             EditorGUILayout.EndHorizontal();
             if (!string.IsNullOrWhiteSpace(_historyDiagnostic))
                 EditorGUILayout.HelpBox(_historyDiagnostic, MessageType.Error);
             if (_historyRecords.Count == 0)
             {
-                EditorGUILayout.HelpBox("尚无已完成发布记录。Dry Run 不会创建 ACTIVE History。", MessageType.None);
+                EditorGUILayout.HelpBox("还没有发布记录。模拟发布不会创建正式发布记录。", MessageType.None);
                 return;
             }
 
@@ -389,12 +428,12 @@ namespace StellarFramework.Editor.Modules
             {
                 HotUpdateReleaseRecord record = _historyRecords[index];
                 EditorGUILayout.BeginVertical(EditorStyles.helpBox);
-                EditorGUILayout.LabelField($"{record.ReleaseId}  {record.Status}  {record.PackageVersion}", EditorStyles.boldLabel);
+                EditorGUILayout.LabelField($"{record.PackageName}  {record.PackageVersion}  {GetReleaseStatusLabel(record.Status)}", EditorStyles.boldLabel);
                 EditorGUILayout.LabelField(
-                    $"{record.Platform} · {record.Environment} · Base {record.BaseAppVersion} · {record.CreatedAtUtc.ToUniversalTime():yyyy-MM-dd HH:mm:ss} UTC",
+                    $"{record.Platform} · {GetEnvironmentLabel(record.Environment)} · 客户端 {record.BaseAppVersion} · {record.CreatedAtUtc.ToUniversalTime():yyyy-MM-dd HH:mm:ss} UTC",
                     EditorStyles.wordWrappedMiniLabel);
                 EditorGUILayout.LabelField(
-                    $"Change {record.ChangeClassification?.Safety ?? "Unknown"} · Gate {record.GateResult} · Bundles {record.BundleCount} · {record.TotalBytes:N0} bytes",
+                    $"变更：{GetChangeSafetyLabel(record.ChangeClassification?.Safety)} · 验证结果：{record.GateResult} · 资源包数：{record.BundleCount} · 总大小：{EditorUtility.FormatBytes(record.TotalBytes)}",
                     EditorStyles.wordWrappedMiniLabel);
                 DrawRollbackControls(record);
                 EditorGUILayout.EndVertical();
@@ -414,7 +453,7 @@ namespace StellarFramework.Editor.Modules
             catch (Exception exception)
             {
                 _historyRecords = Array.Empty<HotUpdateReleaseRecord>();
-                _historyDiagnostic = $"Release history could not be read: {exception.GetType().Name}: {exception.Message}";
+                _historyDiagnostic = $"读取发布记录失败：{exception.GetType().Name}: {exception.Message}";
             }
         }
 
@@ -431,7 +470,7 @@ namespace StellarFramework.Editor.Modules
                 .ToArray();
             if (candidates.Length == 0)
             {
-                EditorGUILayout.LabelField("Rollback", "No compatible historical release is recorded.");
+                EditorGUILayout.LabelField("回滚", "没有找到可用的历史版本。");
                 return;
             }
 
@@ -439,7 +478,7 @@ namespace StellarFramework.Editor.Modules
             if (!Enum.TryParse(current.Environment, false, out environment) ||
                 !Enum.IsDefined(typeof(HotUpdateEnvironmentKind), environment))
             {
-                EditorGUILayout.HelpBox("Rollback is blocked because this release has an unknown environment.", MessageType.Error);
+                EditorGUILayout.HelpBox("该版本没有环境记录，无法安全回滚。", MessageType.Error);
                 return;
             }
 
@@ -449,25 +488,25 @@ namespace StellarFramework.Editor.Modules
                 $"{record.PackageVersion} · {record.Status} · {record.CreatedAtUtc.ToUniversalTime():yyyy-MM-dd HH:mm} UTC").ToArray();
             if (!_rollbackSelections.TryGetValue(current.ReleaseId, out int selectedIndex)) selectedIndex = 0;
             selectedIndex = Mathf.Clamp(selectedIndex, 0, candidates.Length - 1);
-            selectedIndex = EditorGUILayout.Popup("Restore Release", selectedIndex, labels);
+            selectedIndex = EditorGUILayout.Popup("要恢复到的版本", selectedIndex, labels);
             _rollbackSelections[current.ReleaseId] = selectedIndex;
 
             using (new EditorGUI.DisabledScope(_operationBusy || !string.IsNullOrEmpty(targetError)))
             {
-                if (GUILayout.Button("Rollback", GUILayout.Width(100)) &&
+                if (GUILayout.Button("回滚", GUILayout.Width(100)) &&
                     EditorUtility.DisplayDialog(
-                        "Rollback HotUpdate",
-                        $"Restore PackageVersion from {current.PackageVersion} to {candidates[selectedIndex].PackageVersion} for {current.Environment}? The remote pointer will change after integrity checks.",
-                        "Rollback", "Cancel"))
+                        "确认回滚热更版本",
+                        $"将 {current.PackageVersion} 回滚到 {candidates[selectedIndex].PackageVersion}（{GetEnvironmentLabel(environment)}）？通过远端完整性检查后，会更新当前资源版本号。",
+                        "确认回滚", "取消"))
                 {
                     HotUpdateReleaseRecord restored = candidates[selectedIndex];
-                    StartOperation("Verifying historical release and restoring PackageVersion…",
+                    StartOperation("正在检查历史文件并恢复资源版本号…",
                         token => RunRollbackAsync(current, restored, profile, token));
                 }
             }
 
             if (!string.IsNullOrWhiteSpace(targetError))
-                EditorGUILayout.HelpBox("Rollback is blocked: " + targetError, MessageType.Warning);
+                EditorGUILayout.HelpBox("无法回滚：" + targetError, MessageType.Warning);
         }
 
         private async Task<string> RunRollbackAsync(
@@ -483,19 +522,19 @@ namespace StellarFramework.Editor.Modules
                 new HotUpdateRemoteValidator(profile));
             HotUpdateRollbackResult result = await service.RollbackAsync(
                 current.ReleaseId, restored.ReleaseId, cancellationToken);
-            if (!result.Success) throw new InvalidOperationException(result.Error);
+            if (!result.Success) throw new InvalidOperationException("回滚失败：" + result.Error);
             return $"Rollback verified: {restored.PackageName} {restored.PackageVersion} is active in {restored.Environment}.";
         }
 
         private string GetTargetReadinessError(HotUpdateEnvironmentProfile profile)
         {
-            if (profile == null) return "Environment profile is missing.";
+            if (profile == null) return "没有找到该环境的发布设置。";
             HotUpdateEnvironmentProfileValidationResult validation = profile.Validate();
             if (!validation.IsValid) return string.Join(Environment.NewLine, validation.Errors);
 
             if (string.Equals(profile.PublishTarget, "LocalFolder", StringComparison.Ordinal))
             {
-                if (string.IsNullOrWhiteSpace(profile.LocalFolderRoot)) return "Set the mounted LocalFolder publish root.";
+                if (string.IsNullOrWhiteSpace(profile.LocalFolderRoot)) return "请选择本地或已挂载的发布目录。";
             }
             else if (string.Equals(profile.PublishTarget, "S3Compatible", StringComparison.Ordinal))
             {
@@ -504,11 +543,11 @@ namespace StellarFramework.Editor.Modules
                 if (!EnvironmentVariableCredentialProvider.TryGetEnvironmentVariableName(
                         profile.CredentialProfileName, out string variableName) ||
                     string.IsNullOrEmpty(Environment.GetEnvironmentVariable(variableName)))
-                    return "S3 credentials are not available from the configured environment variable.";
+                    return "没有从所选系统环境变量中读取到 S3 上传凭证。";
             }
             else
             {
-                return "Publish Target must be LocalFolder or S3Compatible.";
+                return "请选择有效的发布方式。";
             }
 
             return null;
@@ -516,31 +555,42 @@ namespace StellarFramework.Editor.Modules
 
         private void DrawAdvanced()
         {
-            Section("Advanced Tools");
-            EditorGUILayout.HelpBox("底层操作只在高级区显示。Build、Dry Run 与 Build & Publish 会根据目标、BaseRelease、Collector、发布目标和 Gate 配置的就绪状态启用。", MessageType.Warning);
+            Section("高级设置与诊断");
+            EditorGUILayout.HelpBox("高级选项用于排查和调整发布流程。常规使用只需填写发布信息、选择目标并执行模拟发布或正式发布。", MessageType.Warning);
 
-            EditorGUILayout.HelpBox("HybridCLR compile/export, YooAsset build, artifact validation and Release Gate run as ordered stages from Build, Dry Run and Build & Publish.", MessageType.Info);
-            _unitySkillsUrl = EditorGUILayout.TextField("UnitySkills URL", _unitySkillsUrl);
-            if (GUILayout.Button("Save Advanced Settings")) SaveLocalInputs();
+            _showAdvancedBuildOptions = EditorGUILayout.Foldout(_showAdvancedBuildOptions, "构建参数（通常保持默认）", true);
+            if (_showAdvancedBuildOptions)
+            {
+                EditorGUI.indentLevel++;
+                _architecture = EditorGUILayout.TextField("设备架构", _architecture);
+                _hotUpdateAssetOutputRoot = EditorGUILayout.TextField("热更文件生成目录", _hotUpdateAssetOutputRoot);
+                _isMajorHotPatch = EditorGUILayout.Toggle("大版本热更", _isMajorHotPatch);
+                EditorGUILayout.HelpBox("客户端基包必须使用匹配的平台、架构和 IL2CPP 设置。只有明确知道需要更改构建参数时才修改这里。", MessageType.Info);
+                EditorGUI.indentLevel--;
+            }
 
-            if (GUILayout.Button("Open Build Folder"))
+            EditorGUILayout.HelpBox("构建流程依次生成代码热更文件、构建 YooAsset 资源包、检查产物并运行发布验证。", MessageType.Info);
+            _unitySkillsUrl = EditorGUILayout.TextField("UnitySkills 服务地址", _unitySkillsUrl);
+            if (GUILayout.Button("保存高级设置")) SaveLocalInputs();
+
+            if (GUILayout.Button("打开构建文件夹"))
             {
                 string directory = Path.Combine(GetProjectRoot(), "BuildArtifacts", "HotUpdate");
                 if (Directory.Exists(directory)) EditorUtility.RevealInFinder(directory);
-                else EditorUtility.DisplayDialog("Build Folder", $"Folder does not exist yet:\n{directory}", "OK");
+                else EditorUtility.DisplayDialog("构建文件夹", $"文件夹尚不存在：\n{directory}", "OK");
             }
 
-            if (GUILayout.Button("View Manifest"))
+            if (GUILayout.Button("查看热更清单"))
             {
                 string manifestPath = _hotUpdateAssetOutputRoot.Replace('\\', '/').TrimEnd('/') + "/Manifest/HotUpdateManifest.json";
                 if (!IsSafeAssetRoot(_hotUpdateAssetOutputRoot))
                 {
-                    EditorUtility.DisplayDialog("HotUpdate Manifest", "Set a safe HotUpdate Assets Root inside Assets/ first.", "OK");
+                    EditorUtility.DisplayDialog("热更清单", "请先将热更文件生成目录设为 Assets/ 下的安全路径。", "OK");
                     return;
                 }
                 UnityEngine.Object manifest = AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(manifestPath);
                 if (manifest == null)
-                    EditorUtility.DisplayDialog("HotUpdate Manifest", $"Manifest was not found at {manifestPath}.", "OK");
+                    EditorUtility.DisplayDialog("热更清单", $"未找到热更清单：{manifestPath}", "OK");
                 else
                 {
                     Selection.activeObject = manifest;
@@ -548,11 +598,11 @@ namespace StellarFramework.Editor.Modules
                 }
             }
 
-            if (GUILayout.Button("View BaseRelease"))
+            if (GUILayout.Button("查看客户端基包记录"))
             {
                 string directory = Path.Combine(GetProjectRoot(), HotUpdateBaseReleaseRepository.DefaultRelativeRoot);
                 if (Directory.Exists(directory)) EditorUtility.RevealInFinder(directory);
-                else EditorUtility.DisplayDialog("BaseRelease", "No BaseRelease repository exists yet.", "OK");
+                else EditorUtility.DisplayDialog("客户端基包记录", "尚未创建客户端基包记录。", "OK");
             }
         }
 
@@ -566,33 +616,33 @@ namespace StellarFramework.Editor.Modules
             EditorGUILayout.BeginHorizontal();
             using (new EditorGUI.DisabledScope(_operationBusy || !string.IsNullOrEmpty(publishBlocker)))
             {
-                if (GUILayout.Button(new GUIContent("Dry Run", "Build, validate, run the required gate, and inspect remote files without uploading or changing the version pointer."), GUILayout.Height(30)))
+                if (GUILayout.Button(new GUIContent("模拟发布（不上传）", "完整执行构建和验证，并检查远端文件；不会上传文件或修改线上版本号。"), GUILayout.Height(30)))
                     RunDryRun();
             }
             using (new EditorGUI.DisabledScope(_operationBusy || !string.IsNullOrEmpty(buildBlocker)))
             {
-                if (GUILayout.Button(new GUIContent("Build", "Compile HotUpdate, export DLL/AOT assets, build the YooAsset package and validate local artifacts."), GUILayout.Height(30)))
+                if (GUILayout.Button(new GUIContent("仅构建与检查", "生成代码热更文件，构建 YooAsset 资源包，并检查本地发布文件。"), GUILayout.Height(30)))
                     RunBuildOnly();
             }
             using (new EditorGUI.DisabledScope(_operationBusy || !string.IsNullOrEmpty(publishBlocker)))
             {
-                if (GUILayout.Button(new GUIContent("Build & Publish", "Upload immutable files, verify remote content, then atomically update the PackageVersion pointer."), GUILayout.Height(30)))
+                if (GUILayout.Button(new GUIContent("构建并发布", "构建并验证发布文件，上传到所选位置，最后更新资源版本号。"), GUILayout.Height(30)))
                     RunBuildAndPublish();
             }
             EditorGUILayout.EndHorizontal();
 
             if (_operationBusy)
             {
-                if (GUILayout.Button("Cancel Current Operation", GUILayout.Height(24)))
+                if (GUILayout.Button("取消当前操作", GUILayout.Height(24)))
                     CancelCurrentOperation();
             }
             else if (!string.IsNullOrWhiteSpace(buildBlocker))
             {
-                EditorGUILayout.HelpBox("Build is blocked: " + buildBlocker, MessageType.Warning);
+                EditorGUILayout.HelpBox("暂时无法构建：" + buildBlocker, MessageType.Warning);
             }
             else if (!string.IsNullOrWhiteSpace(publishBlocker))
             {
-                EditorGUILayout.HelpBox("Dry Run and Build & Publish are blocked: " + publishBlocker, MessageType.Warning);
+                EditorGUILayout.HelpBox("暂时无法模拟或发布：" + publishBlocker, MessageType.Warning);
             }
         }
 
@@ -618,13 +668,13 @@ namespace StellarFramework.Editor.Modules
                     .ToArray();
                 _packageVersion = new DailyHotUpdateVersionPolicy()
                     .CreateNextVersion(DateTime.UtcNow, existingVersions);
-                _operationStatus = "Next PackageVersion generated from UTC date and recorded package history.";
+                _operationStatus = "已根据当前日期和发布记录生成新的资源版本号。";
                 _operationError = string.Empty;
                 SaveLocalInputs();
             }
             catch (Exception exception)
             {
-                _operationError = "PackageVersion could not be generated: " + exception.Message;
+                _operationError = "生成资源版本号失败：" + exception.Message;
             }
         }
 
@@ -633,11 +683,11 @@ namespace StellarFramework.Editor.Modules
             selectedRelease = null;
             BuildTarget target = EditorUserBuildSettings.activeBuildTarget;
             if (target == BuildTarget.NoTarget)
-                return "Select a Unity BuildTarget first.";
+                return "请先在 Unity Build Settings 中选择目标平台。";
             if (!IsSafeBusinessPackageName(_packageName))
-                return "Enter a path-safe YooAsset business package name that does not contain 'verification'.";
+                return "请输入有效的 YooAsset 业务资源包名；名称不能包含 verification。";
             if (!IsSafeAssetRoot(_hotUpdateAssetOutputRoot))
-                return "HotUpdate Assets Root must be a safe folder inside Assets/.";
+                return "热更文件生成目录必须是 Assets/ 下的有效文件夹。";
 
             string adapterError = HotUpdatePublisherBuildAdapters.GetReadinessError();
             if (!string.IsNullOrEmpty(adapterError)) return adapterError;
@@ -650,7 +700,7 @@ namespace StellarFramework.Editor.Modules
                 HotUpdateBaseReleaseRequirements requirements = CreateBaseReleaseRequirements(
                     target, _baseAppVersion, _architecture);
                 if (requirements.ScriptingBackend != ScriptingImplementation.IL2CPP)
-                    return "The active Player scripting backend is not IL2CPP. Select the matching IL2CPP BaseRelease configuration before building.";
+                    return "当前 Player 脚本后端不是 IL2CPP。请切换为 IL2CPP，并选择对应的客户端基包。";
 
                 var repository = new HotUpdateBaseReleaseRepository();
                 selectedRelease = repository.LoadAndValidate(target, _baseAppVersion, requirements);
@@ -658,7 +708,7 @@ namespace StellarFramework.Editor.Modules
             }
             catch (Exception exception)
             {
-                return "No compatible BaseRelease is selected: " + exception.Message;
+                return "没有找到匹配的客户端基包。请确认版本、平台、架构和 IL2CPP 设置一致。详细信息：" + exception.Message;
             }
         }
 
@@ -666,7 +716,7 @@ namespace StellarFramework.Editor.Modules
         {
             string buildError = GetBuildReadinessError(out _);
             if (!string.IsNullOrEmpty(buildError)) return buildError;
-            if (profile == null) return "Select a publish environment.";
+            if (profile == null) return "请先选择发布环境。";
 
             HotUpdateEnvironmentProfileValidationResult profileValidation = profile.Validate();
             if (!profileValidation.IsValid)
@@ -675,7 +725,7 @@ namespace StellarFramework.Editor.Modules
             if (string.Equals(profile.PublishTarget, "LocalFolder", StringComparison.Ordinal))
             {
                 if (string.IsNullOrWhiteSpace(profile.LocalFolderRoot))
-                    return "Set the mounted LocalFolder publish root.";
+                    return "请选择本地或已挂载的发布目录。";
             }
             else if (string.Equals(profile.PublishTarget, "S3Compatible", StringComparison.Ordinal))
             {
@@ -683,18 +733,18 @@ namespace StellarFramework.Editor.Modules
                 if (errors.Length > 0) return string.Join(Environment.NewLine, errors);
                 if (!EnvironmentVariableCredentialProvider.TryGetEnvironmentVariableName(
                         profile.CredentialProfileName, out string variableName))
-                    return "Set a valid S3 credential profile name.";
+                    return "请输入有效的 S3 凭证配置名称。";
                 if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable(variableName)))
-                    return "S3 credentials are missing from environment variable " + variableName + ".";
+                    return "系统环境变量中没有 S3 上传凭证：" + variableName;
             }
             else
             {
-                return "Publish Target must be LocalFolder or S3Compatible.";
+                return "请选择有效的发布方式。";
             }
 
             if (!Uri.TryCreate(_unitySkillsUrl, UriKind.Absolute, out Uri unitySkillsUri) ||
                 (unitySkillsUri.Scheme != Uri.UriSchemeHttp && unitySkillsUri.Scheme != Uri.UriSchemeHttps))
-                return "UnitySkills URL must be an absolute HTTP(S) URL.";
+                return "高级设置中的 UnitySkills 服务地址必须是完整的 HTTP 或 HTTPS 地址。";
 
             if (string.Equals(profile.EnvironmentId, nameof(HotUpdateEnvironmentKind.Production), StringComparison.Ordinal))
             {
@@ -702,11 +752,11 @@ namespace StellarFramework.Editor.Modules
                 {
                     _gitSnapshot = new GitHotUpdateSnapshotProvider(GetProjectRoot()).ReadSnapshot();
                     if (_gitSnapshot.IsDirty)
-                        return "Production publishing is blocked while the Dev Git working tree has staged, unstaged or untracked changes.";
+                        return "正式环境发布已阻止：Git 工作区有暂存、未暂存或未跟踪的改动。请先提交或清理改动。";
                 }
                 catch (Exception exception)
                 {
-                    return "Production Git preflight failed: " + exception.Message;
+                    return "检查正式发布所需的 Git 状态失败：" + exception.Message;
                 }
             }
 
@@ -720,15 +770,15 @@ namespace StellarFramework.Editor.Modules
                 (endpoint.Scheme != Uri.UriSchemeHttp && endpoint.Scheme != Uri.UriSchemeHttps) ||
                 !string.IsNullOrEmpty(endpoint.UserInfo) || !string.IsNullOrEmpty(endpoint.Query) ||
                 !string.IsNullOrEmpty(endpoint.Fragment))
-                errors.Add("S3 Service Endpoint must be an absolute HTTP(S) URL without credentials, query or fragment.");
+                errors.Add("S3 服务地址必须是完整的 HTTP(S) 地址，不能包含账号密码、查询参数或片段。");
             else if (endpoint.Scheme != Uri.UriSchemeHttps && !endpoint.IsLoopback)
-                errors.Add("S3 Service Endpoint must use HTTPS unless it points to loopback.");
+                errors.Add("S3 服务地址必须使用 HTTPS；只有本机回环地址可以使用 HTTP。");
 
             string bucket = profile.S3Bucket ?? string.Empty;
             if (bucket.Length < 3 || bucket.Length > 63 || bucket.StartsWith(".", StringComparison.Ordinal) ||
                 bucket.EndsWith(".", StringComparison.Ordinal) || bucket.StartsWith("-", StringComparison.Ordinal) ||
                 bucket.EndsWith("-", StringComparison.Ordinal) || bucket.Contains("..") || bucket.Contains(".-") || bucket.Contains("-."))
-                errors.Add("S3 Bucket must be a valid 3–63 character bucket name.");
+                errors.Add("S3 存储桶名称长度必须为 3 到 63 个字符，并符合存储桶命名规则。");
             else
             {
                 for (int index = 0; index < bucket.Length; index++)
@@ -737,16 +787,16 @@ namespace StellarFramework.Editor.Modules
                     if (!((character >= 'a' && character <= 'z') || (character >= '0' && character <= '9') ||
                           character == '.' || character == '-'))
                     {
-                        errors.Add("S3 Bucket may contain only lowercase letters, digits, dots and hyphens.");
+                        errors.Add("S3 存储桶名称只能包含小写字母、数字、点和连字符。");
                         break;
                     }
                 }
             }
 
             if (string.IsNullOrWhiteSpace(profile.S3Region) || profile.S3Region.Contains("/") || profile.S3Region.Contains(" "))
-                errors.Add("S3 Region is invalid.");
+                errors.Add("S3 区域不能为空，且不能包含斜线或空格。");
             if (string.IsNullOrWhiteSpace(profile.CredentialProfileName))
-                errors.Add("Credential Profile Name is required for S3Compatible publishing.");
+                errors.Add("使用 S3 兼容存储时必须填写凭证配置名称。");
             return errors.ToArray();
         }
 
@@ -927,7 +977,7 @@ namespace StellarFramework.Editor.Modules
         private void RunBuildOnly()
         {
             HotUpdateEnvironmentProfile profile = GetSelectedProfile();
-            StartOperation("Building and validating HotUpdate artifacts…", async token =>
+            StartOperation("正在构建并检查热更文件…", async token =>
             {
                 HotUpdatePublishContext context = CreatePublishContext(profile, out HotUpdateBaseReleaseRepository repository, out _);
                 HotUpdatePublishResult result = await HotUpdatePublisherBuildOnly.RunAsync(
@@ -938,22 +988,22 @@ namespace StellarFramework.Editor.Modules
                     new HotUpdateArtifactValidator(repository),
                     token);
                 if (!result.Success)
-                    throw new InvalidOperationException($"Build failed at {result.FailedStage}: {result.Error}");
-                return $"Build and artifact validation passed for {context.PackageName} {context.PackageVersion}.";
+                    throw new InvalidOperationException($"构建在 {GetStageLabel(result.FailedStage)} 阶段失败：{result.Error}");
+                return $"构建和文件检查通过：{context.PackageName} {context.PackageVersion}。";
             });
         }
 
         private void RunDryRun()
         {
             HotUpdateEnvironmentProfile profile = GetSelectedProfile();
-            StartOperation("Running build, gate and read-only remote inspection…", async token =>
+            StartOperation("正在构建、验证并只读检查发布位置…", async token =>
             {
                 HotUpdatePublishContext context = CreatePublishContext(profile, out HotUpdateBaseReleaseRepository repository, out HotUpdateReleaseHistoryRepository history);
                 HotUpdatePublisherWorkflow workflow = CreateWorkflow(context, profile, repository, history);
                 HotUpdateDryRunResult result = await workflow.DryRun.RunAsync(context, token);
                 if (!result.Success)
-                    throw new InvalidOperationException($"Dry Run failed at {result.FailedStage}: {result.Error}");
-                return $"Dry Run passed for {result.PackageVersion}: {result.NewCount} new files, {result.ReuseCount} reusable files, {result.TotalBytes:N0} total bytes. No remote files or version pointer were changed.";
+                    throw new InvalidOperationException($"模拟发布在 {GetStageLabel(result.FailedStage)} 阶段失败：{result.Error}");
+                return $"模拟发布通过：版本 {result.PackageVersion}，新增 {result.NewCount} 个文件，可复用 {result.ReuseCount} 个文件，总计 {EditorUtility.FormatBytes(result.TotalBytes)}。没有修改远端文件或线上版本号。";
             });
         }
 
@@ -961,12 +1011,12 @@ namespace StellarFramework.Editor.Modules
         {
             HotUpdateEnvironmentProfile profile = GetSelectedProfile();
             if (!EditorUtility.DisplayDialog(
-                    "Build & Publish HotUpdate",
-                    $"This will build {profile.EnvironmentId}/{_packageName}, upload immutable files to '{profile.PublishTarget}', verify the remote content and update PackageVersion. Continue?",
-                    "Build & Publish", "Cancel"))
+                    "确认发布热更",
+                    $"即将为“{GetEnvironmentLabel(_selectedEnvironment)} / {_packageName}”构建热更文件，上传到所选位置，检查远端文件并更新资源版本号。是否继续？",
+                    "开始发布", "取消"))
                 return;
 
-            StartOperation("Building and publishing HotUpdate…", token => RunPublishPipelineAsync(profile, null, token));
+            StartOperation("正在构建并发布热更…", token => RunPublishPipelineAsync(profile, null, token));
         }
 
         private async Task<string> RunPublishPipelineAsync(
@@ -998,8 +1048,8 @@ namespace StellarFramework.Editor.Modules
             HotUpdatePublisherWorkflow workflow = CreateWorkflow(context, profile, repository, history);
             HotUpdatePublishResult result = await workflow.Pipeline.RunAsync(context, cancellationToken);
             if (!result.Success)
-                throw new InvalidOperationException($"Publish failed at {result.FailedStage}: {result.Error}");
-            return $"Published {result.ReleaseRecord?.PackageName} {result.ReleaseRecord?.PackageVersion} to {profile.EnvironmentId}; ReleaseId={result.ReleaseRecord?.ReleaseId}.";
+                throw new InvalidOperationException($"发布在 {GetStageLabel(result.FailedStage)} 阶段失败：{result.Error}");
+            return $"发布成功：{result.ReleaseRecord?.PackageName} {result.ReleaseRecord?.PackageVersion}（{GetEnvironmentLabel(_selectedEnvironment)}）。发布编号：{result.ReleaseRecord?.ReleaseId}。";
         }
 
         private void SchedulePendingPublishResume()
@@ -1107,7 +1157,7 @@ namespace StellarFramework.Editor.Modules
 
         private void DrawBaseReleasePicker()
         {
-            Section("Compatible BaseRelease");
+            Section("匹配的客户端基包");
             var repository = new HotUpdateBaseReleaseRepository();
             IReadOnlyList<HotUpdateBaseRelease> releases;
             try
@@ -1116,20 +1166,20 @@ namespace StellarFramework.Editor.Modules
             }
             catch (Exception exception)
             {
-                EditorGUILayout.HelpBox("BaseRelease repository could not be read: " + exception.Message, MessageType.Error);
+                EditorGUILayout.HelpBox("读取客户端基包记录失败：" + exception.Message, MessageType.Error);
                 return;
             }
 
             if (releases.Count == 0)
             {
-                DrawReadOnlyRow("Build Target", EditorUserBuildSettings.activeBuildTarget.ToString());
-                EditorGUILayout.HelpBox("No BaseRelease is recorded for the active BuildTarget. Create a BaseRelease from a real IL2CPP Player configuration before building a Hot Patch.", MessageType.Warning);
+                DrawReadOnlyRow("当前构建平台", EditorUserBuildSettings.activeBuildTarget.ToString());
+                EditorGUILayout.HelpBox("当前平台还没有客户端基包记录。请先使用 IL2CPP 构建一次客户端并创建基包，再生成对应热更包。", MessageType.Warning);
                 return;
             }
 
             string[] labels = releases.Select(item => $"{item.BaseAppVersion} · {item.Architecture} · {item.CreatedAt}").ToArray();
             int selectedIndex = Array.FindIndex(releases.ToArray(), item => string.Equals(item.BaseAppVersion, _baseAppVersion, StringComparison.Ordinal));
-            int newIndex = EditorGUILayout.Popup("BaseRelease", Math.Max(0, selectedIndex), labels);
+            int newIndex = EditorGUILayout.Popup("客户端基包记录", Math.Max(0, selectedIndex), labels);
             if (newIndex >= 0 && newIndex < releases.Count && newIndex != selectedIndex)
             {
                 _baseAppVersion = releases[newIndex].BaseAppVersion;
@@ -1138,18 +1188,98 @@ namespace StellarFramework.Editor.Modules
             }
 
             if (selectedIndex < 0)
-                EditorGUILayout.HelpBox("Select the exact Base App version that will receive this Hot Patch.", MessageType.Info);
+                EditorGUILayout.HelpBox("选择将要接收热更包的客户端版本，两者必须匹配。", MessageType.Info);
         }
 
         private void DrawGitReadiness()
         {
             if (_classification == null || _gitSnapshot == null)
             {
-                DrawReadOnlyRow("Git / Change Safety", "尚未扫描");
+                DrawReadOnlyRow("项目改动检查", "尚未扫描");
                 return;
             }
-            DrawReadOnlyRow("Git / Change Safety",
-                $"{_gitSnapshot.Branch} · {_gitSnapshot.Commit} · {(_gitSnapshot.IsDirty ? "Dirty" : "Clean")} · Green {_classification.GreenCount} / Yellow {_classification.YellowCount} / Red {_classification.RedCount}");
+            DrawReadOnlyRow("项目改动检查",
+                $"分支 {_gitSnapshot.Branch} · 提交 {_gitSnapshot.Commit} · {(_gitSnapshot.IsDirty ? "有未提交改动" : "工作区干净")} · 可直接热更 {_classification.GreenCount} / 需完整验证 {_classification.YellowCount} / 阻止热更 {_classification.RedCount}");
+        }
+
+        private static string GetEnvironmentLabel(HotUpdateEnvironmentKind environment)
+        {
+            switch (environment)
+            {
+                case HotUpdateEnvironmentKind.Development: return "开发（本机）";
+                case HotUpdateEnvironmentKind.Staging: return "预发布";
+                case HotUpdateEnvironmentKind.Production: return "正式环境";
+                default: return "未知环境";
+            }
+        }
+
+        private static string GetEnvironmentLabel(string environment)
+        {
+            return Enum.TryParse(environment, false, out HotUpdateEnvironmentKind parsed) &&
+                   Enum.IsDefined(typeof(HotUpdateEnvironmentKind), parsed)
+                ? GetEnvironmentLabel(parsed)
+                : "未知环境";
+        }
+
+        private static string GetPublishTargetLabel(string publishTarget)
+        {
+            if (string.Equals(publishTarget, "LocalFolder", StringComparison.Ordinal)) return "本地文件夹";
+            if (string.Equals(publishTarget, "S3Compatible", StringComparison.Ordinal)) return "S3 兼容存储";
+            return "未选择发布方式";
+        }
+
+        private static string GetChangeSafetyLabel(HotUpdateChangeSafety? safety)
+        {
+            if (!safety.HasValue) return "未分类";
+            switch (safety.Value)
+            {
+                case HotUpdateChangeSafety.Green: return "可直接热更";
+                case HotUpdateChangeSafety.Yellow: return "需完整验证";
+                case HotUpdateChangeSafety.Red: return "阻止热更";
+                default: return "未分类";
+            }
+        }
+
+        private static string GetChangeSafetyLabel(string safety)
+        {
+            if (string.Equals(safety, "GREEN", StringComparison.OrdinalIgnoreCase)) return "可直接热更";
+            if (string.Equals(safety, "YELLOW", StringComparison.OrdinalIgnoreCase)) return "需完整验证";
+            if (string.Equals(safety, "RED", StringComparison.OrdinalIgnoreCase)) return "阻止热更";
+            return string.IsNullOrWhiteSpace(safety) ? "未分类" : safety;
+        }
+
+        private static string GetReleaseStatusLabel(HotUpdateReleaseRecordStatus status)
+        {
+            switch (status)
+            {
+                case HotUpdateReleaseRecordStatus.Prepared: return "准备中";
+                case HotUpdateReleaseRecordStatus.Active: return "当前版本";
+                case HotUpdateReleaseRecordStatus.Superseded: return "已被替换";
+                case HotUpdateReleaseRecordStatus.RolledBack: return "已回滚";
+                case HotUpdateReleaseRecordStatus.Failed: return "失败";
+                case HotUpdateReleaseRecordStatus.RollbackUnverified: return "回滚未验证";
+                default: return "未知状态";
+            }
+        }
+
+        private static string GetStageLabel(HotUpdatePublishStage stage)
+        {
+            switch (stage)
+            {
+                case HotUpdatePublishStage.Preflight: return "配置检查";
+                case HotUpdatePublishStage.ClassifyChanges: return "变更分类";
+                case HotUpdatePublishStage.CompileHotUpdate: return "编译热更代码";
+                case HotUpdatePublishStage.ExportHybridCLRAssets: return "导出代码和元数据";
+                case HotUpdatePublishStage.BuildYooAsset: return "构建 YooAsset 资源";
+                case HotUpdatePublishStage.ValidateArtifacts: return "检查发布文件";
+                case HotUpdatePublishStage.RunReleaseGate: return "运行发布验证";
+                case HotUpdatePublishStage.PrepareUpload: return "准备上传";
+                case HotUpdatePublishStage.UploadFiles: return "上传文件";
+                case HotUpdatePublishStage.VerifyRemote: return "检查远端文件";
+                case HotUpdatePublishStage.PublishVersion: return "更新资源版本";
+                case HotUpdatePublishStage.Finalize: return "完成发布记录";
+                default: return stage.ToString();
+            }
         }
 
         private void RefreshChangeClassification()
@@ -1167,7 +1297,7 @@ namespace StellarFramework.Editor.Modules
             {
                 _classification = null;
                 _gitSnapshot = null;
-                _scanError = $"Git / Unity change scan failed: {exception.GetType().Name}: {exception.Message}";
+                _scanError = $"扫描项目改动失败：{exception.GetType().Name}: {exception.Message}";
                 Debug.LogError("[HotUpdatePublisher] " + _scanError);
             }
         }
@@ -1227,6 +1357,20 @@ namespace StellarFramework.Editor.Modules
             foreach (HotUpdateEnvironmentKind environment in Enum.GetValues(typeof(HotUpdateEnvironmentKind)))
             {
                 if (FindProfile(environment) == null) _environmentProfiles.Add(HotUpdateEnvironmentProfile.CreateDefault(environment));
+            }
+
+            HotUpdateEnvironmentProfile development = FindProfile(HotUpdateEnvironmentKind.Development);
+            if (development != null &&
+                string.Equals(development.PublishTarget, "LocalFolder", StringComparison.Ordinal) &&
+                string.IsNullOrWhiteSpace(development.MainHostServer))
+            {
+                if (string.IsNullOrWhiteSpace(development.LocalFolderRoot))
+                    development.LocalFolderRoot = HotUpdateEnvironmentProfile.GetDefaultLocalFolderRoot();
+                if (string.IsNullOrWhiteSpace(development.RemoteRoot))
+                    development.RemoteRoot = "hotupdate/Development";
+                development.MainHostServer = HotUpdateEnvironmentProfile.CreateLocalFileHost(
+                    development.LocalFolderRoot,
+                    development.RemoteRoot);
             }
 
             int selected = EditorPrefs.GetInt(profilesPrefsKey + ".selected", 0);

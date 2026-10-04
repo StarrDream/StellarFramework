@@ -20,9 +20,12 @@ namespace StellarFramework.Res
         private CancellationTokenSource _lifetimeCts;
         private bool _isDisposed;
 
-        internal ResScope(IResLoader loader)
+        internal ResScope(IResLoader loader, string loaderKey)
         {
             _loader = loader ?? throw new ArgumentNullException(nameof(loader));
+            LoaderKey = string.IsNullOrWhiteSpace(loaderKey)
+                ? throw new ArgumentException("Loader key cannot be empty.", nameof(loaderKey))
+                : loaderKey;
             _lifetimeCts = new CancellationTokenSource();
         }
 
@@ -30,6 +33,12 @@ namespace StellarFramework.Res
         /// Scope 是否已经释放。
         /// </summary>
         public bool IsDisposed => _isDisposed;
+
+        /// <summary>
+        /// ResKit registry key used to create this Scope. This remains stable even when the
+        /// concrete loader implementation type changes.
+        /// </summary>
+        public string LoaderKey { get; }
 
         /// <summary>
         /// 底层 Loader。高级场景可读取具体能力，但普通业务优先使用 Scope 自身 API。

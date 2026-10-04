@@ -1,55 +1,51 @@
 # StellarFramework
 
-A modular framework for Unity projects. This repository is a complete Unity project with general-purpose Kits, optional HybridCLR code hot-update support, the Tools Hub, and onboarding samples. Export selected capabilities from this project for use in a game.
+StellarFramework is a modular C# framework for Unity projects. This repository is a complete Unity project: run the Tank Arena sample, or use the exporter to select Kits, adapters, and tools and create a `.unitypackage` for your own project.
 
-Release: 1.0.1
+Release: **1.0.1**
 
-Source commit: [a6c6a25ffb658740ec01659e109af19439fb4fb1](https://github.com/StarrDream/StellarFramework.Dev/commit/a6c6a25ffb658740ec01659e109af19439fb4fb1)
+Source commit: [7fbf5dc8991bca08eb38dea738b1415f8d0adcfc](https://github.com/StarrDream/StellarFramework.Dev/commit/7fbf5dc8991bca08eb38dea738b1415f8d0adcfc)
 
 ## Requirements
 
 - Unity Editor **2022.3.62f3c1**
-- Unity Package Manager dependencies declared in this repository's <code>Packages/manifest.json</code>
-- Package Manager must finish resolving dependencies on first open
+- Unity Package Manager access on first open to resolve dependencies in `Packages/manifest.json`
 
-## Run the sample
+## Run Tank Arena
 
-1. Clone this repository, or download and extract its ZIP from GitHub.
-2. Add the repository directory in Unity Hub and open it.
-3. Wait for asset import and Package Manager resolution.
-4. Open **StellarFramework → Tools Hub** and read the Start Here page.
-5. Open <code>Assets/StellarFramework/Samples/TankArena/Scene/FrameworkDemo.unity</code>, wait for compilation, then press Play.
+1. Clone this repository, or download and extract its GitHub ZIP.
+2. Add the repository directory in Unity Hub and open the project. Wait for asset import and package resolution to finish.
+3. Open `Assets/StellarFramework/Samples/TankArena/Scene/FrameworkDemo.unity`, wait for script compilation, and press Play.
+4. On a touch screen, use the left stick to move and the right stick to aim. On desktop, use WASD, the mouse, and Space.
 
-Tank Arena is the framework's playable end-to-end sample. Its match, results, and local profile use Architecture, BindableKit, FSMKit, ActionKit, EventKit, PoolKit, ConfigKit, SaveKit, SettingsKit, LocalizationKit, and UIAdaptationKit together. General also includes the optional HybridCLRKit and HotUpdate Publisher. The Editor preview runs the locally compiled sample assembly; it does not download a remote hot-update package. The code-update and content-update responsibilities and setup steps are documented under <code>Assets/StellarFramework/FrameworkDoc/02-Kits/HybridCLRKit</code>.
+Tank Arena is a playable framework case study with enemy waves, repairs, pause and results screens, localization, local saves, and screen adaptation. Its SYSTEMS panel reports the Kits used by the sample. See `Assets/StellarFramework/Samples/TankArena/CaseStudy.md` for the gameplay flow, Kit responsibilities, and asset locations.
 
-## Export Kits to a game project
+The Editor preview runs the locally compiled sample assembly. It does not download remote hot-update content or exercise the publishing workflow.
 
-1. Open the Kit exporter from **StellarFramework → Export**.
-2. Select one Kit Profile or a Recommended Profile.
-3. Review the export summary for framework dependencies and UPM packages.
-4. Export a <code>unitypackage</code>, then import it in the target project through **Assets → Import Package → Custom Package…**.
-5. Keep the package's <code>.meta</code> files and configure the target project's UPM dependencies from the summary.
+## Export Kits to your project
 
-Profiles represent selectable Kits, adapters, Editor tools, or supporting files. The exporter includes the framework dependencies declared in the catalog. The target project still needs to resolve the listed UPM packages. See <code>Assets/StellarFramework/FrameworkDoc/02-Kits</code> for Kit requirements and setup.
+1. Open this project in Unity and select **StellarFramework → Export**.
+2. Choose one Profile, a recommended combination, or multiple adapters.
+3. Review the framework and UPM dependencies in the export summary, then export the `.unitypackage`.
+4. In your Unity project, select **Assets → Import Package → Custom Package…** and import the file. Let the package installer finish configuring dependencies.
 
-## Find a Kit by task
+The exporter resolves framework dependencies, removes duplicate dependencies in combined exports, and includes a dependency manifest in each package. Resources, AssetBundle, and Addressables (AA) can be exported independently; they can also be combined, for example Resources + AssetBundle. Install third-party UPM dependencies listed by the package. Kit prerequisites and setup examples are under `Assets/StellarFramework/FrameworkDoc/02-Kits`.
 
-| Task | Start with |
+Resource loading, content updates, and C# code updates are separate ResKit extensions. YooAsset provides resource loading and content update capabilities; HybridCLR provides code loading. The Addressables adapter handles ResKit loading and release, but does not orchestrate StellarFramework content updates. See `Assets/StellarFramework/FrameworkDoc/01-Architecture/ResourceAndCodeUpdatePlugins.md` for the design and integration flow.
+
+## Find a guide
+
+| Task | Documentation |
 | --- | --- |
-| Load game assets | ResKit.Core; add an AssetBundle, Addressables, or YooAsset adapter when needed |
-| Localize UI | LocalizationKit.Core and the UGUI or TMP adapter for your UI system |
-| Adapt layouts to screens and safe areas | UIAdaptationKit.Core; UIKit is an optional integration |
-| Build UI panels | UIKit |
-| Update C# code | HybridCLRKit; ResKit.YooAsset handles content versions, manifests, and bundles |
-| Configuration, saves, events, pooling, and other foundation services | The guide for the corresponding Kit |
+| Resource loading, AssetBundle, Addressables, or YooAsset | `FrameworkDoc/02-Kits/Reskit` |
+| Localization and TMP/UGUI adapters | `FrameworkDoc/02-Kits/LocalizationKit` |
+| Safe areas and screen layouts | `FrameworkDoc/02-Kits/UIAdaptationKit` |
+| UI panels and resource loading strategies | `FrameworkDoc/02-Kits/UIKit` |
+| Code hot update and publishing | `FrameworkDoc/02-Kits/Reskit/CodeUpdate/HybridCLR` |
+| Tools Hub | `FrameworkDoc/04-ToolsHub` |
 
-Algorithms, World, and Flow are published in [StellarFramework.Extensions](https://github.com/StarrDream/StellarFramework.Extensions). Extensions requires the matching General release.
+Algorithms, World, and Flow are published in [StellarFramework.Extensions](https://github.com/StarrDream/StellarFramework.Extensions). Use the Extensions release that matches this General release.
 
-## Documentation and release contents
+## Release contents
 
-- Kit guides: <code>Assets/StellarFramework/FrameworkDoc/02-Kits</code>
-- Tools Hub: <code>Assets/StellarFramework/FrameworkDoc/04-ToolsHub</code>
-- Samples: <code>Assets/StellarFramework/Samples</code>
-- Exact release contents and external dependencies: [RELEASE-MANIFEST.json](RELEASE-MANIFEST.json)
-
-This repository is generated from [StellarFramework.Dev](https://github.com/StarrDream/StellarFramework.Dev). Report framework issues and make source changes there.
+`RELEASE-MANIFEST.json` records the Dev source commit, included Profiles, external UPM dependencies, and file count. Framework source and release templates are maintained in [StellarFramework.Dev](https://github.com/StarrDream/StellarFramework.Dev). Make framework source changes there.

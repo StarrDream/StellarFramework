@@ -29,7 +29,7 @@ Tank Arena 是 StellarFramework 的可运行框架案例。玩家需要操控坦
 | LocalizationKit | 战斗中即时切换简体中文与英文。 |
 | UIAdaptationKit | 为运行时 UGUI HUD 配置安全区根节点和方向适配。 |
 | LogKit | 记录配置加载、战局结算与存档结果。 |
-| ResKit.YooAsset / HybridCLRKit | 配置完整的 Player 启动链先更新内容，再由 HybridCLRKit 读取 Manifest、程序集和 AOT metadata 并调用入口；Editor 本地预览不执行这条远端链。 |
+| ResKit.YooAsset / ResKit.CodeUpdate.HybridCLR | 配置完整的 Player 启动链先更新内容，再由 ResKit 代码更新 Provider 读取 Manifest、程序集和 AOT metadata 并调用入口；Editor 本地预览不执行这条启动链。 |
 
 Systems 面板展示的是这局中正在调用的 Kits。HUD 使用 Sample 内的 UGUI Prefab，UIAdaptationKit 读取 Sample 内的适配 Profile；Demo 不把 UIKit 或其他未实际调用的 Kit 算作覆盖。各 Kit 的完整 API、边界和项目接入方式见 `Assets/StellarFramework/FrameworkDoc/02-Kits`。
 
@@ -44,7 +44,7 @@ Systems 面板展示的是这局中正在调用的 Kits。HUD 使用 Sample 内�
 
 ## 热更验证
 
-在游戏项目中使用 General 主仓提供的 HybridCLRKit 和 HotUpdate Publisher，按 `Assets/StellarFramework/FrameworkDoc/02-Kits/HybridCLRKit` 配置内容更新、代码加载与发布。框架自己的 Android / Windows Release Gate 位于 Dev 的 `Assets/StellarFrameworkVerification`，用于维护者验证，不随 General 发布包交付。
+在游戏项目中使用 General 主仓提供的 `ResKit.CodeUpdate.HybridCLR` 和 HotUpdate Publisher，按 `Assets/StellarFramework/FrameworkDoc/02-Kits/Reskit/CodeUpdate/HybridCLR` 配置内容更新、代码加载与发布。框架自己的 Android / Windows Release Gate 位于 Dev 的 `Assets/StellarFrameworkVerification`，用于维护者验证，不随 General 发布包交付。
 
 ## 目录
 

@@ -27,7 +27,7 @@
 - `Runtime/Kits/Reskit/Loaders/AddressableLoader/AddressablesResKitInstaller.cs`
 - `Runtime/Kits/Reskit/Loaders/YooAssetLoader/YooAssetLoader.cs`
 - `Runtime/Kits/Reskit/Loaders/YooAssetLoader/YooAssetResKitInstaller.cs`
-- `Runtime/Kits/Reskit/Loaders/YooAssetLoader/YooAssetContentUpdater.cs`
+- `Runtime/Kits/Reskit/Loaders/YooAssetLoader/YooAssetResContentUpdateProvider.cs`
 - `Editor/StellarToolsHub/Modules/ResKit/AssetsMapGenerator.cs`
 - `Generated/AssetMap/AssetsMap.cs`
 
@@ -69,7 +69,7 @@ Editor / Generated
 
 `AssetsMap` 不属于某个具体资源后端。生成值统一为 canonical `Assets/...` path，因此 AssetBundle、Addressables、YooAsset 可以直接消费同一个 key。
 
-`ResourceLoader` 是唯一需要适配的内置后端：当输入形如 `Assets/.../Resources/Foo.prefab` 时，会在运行时归一化为 Unity Resources 所需的相对路径并去掉扩展名。旧项目直接传 `Foo` 的写法继续兼容。
+`ResourceLoader` 位于单独导出的 `ResKit.Resources` Adapter 中：当输入形如 `Assets/.../Resources/Foo.prefab` 时，会在运行时归一化为 Unity Resources 所需的相对路径并去掉扩展名。旧项目直接传 `Foo` 的写法继续兼容。
 
 生成器使用稳定排序、标识符清洗和稳定哈希解决路径/文件名冲突，并在内容未变化时不写文件，从而避免 `AssetPostprocessor -> Import -> Compile` 无限循环。
 
@@ -326,7 +326,7 @@ Editor / Generated
 1. 如果请求不是 `Default`，直接返回
 2. 如果调用过 `Configure(...)` 指定默认后端，优先使用
 3. 否则从 `ResKitRuntimeSettings` 中读取
-4. 最终兜底 `Resources`
+4. 最终兜底 `Resources`（前提是项目导入并注册 `ResKit.Resources` Adapter）
 
 #### `BuildResolvedRequest(...)`
 
@@ -336,7 +336,7 @@ Editor / Generated
 
 当前内置支持：
 
-- `Resources -> ResourceLoader`
+- `Resources -> ResourceLoader`（`reskit.resources`）
 - `AssetBundle -> AssetBundleLoader`
 
 #### `AllocateCustom(...)`
@@ -907,7 +907,7 @@ Addressables 具体 loader，通过 `CustomKey=Addressables` 接入。
 
 在运行时把 Addressables loader 注册到 `ResKit` 的 `CustomKey=Addressables`。
 
-Addressables Adapter 不提供 catalog/version/download 状态机，也不依赖 HybridCLRKit。Tools Hub 的 Addressables 模块只检查本地 Group 路径、关闭 Remote Catalog 并执行 Player Content Build。
+Addressables Adapter 不提供 catalog/version/download 状态机，也不依赖 `ResKit.CodeUpdate.HybridCLR`。Tools Hub 的 Addressables 模块只检查本地 Group 路径、关闭 Remote Catalog 并执行 Player Content Build。
 
 ## 设计约束
 

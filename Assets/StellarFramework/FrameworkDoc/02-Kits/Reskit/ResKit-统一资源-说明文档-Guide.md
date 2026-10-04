@@ -22,7 +22,7 @@ using StellarFramework.Res;
 ResScope resources = ResKit.CreateScope("Inventory");
 ```
 
-默认后端由 `ResKitRuntimeSettings` 决定；未配置时回退到 `Resources`。
+默认后端由 `ResKitRuntimeSettings` 决定；未配置时回退到 `Resources`。Resources Loader 是独立 Adapter，需导出 `reskit.resources` 并由 `ResKitResourcesInstaller` 注册；`reskit.core` 本身不包含具体加载后端。
 
 ### 2. 加载资源
 
@@ -116,6 +116,7 @@ Assets/StellarFramework/Generated/AssetMap/AssetsMap.cs
 
 - 不需要额外构建
 - 直接依赖 Unity `Resources`
+- 需单独导入 `ResKit.Resources`（`reskit.resources`）Adapter
 - 不适合生产热更新
 
 ### AssetBundle
@@ -156,10 +157,12 @@ Assets/StellarFramework/Generated/AssetMap/AssetsMap.cs
 
 - 独立 Adapter：`StellarFramework.ResKit.YooAsset`
 - 当前工程锁定 YooAsset `2.3.19`
-- ResKit Adapter 只负责 Asset 加载/释放
-- `YooAssetContentUpdater` 可选地把官方 HostPlayMode 启动流程收成一条简单调用
+- 通过 `YooAssetResKitInstaller.InstallLoader()` 注册资源加载；通过 `YooAssetContentUpdateInstaller.Install()` 单独注册 HostPlayMode 内容更新 Provider
+- `YooAssetResContentUpdateProvider` 是内容更新入口；项目从 ResKit 按 Provider ID 获取更新能力
 - `ResKit Core` 本身仍不接管 YooAsset Package / Manifest / Downloader 状态机
 - 多 Package 会进入不同缓存命名空间，不会因为地址相同串资源
+
+内容更新和资源加载是两个注册能力。其他 SDK 可以提供自己的内容更新 provider，也可以只提供 loader；使用方的资源读取仍从 `ResKit.CreateScope` / `CreateCustomScope` 开始。代码热更同样通过 ResKit 的 code-update provider 接收一个 `ResScope`，见 [Resource and code update plugins](../../01-Architecture/ResourceAndCodeUpdatePlugins.md)。
 
 ### Custom
 
@@ -278,9 +281,17 @@ StellarFramework 对 Addressables 的职责约束：
 
 当前 Adapter 针对 YooAsset `2.3.x`。
 
-推荐在项目启动层直接使用轻量 helper：
+框架默认热更新流程使用 YooAsset 资源 Provider 与 HybridCLR 代码 Provider。启动层通过 ResKit 取得内容更新能力：
 
 ```csharp
+YooAssetResKitInstaller.InstallLoader();
+YooAssetContentUpdateInstaller.Install();
+
+var updater = ResKit.GetContentUpdateProvider<
+    YooAssetContentUpdateOptions,
+    YooAssetContentUpdateProgress,
+    YooAssetContentUpdateResult>(YooAssetResContentUpdateProvider.ProviderId);
+
 var options = new YooAssetContentUpdateOptions
 {
     PackageName = "DefaultPackage",
@@ -293,8 +304,7 @@ var options = new YooAssetContentUpdateOptions
         delayMilliseconds: 500)
 };
 
-YooAssetContentUpdateResult update =
-    await YooAssetContentUpdater.UpdateHostPackageAsync(options);
+YooAssetContentUpdateResult update = await updater.UpdateAsync(options);
 
 if (!update.Success)
 {
@@ -303,7 +313,7 @@ if (!update.Success)
 }
 ```
 
-成功后 helper 会默认自动注册 YooAsset 后端到 ResKit，因此业务代码可以直接：
+`YooAssetResKitInstaller.InstallLoader()` 注册 Loader；`YooAssetContentUpdateInstaller.Install()` 注册内容更新 Provider。内容更新成功后，项目创建资源 Scope：
 
 ```csharp
 using ResScope resources =
@@ -318,7 +328,7 @@ GameObject hero =
 
 如果以后从 YooAsset 切回 Addressables，业务层的 `ResScope.LoadAsync<T>()` 写法不需要改变。
 
-`YooAssetContentUpdater` 只是 `StellarFramework.ResKit.YooAsset` Adapter 中的启动辅助器，内部严格按官方流程执行：
+Provider 内部严格按 YooAsset 官方 HostPlayMode 流程执行：
 
 ```text
 Initialize Package
@@ -326,12 +336,11 @@ Initialize Package
 -> UpdatePackageManifest
 -> CreateResourceDownloader
 -> Download
--> YooAssetResKitInstaller.Install
 ```
 
 断点续传使用 YooAsset `DefaultCacheFileSystem` 自己的临时文件 + HTTP `Range` 实现；不是框架自己重写下载器。下载中断后临时文件保留，下一次 Package 生命周期会从已有字节继续。
 
-`YooAssetContentUpdater` 的失败结果不要求业务解析字符串：
+内容更新结果不要求业务解析字符串：
 
 - `ErrorCode`：稳定错误分类，例如 `VersionRequestFailed / ManifestUpdateFailed / DownloadFailed`。
 - `FailureStage`：失败发生在哪个阶段。
@@ -344,7 +353,7 @@ Initialize Package
 如果项目需要内置首包，显式设置 `BuildinPackageRoot`；如果是纯远端内容包，保持 `null`，避免无意义访问 `StreamingAssets/yoo/.../BuildinCatalog.bytes`。
 
 > `ResKit Core` 仍然不包含 YooAsset SDK 类型，也不复制 YooAsset 的版本/Manifest/Downloader 状态机。
-> 高级项目仍可完全绕过 `YooAssetContentUpdater`，直接使用 YooAsset 官方 API，最后只调用 `YooAssetResKitInstaller.Install(...)`。
+> 高级项目可以直接使用 YooAsset 官方 API，再通过 `YooAssetResKitInstaller.InstallLoader()` 注册 Loader；需要从 ResKit 获取内容更新能力时，另行注册 YooAsset Provider。
 
 ## AssetBundle 说明
 

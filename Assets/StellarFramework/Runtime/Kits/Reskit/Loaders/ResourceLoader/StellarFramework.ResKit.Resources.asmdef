@@ -1,0 +1,19 @@
+{
+  "name": "StellarFramework.ResKit.Resources",
+  "rootNamespace": "StellarFramework.Res",
+  "references": [
+    "StellarFramework.ResKit",
+    "StellarFramework.PoolKit",
+    "StellarFramework.LogKit",
+    "UniTask"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

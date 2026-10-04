@@ -72,7 +72,7 @@ namespace StellarFramework.Res
     /// 新增后端只需 RegisterLoader(key, factory)，无需修改 ResLoadBackend 枚举或 switch 分支。
     /// 枚举入口（Allocate(ResLoadBackend)、RegisterLoaderFactory(ResLoadBackend)）保留为兼容层。
     /// </summary>
-    public static class ResKit
+    public static partial class ResKit
     {
         /// <summary>内置 Resources 后端注册 Key。</summary>
         public const string KeyResources = "Resources";
@@ -85,13 +85,6 @@ namespace StellarFramework.Res
         private static ResLoadBackend _configuredDefaultBackend = ResLoadBackend.Default;
         private static string _configuredDefaultCustomKey = string.Empty;
         private static ResKitRuntimeSettings _configuredRuntimeSettings;
-
-        static ResKit()
-        {
-            // 内置后端预注册进统一注册表。
-            // 注册仅是登记工厂委托，不会触发实例化，因此无初始化顺序/循环依赖风险。
-            _factories[KeyResources] = request => Allocate<ResourceLoader>();
-        }
 
         /// <summary>
         /// 创建使用当前默认后端的资源 Scope。
@@ -127,14 +120,16 @@ namespace StellarFramework.Res
         /// </summary>
         public static ResScope CreateScope(ResLoaderRequest request)
         {
-            IResLoader loader = Allocate(request);
+            ResLoaderRequest resolvedRequest = ResolveRequest(request);
+            string loaderKey = GetLoaderKey(resolvedRequest);
+            IResLoader loader = Allocate(resolvedRequest);
             if (loader == null)
             {
                 throw new InvalidOperationException(
                     $"ResKit failed to create scope. Backend={request.Backend}, CustomKey={request.CustomKey ?? "null"}, Owner={request.OwnerName ?? "null"}");
             }
 
-            return new ResScope(loader);
+            return new ResScope(loader, loaderKey);
         }
 
         /// <summary>
@@ -323,6 +318,13 @@ namespace StellarFramework.Res
             return backend == ResLoadBackend.Custom
                 ? ResLoaderRequest.Custom(customKey, ownerName)
                 : ResLoaderRequest.For(backend, ownerName);
+        }
+
+        private static string GetLoaderKey(ResLoaderRequest resolvedRequest)
+        {
+            return resolvedRequest.Backend == ResLoadBackend.Custom
+                ? NormalizeCustomKey(resolvedRequest.CustomKey)
+                : BackendToKey(resolvedRequest.Backend);
         }
 
         /// <summary>
