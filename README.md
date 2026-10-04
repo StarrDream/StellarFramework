@@ -2,9 +2,9 @@
 
 StellarFramework 是面向 Unity 项目的模块化 C# 框架。本仓库提供可在 Unity Hub 中打开的完整工程：可以运行 Tank Arena 案例，也可以从导出器中选择需要的 Kit、适配器和工具，再将生成的 `.unitypackage` 导入自己的项目。
 
-发布版本：**1.0.2**
+发布版本：**1.0.3**
 
-源码提交：[f58b3ade29b37c0c3dbdc0b375f281296b2558d0](https://github.com/StarrDream/StellarFramework.Dev/commit/f58b3ade29b37c0c3dbdc0b375f281296b2558d0)
+源码提交：[fba5bb700554e5aafe6472e421bcb8523a84cb87](https://github.com/StarrDream/StellarFramework.Dev/commit/fba5bb700554e5aafe6472e421bcb8523a84cb87)
 
 ## 环境要求
 
@@ -13,9 +13,19 @@ StellarFramework 是面向 Unity 项目的模块化 C# 框架。本仓库提供�
 
 ## 框架概览
 
-StellarFramework 将常用游戏基础能力拆成可独立导出和组合的 Kit。Runtime Kit 提供项目代码调用的接口；适配器负责接入具体实现；Tools Hub 提供安装、配置、诊断和导出入口。项目可以只带需要的 Kit，不必把整套框架源码放进游戏工程。
+框架按“基础运行时 → 功能 Kit → Adapter / Provider → Unity 或第三方实现”分层。游戏代码调用 Kit 提供的接口；适配器负责连接具体后端。Tools Hub 属于 Editor 工具，用于安装、配置、诊断和导出，不是 Player 运行时依赖。
 
-资源能力由 ResKit 统一管理。Resources、AssetBundle、Addressables（AA）和 YooAsset 是可选的加载后端；YooAsset 内容更新与 HybridCLR 代码更新分别作为 ResKit 扩展接入，可以按项目需要单独组合。LocalizationKit、UIAdaptationKit、UIKit 等能力也可以分别选择。
+资源能力由 ResKit 统一管理。Resources、AssetBundle、Addressables（AA）和 YooAsset 提供可选的资源加载后端；YooAsset 内容更新和 HybridCLR 代码更新作为独立 Provider 接入 ResKit，可分别选择和组合。
+
+| 能力范围 | 主要 Kit |
+| --- | --- |
+| 基础服务与流程 | LogKit、EventKit、TimeKit、PoolKit、SingletonKit、BindableKit、FSMKit、ActionKit |
+| 数据与配置 | ConfigKit、SaveKit、SettingsKit |
+| 资源与更新 | ResKit、Resources / AssetBundle / Addressables / YooAsset Adapter、YooAsset 内容更新、HybridCLR 代码更新 |
+| UI 与表现 | UIKit、UIAdaptationKit、LocalizationKit、AudioKit |
+| 网络 | HttpKit |
+
+Kit 的可选组件、依赖和独立导出 Profile 以随仓 Kit Catalog 为准。
 
 本仓库同时包含完整 Unity 示例工程，适合先运行案例了解框架，再通过导出器获取项目需要的部分。
 

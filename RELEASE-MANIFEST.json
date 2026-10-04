@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
   "product": "StellarFramework",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "repository": "StarrDream/StellarFramework",
   "sourceRepository": "StarrDream/StellarFramework.Dev",
-  "sourceCommit": "f58b3ade29b37c0c3dbdc0b375f281296b2558d0",
+  "sourceCommit": "fba5bb700554e5aafe6472e421bcb8523a84cb87",
   "profile": "General",
   "domains": [],
   "profileIds": [
