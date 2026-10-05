@@ -34,7 +34,7 @@ ResKit 提供统一资源入口。Resources、AssetBundle、Addressables (AA) �
 
 ## 架构介绍
 
-`StellarFramework.cs` 定义 MSV 基础架构。`Architecture<T>` 注册 Model 和 Service，管理初始化、查询与销毁；View 通过只读架构接口读取 Model，并把交互交给 Service。Service 承担应用操作并访问 Model。状态变更通知可按需组合 BindableKit。
+`StellarFramework.cs` 定义 MSV 基础架构。`Architecture<T>` 注册 Model 和 Service，管理初始化、查询与销毁；View 通过只读架构接口读取 Model，并把交互交给 Service。Service 承担应用操作并更新 Model。架构只定义模块职责和访问边界，不规定状态通知实现。
 
 ~~~mermaid
 flowchart LR
@@ -44,7 +44,6 @@ flowchart LR
     View["View<br/>StellarView / Unity UI"] -->|"交互：调用"| Service
     Service -->|"读取 / 更新"| Model
     View -->|"只读查询"| Model
-    Model -. "可选：BindableKit 状态通知" .-> View
 ~~~
 
 源码位于 `Assets/StellarFramework/Runtime/Core/Architecture/StellarFramework.cs`。阅读 [MSV 架构说明](https://github.com/StarrDream/StellarFramework.Dev/blob/d4c9ad1292cfec8c19a057ccaefb72a555fb8fdd/Assets/StellarFramework/FrameworkDoc/01-Architecture/Architecture/Architecture-MSV-架构说明文档-Guide.md) 或 [架构源码文档](https://github.com/StarrDream/StellarFramework.Dev/blob/d4c9ad1292cfec8c19a057ccaefb72a555fb8fdd/Assets/StellarFramework/FrameworkDoc/01-Architecture/Architecture/Architecture-MSV-架构源码文档-Guide.md)。
