@@ -12,8 +12,6 @@ Open the repository in Unity Hub and wait for imports to finish. Run Tank Arena,
 
 Sample scene: `Assets/StellarFramework/Samples/TankArena/Scene/FrameworkDemo.unity`. Scripts, prefabs, and art assets are included in the Sample. See the [Tank Arena case study](Assets/StellarFramework/Samples/TankArena/CaseStudy.md) for gameplay and Kit integration.
 
-Friend link: [QFramework](https://github.com/liangxiegame/QFramework)
-
 ## Requirements
 
 - Unity Editor 2022.3.62f3c1
@@ -79,3 +77,7 @@ Choose Kits by task. Tools Hub exports an individual Kit, a Profile, or a combin
 
 - [StellarFramework.Extensions](https://github.com/StarrDream/StellarFramework.Extensions): extension Kits for Algorithms, World, and Flow.
 - [StellarFramework.Dev](https://github.com/StarrDream/StellarFramework.Dev): framework source, tools, and release project.
+
+## Friend link
+
+- [QFramework](https://github.com/liangxiegame/QFramework)

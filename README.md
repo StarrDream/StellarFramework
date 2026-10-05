@@ -12,8 +12,6 @@ Dev 源码提交：[d4c9ad1292cfec8c19a057ccaefb72a555fb8fdd](https://github.com
 
 案例场景：`Assets/StellarFramework/Samples/TankArena/Scene/FrameworkDemo.unity`。脚本、预制体和美术资源均随 Sample 提供；玩法与 Kit 协作见 [Tank Arena 案例说明](Assets/StellarFramework/Samples/TankArena/CaseStudy.md)。
 
-友情链接：[QFramework 开源框架](https://github.com/liangxiegame/QFramework)
-
 ## 环境要求
 
 - Unity Editor 2022.3.62f3c1
@@ -79,3 +77,7 @@ flowchart LR
 
 - [StellarFramework.Extensions 拓展仓](https://github.com/StarrDream/StellarFramework.Extensions)：Algorithms、World、Flow 扩展 Kit。
 - [StellarFramework.Dev 开发仓](https://github.com/StarrDream/StellarFramework.Dev)：框架源码、工具和发布工程。
+
+## 友情链接
+
+- [QFramework 开源框架](https://github.com/liangxiegame/QFramework)
