@@ -1,69 +1,83 @@
 # StellarFramework
 
-StellarFramework is a modular C# framework for Unity projects. This repository is a complete Unity project: run the Tank Arena sample, or use the exporter to select Kits, adapters, and tools and create a `.unitypackage` for your own project.
+A modular C# framework for Unity projects. This repository contains the runnable Tank Arena case study and the Kit export project. Run the sample, then select the capabilities your project needs in Tools Hub.
 
 Release: **1.0.3**
 
-Source commit: [fba5bb700554e5aafe6472e421bcb8523a84cb87](https://github.com/StarrDream/StellarFramework.Dev/commit/fba5bb700554e5aafe6472e421bcb8523a84cb87)
-
-## Requirements
-
-- Unity Editor **2022.3.62f3c1**
-- Unity Package Manager access on first open to resolve dependencies in `Packages/manifest.json`
+Dev source commit: [4eaff35790c217c9d65994b9d95788865aa458e5](https://github.com/StarrDream/StellarFramework.Dev/commit/4eaff35790c217c9d65994b9d95788865aa458e5)
 
 ## Framework overview
 
-The framework is organized in layers: **Runtime foundation → feature Kits → adapters/providers → Unity or third-party implementations**. Game code calls Kit APIs, while adapters connect those APIs to selected backends. Tools Hub is an Editor tool for setup, configuration, diagnostics, and export; it is not a Player runtime dependency.
+Open the repository in Unity Hub and wait for imports to finish. Run Tank Arena, or select individual Kits, Profiles, and resource backends from **StellarFramework → Export** to create a unitypackage. Import it into your Unity project and install any UPM dependencies listed in the package manifest.
 
-ResKit provides the common entry point for resource operations. Resources, AssetBundle, Addressables (AA), and YooAsset are selectable loading adapters. YooAsset content updates and HybridCLR code updates are separate Providers, so projects can select and combine them independently.
+Sample scene: `Assets/StellarFramework/Samples/TankArena/Scene/FrameworkDemo.unity`. Scripts, prefabs, and art assets are included in the Sample. See the [Tank Arena case study](Assets/StellarFramework/Samples/TankArena/CaseStudy.md) for gameplay and Kit integration.
 
-| Capability | Main Kits |
+## Requirements
+
+- Unity Editor 2022.3.62f3c1
+- Unity Package Manager access on first open to resolve `Packages/manifest.json`
+- Unity Editor is required to run the sample or export Kits, not to read the documentation
+
+## Framework concepts
+
+| Concept | Description |
 | --- | --- |
-| Foundation and flow | LogKit, EventKit, TimeKit, PoolKit, SingletonKit, BindableKit, FSMKit, ActionKit |
-| Data and configuration | ConfigKit, SaveKit, SettingsKit |
-| Resources and updates | ResKit, Resources / AssetBundle / Addressables / YooAsset adapters, YooAsset content updates, HybridCLR code updates |
-| UI and presentation | UIKit, UIAdaptationKit, LocalizationKit, AudioKit |
-| Networking | HttpKit |
+| Runtime | Framework foundation; add Kits as needed |
+| Kit | A focused capability such as ResKit, UIKit, or LocalizationKit |
+| Adapter / Provider | Connects a Kit to a backend; loading, content updates, and code updates are selectable independently |
+| Profile | An exportable selection of Kits and adapters; use individually or combine |
+| Tools Hub | Editor setup, build, diagnostics, and export tools; not part of the game Player |
 
-The Kit Catalog in this repository defines optional components, dependencies, and individual export Profiles.
+ResKit provides the shared resource entry point. Resources, AssetBundle, Addressables (AA), and YooAsset are optional loading backends. The YooAsset content update Provider manages resource content; the HybridCLR code update Provider manages hot-update assemblies.
 
-This repository is also a complete Unity sample project. Run the case study first, then use the exporter to bring selected Kits into your own project.
+## Architecture
 
-## Quick start
+`StellarFramework.cs` defines the MSV foundation. `Architecture<T>` registers Models and Services and manages initialization, lookup, and disposal. A View reads Models through the read-only architecture interface and sends interactions to a Service. Services perform application operations and access Models. BindableKit can be added for state notifications.
 
-1. Clone this repository, or download and extract its GitHub ZIP.
-2. Add the repository directory in Unity Hub and open the project. Wait for asset import and package resolution to finish.
-3. Open `Assets/StellarFramework/Samples/TankArena/Scene/FrameworkDemo.unity`, wait for script compilation, and press Play.
-4. On a touch screen, use the left stick to move and the right stick to aim. On desktop, use WASD, the mouse, and Space.
+~~~mermaid
+flowchart LR
+    Startup["Game startup"] -->|"Init / lifecycle"| Architecture["Architecture<T><br/>registration, lookup, lifecycle"]
+    Architecture -->|"register / initialize"| Model["Model<br/>application state and data"]
+    Architecture -->|"register / initialize"| Service["Service<br/>application operations and flow"]
+    View["View<br/>StellarView / Unity UI"] -->|"interaction: call"| Service
+    Service -->|"read / update"| Model
+    View -->|"read-only query"| Model
+    Model -. "optional: BindableKit state notification" .-> View
+~~~
 
-Tank Arena is a playable framework case study with enemy waves, repairs, pause and results screens, localization, local saves, and screen adaptation. Its SYSTEMS panel reports the Kits used by the sample. See `Assets/StellarFramework/Samples/TankArena/CaseStudy.md` for the gameplay flow, Kit responsibilities, and asset locations. To add individual capabilities to another project, continue with “Export Kits to your project” below.
+Source: `Assets/StellarFramework/Runtime/Core/Architecture/StellarFramework.cs`. Read the [MSV architecture guide](https://github.com/StarrDream/StellarFramework.Dev/blob/4eaff35790c217c9d65994b9d95788865aa458e5/Assets/StellarFramework/FrameworkDoc/01-Architecture/Architecture/Architecture-MSV-架构说明文档-Guide.md) or the [architecture source guide](https://github.com/StarrDream/StellarFramework.Dev/blob/4eaff35790c217c9d65994b9d95788865aa458e5/Assets/StellarFramework/FrameworkDoc/01-Architecture/Architecture/Architecture-MSV-架构源码文档-Guide.md).
 
-The Editor preview runs the locally compiled sample assembly. It does not download remote hot-update content or exercise the publishing workflow.
+## Kit guide
 
-## Export Kits to your project
+Choose Kits by task. Tools Hub exports an individual Kit, a Profile, or a combination of resource backends.
 
-1. Open this project in Unity and select **StellarFramework → Export**.
-2. Choose one Profile, a recommended combination, or multiple adapters.
-3. Review the framework and UPM dependencies in the export summary, then export the `.unitypackage`.
-4. In your Unity project, select **Assets → Import Package → Custom Package…** and import the file. Let the package installer finish configuring dependencies.
+| Use case | Kit | What it does | Guide |
+| --- | --- | --- | --- |
+| Foundation and flow | LogKit | Categorized logging and runtime diagnostics | [Guide](Assets/StellarFramework/FrameworkDoc/02-Kits/LogKit/LogKit-PerformanceKit-说明文档-Guide.md) |
+| Foundation and flow | EventKit | Publish and subscribe to typed events | [Guide](Assets/StellarFramework/FrameworkDoc/02-Kits/EventKit/EventKit-事件系统-说明文档-Guide.md) |
+| Foundation and flow | BindableKit | Observable data and change notifications | [Guide](Assets/StellarFramework/FrameworkDoc/02-Kits/BindableKit/BindableKit-数据绑定-说明文档-Guide.md) |
+| Foundation and flow | ActionKit | Compose and run reusable actions | [Guide](Assets/StellarFramework/FrameworkDoc/02-Kits/ActionKit/ActionKit-动作系统-说明文档-Guide.md) |
+| Foundation and flow | FSMKit | State transitions and lifecycle | [Guide](Assets/StellarFramework/FrameworkDoc/02-Kits/FSMKit/FSMKit-状态机-说明文档-Guide.md) |
+| Foundation and flow | TimeKit | Shared time and timer control | [Guide](Assets/StellarFramework/FrameworkDoc/02-Kits/TimeKit/TimeKit-时间系统-说明文档-Guide.md) |
+| Foundation and flow | PoolKit | Object reuse and allocation management | [Guide](Assets/StellarFramework/FrameworkDoc/02-Kits/PoolKit/PoolKit-对象池-说明文档-Guide.md) |
+| Foundation and flow | SingletonKit | Register singleton objects and manage their lifecycle | [Guide](Assets/StellarFramework/FrameworkDoc/02-Kits/SingletonKit/SingletonKit-单例系统-说明文档-Guide.md) |
+| Data and configuration | ConfigKit | Load and access project configuration | [Guide](Assets/StellarFramework/FrameworkDoc/02-Kits/ConfigKit/ConfigKit-配置系统-说明文档-Guide.md) |
+| Data and configuration | SaveKit | Save data read/write and serialization adapters | [Guide](Assets/StellarFramework/FrameworkDoc/02-Kits/SaveKit/SaveKit-存档系统-说明文档-Guide.md) |
+| Data and configuration | SettingsKit | Player settings and storage adapters | [Guide](Assets/StellarFramework/FrameworkDoc/02-Kits/SettingsKit/SettingsKit-设置系统-说明文档-Guide.md) |
+| Resources and updates | ResKit | Shared resource loading and release API | [Guide](Assets/StellarFramework/FrameworkDoc/02-Kits/Reskit/ResKit-统一资源-说明文档-Guide.md) |
+| Resources and updates | Resources / AssetBundle / Addressables (AA) | Optional backends; export separately or combine them | [Backend guide](Assets/StellarFramework/FrameworkDoc/02-Kits/Reskit/ResKit-统一资源-说明文档-Guide.md) |
+| Resources and updates | YooAsset | ResKit resource backend; content update Provider manages versions, downloads, and cache | [Resource guide](Assets/StellarFramework/FrameworkDoc/02-Kits/Reskit/ResKit-统一资源-说明文档-Guide.md) |
+| Resources and updates | HybridCLR | Optional ResKit code update Provider | [Usage guide](Assets/StellarFramework/FrameworkDoc/02-Kits/Reskit/CodeUpdate/HybridCLR/ResKit-CodeUpdate-HybridCLR-说明文档-Guide.md) |
+| UI and presentation | UIKit | UI panel lifecycle, open, and close | [Guide](Assets/StellarFramework/FrameworkDoc/02-Kits/UIKit/UIKit-界面系统-说明文档-Guide.md) |
+| UI and presentation | UIAdaptationKit | Safe area and screen layout adaptation | [Guide](Assets/StellarFramework/FrameworkDoc/02-Kits/UIAdaptationKit/UIAdaptationKit-说明文档-Guide.md) |
+| UI and presentation | LocalizationKit | Language switching and UGUI/TMP localization binding | [Guide](Assets/StellarFramework/FrameworkDoc/02-Kits/LocalizationKit/LocalizationKit-Guide.md) |
+| UI and presentation | AudioKit | Sound and music playback with resource integration | [Guide](Assets/StellarFramework/FrameworkDoc/02-Kits/AudioKit/AudioKit-音频系统-说明文档-Guide.md) |
+| Networking | HttpKit | Asynchronous HTTP requests and response handling | [Guide](Assets/StellarFramework/FrameworkDoc/02-Kits/HttpKit/HttpKit-网络请求-说明文档-Guide.md) |
 
-The exporter resolves framework dependencies, removes duplicate dependencies in combined exports, and includes a dependency manifest in each package. Resources, AssetBundle, and Addressables (AA) can be exported independently; they can also be combined, for example Resources + AssetBundle. Install third-party UPM dependencies listed by the package. Kit prerequisites and setup examples are under `Assets/StellarFramework/FrameworkDoc/02-Kits`.
+## Release links
 
-Resource loading, content updates, and C# code updates are separate ResKit extensions. YooAsset provides resource loading and content update capabilities; HybridCLR provides code loading. The Addressables adapter handles ResKit loading and release, but does not orchestrate StellarFramework content updates. See `Assets/StellarFramework/FrameworkDoc/01-Architecture/ResourceAndCodeUpdatePlugins.md` for the design and integration flow.
-
-## Find a guide
-
-| Task | Documentation |
-| --- | --- |
-| Resource loading, AssetBundle, Addressables, or YooAsset | `FrameworkDoc/02-Kits/Reskit` |
-| Localization and TMP/UGUI adapters | `FrameworkDoc/02-Kits/LocalizationKit` |
-| Safe areas and screen layouts | `FrameworkDoc/02-Kits/UIAdaptationKit` |
-| UI panels and resource loading strategies | `FrameworkDoc/02-Kits/UIKit` |
-| Code hot update and publishing | `FrameworkDoc/02-Kits/Reskit/CodeUpdate/HybridCLR` |
-| Tools Hub | `FrameworkDoc/04-ToolsHub` |
-
-Algorithms, World, and Flow are published in [StellarFramework.Extensions](https://github.com/StarrDream/StellarFramework.Extensions). Use the Extensions release that matches this General release.
-
-## Release contents
-
-`RELEASE-MANIFEST.json` records the Dev source commit, included Profiles, external UPM dependencies, and file count. Framework source and release templates are maintained in [StellarFramework.Dev](https://github.com/StarrDream/StellarFramework.Dev). Make framework source changes there.
+- [GitHub Releases](https://github.com/StarrDream/StellarFramework/releases): download a published version.
+- [StellarFramework.Extensions](https://github.com/StarrDream/StellarFramework.Extensions): Algorithms, World, and Flow extensions; use the same release version.
+- [StellarFramework.Dev](https://github.com/StarrDream/StellarFramework.Dev): framework development source.
+- [Tank Arena case study](Assets/StellarFramework/Samples/TankArena/CaseStudy.md)
+- [RELEASE-MANIFEST.json](RELEASE-MANIFEST.json): source commit, Profiles, and external dependencies.
