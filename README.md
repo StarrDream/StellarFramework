@@ -4,7 +4,7 @@ StellarFramework 是面向 Unity 项目的模块化 C# 框架。此仓库包含�
 
 发布版本：**1.0.4**
 
-Dev 源码提交：[af86ebbca25b21566fbc49ab914f9adc35a177e9](https://github.com/StarrDream/StellarFramework.Dev/commit/af86ebbca25b21566fbc49ab914f9adc35a177e9)
+Dev 源码提交：[5b4d565321af62b204da73658d597e5080538b80](https://github.com/StarrDream/StellarFramework.Dev/commit/5b4d565321af62b204da73658d597e5080538b80)
 
 ## 框架主体介绍
 
@@ -44,7 +44,7 @@ flowchart LR
     View -->|"只读查询"| Model
 ~~~
 
-源码位于 `Assets/StellarFramework/Runtime/Core/Architecture/StellarFramework.cs`。阅读 [MSV 架构说明](https://github.com/StarrDream/StellarFramework.Dev/blob/af86ebbca25b21566fbc49ab914f9adc35a177e9/Assets/StellarFramework/FrameworkDoc/01-Architecture/Architecture/Architecture-MSV-架构说明文档-Guide.md) 或 [架构源码文档](https://github.com/StarrDream/StellarFramework.Dev/blob/af86ebbca25b21566fbc49ab914f9adc35a177e9/Assets/StellarFramework/FrameworkDoc/01-Architecture/Architecture/Architecture-MSV-架构源码文档-Guide.md)。
+源码位于 `Assets/StellarFramework/Runtime/Core/Architecture/StellarFramework.cs`。阅读 [MSV 架构说明](https://github.com/StarrDream/StellarFramework.Dev/blob/5b4d565321af62b204da73658d597e5080538b80/Assets/StellarFramework/FrameworkDoc/01-Architecture/Architecture/Architecture-MSV-架构说明文档-Guide.md) 或 [架构源码文档](https://github.com/StarrDream/StellarFramework.Dev/blob/5b4d565321af62b204da73658d597e5080538b80/Assets/StellarFramework/FrameworkDoc/01-Architecture/Architecture/Architecture-MSV-架构源码文档-Guide.md)。
 
 ## Kit 介绍
 

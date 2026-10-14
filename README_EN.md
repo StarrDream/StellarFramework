@@ -4,7 +4,7 @@ A modular C# framework for Unity projects. This repository contains the runnable
 
 Release: **1.0.4**
 
-Dev source commit: [af86ebbca25b21566fbc49ab914f9adc35a177e9](https://github.com/StarrDream/StellarFramework.Dev/commit/af86ebbca25b21566fbc49ab914f9adc35a177e9)
+Dev source commit: [5b4d565321af62b204da73658d597e5080538b80](https://github.com/StarrDream/StellarFramework.Dev/commit/5b4d565321af62b204da73658d597e5080538b80)
 
 ## Framework overview
 
@@ -44,7 +44,7 @@ flowchart LR
     View -->|"read-only query"| Model
 ~~~
 
-Source: `Assets/StellarFramework/Runtime/Core/Architecture/StellarFramework.cs`. Read the [MSV architecture guide](https://github.com/StarrDream/StellarFramework.Dev/blob/af86ebbca25b21566fbc49ab914f9adc35a177e9/Assets/StellarFramework/FrameworkDoc/01-Architecture/Architecture/Architecture-MSV-架构说明文档-Guide.md) or the [architecture source guide](https://github.com/StarrDream/StellarFramework.Dev/blob/af86ebbca25b21566fbc49ab914f9adc35a177e9/Assets/StellarFramework/FrameworkDoc/01-Architecture/Architecture/Architecture-MSV-架构源码文档-Guide.md).
+Source: `Assets/StellarFramework/Runtime/Core/Architecture/StellarFramework.cs`. Read the [MSV architecture guide](https://github.com/StarrDream/StellarFramework.Dev/blob/5b4d565321af62b204da73658d597e5080538b80/Assets/StellarFramework/FrameworkDoc/01-Architecture/Architecture/Architecture-MSV-架构说明文档-Guide.md) or the [architecture source guide](https://github.com/StarrDream/StellarFramework.Dev/blob/5b4d565321af62b204da73658d597e5080538b80/Assets/StellarFramework/FrameworkDoc/01-Architecture/Architecture/Architecture-MSV-架构源码文档-Guide.md).
 
 ## Kit guide
 
