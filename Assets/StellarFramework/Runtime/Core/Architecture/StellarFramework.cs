@@ -76,43 +76,17 @@ namespace StellarFramework
 
     public static class StellarArchitectureExtensions
     {
-        [Obsolete("View 不应直接持有可变 Model，请改用 GetReadOnlyModel<T>().")]
-        public static T GetModel<T>(this IView view) where T : class, IModel
-        {
-            if (view == null)
-            {
-                LogKit.LogError($"[StellarFramework] GetModel 失败: view 为空, ModelType={typeof(T).Name}");
-                return null;
-            }
-
-            if (view.Architecture == null)
-            {
-                LogKit.LogError(
-                    $"[StellarFramework] GetModel 失败: View 未指定 Architecture, ViewType={view.GetType().Name}, ModelType={typeof(T).Name}");
-                return null;
-            }
-
-            if (view.Architecture is IArchitecture mutableArchitecture)
-            {
-                return mutableArchitecture.GetModel<T>();
-            }
-
-            LogKit.LogError(
-                $"[StellarFramework] GetModel 失败: 当前 View 仅暴露只读架构接口, ViewType={view.GetType().Name}, ModelType={typeof(T).Name}");
-            return null;
-        }
-
         public static T GetReadOnlyModel<T>(this IView view) where T : class, IReadOnlyModel
         {
             if (view == null)
             {
-                LogKit.LogError($"[StellarFramework] GetReadOnlyModel 失败: view 为空, ModelType={typeof(T).Name}");
+                Debug.LogError($"[StellarFramework] GetReadOnlyModel 失败: view 为空, ModelType={typeof(T).Name}");
                 return null;
             }
 
             if (view.Architecture == null)
             {
-                LogKit.LogError(
+                Debug.LogError(
                     $"[StellarFramework] GetReadOnlyModel 失败: View 未指定 Architecture, ViewType={view.GetType().Name}, ModelType={typeof(T).Name}");
                 return null;
             }
@@ -124,13 +98,13 @@ namespace StellarFramework
         {
             if (view == null)
             {
-                LogKit.LogError($"[StellarFramework] GetService 失败: view 为空, ServiceType={typeof(T).Name}");
+                Debug.LogError($"[StellarFramework] GetService 失败: view 为空, ServiceType={typeof(T).Name}");
                 return null;
             }
 
             if (view.Architecture == null)
             {
-                LogKit.LogError(
+                Debug.LogError(
                     $"[StellarFramework] GetService 失败: View 未指定 Architecture, ViewType={view.GetType().Name}, ServiceType={typeof(T).Name}");
                 return null;
             }
@@ -184,20 +158,20 @@ namespace StellarFramework
         {
             if (_state == ArchitectureState.Initialized)
             {
-                LogKit.LogWarning($"[StellarFramework] 架构重复 Init 已忽略, Architecture={typeof(T).Name}, State={_state}");
+                Debug.LogWarning($"[StellarFramework] 架构重复 Init 已忽略, Architecture={typeof(T).Name}, State={_state}");
                 return;
             }
 
             if (_state == ArchitectureState.Initializing || _state == ArchitectureState.Disposing)
             {
-                LogKit.LogError(
+                Debug.LogError(
                     $"[StellarFramework] 架构 Init 失败: 当前处于中间态, Architecture={typeof(T).Name}, State={_state}");
                 return;
             }
 
             if (_state == ArchitectureState.Disposed)
             {
-                LogKit.LogError(
+                Debug.LogError(
                     $"[StellarFramework] 架构 Init 失败: 当前实例已销毁, Architecture={typeof(T).Name}, State={_state}. 请通过 {typeof(T).Name}.Interface 获取新实例后再调用 Init。");
                 return;
             }
@@ -261,7 +235,7 @@ namespace StellarFramework
             }
 
             _state = ArchitectureState.Initialized;
-            LogKit.Log(
+            Debug.Log(
                 $"[StellarFramework] 架构启动成功: {typeof(T).Name} | Models={_models.Count}, Services={_services.Count}");
         }
 
@@ -278,7 +252,7 @@ namespace StellarFramework
 
             if (_state == ArchitectureState.Initializing || _state == ArchitectureState.Disposing)
             {
-                LogKit.LogWarning(
+                Debug.LogWarning(
                     $"[StellarFramework] 架构 Dispose 已忽略: 生命周期正在执行, Architecture={typeof(T).Name}, State={_state}");
                 return;
             }
@@ -293,7 +267,7 @@ namespace StellarFramework
             }
 
             _state = ArchitectureState.Disposed;
-            LogKit.Log($"[StellarFramework] 架构已销毁: {typeof(T).Name}");
+            Debug.Log($"[StellarFramework] 架构已销毁: {typeof(T).Name}");
             if (deinitErrors.Count > 0)
             {
                 throw new AggregateException(
@@ -370,21 +344,21 @@ namespace StellarFramework
         {
             if (model == null)
             {
-                LogKit.LogError(
+                Debug.LogError(
                     $"[StellarFramework] RegisterModel 失败: model 为空, Architecture={typeof(T).Name}, ModelType={typeof(TM).Name}");
                 return;
             }
 
             if (_state != ArchitectureState.Initializing && _state != ArchitectureState.Uninitialized)
             {
-                LogKit.LogError(
+                Debug.LogError(
                     $"[StellarFramework] RegisterModel 失败: 禁止在运行期动态注册, Architecture={typeof(T).Name}, ModelType={typeof(TM).Name}, State={_state}");
                 return;
             }
 
             if (_models.ContainsKey(typeof(TM)))
             {
-                LogKit.LogError(
+                Debug.LogError(
                     $"[StellarFramework] RegisterModel 失败: 重复注册, Architecture={typeof(T).Name}, ModelType={typeof(TM).Name}");
                 return;
             }
@@ -398,21 +372,21 @@ namespace StellarFramework
         {
             if (service == null)
             {
-                LogKit.LogError(
+                Debug.LogError(
                     $"[StellarFramework] RegisterService 失败: service 为空, Architecture={typeof(T).Name}, ServiceType={typeof(TS).Name}");
                 return;
             }
 
             if (_state != ArchitectureState.Initializing && _state != ArchitectureState.Uninitialized)
             {
-                LogKit.LogError(
+                Debug.LogError(
                     $"[StellarFramework] RegisterService 失败: 禁止在运行期动态注册, Architecture={typeof(T).Name}, ServiceType={typeof(TS).Name}, State={_state}");
                 return;
             }
 
             if (_services.ContainsKey(typeof(TS)))
             {
-                LogKit.LogError(
+                Debug.LogError(
                     $"[StellarFramework] RegisterService 失败: 重复注册, Architecture={typeof(T).Name}, ServiceType={typeof(TS).Name}");
                 return;
             }
@@ -429,7 +403,7 @@ namespace StellarFramework
         {
             if (_state != ArchitectureState.Initialized && _state != ArchitectureState.Initializing)
             {
-                LogKit.LogError(
+                Debug.LogError(
                     $"[StellarFramework] GetModel 失败: 架构状态非法, Architecture={typeof(T).Name}, ModelType={typeof(TM).Name}, State={_state}");
                 return null;
             }
@@ -439,7 +413,7 @@ namespace StellarFramework
                 return model as TM;
             }
 
-            LogKit.LogError(
+            Debug.LogError(
                 $"[StellarFramework] GetModel 失败: 未注册, Architecture={typeof(T).Name}, ModelType={typeof(TM).Name}, State={_state}");
             return null;
         }
@@ -448,7 +422,7 @@ namespace StellarFramework
         {
             if (_state != ArchitectureState.Initialized && _state != ArchitectureState.Initializing)
             {
-                LogKit.LogError(
+                Debug.LogError(
                     $"[StellarFramework] GetService 失败: 架构状态非法, Architecture={typeof(T).Name}, ServiceType={typeof(TS).Name}, State={_state}");
                 return null;
             }
@@ -458,7 +432,7 @@ namespace StellarFramework
                 return service as TS;
             }
 
-            LogKit.LogError(
+            Debug.LogError(
                 $"[StellarFramework] GetService 失败: 未注册, Architecture={typeof(T).Name}, ServiceType={typeof(TS).Name}, State={_state}");
             return null;
         }
@@ -467,7 +441,7 @@ namespace StellarFramework
         {
             if (_state != ArchitectureState.Initialized && _state != ArchitectureState.Initializing)
             {
-                LogKit.LogError(
+                Debug.LogError(
                     $"[StellarFramework] GetReadOnlyModel 失败: 架构状态非法, Architecture={typeof(T).Name}, ModelType={typeof(TR).Name}, State={_state}");
                 return null;
             }
@@ -477,7 +451,7 @@ namespace StellarFramework
                 return model as TR;
             }
 
-            LogKit.LogError(
+            Debug.LogError(
                 $"[StellarFramework] GetReadOnlyModel 失败: 未注册只读模型契约, Architecture={typeof(T).Name}, ModelType={typeof(TR).Name}, State={_state}");
             return null;
         }
@@ -497,7 +471,7 @@ namespace StellarFramework
 
                 if (_readOnlyModels.ContainsKey(contractType))
                 {
-                    LogKit.LogError(
+                    Debug.LogError(
                         $"[StellarFramework] RegisterReadOnlyModelContracts 失败: 只读模型契约重复注册, Architecture={typeof(T).Name}, ContractType={contractType.Name}");
                     continue;
                 }
@@ -540,7 +514,7 @@ namespace StellarFramework
         {
             if (Architecture == null)
             {
-                LogKit.LogError(
+                Debug.LogError(
                     $"[StellarFramework] Service.GetModel 失败: Architecture 为空, ServiceType={GetType().Name}, ModelType={typeof(T).Name}");
                 return null;
             }
@@ -552,7 +526,7 @@ namespace StellarFramework
         {
             if (Architecture == null)
             {
-                LogKit.LogError(
+                Debug.LogError(
                     $"[StellarFramework] Service.GetService 失败: Architecture 为空, ServiceType={GetType().Name}, TargetServiceType={typeof(T).Name}");
                 return null;
             }

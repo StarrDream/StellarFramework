@@ -124,6 +124,7 @@ namespace StellarFramework.Editor
             if (path.StartsWith("Assets/AddressableAssetsData/", StringComparison.Ordinal)) return false;
             if (path.StartsWith("Assets/HybridCLRGenerate/", StringComparison.Ordinal)) return false;
             if (path.StartsWith("Assets/StellarFrameworkVerification/", StringComparison.Ordinal)) return false;
+            if (path.StartsWith("Assets/HotUpdatePublisherConsumerE2E/", StringComparison.Ordinal)) return false;
             if (path.StartsWith("Assets/StellarFrameworkBootstrap/", StringComparison.Ordinal)) return false;
             if (path.StartsWith("Assets/StreamingAssets/", StringComparison.Ordinal)) return false;
             if (path.StartsWith("Assets/docs/", StringComparison.OrdinalIgnoreCase)) return false;

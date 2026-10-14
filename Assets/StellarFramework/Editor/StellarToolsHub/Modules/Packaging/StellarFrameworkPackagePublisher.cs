@@ -41,7 +41,8 @@ namespace StellarFramework.Editor.Modules
                 },
                 { "com.unity.nuget.newtonsoft-json", "com.unity.nuget.newtonsoft-json@3.2.2" },
                 { "com.unity.addressables", "com.unity.addressables@1.22.3" },
-                { "com.unity.test-framework", "com.unity.test-framework@1.1.33" },
+                // Pinned YooAsset / Addressables Editor code references NUnit even without consumer tests.
+                { "com.unity.ext.nunit", "com.unity.ext.nunit@1.0.6" },
                 { "com.unity.ugui", "com.unity.ugui@1.0.0" },
                 { "com.unity.textmeshpro", "com.unity.textmeshpro@3.0.7" },
                 {
@@ -354,7 +355,7 @@ namespace StellarFramework.Editor.Modules
             string temporaryPayloadPath = CreateTemporaryPayloadPath();
             try
             {
-                AssetDatabase.ExportPackage(payloadAssetPaths, temporaryPayloadPath, ExportPackageOptions.Recurse);
+                ExportSelectedPayload(payloadAssetPaths, temporaryPayloadPath);
                 bootstrapAssetPaths = CreateKitBootstrapAssets(closure, profile.output, profile.displayName,
                     payloadAssetPaths, temporaryPayloadPath);
                 AssetDatabase.ExportPackage(bootstrapAssetPaths, outputPath, ExportPackageOptions.Recurse);
@@ -375,6 +376,12 @@ namespace StellarFramework.Editor.Modules
         /// This API is intentionally only compiled in the framework source project's Packaging directory.
         /// </summary>
         internal static string ExportKitPackageGroupInternal(IEnumerable<string> profileIds, string outputFileName)
+        {
+            return ExportKitPackageGroupToDirectoryInternal(profileIds, outputFileName, null, true);
+        }
+
+        internal static string ExportKitPackageGroupToDirectoryInternal(IEnumerable<string> profileIds, string outputFileName,
+            string outputDirectory, bool includeDocumentation)
         {
             string[] selectedIds = (profileIds ?? Enumerable.Empty<string>())
                 .Where(profileId => !string.IsNullOrWhiteSpace(profileId))
@@ -422,13 +429,14 @@ namespace StellarFramework.Editor.Modules
 
             ValidateProfileSourceAvailability(closure);
 
-            string[] payloadAssetPaths = GetAssetsForProfiles(closure);
+            string[] payloadAssetPaths = GetAssetsForProfiles(closure, includeDocumentation);
             if (payloadAssetPaths.Length == 0)
             {
                 throw new InvalidOperationException("Selected Kit profiles have no exportable assets.");
             }
 
-            string exportDirectory = ToProjectPath(KitExportRoot);
+            string exportDirectory = string.IsNullOrWhiteSpace(outputDirectory)
+                ? ToProjectPath(KitExportRoot) : Path.GetFullPath(outputDirectory);
             Directory.CreateDirectory(exportDirectory);
             string fileName = NormalizePackageFileName(outputFileName);
             string outputPath = Path.Combine(exportDirectory, fileName);
@@ -439,7 +447,7 @@ namespace StellarFramework.Editor.Modules
                 string displayName = string.Join(" + ", selectedProfiles
                     .Select(profile => profile.displayName)
                     .OrderBy(name => name, StringComparer.Ordinal));
-                AssetDatabase.ExportPackage(payloadAssetPaths, temporaryPayloadPath, ExportPackageOptions.Recurse);
+                ExportSelectedPayload(payloadAssetPaths, temporaryPayloadPath);
                 bootstrapAssetPaths = CreateKitBootstrapAssets(closure, fileName, displayName,
                     payloadAssetPaths, temporaryPayloadPath);
                 AssetDatabase.ExportPackage(bootstrapAssetPaths, outputPath, ExportPackageOptions.Recurse);
@@ -457,7 +465,8 @@ namespace StellarFramework.Editor.Modules
 
         internal static DistributionProfile[] GetSourceProjectExportProfiles()
         {
-            return LoadDistributionCatalog().profiles
+            DistributionCatalog catalog = LoadDistributionCatalog();
+            return catalog.profiles
                 .Where(profile => profile.availability == "available")
                 .Where(profile => profile.kind != "single-file" && profile.kind != "sample")
                 // Generated support is selected transitively with its owning Kit. It is not a useful standalone choice.
@@ -465,6 +474,9 @@ namespace StellarFramework.Editor.Modules
                 // Compatibility aliases remain resolvable by id but should not clutter the normal user-facing picker.
                 .Where(profile => profile.optionalCapabilities == null ||
                                   !profile.optionalCapabilities.Contains("LegacyDistributionAlias"))
+                .Where(profile => ResolveProfileClosure(catalog, profile).All(dependency =>
+                    (dependency.sourcePaths ?? Array.Empty<string>()).All(path =>
+                        File.Exists(ToProjectPath(path)) || Directory.Exists(ToProjectPath(path)))))
                 .OrderBy(profile => profile.displayName, StringComparer.Ordinal)
                 .ToArray();
         }
@@ -722,6 +734,7 @@ namespace StellarFramework.Editor.Modules
 
             string normalized = NormalizePath(assetPath);
             return IsPathInside(normalized, "Assets/StellarFramework")
+                   && !IsDevelopmentOnlyAsset(normalized)
                    && !BasePackageExcludedPrefixes.Any(prefix => normalized.StartsWith(prefix))
                    && !BasePackageExcludedExactPaths.Contains(normalized)
                    && !GeneratedArtifactPrefixes.Any(prefix => normalized.StartsWith(prefix));
@@ -742,7 +755,8 @@ namespace StellarFramework.Editor.Modules
                 return false;
             }
 
-            return !GeneratedArtifactPrefixes.Any(prefix => normalized.StartsWith(prefix))
+            return !IsDevelopmentOnlyAsset(normalized)
+                   && !GeneratedArtifactPrefixes.Any(prefix => normalized.StartsWith(prefix))
                    && !FullPayloadExcludedPrefixes.Any(prefix => normalized.StartsWith(prefix))
                    && !FullPayloadExcludedExactPaths.Contains(normalized);
         }
@@ -1075,13 +1089,93 @@ namespace StellarFramework.Editor.Modules
             return resolved;
         }
 
-        private static string[] GetAssetsForProfiles(IEnumerable<DistributionProfile> profiles)
+        private static string[] GetAssetsForProfiles(IEnumerable<DistributionProfile> profiles,
+            bool includeDocumentation = true)
         {
             return AssetDatabase.GetAllAssetPaths()
                 .Where(path => !AssetDatabase.IsValidFolder(path))
-                .Where(path => profiles.Any(profile => IsIncludedInProfile(path, profile)))
+                .Where(path => !IsDevelopmentOnlyAsset(path))
+                .Where(path => profiles.Any(profile => IsIncludedInProfile(path, profile, includeDocumentation)))
                 .OrderBy(path => path)
                 .ToArray();
+        }
+
+        private static void ExportSelectedPayload(string[] assetPaths, string outputPath)
+        {
+            const string mapPath = "Assets/StellarFramework/Generated/AssetMap/AssetsMap.cs";
+            if (!assetPaths.Contains(mapPath))
+            {
+                AssetDatabase.ExportPackage(assetPaths, outputPath, ExportPackageOptions.Recurse);
+                return;
+            }
+            string absolutePath = ToProjectPath(mapPath);
+            byte[] original = File.ReadAllBytes(absolutePath);
+            var shipped = new HashSet<string>(assetPaths, StringComparer.Ordinal);
+            string projected = Regex.Replace(File.ReadAllText(absolutePath),
+                @"^\s*public const string @?\w+ = ""(Assets/[^""\r\n]+)"";[^\r\n]*\r?\n",
+                match => shipped.Contains(match.Groups[1].Value) ? match.Value : string.Empty,
+                RegexOptions.Multiline);
+            string previous;
+            do
+            {
+                previous = projected;
+                projected = Regex.Replace(projected, @"\s*public static class (?!AssetsMap\b)@?\w+\s*\{\s*\}", string.Empty);
+            } while (previous != projected);
+
+            // Suspend imports while projecting this generated file. Restore exact original
+            // bytes before resuming, so the Dev project's map and GUID remain intact.
+            AssetDatabase.StartAssetEditing();
+            try
+            {
+                File.WriteAllText(absolutePath, projected, new UTF8Encoding(false));
+                AssetDatabase.ExportPackage(assetPaths, outputPath, ExportPackageOptions.Recurse);
+            }
+            finally
+            {
+                File.WriteAllBytes(absolutePath, original);
+                AssetDatabase.StopAssetEditing();
+            }
+        }
+
+        internal static ExportSelectionPreview PreviewExportSelection(IEnumerable<string> selectedIds,
+            bool includeDocumentation = true)
+        {
+            DistributionCatalog catalog = LoadDistributionCatalog();
+            var byId = catalog.profiles.ToDictionary(profile => profile.id, StringComparer.Ordinal);
+            string[] roots = selectedIds.Distinct(StringComparer.Ordinal).OrderBy(id => id, StringComparer.Ordinal).ToArray();
+            DistributionProfile[] closure = roots.SelectMany(id => ResolveProfileClosure(catalog, byId[id]))
+                .GroupBy(profile => profile.id).Select(group => group.First()).OrderBy(profile => profile.displayName).ToArray();
+            ValidateProfileSourceAvailability(closure);
+            return new ExportSelectionPreview
+            {
+                selectedProfiles = roots.Select(id => byId[id]).ToArray(),
+                dependencies = closure.Where(profile => !roots.Contains(profile.id)).ToArray(),
+                requiredUpm = GetRequiredUpm(closure),
+                assetCount = GetAssetsForProfiles(closure, includeDocumentation).Length
+            };
+        }
+
+        internal sealed class ExportSelectionPreview
+        {
+            public DistributionProfile[] selectedProfiles;
+            public DistributionProfile[] dependencies;
+            public string[] requiredUpm;
+            public int assetCount;
+        }
+
+        internal static bool IsDevelopmentOnlyAsset(string assetPath)
+        {
+            string path = NormalizePath(assetPath);
+            string fileName = Path.GetFileName(path);
+            bool testPayload = fileName.EndsWith(".dll.bytes", StringComparison.OrdinalIgnoreCase) &&
+                (fileName.IndexOf("TestRunner", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                 fileName.IndexOf(".Tests", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                 fileName.IndexOf("nunit", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                 fileName.StartsWith("MCPForUnity.", StringComparison.OrdinalIgnoreCase));
+            return testPayload || path.IndexOf("/Tests/", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                   IsPathInside(path, "Assets/StellarFrameworkVerification") ||
+                   IsPathInside(path, "Assets/HotUpdatePublisherConsumerE2E") ||
+                   IsPathInside(path, "Assets/StellarFramework/Editor/Verification");
         }
 
         private static void ValidateProfileSourceAvailability(IEnumerable<DistributionProfile> profiles)
@@ -1148,7 +1242,8 @@ namespace StellarFramework.Editor.Modules
 
         private static KitBootstrapPackageDependency[] CreatePackageDependencies(IEnumerable<string> requiredUpm)
         {
-            return requiredUpm.Select(packageId =>
+            return requiredUpm.OrderBy(packageId => packageId == "com.unity.ext.nunit" ? 0 : 1)
+                .ThenBy(packageId => packageId, StringComparer.Ordinal).Select(packageId =>
             {
                 if (!UpmPackageSources.TryGetValue(packageId, out string source))
                 {
@@ -1210,10 +1305,11 @@ namespace StellarFramework.Editor.Modules
                 .ToArray();
         }
 
-        private static bool IsIncludedInProfile(string assetPath, DistributionProfile profile)
+        private static bool IsIncludedInProfile(string assetPath, DistributionProfile profile,
+            bool includeDocumentation = true)
         {
             bool insideSource = profile.sourcePaths.Any(sourcePath => IsPathInside(assetPath, sourcePath));
-            bool insideDocumentation = profile.documentationPaths != null &&
+            bool insideDocumentation = includeDocumentation && profile.documentationPaths != null &&
                                        profile.documentationPaths.Any(documentationPath =>
                                            IsPathInside(assetPath, documentationPath));
             bool excluded = profile.excludedSourcePaths != null &&

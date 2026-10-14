@@ -1,0 +1,7 @@
+{
+  "name": "StellarFramework.ToolsHub.YooAssetBuild.Editor",
+  "rootNamespace": "StellarFramework.Editor.ResourceBuild",
+  "references": ["StellarFramework.ToolsHub.Editor", "YooAsset.Editor", "YooAsset"],
+  "includePlatforms": ["Editor"],
+  "autoReferenced": true
+}

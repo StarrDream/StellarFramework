@@ -23,64 +23,27 @@ namespace StellarFramework.Editor.HotUpdatePublisher
         YooAssetBuildRunnerResult Build(BuildTarget target, string packageName, string packageVersion, string outputRoot, string compression);
     }
 
-    /// <summary>直接调用 YooAsset 的正式 BuiltinBuildPipeline；不调用 HotUpdate Verification fixture builder。</summary>
+    /// <summary>将发布参数传给共用的 YooAsset 资源构建器；保留发布器的验证包限制。</summary>
     public sealed class YooAssetBuiltinBuildRunner : IYooAssetBuildRunner
     {
         public YooAssetBuildRunnerResult Build(
             BuildTarget target, string packageName, string packageVersion, string outputRoot, string compression)
         {
-            AssetBundleCollectorSetting setting = LoadExistingCollectorSettings(packageName);
-            if (setting == null)
-                return new YooAssetBuildRunnerResult { Success = false, Error = "A production YooAsset collector setting/package was not found." };
             if (string.Equals(packageName, "StellarHotUpdateVerification", StringComparison.OrdinalIgnoreCase))
                 return new YooAssetBuildRunnerResult { Success = false, Error = "The verification-only YooAsset package cannot be used for production publishing." };
-
-            string absoluteOutputRoot = Path.GetFullPath(outputRoot);
-            string outputDirectory = Path.Combine(absoluteOutputRoot, target.ToString(), packageName, packageVersion);
-            if (Directory.Exists(outputDirectory) || File.Exists(outputDirectory))
-                return new YooAssetBuildRunnerResult { Success = false, Error = $"Refusing to overwrite existing YooAsset package output '{outputDirectory}'." };
-
-            if (!Enum.TryParse(compression, true, out ECompressOption compressOption) || !Enum.IsDefined(typeof(ECompressOption), compressOption))
+            if (!Enum.TryParse(compression, true, out ECompressOption option) || !Enum.IsDefined(typeof(ECompressOption), option))
                 return new YooAssetBuildRunnerResult { Success = false, Error = $"Unsupported YooAsset compression option '{compression}'." };
-
-            var parameters = new BuiltinBuildParameters
-            {
-                BuildTarget = target,
-                BuildPipeline = EBuildPipeline.BuiltinBuildPipeline.ToString(),
-                BuildBundleType = (int)EBuildBundleType.AssetBundle,
-                PackageName = packageName,
-                PackageVersion = packageVersion,
-                BuildOutputRoot = absoluteOutputRoot,
-                BuildinFileRoot = AssetBundleBuilderHelper.GetStreamingAssetsRoot(),
-                CompressOption = compressOption,
-                ClearBuildCacheFiles = false,
-                VerifyBuildingResult = true,
-                FileNameStyle = EFileNameStyle.HashName
-            };
-            BuildResult result = new BuiltinBuildPipeline().Run(parameters, true);
+            StellarFramework.Editor.ResourceBuild.YooAssetResourceBuildResult result =
+                StellarFramework.Editor.ResourceBuild.YooAssetResourceBuilder.Build(
+                    new StellarFramework.Editor.ResourceBuild.YooAssetResourceBuildRequest
+                    {
+                        Target = target, PackageName = packageName, Version = packageVersion,
+                        OutputRoot = outputRoot, Compression = option
+                    });
             return new YooAssetBuildRunnerResult
             {
-                Success = result.Success,
-                Error = result.Success ? string.Empty :
-                    $"YooAsset build failed at '{result.FailedTask}': {result.ErrorInfo}{Environment.NewLine}{result.ErrorStack}",
-                OutputDirectory = result.OutputPackageDirectory
+                Success = result.Success, Error = result.Error, OutputDirectory = result.OutputDirectory
             };
-        }
-
-        private static AssetBundleCollectorSetting LoadExistingCollectorSettings(string packageName)
-        {
-            string[] guids = AssetDatabase.FindAssets("t:AssetBundleCollectorSetting");
-            if (guids.Length != 1)
-                throw new InvalidOperationException(
-                    $"Expected exactly one existing YooAsset collector setting, found {guids.Length}. Refusing to create or guess project configuration.");
-            string path = AssetDatabase.GUIDToAssetPath(guids[0]);
-            var setting = AssetDatabase.LoadAssetAtPath<AssetBundleCollectorSetting>(path);
-            if (setting == null)
-                throw new InvalidOperationException($"YooAsset collector setting at '{path}' could not be loaded.");
-            if (setting.Packages == null || !setting.Packages.Any(item =>
-                    item != null && string.Equals(item.PackageName, packageName, StringComparison.Ordinal)))
-                throw new InvalidOperationException($"YooAsset package '{packageName}' is not present in collector setting '{path}'.");
-            return setting;
         }
     }
 

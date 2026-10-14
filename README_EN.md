@@ -2,9 +2,9 @@
 
 A modular C# framework for Unity projects. This repository contains the runnable Tank Arena case study and the Kit export project. Run the sample, then select the capabilities your project needs in Tools Hub.
 
-Release: **1.0.3**
+Release: **1.0.4**
 
-Dev source commit: [d4c9ad1292cfec8c19a057ccaefb72a555fb8fdd](https://github.com/StarrDream/StellarFramework.Dev/commit/d4c9ad1292cfec8c19a057ccaefb72a555fb8fdd)
+Dev source commit: [af86ebbca25b21566fbc49ab914f9adc35a177e9](https://github.com/StarrDream/StellarFramework.Dev/commit/af86ebbca25b21566fbc49ab914f9adc35a177e9)
 
 ## Framework overview
 
@@ -44,7 +44,7 @@ flowchart LR
     View -->|"read-only query"| Model
 ~~~
 
-Source: `Assets/StellarFramework/Runtime/Core/Architecture/StellarFramework.cs`. Read the [MSV architecture guide](https://github.com/StarrDream/StellarFramework.Dev/blob/d4c9ad1292cfec8c19a057ccaefb72a555fb8fdd/Assets/StellarFramework/FrameworkDoc/01-Architecture/Architecture/Architecture-MSV-架构说明文档-Guide.md) or the [architecture source guide](https://github.com/StarrDream/StellarFramework.Dev/blob/d4c9ad1292cfec8c19a057ccaefb72a555fb8fdd/Assets/StellarFramework/FrameworkDoc/01-Architecture/Architecture/Architecture-MSV-架构源码文档-Guide.md).
+Source: `Assets/StellarFramework/Runtime/Core/Architecture/StellarFramework.cs`. Read the [MSV architecture guide](https://github.com/StarrDream/StellarFramework.Dev/blob/af86ebbca25b21566fbc49ab914f9adc35a177e9/Assets/StellarFramework/FrameworkDoc/01-Architecture/Architecture/Architecture-MSV-架构说明文档-Guide.md) or the [architecture source guide](https://github.com/StarrDream/StellarFramework.Dev/blob/af86ebbca25b21566fbc49ab914f9adc35a177e9/Assets/StellarFramework/FrameworkDoc/01-Architecture/Architecture/Architecture-MSV-架构源码文档-Guide.md).
 
 ## Kit guide
 

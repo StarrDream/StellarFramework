@@ -2,9 +2,9 @@
 
 StellarFramework 是面向 Unity 项目的模块化 C# 框架。此仓库包含可运行的 Tank Arena 案例和 Kit 导出工程；可以先运行案例，再从 Tools Hub 选择需要的能力导出为 unitypackage。
 
-发布版本：**1.0.3**
+发布版本：**1.0.4**
 
-Dev 源码提交：[d4c9ad1292cfec8c19a057ccaefb72a555fb8fdd](https://github.com/StarrDream/StellarFramework.Dev/commit/d4c9ad1292cfec8c19a057ccaefb72a555fb8fdd)
+Dev 源码提交：[af86ebbca25b21566fbc49ab914f9adc35a177e9](https://github.com/StarrDream/StellarFramework.Dev/commit/af86ebbca25b21566fbc49ab914f9adc35a177e9)
 
 ## 框架主体介绍
 
@@ -44,7 +44,7 @@ flowchart LR
     View -->|"只读查询"| Model
 ~~~
 
-源码位于 `Assets/StellarFramework/Runtime/Core/Architecture/StellarFramework.cs`。阅读 [MSV 架构说明](https://github.com/StarrDream/StellarFramework.Dev/blob/d4c9ad1292cfec8c19a057ccaefb72a555fb8fdd/Assets/StellarFramework/FrameworkDoc/01-Architecture/Architecture/Architecture-MSV-架构说明文档-Guide.md) 或 [架构源码文档](https://github.com/StarrDream/StellarFramework.Dev/blob/d4c9ad1292cfec8c19a057ccaefb72a555fb8fdd/Assets/StellarFramework/FrameworkDoc/01-Architecture/Architecture/Architecture-MSV-架构源码文档-Guide.md)。
+源码位于 `Assets/StellarFramework/Runtime/Core/Architecture/StellarFramework.cs`。阅读 [MSV 架构说明](https://github.com/StarrDream/StellarFramework.Dev/blob/af86ebbca25b21566fbc49ab914f9adc35a177e9/Assets/StellarFramework/FrameworkDoc/01-Architecture/Architecture/Architecture-MSV-架构说明文档-Guide.md) 或 [架构源码文档](https://github.com/StarrDream/StellarFramework.Dev/blob/af86ebbca25b21566fbc49ab914f9adc35a177e9/Assets/StellarFramework/FrameworkDoc/01-Architecture/Architecture/Architecture-MSV-架构源码文档-Guide.md)。
 
 ## Kit 介绍
 

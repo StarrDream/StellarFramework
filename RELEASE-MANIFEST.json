@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
   "product": "StellarFramework",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "repository": "StarrDream/StellarFramework",
   "sourceRepository": "StarrDream/StellarFramework.Dev",
-  "sourceCommit": "d4c9ad1292cfec8c19a057ccaefb72a555fb8fdd",
+  "sourceCommit": "af86ebbca25b21566fbc49ab914f9adc35a177e9",
   "profile": "General",
   "domains": [],
   "profileIds": [
@@ -22,6 +22,7 @@
     "fsmkit",
     "generated.assetmap",
     "httpkit",
+    "httpkit.ugui",
     "localizationkit.core",
     "localizationkit.editor",
     "localizationkit.settings",
@@ -42,6 +43,7 @@
     "reskit.resources",
     "reskit.tools",
     "reskit.yooasset",
+    "reskit.yooasset.tools",
     "runtime.core",
     "runtime.tools",
     "runtimetools.tools",
@@ -71,10 +73,11 @@
     "com.cysharp.unitask": "https://github.com/Cysharp/UniTask.git?path=src/UniTask/Assets/Plugins/UniTask#e5acc106ee196bc5a32fb14cdf2987b0f96d11e0",
     "com.tuyoogame.yooasset": "https://github.com/tuyoogame/YooAsset.git?path=Assets/YooAsset#2.3.19",
     "com.unity.addressables": "1.22.3",
+    "com.unity.ext.nunit": "1.0.6",
     "com.unity.nuget.newtonsoft-json": "3.2.2",
     "com.unity.textmeshpro": "3.0.7",
     "com.unity.ugui": "1.0.0"
   },
-  "validation": "UNVERIFIED",
-  "fileCount": 1023
+  "validation": "PASS",
+  "fileCount": 1035
 }

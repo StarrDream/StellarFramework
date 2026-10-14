@@ -128,6 +128,39 @@
       ]
     },
     {
+      "id": "httpkit.ugui",
+      "displayName": "HttpKit.UnityUGUIAdapter",
+      "kind": "kit-with-dependencies",
+      "tier": "adapter",
+      "category": "network",
+      "availability": "available",
+      "output": "StellarFramework-HttpKit-UGUI.unitypackage",
+      "sourcePaths": [
+        "Assets/StellarFramework/Runtime/Kits/HttpKit"
+      ],
+      "requiredProfileIds": [
+        "httpkit"
+      ],
+      "requiredKits": [
+        "HttpKit"
+      ],
+      "requiredUpm": [
+        "com.unity.ugui"
+      ],
+      "optionalCapabilities": [
+        "UGUIImageBinding"
+      ],
+      "excludedCapabilities": [
+        "Addressables",
+        "HybridCLR",
+        "CodeHotUpdate"
+      ],
+      "maturity": "rc",
+      "documentationPaths": [
+        "Assets/StellarFramework/FrameworkDoc/02-Kits/HttpKit"
+      ]
+    },
+    {
       "id": "timekit",
       "displayName": "TimeKit",
       "kind": "kit-with-dependencies",
@@ -2515,7 +2548,8 @@
       ],
       "requiredUpm": [
         "com.cysharp.unitask",
-        "com.unity.addressables"
+        "com.unity.addressables",
+        "com.unity.ext.nunit"
       ],
       "optionalCapabilities": [
         "AddressablesResourceLoading"
@@ -2548,7 +2582,8 @@
       ],
       "requiredUpm": [
         "com.cysharp.unitask",
-        "com.tuyoogame.yooasset"
+        "com.tuyoogame.yooasset",
+        "com.unity.ext.nunit"
       ],
       "optionalCapabilities": [
         "YooAssetContentUpdateProvider"
@@ -2583,7 +2618,8 @@
       ],
       "requiredUpm": [
         "com.cysharp.unitask",
-        "com.tuyoogame.yooasset"
+        "com.tuyoogame.yooasset",
+        "com.unity.ext.nunit"
       ],
       "optionalCapabilities": [
         "YooAssetResourceLoading"
@@ -2597,6 +2633,40 @@
       "documentationPaths": [
         "Assets/StellarFramework/FrameworkDoc/02-Kits/Reskit",
         "Assets/StellarFramework/FrameworkDoc/01-Architecture/ResourceAndCodeUpdatePlugins.md"
+      ]
+    },
+    {
+      "id": "reskit.yooasset.tools",
+      "displayName": "ResKit.YooAsset.Tools",
+      "kind": "tooling",
+      "availability": "available",
+      "output": "StellarFramework-ResKit-YooAsset-Tools.unitypackage",
+      "sourcePaths": [
+        "Assets/StellarFramework/Editor/StellarToolsHub/Modules/YooAssetBuild"
+      ],
+      "requiredProfileIds": [
+        "toolshub.core"
+      ],
+      "requiredKits": [
+        "ToolsHub.Core"
+      ],
+      "requiredUpm": [
+        "com.tuyoogame.yooasset",
+        "com.unity.ext.nunit"
+      ],
+      "optionalCapabilities": [
+        "YooAssetResourceBuild",
+        "CollectorConfigurationEntry",
+        "ResourceBuildResult"
+      ],
+      "excludedCapabilities": [
+        "HybridCLR",
+        "CodeHotUpdate",
+        "PlayerRuntime"
+      ],
+      "maturity": "stable",
+      "documentationPaths": [
+        "Assets/StellarFramework/FrameworkDoc/04-ToolsHub/ResKit/YooAssetResourceBuildGuide.md"
       ]
     },
     {

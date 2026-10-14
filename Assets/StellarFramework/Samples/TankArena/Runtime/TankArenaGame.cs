@@ -133,7 +133,7 @@ namespace HotUpdate
             }
         }
 
-        private TankArenaModel _model;
+        private IReadOnlyTankArenaModel _model;
         private TankArenaService _service;
         private TankArenaLocalizationService _localization;
         private Transform _worldRoot;
@@ -237,9 +237,9 @@ namespace HotUpdate
 
         private async void Start()
         {
-            _model = TankArenaArchitecture.Interface.GetModel<TankArenaModel>();
-            _service = TankArenaArchitecture.Interface.GetService<TankArenaService>();
-            _localization = TankArenaArchitecture.Interface.GetService<TankArenaLocalizationService>();
+            _model = this.GetReadOnlyModel<IReadOnlyTankArenaModel>();
+            _service = this.GetService<TankArenaService>();
+            _localization = this.GetService<TankArenaLocalizationService>();
             if (_model == null || _service == null || _localization == null)
             {
                 LogKit.LogError("[StellarTankArena] Architecture registration is incomplete.");

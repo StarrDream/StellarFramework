@@ -33,9 +33,19 @@
 ### 单值绑定
 
 ```csharp
-public sealed class PlayerModel : AbstractModel
+using StellarFramework;
+using StellarFramework.Bindable;
+
+public interface IReadOnlyPlayerModel : IReadOnlyModel
+{
+    IReadOnlyBindableProperty<int> Hp { get; }
+}
+
+public sealed class PlayerModel : AbstractModel, IReadOnlyPlayerModel
 {
     public readonly BindableProperty<int> Hp = 100.ToBindable();
+
+    IReadOnlyBindableProperty<int> IReadOnlyPlayerModel.Hp => Hp;
 }
 ```
 
@@ -46,7 +56,7 @@ public sealed class PlayerHudView : StellarView
 
     public override void OnBind()
     {
-        this.GetModel<PlayerModel>().Hp.RegisterWithInitValue(UpdateHp)
+        this.GetReadOnlyModel<IReadOnlyPlayerModel>()?.Hp.RegisterWithInitValue(UpdateHp)
             .UnRegisterWhenGameObjectDestroyed(gameObject);
     }
 

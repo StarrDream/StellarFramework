@@ -1,10 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.Networking;
+#if STELLARFRAMEWORK_UGUI
 using UnityEngine.UI;
+#endif
 
 namespace StellarFramework
 {
@@ -12,7 +15,7 @@ namespace StellarFramework
     /// HTTP 图片下载与小型内存缓存工具。
     /// </summary>
     /// <remarks>
-    /// 相同 URL 的并发 Texture 下载会合并为一个共享请求；每个等待者可以独立取消自己的等待。
+    /// 同一作用域、URL 和有效请求头的并发下载会合并；每个等待者可以独立取消自己的等待。
     /// Texture/Sprite 各维护最多 128 项的近似 LRU 缓存。
     /// 缓存对象由本类创建和销毁，调用方不要主动 Destroy 缓存返回的资源。
     /// </remarks>
@@ -50,8 +53,25 @@ namespace StellarFramework
         /// <summary>
         /// 下载 Texture2D；缓存命中时直接返回缓存对象。
         /// </summary>
-        public static async UniTask<Texture2D> DownloadTextureAsync(string imageUrl,
+        public static UniTask<Texture2D> DownloadTextureAsync(string imageUrl,
             CancellationToken cancellationToken = default)
+        {
+            return DownloadTextureAsync(imageUrl, cancellationToken, null);
+        }
+
+        public static async UniTask<Texture2D> DownloadTextureAsync(string imageUrl,
+            CancellationToken cancellationToken, RequestConfig config)
+        {
+            // Public images keep their original unauthenticated behavior. Supplying a config
+            // explicitly opts into its authentication policy; scope isolation always applies.
+            RequestConfig snapshot = HttpKit.SnapshotRequestConfig(
+                config ?? new RequestConfig { autoInjectToken = false }, false);
+            if (snapshot == null) return null;
+            return await DownloadTextureWithSnapshotAsync(imageUrl, cancellationToken, snapshot);
+        }
+
+        private static async UniTask<Texture2D> DownloadTextureWithSnapshotAsync(string imageUrl,
+            CancellationToken cancellationToken, RequestConfig snapshot)
         {
             if (string.IsNullOrEmpty(imageUrl))
             {
@@ -59,14 +79,15 @@ namespace StellarFramework
                 return null;
             }
 
-            if (TryGetCachedTexture(imageUrl, out Texture2D cachedTexture))
+            string cacheKey = HttpKit.GenerateRequestKey("GET", imageUrl, null, snapshot);
+            if (TryGetCachedTexture(cacheKey, out Texture2D cachedTexture))
             {
                 return cachedTexture;
             }
 
             OngoingDownload ongoing;
 
-            if (OngoingTasks.TryGetValue(imageUrl, out ongoing))
+            if (OngoingTasks.TryGetValue(cacheKey, out ongoing) && !ongoing.SharedCts.IsCancellationRequested)
             {
                 ongoing.WaiterCount++;
             }
@@ -76,8 +97,8 @@ namespace StellarFramework
                 {
                     WaiterCount = 1
                 };
-                OngoingTasks[imageUrl] = ongoing;
-                RunOngoingDownloadAsync(imageUrl, ongoing).Forget();
+                OngoingTasks[cacheKey] = ongoing;
+                RunOngoingDownloadAsync(imageUrl, cacheKey, snapshot, ongoing).Forget();
             }
 
             try
@@ -97,8 +118,14 @@ namespace StellarFramework
         /// <summary>
         /// 下载图片并创建中心 Pivot 的 Sprite；结果会进入 Sprite 缓存。
         /// </summary>
-        public static async UniTask<Sprite> DownloadSpriteAsync(string imageUrl,
+        public static UniTask<Sprite> DownloadSpriteAsync(string imageUrl,
             CancellationToken cancellationToken = default)
+        {
+            return DownloadSpriteAsync(imageUrl, cancellationToken, null);
+        }
+
+        public static async UniTask<Sprite> DownloadSpriteAsync(string imageUrl,
+            CancellationToken cancellationToken, RequestConfig config)
         {
             if (string.IsNullOrEmpty(imageUrl))
             {
@@ -106,32 +133,45 @@ namespace StellarFramework
                 return null;
             }
 
-            if (TryGetCachedSprite(imageUrl, out Sprite cachedSprite))
+            RequestConfig snapshot = HttpKit.SnapshotRequestConfig(
+                config ?? new RequestConfig { autoInjectToken = false }, false);
+            if (snapshot == null) return null;
+            string cacheKey = HttpKit.GenerateRequestKey("GET", imageUrl, null, snapshot);
+            if (TryGetCachedSprite(cacheKey, out Sprite cachedSprite))
             {
                 return cachedSprite;
             }
 
-            Texture2D texture = await DownloadTextureAsync(imageUrl, cancellationToken);
+            Texture2D texture = await DownloadTextureWithSnapshotAsync(imageUrl, cancellationToken, snapshot);
             if (texture == null)
             {
                 return null;
             }
 
+            // Another waiter may have completed while this one awaited the shared texture.
+            if (TryGetCachedSprite(cacheKey, out cachedSprite)) return cachedSprite;
             Sprite sprite = Sprite.Create(
                 texture,
                 new Rect(0, 0, texture.width, texture.height),
                 new Vector2(0.5f, 0.5f));
 
-            AddSpriteCache(imageUrl, sprite);
+            AddSpriteCache(cacheKey, sprite);
             return sprite;
         }
 
+#if STELLARFRAMEWORK_UGUI
         /// <summary>
         /// 下载图片并赋给 Image。目标销毁时会自动取消等待。
         /// </summary>
         /// <returns>成功设置 Sprite 时返回 true。</returns>
-        public static async UniTask<bool> DownloadToImageAsync(Image targetImage, string imageUrl,
+        public static UniTask<bool> DownloadToImageAsync(Image targetImage, string imageUrl,
             bool setNativeSize = false)
+        {
+            return DownloadToImageAsync(targetImage, imageUrl, setNativeSize, null);
+        }
+
+        public static async UniTask<bool> DownloadToImageAsync(Image targetImage, string imageUrl,
+            bool setNativeSize, RequestConfig config)
         {
             if (targetImage == null)
             {
@@ -147,7 +187,7 @@ namespace StellarFramework
             }
 
             CancellationToken token = targetImage.GetCancellationTokenOnDestroy();
-            Sprite sprite = await DownloadSpriteAsync(imageUrl, token);
+            Sprite sprite = await DownloadSpriteAsync(imageUrl, token, config);
 
             if (targetImage == null || sprite == null)
             {
@@ -171,10 +211,22 @@ namespace StellarFramework
             return DownloadToImageAsync(targetImage, imageUrl, setNativeSize);
         }
 
+        public static UniTask<bool> DownloadToImageAsync(string imageUrl, Image targetImage, bool setNativeSize,
+            RequestConfig config)
+        {
+            return DownloadToImageAsync(targetImage, imageUrl, setNativeSize, config);
+        }
+
         /// <summary>
         /// 下载图片并赋给 RawImage。目标销毁时会自动取消等待。
         /// </summary>
-        public static async UniTask<bool> DownloadToRawImageAsync(RawImage targetRawImage, string imageUrl)
+        public static UniTask<bool> DownloadToRawImageAsync(RawImage targetRawImage, string imageUrl)
+        {
+            return DownloadToRawImageAsync(targetRawImage, imageUrl, null);
+        }
+
+        public static async UniTask<bool> DownloadToRawImageAsync(RawImage targetRawImage, string imageUrl,
+            RequestConfig config)
         {
             if (targetRawImage == null)
             {
@@ -190,7 +242,7 @@ namespace StellarFramework
             }
 
             CancellationToken token = targetRawImage.GetCancellationTokenOnDestroy();
-            Texture2D texture = await DownloadTextureAsync(imageUrl, token);
+            Texture2D texture = await DownloadTextureAsync(imageUrl, token, config);
 
             if (targetRawImage == null || texture == null)
             {
@@ -209,15 +261,20 @@ namespace StellarFramework
             return DownloadToRawImageAsync(targetRawImage, imageUrl);
         }
 
+        public static UniTask<bool> DownloadToRawImageAsync(string imageUrl, RawImage targetRawImage,
+            RequestConfig config)
+        {
+            return DownloadToRawImageAsync(targetRawImage, imageUrl, config);
+        }
+#endif
+
         /// <summary>
         /// 取消全部进行中的共享下载，并销毁全部 Sprite/Texture 缓存。
         /// </summary>
         public static void ClearCache()
         {
-            foreach (KeyValuePair<string, OngoingDownload> pair in OngoingTasks)
-            {
-                pair.Value?.SharedCts.Cancel();
-            }
+            OngoingDownload[] pending = OngoingTasks.Values.ToArray();
+            OngoingTasks.Clear();
 
             foreach (KeyValuePair<string, CacheEntry<Sprite>> pair in SpriteCache)
             {
@@ -238,7 +295,13 @@ namespace StellarFramework
             }
 
             TextureCache.Clear();
-            OngoingTasks.Clear();
+            // Cancellation may run user continuations synchronously. Clear the old maps
+            // first, so a new request started by a continuation remains tracked.
+            foreach (OngoingDownload download in pending)
+            {
+                try { download.SharedCts.Cancel(); }
+                catch (ObjectDisposedException) { }
+            }
         }
 
         /// <summary>
@@ -246,42 +309,54 @@ namespace StellarFramework
         /// </summary>
         public static void ClearCache(string imageUrl)
         {
+            ClearCache(imageUrl, null);
+        }
+
+        public static void ClearCache(string imageUrl, RequestConfig config)
+        {
             if (string.IsNullOrEmpty(imageUrl))
             {
                 return;
             }
 
-            if (OngoingTasks.TryGetValue(imageUrl, out OngoingDownload ongoing))
+            RequestConfig snapshot = HttpKit.SnapshotRequestConfig(
+                config ?? new RequestConfig { autoInjectToken = false }, false);
+            if (snapshot == null) return;
+            string cacheKey = HttpKit.GenerateRequestKey("GET", imageUrl, null, snapshot);
+            if (OngoingTasks.TryGetValue(cacheKey, out OngoingDownload ongoing))
             {
+                OngoingTasks.Remove(cacheKey);
                 ongoing.SharedCts.Cancel();
-                OngoingTasks.Remove(imageUrl);
             }
 
-            if (SpriteCache.TryGetValue(imageUrl, out CacheEntry<Sprite> spriteEntry))
+            if (SpriteCache.TryGetValue(cacheKey, out CacheEntry<Sprite> spriteEntry))
             {
                 if (spriteEntry?.Asset != null)
                 {
                     UnityEngine.Object.Destroy(spriteEntry.Asset);
                 }
 
-                SpriteCache.Remove(imageUrl);
+                SpriteCache.Remove(cacheKey);
             }
 
-            if (TextureCache.TryGetValue(imageUrl, out CacheEntry<Texture2D> textureEntry))
+            if (TextureCache.TryGetValue(cacheKey, out CacheEntry<Texture2D> textureEntry))
             {
                 if (textureEntry?.Asset != null)
                 {
                     UnityEngine.Object.Destroy(textureEntry.Asset);
                 }
 
-                TextureCache.Remove(imageUrl);
+                TextureCache.Remove(cacheKey);
             }
         }
 
         private static async UniTask<Texture2D> DownloadTextureInternalAsync(string imageUrl,
-            CancellationToken cancellationToken)
+            string cacheKey, RequestConfig snapshot, CancellationToken cancellationToken)
         {
             using UnityWebRequest request = UnityWebRequestTexture.GetTexture(imageUrl);
+            foreach (KeyValuePair<string, string> header in snapshot.headers)
+                request.SetRequestHeader(header.Key, header.Value);
+            request.timeout = snapshot.timeout;
 
             try
             {
@@ -300,7 +375,8 @@ namespace StellarFramework
                     return null;
                 }
 
-                AddTextureCache(imageUrl, texture);
+                cancellationToken.ThrowIfCancellationRequested();
+                AddTextureCache(cacheKey, texture);
                 return texture;
             }
             catch (OperationCanceledException)
@@ -526,11 +602,12 @@ namespace StellarFramework
             SpriteCache.Remove(lruKey);
         }
 
-        private static async UniTaskVoid RunOngoingDownloadAsync(string imageUrl, OngoingDownload ongoing)
+        private static async UniTaskVoid RunOngoingDownloadAsync(string imageUrl, string cacheKey,
+            RequestConfig snapshot, OngoingDownload ongoing)
         {
             try
             {
-                Texture2D texture = await DownloadTextureInternalAsync(imageUrl, ongoing.SharedCts.Token);
+                Texture2D texture = await DownloadTextureInternalAsync(imageUrl, cacheKey, snapshot, ongoing.SharedCts.Token);
                 ongoing.CompletionSource.TrySetResult(texture);
             }
             catch (OperationCanceledException)
@@ -546,9 +623,9 @@ namespace StellarFramework
             {
                 ongoing.IsCompleted = true;
 
-                if (OngoingTasks.TryGetValue(imageUrl, out OngoingDownload current) && ReferenceEquals(current, ongoing))
+                if (OngoingTasks.TryGetValue(cacheKey, out OngoingDownload current) && ReferenceEquals(current, ongoing))
                 {
-                    OngoingTasks.Remove(imageUrl);
+                    OngoingTasks.Remove(cacheKey);
                 }
 
                 ongoing.SharedCts.Dispose();

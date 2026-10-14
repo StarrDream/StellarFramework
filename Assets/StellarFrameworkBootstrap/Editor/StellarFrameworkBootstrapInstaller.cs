@@ -55,9 +55,21 @@ namespace StellarFrameworkBootstrap
             },
             new PackageSpec
             {
+                PackageId = "com.unity.ext.nunit",
+                Version = "1.0.6"
+            },
+            new PackageSpec
+            {
                 PackageId = "com.unity.addressables",
                 Version = "1.22.3"
             },
+            new PackageSpec
+            {
+                PackageId = "com.tuyoogame.yooasset",
+                GitUrl = "https://github.com/tuyoogame/YooAsset.git?path=Assets/YooAsset#2.3.19"
+            },
+            new PackageSpec { PackageId = "com.unity.ugui", Version = "1.0.0" },
+            new PackageSpec { PackageId = "com.unity.textmeshpro", Version = "3.0.7" },
             new PackageSpec
             {
                 PackageId = "com.code-philosophy.hybridclr",

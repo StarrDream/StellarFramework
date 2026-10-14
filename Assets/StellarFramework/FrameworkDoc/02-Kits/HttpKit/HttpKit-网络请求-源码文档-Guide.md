@@ -66,6 +66,7 @@ HttpImageDownload
 - `headers`
 - `onProgress`
 - `preventDuplicate`
+- `requestScope`：单次请求作用域；null 使用全局作用域
 - `timeout`
 
 ## `HttpKit`
@@ -82,6 +83,7 @@ HTTP 系统核心单例实现。
 - `_requestLock`
 - `_authToken`
 - `_tokenType`
+- `_requestScope`
 
 ### 关键方法
 
@@ -92,6 +94,18 @@ HTTP 系统核心单例实现。
 #### `SetAuthToken / GetAuthToken / ClearAuthToken / HasAuthToken`
 
 维护鉴权 Token。
+
+#### `SetRequestScope`
+
+改变全局请求作用域并清除旧 Token，适合 Cookie 认证。Token 认证使用 `SetAuthContext` 在同一把锁内更新作用域与 Token；随后取消旧会话请求，取消回调中创建的新请求会使用新账号的配置。不同账号同时请求时使用每次请求的 `requestScope` 与显式认证头。
+
+#### `CaptureConfig / GenerateRequestKey`
+
+发送前复制配置和有效请求头，显式认证头覆盖全局 Token，名称按不区分大小写的规则合并。同一份快照同时用于去重和实际发送，避免调用方修改字典后两者不一致。去重键对作用域、方法、URL、Body 和排序后的有效请求头做 SHA-256，认证值不出现在键中。
+
+#### `TryAddPendingRequest`
+
+在同一把锁内检查重复并注册请求，避免分开检查和写入时两个请求同时通过。
 
 #### `SendRequestAsync(...)`
 

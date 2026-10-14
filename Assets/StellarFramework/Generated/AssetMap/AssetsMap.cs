@@ -8,96 +8,8 @@ namespace StellarFramework.Generated
     public static class AssetsMap
     {
 
-        public static class GameHotUpdate
-        {
-
-            public static class Code
-            {
-                public const string HotUpdate_dll = "Assets/GameHotUpdate/Code/HotUpdate.dll.bytes";
-                public const string HybridCLR_Runtime_dll = "Assets/GameHotUpdate/Code/HybridCLR.Runtime.dll.bytes";
-                public const string MCPForUnity_Runtime_dll = "Assets/GameHotUpdate/Code/MCPForUnity.Runtime.dll.bytes";
-                public const string StellarFramework_ActionKit_dll = "Assets/GameHotUpdate/Code/StellarFramework.ActionKit.dll.bytes";
-                public const string StellarFramework_AudioKit_dll = "Assets/GameHotUpdate/Code/StellarFramework.AudioKit.dll.bytes";
-                public const string StellarFramework_BindableKit_dll = "Assets/GameHotUpdate/Code/StellarFramework.BindableKit.dll.bytes";
-                public const string StellarFramework_ConfigKit_dll = "Assets/GameHotUpdate/Code/StellarFramework.ConfigKit.dll.bytes";
-                public const string StellarFramework_EventKit_dll = "Assets/GameHotUpdate/Code/StellarFramework.EventKit.dll.bytes";
-                public const string StellarFramework_FSMKit_dll = "Assets/GameHotUpdate/Code/StellarFramework.FSMKit.dll.bytes";
-                public const string StellarFramework_Generated_AssetMap_dll = "Assets/GameHotUpdate/Code/StellarFramework.Generated.AssetMap.dll.bytes";
-                public const string StellarFramework_Generated_SingletonRegister_dll = "Assets/GameHotUpdate/Code/StellarFramework.Generated.SingletonRegister.dll.bytes";
-                public const string StellarFramework_HotUpdateKit_dll = "Assets/GameHotUpdate/Code/StellarFramework.HotUpdateKit.dll.bytes";
-                public const string StellarFramework_HttpKit_dll = "Assets/GameHotUpdate/Code/StellarFramework.HttpKit.dll.bytes";
-                public const string StellarFramework_LogKit_dll = "Assets/GameHotUpdate/Code/StellarFramework.LogKit.dll.bytes";
-                public const string StellarFramework_PoolKit_dll = "Assets/GameHotUpdate/Code/StellarFramework.PoolKit.dll.bytes";
-                public const string StellarFramework_ResKit_dll = "Assets/GameHotUpdate/Code/StellarFramework.ResKit.dll.bytes";
-                public const string StellarFramework_Runtime_dll = "Assets/GameHotUpdate/Code/StellarFramework.Runtime.dll.bytes";
-                public const string StellarFramework_Samples_Runtime_dll = "Assets/GameHotUpdate/Code/StellarFramework.Samples.Runtime.dll.bytes";
-                public const string StellarFramework_SettingsKit_Adapters_dll = "Assets/GameHotUpdate/Code/StellarFramework.SettingsKit.Adapters.dll.bytes";
-                public const string StellarFramework_SettingsKit_dll = "Assets/GameHotUpdate/Code/StellarFramework.SettingsKit.dll.bytes";
-                public const string StellarFramework_SingletonKit_dll = "Assets/GameHotUpdate/Code/StellarFramework.SingletonKit.dll.bytes";
-                public const string StellarFramework_UIKit_dll = "Assets/GameHotUpdate/Code/StellarFramework.UIKit.dll.bytes";
-                public const string UniTask_Addressables_dll = "Assets/GameHotUpdate/Code/UniTask.Addressables.dll.bytes";
-                public const string UniTask_DOTween_dll = "Assets/GameHotUpdate/Code/UniTask.DOTween.dll.bytes";
-                public const string UniTask_Linq_dll = "Assets/GameHotUpdate/Code/UniTask.Linq.dll.bytes";
-                public const string UniTask_TextMeshPro_dll = "Assets/GameHotUpdate/Code/UniTask.TextMeshPro.dll.bytes";
-                public const string UniTask_dll = "Assets/GameHotUpdate/Code/UniTask.dll.bytes";
-                public const string Unity_Addressables_dll = "Assets/GameHotUpdate/Code/Unity.Addressables.dll.bytes";
-                public const string Unity_ResourceManager_dll = "Assets/GameHotUpdate/Code/Unity.ResourceManager.dll.bytes";
-                public const string Unity_ScriptableBuildPipeline_dll = "Assets/GameHotUpdate/Code/Unity.ScriptableBuildPipeline.dll.bytes";
-                public const string Unity_TextMeshPro_dll = "Assets/GameHotUpdate/Code/Unity.TextMeshPro.dll.bytes";
-                public const string Unity_Timeline_dll = "Assets/GameHotUpdate/Code/Unity.Timeline.dll.bytes";
-                public const string Unity_VisualScripting_Core_dll = "Assets/GameHotUpdate/Code/Unity.VisualScripting.Core.dll.bytes";
-                public const string Unity_VisualScripting_Flow_dll = "Assets/GameHotUpdate/Code/Unity.VisualScripting.Flow.dll.bytes";
-                public const string Unity_VisualScripting_State_dll = "Assets/GameHotUpdate/Code/Unity.VisualScripting.State.dll.bytes";
-                public const string UnityEngine_TestRunner_dll = "Assets/GameHotUpdate/Code/UnityEngine.TestRunner.dll.bytes";
-                public const string UnityEngine_UI_dll = "Assets/GameHotUpdate/Code/UnityEngine.UI.dll.bytes";
-            }
-
-            public static class Manifest
-            {
-                public const string HotUpdateManifest = "Assets/GameHotUpdate/Manifest/HotUpdateManifest.json";
-            }
-
-            public static class Metadata
-            {
-                public const string System_Core_dll = "Assets/GameHotUpdate/Metadata/System.Core.dll.bytes";
-                public const string System_dll = "Assets/GameHotUpdate/Metadata/System.dll.bytes";
-                public const string UnityEngine_CoreModule_dll = "Assets/GameHotUpdate/Metadata/UnityEngine.CoreModule.dll.bytes";
-                public const string mscorlib_dll = "Assets/GameHotUpdate/Metadata/mscorlib.dll.bytes";
-            }
-        }
-
-        public static class HotUpdatePublisherConsumerE2E
-        {
-
-            public static class Content
-            {
-                public const string HotUpdateBehavior = "Assets/HotUpdatePublisherConsumerE2E/Content/HotUpdateBehavior.txt";
-            }
-        }
-
-        public static class Resources
-        {
-            public const string HotUpdateSettings = "Assets/Resources/HotUpdateSettings.asset";
-            public const string ResKitRuntimeSettings = "Assets/Resources/ResKitRuntimeSettings.asset";
-        }
-
-        public static class Scenes
-        {
-            public const string SampleScene = "Assets/Scenes/SampleScene.unity";
-        }
-
         public static class StellarFramework
         {
-
-            public static class Art
-            {
-
-                public static class Shader
-                {
-                    public const string Grid = "Assets/StellarFramework/Art/Shader/Grid.shader";
-                    public const string Mat_Grid = "Assets/StellarFramework/Art/Shader/Mat_Grid.mat";
-                }
-            }
 
             public static class KitCatalog
             {
@@ -108,32 +20,9 @@ namespace StellarFramework.Generated
             public static class Resources
             {
 
-                public static class Audio
-                {
-
-                    public static class BGM
-                    {
-                        public const string BattleTheme = "Assets/StellarFramework/Resources/Audio/BGM/BattleTheme.wav";
-                        public const string MainTheme = "Assets/StellarFramework/Resources/Audio/BGM/MainTheme.wav";
-                    }
-
-                    public static class SFX
-                    {
-                        public const string Explosion = "Assets/StellarFramework/Resources/Audio/SFX/Explosion.wav";
-                        public const string Footstep = "Assets/StellarFramework/Resources/Audio/SFX/Footstep.wav";
-                        public const string UI_Click = "Assets/StellarFramework/Resources/Audio/SFX/UI_Click.wav";
-                    }
-                }
-
                 public static class Managers
                 {
                     public const string UIKit = "Assets/StellarFramework/Resources/Managers/UIKit.prefab";
-                }
-
-                public static class UIPanel
-                {
-                    public const string ExamplePanel = "Assets/StellarFramework/Resources/UIPanel/ExamplePanel.prefab";
-                    public const string UIRoot = "Assets/StellarFramework/Resources/UIPanel/UIRoot.prefab";
                 }
             }
 
@@ -229,69 +118,6 @@ namespace StellarFramework.Generated
                         public const string FrameworkDemo = "Assets/StellarFramework/Samples/TankArena/Scene/FrameworkDemo.unity";
                     }
                 }
-            }
-        }
-
-        public static class TextMesh_Pro
-        {
-
-            public static class Fonts
-            {
-                public const string LiberationSans___OFL = "Assets/TextMesh Pro/Fonts/LiberationSans - OFL.txt";
-                public const string LiberationSans = "Assets/TextMesh Pro/Fonts/LiberationSans.ttf";
-            }
-
-            public static class Resources
-            {
-                public const string LineBreaking_Following_Characters = "Assets/TextMesh Pro/Resources/LineBreaking Following Characters.txt";
-                public const string LineBreaking_Leading_Characters = "Assets/TextMesh Pro/Resources/LineBreaking Leading Characters.txt";
-                public const string TMP_Settings = "Assets/TextMesh Pro/Resources/TMP Settings.asset";
-
-                public static class Fonts___Materials
-                {
-                    public const string LiberationSans_SDF___Drop_Shadow = "Assets/TextMesh Pro/Resources/Fonts & Materials/LiberationSans SDF - Drop Shadow.mat";
-                    public const string LiberationSans_SDF___Fallback = "Assets/TextMesh Pro/Resources/Fonts & Materials/LiberationSans SDF - Fallback.asset";
-                    public const string LiberationSans_SDF___Outline = "Assets/TextMesh Pro/Resources/Fonts & Materials/LiberationSans SDF - Outline.mat";
-                    public const string LiberationSans_SDF = "Assets/TextMesh Pro/Resources/Fonts & Materials/LiberationSans SDF.asset";
-                }
-
-                public static class Sprite_Assets
-                {
-                    public const string EmojiOne = "Assets/TextMesh Pro/Resources/Sprite Assets/EmojiOne.asset";
-                }
-
-                public static class Style_Sheets
-                {
-                    public const string Default_Style_Sheet = "Assets/TextMesh Pro/Resources/Style Sheets/Default Style Sheet.asset";
-                }
-            }
-
-            public static class Shaders
-            {
-                public const string TMP_Bitmap_Custom_Atlas = "Assets/TextMesh Pro/Shaders/TMP_Bitmap-Custom-Atlas.shader";
-                public const string TMP_Bitmap_Mobile = "Assets/TextMesh Pro/Shaders/TMP_Bitmap-Mobile.shader";
-                public const string TMP_Bitmap = "Assets/TextMesh Pro/Shaders/TMP_Bitmap.shader";
-                public const string TMP_SDF_Overlay = "Assets/TextMesh Pro/Shaders/TMP_SDF Overlay.shader";
-                public const string TMP_SDF_SSD = "Assets/TextMesh Pro/Shaders/TMP_SDF SSD.shader";
-                public const string TMP_SDF_Mobile_Masking = "Assets/TextMesh Pro/Shaders/TMP_SDF-Mobile Masking.shader";
-                public const string TMP_SDF_Mobile_Overlay = "Assets/TextMesh Pro/Shaders/TMP_SDF-Mobile Overlay.shader";
-                public const string TMP_SDF_Mobile_SSD = "Assets/TextMesh Pro/Shaders/TMP_SDF-Mobile SSD.shader";
-                public const string TMP_SDF_Mobile = "Assets/TextMesh Pro/Shaders/TMP_SDF-Mobile.shader";
-                public const string TMP_SDF_Surface_Mobile = "Assets/TextMesh Pro/Shaders/TMP_SDF-Surface-Mobile.shader";
-                public const string TMP_SDF_Surface = "Assets/TextMesh Pro/Shaders/TMP_SDF-Surface.shader";
-                public const string TMP_SDF = "Assets/TextMesh Pro/Shaders/TMP_SDF.shader";
-                public const string TMP_Sprite = "Assets/TextMesh Pro/Shaders/TMP_Sprite.shader";
-                public const string TMPro = "Assets/TextMesh Pro/Shaders/TMPro.cginc";
-                public const string TMPro_Mobile = "Assets/TextMesh Pro/Shaders/TMPro_Mobile.cginc";
-                public const string TMPro_Properties = "Assets/TextMesh Pro/Shaders/TMPro_Properties.cginc";
-                public const string TMPro_Surface = "Assets/TextMesh Pro/Shaders/TMPro_Surface.cginc";
-            }
-
-            public static class Sprites
-            {
-                public const string EmojiOne_Attribution = "Assets/TextMesh Pro/Sprites/EmojiOne Attribution.txt";
-                public const string EmojiOne_json = "Assets/TextMesh Pro/Sprites/EmojiOne.json";
-                public const string EmojiOne_png = "Assets/TextMesh Pro/Sprites/EmojiOne.png";
             }
         }
     }

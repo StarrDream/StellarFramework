@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "catalogId": "stellarframework.repository-release",
   "sourceRepository": "StarrDream/StellarFramework.Dev",
-  "releaseVersion": "1.0.3",
+  "releaseVersion": "1.0.4",
   "general": {
     "repository": "StarrDream/StellarFramework",
     "profileIds": [
@@ -10,6 +10,7 @@
       "actionkit.tools",
       "bindablekit",
       "httpkit",
+      "httpkit.ugui",
       "reskit.codeupdate.hybridclr",
       "reskit.codeupdate.hybridclr.tools",
       "timekit",
@@ -61,7 +62,8 @@
       "uikit.adaptation.tools",
       "savekit.core",
       "savekit.newtonsoft-json",
-      "savekit.tools"
+      "savekit.tools",
+      "reskit.yooasset.tools"
     ],
     "extraIncludePaths": [
       "Assets/Editor/StellarFramework/KitPackageBootstrap",

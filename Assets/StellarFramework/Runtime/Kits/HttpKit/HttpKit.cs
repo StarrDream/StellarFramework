@@ -100,15 +100,17 @@ namespace StellarFramework
         public Dictionary<string, string> headers;
         /// <summary>上传/下载进度回调，范围通常为 0~1。</summary>
         public Action<float> onProgress;
-        /// <summary>是否阻止 Method + URL + Body 相同的并发请求。</summary>
+        /// <summary>是否阻止同一作用域、认证与请求头下 Method + URL + Body 相同的并发请求。</summary>
         public bool preventDuplicate;
+        /// <summary>请求所属作用域，例如 account:123；null 使用 HttpKit 当前作用域。</summary>
+        public string requestScope;
         /// <summary>UnityWebRequest timeout，单位秒。</summary>
         public int timeout = 30;
 
         /// <summary>创建默认请求配置。</summary>
         public RequestConfig()
         {
-            headers = new Dictionary<string, string>();
+            headers = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         }
     }
 
@@ -117,7 +119,7 @@ namespace StellarFramework
     /// </summary>
     /// <remarks>
     /// 首次使用时会创建 DontDestroyOnLoad 的运行时宿主。
-    /// 请求取消与重复请求检测按 Method + URL + BodyHash 维度管理。
+    /// 请求取消与重复请求检测包含作用域、有效请求头、Method、URL 和 Body。
     /// JSON 适配当前使用 Newtonsoft.Json。
     /// </remarks>
     public class HttpKit : MonoBehaviour
@@ -125,7 +127,7 @@ namespace StellarFramework
         private static HttpKit _instance;
         private static bool _isQuitting;
 
-        // Key: Method::URL::BodyHash
+        // Header values (including credentials) are hashed, never stored in the diagnostic key.
         private readonly Dictionary<string, HashSet<CancellationTokenSource>> _activeCTS =
             new Dictionary<string, HashSet<CancellationTokenSource>>();
 
@@ -133,6 +135,7 @@ namespace StellarFramework
 
         private string _authToken;
         private string _tokenType = "Bearer";
+        private string _requestScope = string.Empty;
 
         /// <summary>
         /// 获取运行时 HttpKit 实例；应用退出阶段可能返回 null。
@@ -230,8 +233,11 @@ namespace StellarFramework
                 return;
             }
 
-            instance._authToken = token;
-            instance._tokenType = tokenType;
+            lock (instance._requestLock)
+            {
+                instance._authToken = token;
+                instance._tokenType = tokenType;
+            }
         }
 
         /// <summary>返回当前全局认证 Token。</summary>
@@ -243,13 +249,50 @@ namespace StellarFramework
         /// <summary>清除全局认证 Token，并恢复 Bearer 类型。</summary>
         public static void ClearAuthToken()
         {
-            if (!TryGetInstance(out HttpKit instance))
-            {
-                return;
-            }
+            SetAuthToken(null);
+        }
 
-            instance._authToken = null;
-            instance._tokenType = "Bearer";
+        /// <summary>
+        /// 切换当前请求作用域。登录、退出或更换账号时调用；默认取消旧会话的全部活动请求。
+        /// 使用 Cookie 或无 Token 的认证方式时也应设置账号作用域。
+        /// </summary>
+        public static void SetRequestScope(string scope, bool cancelPendingRequests = true)
+        {
+            if (!TryGetInstance(out HttpKit instance)) return;
+            instance.ApplyAuthContext(scope, null, "Bearer", cancelPendingRequests, true);
+        }
+
+        /// <summary>原子切换账号作用域与认证 Token，默认取消旧会话请求和图片下载并清理图片缓存。</summary>
+        public static void SetAuthContext(string scope, string token, string tokenType = "Bearer",
+            bool cancelPendingRequests = true)
+        {
+            if (!TryGetInstance(out HttpKit instance)) return;
+            instance.ApplyAuthContext(scope, token, tokenType, cancelPendingRequests, false);
+        }
+
+        private void ApplyAuthContext(string scope, string token, string tokenType, bool cancelPendingRequests,
+            bool onlyWhenScopeChanges)
+        {
+            CancellationTokenSource[] pending;
+            lock (_requestLock)
+            {
+                scope = scope ?? string.Empty;
+                bool sameScope = string.Equals(_requestScope, scope, StringComparison.Ordinal);
+                if (sameScope && (onlyWhenScopeChanges ||
+                    (string.Equals(_authToken, token, StringComparison.Ordinal) &&
+                     string.Equals(_tokenType, tokenType, StringComparison.Ordinal)))) return;
+                _requestScope = scope;
+                _authToken = token;
+                _tokenType = tokenType;
+                pending = cancelPendingRequests
+                    ? _activeCTS.Values.SelectMany(group => group).ToArray()
+                    : Array.Empty<CancellationTokenSource>();
+                if (cancelPendingRequests) _activeCTS.Clear();
+            }
+            // Clear image tasks before cancelling HTTP tasks: cancellation callbacks can
+            // already start requests for the new account, which must not be cancelled again.
+            if (cancelPendingRequests) HttpImageDownload.ClearCache();
+            CancelSources(pending);
         }
 
         /// <summary>当前是否配置了非空认证 Token。</summary>
@@ -345,10 +388,15 @@ namespace StellarFramework
                 };
             }
 
-            string requestKey = GenerateRequestKey(method, url, body);
-
-            if (config.preventDuplicate && HasPendingRequest(requestKey))
+            // The same snapshot is used by deduplication and UnityWebRequest. Reusing or
+            // modifying a RequestConfig, or switching tokens, cannot change an in-flight request.
+            config = CaptureConfig(config);
+            method = method.ToUpperInvariant();
+            string requestKey = GenerateRequestKey(method, url, body, config);
+            CancellationTokenSource cts = new CancellationTokenSource();
+            if (!TryAddPendingRequest(requestKey, cts, config.preventDuplicate))
             {
+                cts.Dispose();
                 LogKit.LogWarning($"[HttpKit] 拦截重复请求 | Key={requestKey} | Method={method} | URL={url}");
                 return new HttpResponse
                 {
@@ -357,9 +405,6 @@ namespace StellarFramework
                     responseCode = 0
                 };
             }
-
-            CancellationTokenSource cts = new CancellationTokenSource();
-            AddPendingRequest(requestKey, cts);
 
             HttpResponse response = new HttpResponse();
             UnityWebRequest request = null;
@@ -419,18 +464,6 @@ namespace StellarFramework
             }
 
             request.downloadHandler = new DownloadHandlerBuffer();
-            request.SetRequestHeader("Content-Type", "application/json");
-            request.SetRequestHeader("Accept", "application/json");
-
-            if (config.autoInjectToken && !string.IsNullOrEmpty(_authToken))
-            {
-                bool hasAuthHeader = config.headers != null && config.headers.ContainsKey("Authorization");
-                if (!hasAuthHeader)
-                {
-                    request.SetRequestHeader("Authorization", $"{_tokenType} {_authToken}");
-                }
-            }
-
             if (config.headers != null)
             {
                 foreach (KeyValuePair<string, string> header in config.headers)
@@ -486,9 +519,58 @@ namespace StellarFramework
             return response;
         }
 
-        private string GenerateRequestKey(string method, string url, string body)
+        internal static RequestConfig SnapshotRequestConfig(RequestConfig config, bool includeJsonHeaders)
         {
-            return $"{method}::{url}::{ComputeStableBodyHash(body)}";
+            return TryGetInstance(out HttpKit instance) ? instance.CaptureConfig(config, includeJsonHeaders) : null;
+        }
+
+        private RequestConfig CaptureConfig(RequestConfig config, bool includeJsonHeaders = true)
+        {
+            var snapshot = new RequestConfig
+            {
+                autoInjectToken = false,
+                preventDuplicate = config.preventDuplicate,
+                timeout = config.timeout,
+                onProgress = config.onProgress
+            };
+            if (includeJsonHeaders)
+            {
+                snapshot.headers["Content-Type"] = "application/json";
+                snapshot.headers["Accept"] = "application/json";
+            }
+            if (config.headers != null)
+                foreach (KeyValuePair<string, string> header in config.headers)
+                    snapshot.headers[header.Key] = header.Value;
+
+            lock (_requestLock)
+            {
+                snapshot.requestScope = config.requestScope ?? _requestScope;
+                if (config.autoInjectToken && !string.IsNullOrEmpty(_authToken) &&
+                    !snapshot.headers.ContainsKey("Authorization"))
+                    snapshot.headers["Authorization"] = $"{_tokenType} {_authToken}";
+            }
+            return snapshot;
+        }
+
+        internal static string GenerateRequestKey(string method, string url, string body, RequestConfig snapshot)
+        {
+            var identity = new StringBuilder();
+            void Append(string value)
+            {
+                value = value ?? string.Empty;
+                identity.Append(value.Length).Append(':').Append(value);
+            }
+            Append(method.ToUpperInvariant());
+            Append(url);
+            Append(body);
+            Append(snapshot.requestScope);
+            foreach (KeyValuePair<string, string> header in snapshot.headers.OrderBy(
+                         pair => pair.Key, StringComparer.OrdinalIgnoreCase))
+            {
+                Append(header.Key.ToLowerInvariant());
+                Append(header.Value);
+            }
+            return ComputeStableBodyHash(identity.ToString());
         }
 
         #endregion
@@ -496,11 +578,17 @@ namespace StellarFramework
         #region 取消控制
 
         /// <summary>
-        /// 取消与指定 Method + URL + Body 完全匹配的所有活动请求。
+        /// 取消当前作用域中，与指定 Method + URL + Body + 有效请求头匹配的活动请求。
+        /// 使用自定义请求配置时，应传入与发送时一致的 config。
         /// </summary>
         public void CancelRequest(string url, string method = "GET", string body = null)
         {
-            string key = GenerateRequestKey(method, url, body);
+            CancelRequest(url, new RequestConfig(), method, body);
+        }
+
+        public void CancelRequest(string url, RequestConfig config, string method = "GET", string body = null)
+        {
+            string key = GenerateRequestKey(method, url, body, CaptureConfig(config ?? new RequestConfig()));
 
             CancellationTokenSource[] ctsList;
             lock (_requestLock)
@@ -513,10 +601,7 @@ namespace StellarFramework
                 ctsList = group.ToArray();
             }
 
-            foreach (CancellationTokenSource cts in ctsList)
-            {
-                cts.Cancel();
-            }
+            CancelSources(ctsList);
 
             LogKit.Log($"[HttpKit] 触发取消 | Method={method} | URL={url} | Count={ctsList.Length}");
         }
@@ -537,15 +622,22 @@ namespace StellarFramework
                 ctsList = snapshot.ToArray();
             }
 
-            foreach (CancellationTokenSource cts in ctsList)
-            {
-                cts.Cancel();
-            }
+            CancelSources(ctsList);
         }
 
         #endregion
 
         #region Public API - Async
+
+        /// <summary>使用完整配置发送请求，包括账号作用域、去重、认证头和取消匹配。</summary>
+        public static UniTask<HttpResponse> SendAsync(string method, string url, string body = null,
+            RequestConfig config = null)
+        {
+            if (string.IsNullOrWhiteSpace(method)) throw new ArgumentException("HTTP method is required", nameof(method));
+            return TryGetInstance(out HttpKit instance)
+                ? instance.SendRequestAsync(method, url, body, config ?? new RequestConfig())
+                : UniTask.FromResult(CreateUnavailableResponse());
+        }
 
         /// <summary>发送 GET 请求。</summary>
         public static async UniTask<HttpResponse> GetAsync(string url, Dictionary<string, string> headers = null,
@@ -697,10 +789,12 @@ namespace StellarFramework
 
         #endregion
 
-        private void AddPendingRequest(string requestKey, CancellationTokenSource cts)
+        private bool TryAddPendingRequest(string requestKey, CancellationTokenSource cts, bool preventDuplicate)
         {
             lock (_requestLock)
             {
+                if (preventDuplicate && _activeCTS.TryGetValue(requestKey, out var pending) && pending.Count > 0)
+                    return false;
                 if (!_activeCTS.TryGetValue(requestKey, out HashSet<CancellationTokenSource> group))
                 {
                     group = new HashSet<CancellationTokenSource>();
@@ -708,15 +802,16 @@ namespace StellarFramework
                 }
 
                 group.Add(cts);
+                return true;
             }
         }
 
-        private bool HasPendingRequest(string requestKey)
+        private static void CancelSources(IEnumerable<CancellationTokenSource> sources)
         {
-            lock (_requestLock)
+            foreach (CancellationTokenSource source in sources)
             {
-                return _activeCTS.TryGetValue(requestKey, out HashSet<CancellationTokenSource> group) &&
-                       group.Count > 0;
+                try { source.Cancel(); }
+                catch (ObjectDisposedException) { /* The completed request already removed itself. */ }
             }
         }
 
@@ -737,7 +832,7 @@ namespace StellarFramework
             }
         }
 
-        private string ComputeStableBodyHash(string body)
+        private static string ComputeStableBodyHash(string body)
         {
             if (string.IsNullOrEmpty(body))
             {

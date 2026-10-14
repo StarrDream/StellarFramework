@@ -41,6 +41,14 @@ namespace StellarFramework.Editor
         }
 
         private readonly List<ToolModule> _allModules = new List<ToolModule>();
+        public static void OpenModule<T>() where T : ToolModule
+        {
+            ShowWindow();
+            var window = GetWindow<StellarFrameworkTools>();
+            ToolModule module = window._allModules.FirstOrDefault(item => item is T);
+            if (module != null) window.SelectModule(module);
+        }
+
         private Dictionary<string, List<ToolModule>> _groupedModules = new Dictionary<string, List<ToolModule>>();
         private readonly Dictionary<ToolModule, Button> _moduleButtons = new Dictionary<ToolModule, Button>();
 
@@ -353,7 +361,7 @@ namespace StellarFramework.Editor
             footer.style.paddingTop = 8;
             footer.style.paddingBottom = 8;
 
-            footer.Add(new Label("v2.4 集成版")
+            footer.Add(new Label("StellarFramework · Tools Hub")
             {
                 style =
                 {
